@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fast:
+    name: Build and test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore Naravel.slnx
+
+      - name: Build
+        run: dotnet build Naravel.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test Naravel.slnx -c Release --no-build --no-restore
+
+      - name: Audit vulnerable packages
+        if: matrix.os == 'ubuntu-latest'
+        run: dotnet list Naravel.slnx package --vulnerable --include-transitive
+
+  services:
+    name: Provider integration tests
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7.4.2
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      rabbitmq:
+        image: rabbitmq:4.1.3
+        ports:
+          - 5672:5672
+        env:
+          RABBITMQ_DEFAULT_USER: naravel
+          RABBITMQ_DEFAULT_PASS: naravel
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      memcached:
+        image: memcached:1.6.39
+        ports:
+          - 11211:11211
+        options: >-
+          --health-cmd "printf 'version\\r\\n' | nc localhost 11211 | grep VERSION"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      kafka:
+        image: apache/kafka:4.0.0
+        ports:
+          - 9092:9092
+        env:
+          KAFKA_NODE_ID: 1
+          KAFKA_PROCESS_ROLES: broker,controller
+          KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+          KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+          KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+          KAFKA_NUM_PARTITIONS: 1
+        options: >-
+          --health-cmd "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 15
+    env:
+      NARAVEL_TEST_REDIS: localhost:6379
+      NARAVEL_TEST_RABBITMQ: amqp://naravel:naravel@localhost:5672/%2f
+      NARAVEL_TEST_KAFKA: localhost:9092
+      NARAVEL_TEST_MEMCACHED: localhost:11211
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore Naravel.slnx
+
+      - name: Build
+        run: dotnet build Naravel.slnx -c Release --no-restore
+
+      - name: Provider integration tests
+        run: dotnet test tests/Naravel.Queue.Providers.Tests/Naravel.Queue.Providers.Tests.csproj -c Release --no-build --no-restore
+
+      - name: Cache provider integration tests
+        run: dotnet test tests/Naravel.Cache.Tests/Naravel.Cache.Tests.csproj -c Release --no-build --no-restore
+
+      - name: Audit vulnerable packages
+        run: dotnet list Naravel.slnx package --vulnerable --include-transitive

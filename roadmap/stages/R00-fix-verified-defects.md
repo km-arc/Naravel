@@ -1,0 +1,19 @@
+# R00 — Queue correctness: job type registry, chain options, docs, CI baseline
+
+Parity section: `R00` in [../PARITY-MATRIX.md](../PARITY-MATRIX.md).
+Gate: none.
+Read: `src/Naravel.Queue/{Serialization/IJobSerializer.cs, Worker/QueueWorkerService.cs, Dispatch/{JobDispatcher,JobChain,DispatchOptions}.cs, Drivers/QueuedMessage.cs, Jobs/IJob.cs, Extensions/ServiceCollectionExtensions.cs}`, `tests/Naravel.Queue.Tests/{WorkerTests,TestSupport}.cs`, `roadmap/AUDIT.md` rows D-01, D-02, D-09, D-10, D-16, D-18.
+Touch: `src/Naravel.Queue/**`, `tests/Naravel.Queue.Tests/**`, `.github/workflows/ci.yml`, `AGENTS.md`, `docs/*/laravel-parity.md`, `docs/*/queue.md`, `CHANGELOG.md`.
+Out of scope: driver internals (Redis/Kafka/RabbitMQ → R01, R07); failed-job store (R07); encryption (R18).
+Decisions: OD-07 (alias registry), OD-09 (breaking changes allowed pre-1.0).
+
+## Tasks
+- [x] **R00.T01 — Job type registry and guard (D-01, D-09):** add `IJobTypeRegistry` (alias ⇄ `Type`), `AddJob<TJob>(string? alias = null)` with `where TJob : IJob`, `[Job("alias")]` attribute (default alias = `Type.FullName`, never assembly-qualified) and opt-in `AddJobsFromAssembly(assembly)`. `JsonJobSerializer.GetTypeName` returns the alias; `ResolveType` consults the registry only and throws new `UnknownJobTypeException` (carries the name) for anything else. The dispatcher auto-registers the type of a job it is asked to dispatch (the type came from code, so it is safe); a worker-only process must register jobs explicitly (document this). In `QueueWorkerService` replace the four `ResolveType`+cast sites (≈L123/186/210/238) by one `DeserializeJob(message)` that returns `IJob` and is **reused** for `FailedAsync` and backoff (≤ 1 `Deserialize` per attempt). **Accept:** tests — (a) unknown alias → job fails with `UnknownJobTypeException`, worker keeps running, and a type with a side-effecting constructor is never instantiated; (b) registering a non-`IJob` does not compile; (c) legacy assembly-qualified name is not resolved unless registered; (d) renaming the CLR class keeps an aliased payload valid; (e) a counting serializer sees ≤ 1 `Deserialize` per attempt; existing Queue tests still pass.
+- [x] **R00.T02 — Serializer options and source-gen path (S2):** `JsonJobSerializer` takes `JsonSerializerOptions` from DI (default stays reflection-based); `AddJob<TJob>(JsonTypeInfo<TJob>)` overload lets a user plug a `JsonSerializerContext`. **Accept:** a test job serialized and deserialized through a source-generated context round-trips; default path unchanged.
+- [x] **R00.T03 — Chain options (D-02, D-10):** persist the original dispatch's `Connection`, `Queue`, `Priority` and `MaxAttempts` in the chain envelope (extend `ChainLink`/`QueuedMessage`; payloads without the new fields stay readable) and apply them in `ContinueChainAsync` for static chains and `context.Then(...)`. **Accept:** a test with two stores whose job defaults differ proves every follow-up job lands on the connection/queue chosen at the first dispatch; an old-format payload still continues.
+- [x] **R00.T04 — One status source (D-18):** replace the module-status table in `AGENTS.md` with a link to `ROADMAP.md`; fix stale counts in `docs/*/laravel-parity.md` (EN+FA); confirm no doc says the CS1734 warning is open. **Accept:** `grep -rn "172" docs AGENTS.md` shows only dated historical statements; `check.py` passes.
+- [x] **R00.T05 — CI baseline (D-16):** check whether `.github/workflows/ci.yml` exists in the real repo; if not, add the single workflow (restore, build, test of `Naravel.slnx` on ubuntu-latest). **Accept:** file exists, one workflow only, YAML parses.
+- [x] **R00.T06 — Validate:** run focused Queue tests, then the full verify command and `check.py`; record real results (or `NOT RUN`). **Accept:** status cell holds the actual test counts.
+
+## Exit evidence
+`DONE (date, build + test counts)`; `NEXT` → R01. Add CHANGELOG entry for the breaking serializer change.

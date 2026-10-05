@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Naravel.Sample</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Naravel.Queue\Naravel.Queue.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Routing\Naravel.Routing.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Queue.Memory\Naravel.Queue.Memory.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Queue.File\Naravel.Queue.File.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Queue.Redis\Naravel.Queue.Redis.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Queue.RabbitMQ\Naravel.Queue.RabbitMQ.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Queue.Kafka\Naravel.Queue.Kafka.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="config/appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="resources/views/**/*.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

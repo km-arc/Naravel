@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Naravel Routing Sample</title>
+    <style>
+        body { font-family: Georgia, serif; background: #f4f7fb; color: #1f2937; margin: 0; padding: 2rem; }
+        main { max-width: 960px; margin: 0 auto; }
+        h1 { margin: 0 0 0.5rem; }
+        h2 { margin: 0 0 0.75rem; font: 600 1rem sans-serif; }
+        section { border-top: 1px solid #cbd5e1; padding: 1.25rem 0; }
+        ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0.6rem 1.5rem; padding-left: 1.25rem; }
+        a { color: #075985; }
+        code { background: #e2e8f0; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Naravel Routing Sample</h1>
+        <p>Working examples of the Laravel-style routing features available in Naravel.</p>
+
+        <section>
+            <h2>Routes and URLs</h2>
+            <ul>
+                <li><a href="/routing/urls">Named URL generation</a></li>
+                <li><a href="/routing/users/42">Route constraints</a></li>
+                <li><a href="/routing/catalog/1">Explicit model binding</a></li>
+                <li><a href="/routing/legacy">Redirect route</a></li>
+                <li><a href="/routing/books">Resource index</a></li>
+                <li><a href="/routing/reports/weekly">Resource Only and custom parameter</a></li>
+                <li><a href="/routing/api/widgets">API resource index</a></li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Middleware</h2>
+            <ul>
+                <li><a href="/routing/middleware/inline">Inline alias middleware</a></li>
+                <li><a href="/routing/middleware/delegate">Inline delegate middleware</a></li>
+                <li><a href="/routing/middleware/type">Type-based middleware</a></li>
+                <li><a href="/routing/middleware/priority">Priority order</a> (send <code>X-Sample-Key: naravel-demo</code>)</li>
+                <li><a href="/routing/admin/public">Group middleware exclusion</a></li>
+                <li><a href="/routing/controller/public">Controller attribute exclusion</a></li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Native ASP.NET Core integration</h2>
+            <ul>
+                <li><a href="/native/group/open">Native endpoint group</a></li>
+                <li><a href="/native/stamp">ASP.NET Core IMiddleware adapter</a></li>
+                <li><a href="/queue">Queue sample</a></li>
+                <li><a href="/health">Health endpoint</a></li>
+            </ul>
+        </section>
+    </main>
+</body>
+</html>

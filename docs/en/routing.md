@@ -1,0 +1,156 @@
+# Routing and route middleware (`Naravel.Routing`)
+
+A thin Laravel-style layer on top of ASP.NET Core routing. It reuses the native router and pipeline and adds what Laravel developers miss:
+nested groups (`prefix`, `name`, `domain`, `middleware`), `where()` constraints, named routes with `route()`-style URL generation, route model
+binding, resource routes, and a full **route middleware** system (aliases, groups, parameters, priority, `withoutMiddleware`, terminable).
+Design: [PDR-009](../pdr/en/PDR-009-routing-and-http-middleware.md). Persian version: [../fa/routing.md](../fa/routing.md).
+
+> Status: implemented in Stage 4a and **verified on 2026-10-04**: all 64 tests passed and the project builds cleanly with no CS1734 warning. See `PROGRESS-ROUTING.md`.
+
+## Setup
+
+```csharp
+builder.Services.AddNaravelRouting(o =>
+{
+    o.Middleware.Alias<EnsureAge>("age");                 // alias -> type
+    o.Middleware.Group("api", "bindings", "age:18");      // group -> aliases (with arguments)
+    o.Pattern("id", "[0-9]+");                            // like Route::pattern
+});
+
+var app = builder.Build();
+app.UseNaravelRouting();                                  // runs route middleware (after routing)
+app.MapNaravel(r => { /* routes */ });
+```
+
+`WebApplication` adds `UseRouting()` at the start of the pipeline for you. If you call `UseRouting()` yourself, call `UseNaravelRouting()` after it.
+
+## Declaring routes
+
+```csharp
+app.MapNaravel(r =>
+{
+    r.Get("/", () => "home").Name("home");
+    r.Post("/orders", (OrderDto dto) => Results.Created("/orders/1", dto)).Middleware("auth", "throttle:60,1");
+    r.Match(new[] { "GET", "POST" }, "/form", handler);
+    r.Any("/hook", handler);
+    r.Redirect("/old", "/new", permanent: true);
+    r.Fallback(() => Results.NotFound());
+});
+```
+
+`Get` also answers `HEAD`, like Laravel. Handlers are ordinary Minimal API delegates. Nothing is mapped until the callback returns, so the order of
+`.Name()`, `.Where()`, `.Middleware()` calls does not matter, and configuration errors throw **at startup**.
+
+### Groups
+
+```csharp
+r.Prefix("admin").Name("admin.").Middleware("auth").Group(admin =>
+{
+    admin.Get("users/{user}", (string user) => user).Name("users.show");      // GET /admin/users/{user}, name admin.users.show
+    admin.Domain("api.example.com").Group(api => api.Get("ping", () => "pong"));
+});
+```
+
+`Prefix`, `Name`, `Domain`, `Middleware`, `WithoutMiddleware` chain in any order and end with `.Group(...)`. Inner groups add to the outer ones.
+
+### Constraints
+
+```csharp
+r.Get("/items/{id}", handler).Where("id", "[0-9]+");   // regex, anchored automatically
+```
+`Where` for a parameter that is not in the URI throws at startup. Global patterns: `o.Pattern("id", "[0-9]+")`. (`{id:int}` from ASP.NET Core keeps working.)
+
+### Named routes and URLs
+
+```csharp
+IUrlGenerator urls = ...;                              // injected
+urls.Route("admin.users.show", new { user = 5, tab = "x" });   // "/admin/users/5?tab=x"
+urls.AbsoluteRoute(httpContext, "home");                       // "https://host/"
+```
+Unknown name or missing required value throws `RouteNotFoundException` (never returns `null`).
+
+### Resource routes
+
+```csharp
+r.Resource("photos", new ResourceHandlers
+{
+    Index = () => ..., Create = () => ..., Store = () => ...,
+    Show = (string photo) => ..., Edit = ..., Update = ..., Destroy = ...,
+});
+r.ApiResource("photos", handlers);                    // no create / edit
+r.Resource("photos", handlers, o => { o.Only = new[] { "index", "show" }; o.Parameter = "id"; });
+```
+Only handlers you set become routes. Names: `photos.index`, `photos.show`, ...; the parameter is the singular of the last segment (`categories` gives `category`)
+unless you set `Parameter`. Wrap them in `.Prefix()/.Name()/.Middleware()` groups as usual.
+
+### Route model binding
+
+```csharp
+o.Bind<User>("user", async (value, ctx) => await db.FindUserAsync(value));   // null -> 404
+r.Get("/users/{user}", (HttpContext c) => c.GetRouteModel<User>("user")!.Name).Middleware("bindings");
+```
+The built-in alias `bindings` resolves every parameter that has a binding. Implicit binding by type hint is a PHP reflection mechanic and is **not ported**;
+in .NET give your type a static `BindAsync`/`TryParse` (native Minimal API).
+
+## Middleware
+
+### Writing one
+
+```csharp
+public sealed class EnsureAge : IRouteMiddleware
+{
+    public async Task InvokeAsync(HttpContext context, RequestDelegate next, MiddlewareArguments arguments)
+    {
+        var min = arguments.Int(0, 18);                       // "age:21" -> 21
+        if (!AgeOk(context, min)) { context.Response.StatusCode = 403; return; }   // short-circuit
+        await next(context);
+    }
+}
+```
+Instances come from DI when registered, otherwise they are created with `ActivatorUtilities` (constructor injection works). Per-request scope applies.
+
+### Every kind, Laravel to Naravel
+
+| Laravel | Naravel |
+|---|---|
+| Global middleware | plain `app.Use*` (also runs for 404s) |
+| Route middleware | `.Middleware("auth", "throttle:60,1")`, `.Middleware(typeof(X), "arg")`, `.Middleware(async (ctx, next, args) => ...)` |
+| Aliases | `o.Middleware.Alias("auth", typeof(X))` or `Alias("x", async (ctx, next, args) => ...)` |
+| Groups | `o.Middleware.Group("api", ...)`, `PrependToGroup`, `AppendToGroup`, `ReplaceInGroup`, `RemoveFromGroup` |
+| Parameters | `name:a,b` gives `MiddlewareArguments` (`At(i)`, `Int(i, fallback)`) |
+| Controller middleware | `[Middleware("auth", Only = new[]{"Index"}, Except = ...)]` on a controller or action |
+| `withoutMiddleware` | `.WithoutMiddleware("auth")` / `(typeof(X))` on a route or group; `[WithoutMiddleware("auth")]` on controllers |
+| Priority | `o.Middleware.Priority(typeof(A), typeof(B))` |
+| Terminable | also implement `ITerminableMiddleware`; runs after the response via `OnCompleted` |
+| Framework `IMiddleware` | usable as an alias target (arguments are ignored) |
+| Native endpoints | `app.MapGet(...).WithNaravelMiddleware("auth")` / `.WithoutNaravelMiddleware("auth")` |
+
+Rules worth knowing:
+- A group name wins over an alias with the same name; groups may nest (16 levels max, cycles throw).
+- Exclusion is by **type**: `WithoutMiddleware("throttle")` removes every `throttle:*` reference and every alias pointing to the same type.
+- Duplicates (same type and same arguments) run once; different arguments run separately.
+- Priority sorts only the listed types, inside the slots they already occupy (Laravel's algorithm differs slightly).
+- An unknown alias or group throws when routes are mapped, not on the first request.
+- Terminable callbacks run after the response is sent; when several exist their order is not guaranteed.
+- Class-name strings (`'App\Http\Middleware\X'`) are not supported; use an alias or a type.
+
+## Ready-made middleware
+
+`Naravel.Routing` provides the route-middleware engine (registration, aliases, groups, parameters, ordering and execution). Ready-made middleware such
+as throttle, signed URLs, maintenance mode, TrimStrings and others are planned for Stage 4b in this same package; Stage 4b has not started, and these
+implementations are not available yet. CORS, proxy headers, host filtering, post size limits and cookie encryption are native ASP.NET Core features and
+are not re-implemented (see PDR-009).
+
+## What the tests cover (`tests/Naravel.Routing.Tests`, 64 tests, **all passed on 2026-10-04**)
+
+- Resolution (no HTTP): aliases, arguments, groups (nesting, cycles, mutators), exclusion, de-duplication, priority, per-endpoint caching, controller attributes.
+- End to end on `TestServer`: verbs, groups and name prefixes, URL generation, `Where`/global patterns (anchoring), domains, fallback, redirects,
+  middleware order, short-circuit, `WithoutMiddleware`, inline and aliased delegates, `IMiddleware` adapter, terminable, priority, native endpoints and groups,
+  controller attributes (`Only`/`Except`/`WithoutMiddleware`), model binding, resource routes.
+
+## Limitations of this stage
+
+- Controller `Resource` mapping is not included (Minimal API only); controllers get middleware attributes and can use attribute routing normally.
+- No `route:list` command yet (needs the Console module).
+- Middleware attached to a native `MapGroup` uses ASP.NET Core's metadata order; exclusions are order-independent.
+- Route configuration is read once at startup (no hot reload).

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Naravel.Queue.File</RootNamespace>
+    <Description>File-based queue driver for Naravel.Queue - durable, zero external services required, JSON files on disk.</Description>
+    <PackageTags>queue;jobs;background-jobs;laravel;naravel;file</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Naravel.Queue\Naravel.Queue.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

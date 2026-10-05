@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Naravel Queue Sample</title>
+    <style>
+        body { font-family: Georgia, serif; background: #f4f7fb; color: #1f2937; margin: 0; padding: 2rem; }
+        main { max-width: 900px; margin: 0 auto; background: white; border-radius: 8px; padding: 2rem; }
+        h1 { margin-top: 0; }
+        ul { line-height: 1.8; }
+        form { margin-top: 1rem; }
+        button { background: #0f172a; color: white; border: 0; border-radius: 6px; padding: 0.8rem 1.2rem; cursor: pointer; }
+        code { background: #e2e8f0; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Naravel Queue Sample</h1>
+        <p>A small web app exercising the queue features available in Naravel.</p>
+        <ul>
+            <li>Job dispatch, delay, priority, and retry/backoff</li>
+            <li>Job chaining and batches</li>
+            <li>File-backed workers and synchronous dispatch</li>
+        </ul>
+        <form method="post" action="/queue/dispatch">
+            <button type="submit">Dispatch demo jobs</button>
+        </form>
+    </main>
+</body>
+</html>

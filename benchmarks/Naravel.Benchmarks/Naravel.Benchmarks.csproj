@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Naravel.Queue\Naravel.Queue.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Queue.Memory\Naravel.Queue.Memory.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Cache\Naravel.Cache.csproj" />
+  </ItemGroup>
+</Project>

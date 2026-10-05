@@ -1,0 +1,31 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Naravel.Cache.Memcached/Naravel.Cache.Memcached.csproj" />
+    <Project Path="src/Naravel.Cache/Naravel.Cache.csproj" />
+    <Project Path="src/Naravel.Filesystem/Naravel.Filesystem.csproj" />
+    <Project Path="src/Naravel.Foundation/Naravel.Foundation.csproj" />
+    <Project Path="src/Naravel.Routing/Naravel.Routing.csproj" />
+    <Project Path="src/Naravel.Queue/Naravel.Queue.csproj" />
+    <Project Path="src/Naravel.Queue.Memory/Naravel.Queue.Memory.csproj" />
+    <Project Path="src/Naravel.Queue.File/Naravel.Queue.File.csproj" />
+    <Project Path="src/Naravel.Queue.Redis/Naravel.Queue.Redis.csproj" />
+    <Project Path="src/Naravel.Queue.Database/Naravel.Queue.Database.csproj" />
+    <Project Path="src/Naravel.Queue.RabbitMQ/Naravel.Queue.RabbitMQ.csproj" />
+    <Project Path="src/Naravel.Queue.Kafka/Naravel.Queue.Kafka.csproj" />
+    <Project Path="src/Naravel.Cache.Redis/Naravel.Cache.Redis.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/Naravel.Sample/Naravel.Sample.csproj" />
+  </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/Naravel.Benchmarks/Naravel.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Naravel.Foundation.Tests/Naravel.Foundation.Tests.csproj" />
+    <Project Path="tests/Naravel.Queue.Tests/Naravel.Queue.Tests.csproj" />
+    <Project Path="tests/Naravel.Queue.Providers.Tests/Naravel.Queue.Providers.Tests.csproj" />
+    <Project Path="tests/Naravel.Cache.Tests/Naravel.Cache.Tests.csproj" />
+    <Project Path="tests/Naravel.Filesystem.Tests/Naravel.Filesystem.Tests.csproj" />
+    <Project Path="tests/Naravel.Routing.Tests/Naravel.Routing.Tests.csproj" />
+  </Folder>
+</Solution>

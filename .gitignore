@@ -1,0 +1,39 @@
+## .NET / Visual Studio / Rider / VS Code
+bin/
+obj/
+out/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+*.DotSettings.user
+
+## Build artifacts
+artifacts/
+*.nupkg
+*.snupkg
+
+## Test results
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+## Rider/ReSharper
+_ReSharper*/
+*.[Rr]esharper
+
+## OS files
+.DS_Store
+Thumbs.db
+
+## Local data used by the sample app / drivers at runtime
+storage/
+*.db
+*.db-shm
+*.db-wal
+
+## Secrets - never commit real connection strings/credentials
+appsettings.*.local.json
+*.local.json

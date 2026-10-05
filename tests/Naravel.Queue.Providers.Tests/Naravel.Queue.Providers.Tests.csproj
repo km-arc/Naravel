@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Naravel.Queue.Tests\Naravel.Queue.Tests.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Queue.Database\Naravel.Queue.Database.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Queue.Redis\Naravel.Queue.Redis.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Queue.RabbitMQ\Naravel.Queue.RabbitMQ.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Queue.Kafka\Naravel.Queue.Kafka.csproj" />
+    <Compile Include="..\Shared\ServiceFactAttribute.cs" Link="ServiceFactAttribute.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+</Project>
