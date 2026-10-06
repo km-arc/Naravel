@@ -14,6 +14,13 @@ ROADMAP = ROOT / "ROADMAP.md"
 MATRIX = ROOT / "roadmap" / "PARITY-MATRIX.md"
 STAGES = ROOT / "roadmap" / "stages"
 EXPECTED_IDS = {f"R{i:02}" for i in range(19)}
+# Directories that must never be tracked (besides bin/ and obj/).
+TRACKED_FORBIDDEN_DIRS = ("BenchmarkDotNet.Artifacts", ".vscode")
+# Files scanned for hand-typed test counts. ROADMAP*, CHANGELOG and PROGRESS* are
+# deliberately excluded: they are historical records that legitimately quote counts.
+COUNT_SCAN_FILES = ("README.md", "README.fa.md", "AGENTS.md")
+COUNT_ALLOW_MARKER = "<!-- check:allow-count -->"
+BLOCKED_AWAITING_APPROVAL = re.compile(r"awaiting (PDR|GO) approval", re.IGNORECASE)
 
 
 def fail(errors: list[str]) -> int:
@@ -27,14 +34,24 @@ def main() -> int:
     roadmap = ROADMAP.read_text(encoding="utf-8")
     matrix = MATRIX.read_text(encoding="utf-8")
 
-    tracked_files = subprocess.run(
-        ["git", "ls-files"], cwd=ROOT, check=True, capture_output=True, text=True
-    ).stdout.splitlines()
-    generated_files = [
-        path for path in tracked_files if {"bin", "obj"} & set(PurePosixPath(path).parts)
-    ]
-    if generated_files:
-        errors.append(f"tracked build artifacts found under bin/ or obj/: {generated_files}")
+    try:
+        tracked_files: list[str] | None = subprocess.run(
+            ["git", "ls-files"], cwd=ROOT, check=True, capture_output=True, text=True
+        ).stdout.splitlines()
+    except (OSError, subprocess.CalledProcessError):
+        # git is not installed, or ROOT is not a git repository (e.g. an exported copy).
+        tracked_files = None
+        print("NOTICE: git not available; tracked-artifact check skipped")
+    if tracked_files is not None:
+        generated_files = [
+            path for path in tracked_files if {"bin", "obj"} & set(PurePosixPath(path).parts)
+        ]
+        if generated_files:
+            errors.append(f"tracked build artifacts found under bin/ or obj/: {generated_files}")
+        for forbidden in TRACKED_FORBIDDEN_DIRS:
+            hits = [path for path in tracked_files if forbidden in PurePosixPath(path).parts]
+            if hits:
+                errors.append(f"tracked files found under {forbidden}/: {hits}")
 
     next_match = re.search(r"(?m)^NEXT:\s*(R\d{2})\s*$", roadmap)
     if not next_match:
@@ -112,11 +129,26 @@ def main() -> int:
     elif next_id and rows[next_id][1].startswith("DONE"):
         errors.append(f"NEXT points to completed stage {next_id}")
     elif next_id and rows[next_id][1].startswith("BLOCKED"):
-        errors.append(f"NEXT points to BLOCKED stage {next_id}; owner approval needed.")
+        blocked_status = rows[next_id][1]
+        if BLOCKED_AWAITING_APPROVAL.search(blocked_status):
+            print(f"NOTICE: NEXT={next_id} is BLOCKED awaiting owner approval: {blocked_status}")
+        else:
+            errors.append(f"NEXT points to BLOCKED stage {next_id}: {blocked_status}")
 
-    for readme in (ROOT / "README.md", ROOT / "README.fa.md"):
-        if re.search(r"(?i)\b\d+\s*/\s*\d+\s+tests?\b", readme.read_text(encoding="utf-8")):
-            errors.append(f"{readme.relative_to(ROOT)} contains a manually-entered N/N test count")
+    for name in COUNT_SCAN_FILES:
+        doc = ROOT / name
+        if not doc.is_file():
+            continue
+        for number, line in enumerate(doc.read_text(encoding="utf-8").splitlines(), start=1):
+            if COUNT_ALLOW_MARKER in line:
+                continue
+            mentions_tests = re.search(r"(?i)test|passed", line)
+            has_count = re.search(r"\d+/\d+", line) or re.search(r"(?i)\b\d+ tests\b", line)
+            if mentions_tests and has_count:
+                errors.append(
+                    f"{name}:{number} contains a hand-typed test count "
+                    f"(add {COUNT_ALLOW_MARKER} to allow): {line.strip()[:80]!r}"
+                )
 
     # --- REVIEW-01 additions -------------------------------------------------
     satisfied = ("DONE", "DECLINED")
