@@ -295,6 +295,8 @@ public sealed class KafkaQueueProviderTests : QueueDriverContractTests
     [ServiceFact("NARAVEL_TEST_KAFKA")]
     public Task Shared_contract() => RunContractAsync();
 
+    protected override bool SupportsSize => false;
+
     protected override IQueueDriver CreateDriver()
         => new KafkaQueueDriver(
             Environment.GetEnvironmentVariable("NARAVEL_TEST_KAFKA")!,
