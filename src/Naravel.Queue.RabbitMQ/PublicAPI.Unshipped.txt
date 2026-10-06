@@ -1,0 +1,12 @@
+#nullable enable
+Naravel.Queue.RabbitMQ.RabbitMqQueueDriver
+Naravel.Queue.RabbitMQ.RabbitMqQueueDriver.AckAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.RabbitMQ.RabbitMqQueueDriver.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Naravel.Queue.RabbitMQ.RabbitMqQueueDriver.FailAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.RabbitMQ.RabbitMqQueueDriver.PopAsync(string! queue, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Naravel.Queue.Drivers.QueuedMessage?>!
+Naravel.Queue.RabbitMQ.RabbitMqQueueDriver.PushAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.RabbitMQ.RabbitMqQueueDriver.RabbitMqQueueDriver(string! hostName, int port, string? userName, string? password, string? virtualHost) -> void
+Naravel.Queue.RabbitMQ.RabbitMqQueueDriver.ReleaseAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.TimeSpan delay, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.RabbitMQ.RabbitMqQueueDriver.SizeAsync(string! queue, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Queue.RabbitMQ.ServiceCollectionExtensions
+static Naravel.Queue.RabbitMQ.ServiceCollectionExtensions.AddRabbitMqDriver(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "NaravelQueue") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

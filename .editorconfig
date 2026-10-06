@@ -9,6 +9,10 @@ indent_style = space
 
 [*.cs]
 indent_size = 4
+dotnet_diagnostic.RS0016.severity = warning
+dotnet_diagnostic.RS0017.severity = warning
+# Existing optional-overload families require a separate API review; keep the compatibility guidance visible without blocking builds.
+dotnet_diagnostic.RS0026.severity = suggestion
 
 # --- Language conventions ---
 csharp_style_var_for_built_in_types = true:suggestion

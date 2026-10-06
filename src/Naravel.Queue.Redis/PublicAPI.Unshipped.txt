@@ -1,0 +1,32 @@
+#nullable enable
+Naravel.Queue.Redis.FailedJobStoreServiceCollectionExtensions
+Naravel.Queue.Redis.RedisBatchRepository
+Naravel.Queue.Redis.RedisBatchRepository.CancelAsync(string! batchId, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Naravel.Queue.Redis.RedisBatchRepository.GetAsync(string! batchId, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Naravel.Queue.Batching.QueueBatch?>!
+Naravel.Queue.Redis.RedisBatchRepository.IsCancelledAsync(string! batchId, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
+Naravel.Queue.Redis.RedisBatchRepository.MarkJobCancelledAsync(string! batchId, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Naravel.Queue.Redis.RedisBatchRepository.MarkJobCompletedAsync(string! batchId, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Naravel.Queue.Redis.RedisBatchRepository.MarkJobFailedAsync(string! batchId, System.Exception! exception, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Naravel.Queue.Redis.RedisBatchRepository.RedisBatchRepository(StackExchange.Redis.IConnectionMultiplexer! multiplexer, Naravel.Queue.Batching.BatchCallbackRegistry! callbacks, string! keyPrefix = "netqueue:batches") -> void
+Naravel.Queue.Redis.RedisBatchRepository.RegisterAsync(Naravel.Queue.Batching.QueueBatch! batch, Naravel.Queue.Batching.BatchOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Naravel.Queue.Redis.RedisBatchRepository.ResumePendingCallbacksAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Naravel.Queue.Redis.RedisBatchRepositoryServiceCollectionExtensions
+Naravel.Queue.Redis.RedisFailedJobStore
+Naravel.Queue.Redis.RedisFailedJobStore.FlushAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<int>!
+Naravel.Queue.Redis.RedisFailedJobStore.ForgetAsync(string! id, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
+Naravel.Queue.Redis.RedisFailedJobStore.ListAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Naravel.Queue.Drivers.QueuedMessage!>!>!
+Naravel.Queue.Redis.RedisFailedJobStore.RecordAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Exception! exception, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Naravel.Queue.Redis.RedisFailedJobStore.RedisFailedJobStore(StackExchange.Redis.IConnectionMultiplexer! multiplexer, string! key = "netqueue:failed-jobs") -> void
+Naravel.Queue.Redis.RedisQueueDriver
+Naravel.Queue.Redis.RedisQueueDriver.AckAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.Redis.RedisQueueDriver.FailAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.Redis.RedisQueueDriver.PopAsync(string! queue, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Naravel.Queue.Drivers.QueuedMessage?>!
+Naravel.Queue.Redis.RedisQueueDriver.PushAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.Redis.RedisQueueDriver.RedisQueueDriver(StackExchange.Redis.IConnectionMultiplexer! mux, System.TimeSpan visibilityTimeout) -> void
+Naravel.Queue.Redis.RedisQueueDriver.ReleaseAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.TimeSpan delay, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.Redis.RedisQueueDriver.SizeAsync(string! queue, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Queue.Redis.RedisQueueDriver.VisibilityTimeout.get -> System.TimeSpan?
+Naravel.Queue.Redis.ServiceCollectionExtensions
+static Naravel.Queue.Redis.FailedJobStoreServiceCollectionExtensions.AddRedisFailedJobStore(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, string? connectionName = null, string! key = "netqueue:failed-jobs") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Naravel.Queue.Redis.RedisBatchRepositoryServiceCollectionExtensions.AddRedisBatchRepository(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, string? connectionName = null, string! keyPrefix = "netqueue:batches") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Naravel.Queue.Redis.ServiceCollectionExtensions.AddRedisDriver(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "NaravelQueue") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
