@@ -51,9 +51,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 
 ### Changed (dependencies and build hygiene)
 - `Directory.Packages.props`: Microsoft.Extensions.* / EF Core / AspNetCore.TestHost 10.0.0 -> 10.0.10, StackExchange.Redis 2.8.16 -> 2.13.17, Confluent.Kafka 2.5.3 -> 2.15.1, Microsoft.NET.Test.Sdk 17.14.1 -> 18.0.1. Removed the unreferenced `Microsoft.Extensions.Configuration.Memory` entry.
-- Package audit updates: Microsoft.Extensions.* and EF Core packages from 10.0.10 to 10.0.12, `EnyimMemcachedCore` from 3.2.0 to 3.5.1, and `Microsoft.NET.Test.Sdk` from 18.0.1 to 18.10.1. Removed the unused `Microsoft.Extensions.Hosting` version entry.
+- Package audit updates: Microsoft.Extensions.* and EF Core packages from 10.0.10 to 10.0.12, `EnyimMemcachedCore` from 3.2.0 to 3.5.1, `MessagePack` from 2.5.301 to patched 3.1.7 (required by EnyimMemcachedCore 3.5.1), and `Microsoft.NET.Test.Sdk` from 18.0.1 to 18.10.1. Removed the unused `Microsoft.Extensions.Hosting` version entry.
 - Added the test-only `coverlet.collector` package to collect Cobertura coverage reports as CI artifacts; no coverage threshold is enforced.
-- `Naravel.Cache.Memcached.csproj` declares `MessagePack` and `Newtonsoft.Json`; no C# source usages were found. Both references are retained pending a separate owner decision.
+- `Naravel.Cache.Memcached.csproj` declares `MessagePack` and `Newtonsoft.Json`; no C# source usages were found. Both references are retained for their provider dependency requirements.
 - NuGet vulnerability audit is now enabled repo-wide (`Directory.Build.props`, mode `all`); the per-project `NuGetAudit=false` in 7 projects was removed. (With audit disabled, `dotnet list package --vulnerable` can never report anything.)
 - `nuget.config`: removed a machine-specific local cache source (`/home/<user>/nuget-cache`) that broke restore on any other machine and on CI.
 - `Naravel.Foundation`: replaced `FrameworkReference Microsoft.AspNetCore.App` (no ASP.NET code is used) with explicit `Microsoft.Extensions.DependencyInjection.Abstractions`, `Options`, `Options.ConfigurationExtensions` references, so non-web hosts do not pull in the ASP.NET shared framework.
@@ -63,6 +63,6 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 - Build, test, and workflow verification results are available from [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml).
 
 ### Known gaps
-- Package audits report no vulnerable packages. Major-version updates needing owner approval remain unchanged: `StackExchange.Redis` 3.x, `AWSSDK.S3` 4.x, `MessagePack` 3.x, `SQLitePCLRaw.lib.e_sqlite3` 3.x, `FluentAssertions` 8.x, and `xunit.runner.visualstudio` 4.x.
+- Package audits report no vulnerable packages. Major-version updates needing owner approval remain unchanged: `StackExchange.Redis` 3.x, `AWSSDK.S3` 4.x, `SQLitePCLRaw.lib.e_sqlite3` 3.x, `FluentAssertions` 8.x, and `xunit.runner.visualstudio` 4.x.
 - `AWSSDK.S3` (3.7.300 -> 4.x) and StackExchange.Redis 3.x are intentionally **not** upgraded; they need separate approval.
 - Redis failed-job/batch, RabbitMQ, Kafka and Memcached live provider tests require the CI service job or matching local services and were not run in the R07 verification. Ready-made HTTP middleware remains staged in R05.
