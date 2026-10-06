@@ -59,8 +59,6 @@ public class RedisQueueDriver : IQueueDriver
                 local json = redis.call('HGET', KEYS[1], id)
                 if json then
                     local message = cjson.decode(json)
-                    message.Attempts = (tonumber(message.Attempts) or 0) + 1
-                    redis.call('HSET', KEYS[1], id, cjson.encode(message))
                     local priority = math.max(0, math.min(9, tonumber(message.Priority) or 0))
                     redis.call('RPUSH', KEYS[13 - priority], id)
                 end
@@ -73,6 +71,8 @@ public class RedisQueueDriver : IQueueDriver
                 local json = redis.call('HGET', KEYS[1], id)
                 if json then
                     local message = cjson.decode(json)
+                        message.Attempts = (tonumber(message.Attempts) or 0) + 1
+                        redis.call('HSET', KEYS[1], id, cjson.encode(message))
                     local priority = math.max(0, math.min(9, tonumber(message.Priority) or 0))
                     redis.call('RPUSH', KEYS[13 - priority], id)
                 end

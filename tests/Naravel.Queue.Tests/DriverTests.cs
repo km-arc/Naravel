@@ -14,6 +14,8 @@ public abstract class QueueDriverContractTests : IDisposable
 
     protected virtual bool SupportsPriority => true;
 
+    protected virtual bool SupportsSize => true;
+
     protected string QueuePrefix => _queuePrefix;
 
     protected IReadOnlyCollection<string> UsedQueueNames => _usedQueues;
@@ -45,13 +47,15 @@ public abstract class QueueDriverContractTests : IDisposable
             var ackQueue = QueueName("ack");
             var message = Msg(ackQueue);
             await driver.PushAsync(message);
-            (await driver.SizeAsync(ackQueue)).Should().Be(1);
+            if (SupportsSize)
+                (await driver.SizeAsync(ackQueue)).Should().Be(1);
             var popped = await driver.PopAsync(ackQueue);
             popped!.Id.Should().Be(message.Id);
             (await driver.PopAsync(ackQueue)).Should().BeNull("a reserved message must not be handed out again");
             await driver.AckAsync(popped);
             (await driver.PopAsync(ackQueue)).Should().BeNull();
-            (await driver.SizeAsync(ackQueue)).Should().Be(0);
+            if (SupportsSize)
+                (await driver.SizeAsync(ackQueue)).Should().Be(0);
 
             var delayedQueue = QueueName("delayed");
             await driver.PushAsync(Msg(delayedQueue, delay: TimeSpan.FromMilliseconds(300)));
@@ -85,7 +89,8 @@ public abstract class QueueDriverContractTests : IDisposable
             await driver.PushAsync(Msg(failedQueue));
             await driver.FailAsync((await driver.PopAsync(failedQueue))!);
             (await driver.PopAsync(failedQueue)).Should().BeNull();
-            (await driver.SizeAsync(failedQueue)).Should().Be(0);
+            if (SupportsSize)
+                (await driver.SizeAsync(failedQueue)).Should().Be(0);
 
             var isolatedQueue = QueueName("isolated");
             var otherQueue = QueueName("other");
