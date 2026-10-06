@@ -31,8 +31,55 @@ jobs:
       - name: Build
         run: dotnet build Naravel.slnx -c Release --no-restore
 
-      - name: Test
-        run: dotnet test Naravel.slnx -c Release --no-build --no-restore
+      - name: Test projects and collect coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          for project in tests/*/*.csproj; do
+            project_name="$(basename "$project" .csproj)"
+            results_dir="TestResults/$project_name"
+            dotnet test "$project" -c Release --no-build --no-restore \
+              --logger "trx;LogFileName=$project_name.trx" \
+              --results-directory "$results_dir" \
+              --collect:"XPlat Code Coverage"
+          done
+
+      - name: Summarize test results by project
+        if: always() && matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          print("### Test results by project")
+          print("| Project | Total | Passed | Failed | Skipped |")
+          print("| --- | ---: | ---: | ---: | ---: |")
+          results = sorted(Path("TestResults").rglob("*.trx"))
+          if not results:
+              print("| No TRX results found | - | - | - | - |")
+          for result in results:
+              relative = result.relative_to("TestResults")
+              project = relative.parts[0]
+              root = ET.parse(result).getroot()
+              counters = next((node for node in root.iter() if node.tag.endswith("Counters")), None)
+              if counters is None:
+                  print(f"| {project} | unavailable | - | - | - |")
+                  continue
+              values = counters.attrib
+              skipped = int(values.get("notExecuted", "0")) + int(values.get("notRunnable", "0"))
+              print(f"| {project} | {values.get('total', '0')} | {values.get('passed', '0')} | {values.get('failed', '0')} | {skipped} |")
+          PY
+
+      - name: Upload test and coverage results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-and-coverage-${{ matrix.os }}
+          path: |
+            TestResults/**/*.trx
+            TestResults/**/coverage.cobertura.xml
+          if-no-files-found: warn
 
       - name: Audit vulnerable packages
         if: matrix.os == 'ubuntu-latest'
@@ -115,10 +162,56 @@ jobs:
         run: dotnet build Naravel.slnx -c Release --no-restore
 
       - name: Provider integration tests
-        run: dotnet test tests/Naravel.Queue.Providers.Tests/Naravel.Queue.Providers.Tests.csproj -c Release --no-build --no-restore
+        run: >-
+          dotnet test tests/Naravel.Queue.Providers.Tests/Naravel.Queue.Providers.Tests.csproj
+          -c Release --no-build --no-restore
+          --logger "trx;LogFileName=QueueProviders.trx"
+          --results-directory TestResults/Providers/Queue
+          --collect:"XPlat Code Coverage"
 
       - name: Cache provider integration tests
-        run: dotnet test tests/Naravel.Cache.Tests/Naravel.Cache.Tests.csproj -c Release --no-build --no-restore
+        run: >-
+          dotnet test tests/Naravel.Cache.Tests/Naravel.Cache.Tests.csproj
+          -c Release --no-build --no-restore
+          --logger "trx;LogFileName=CacheProviders.trx"
+          --results-directory TestResults/Providers/Cache
+          --collect:"XPlat Code Coverage"
+
+      - name: Summarize env-gated provider tests
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          print("### Env-gated provider integration results")
+          print("| Suite | Total | Passed | Failed | Skipped |")
+          print("| --- | ---: | ---: | ---: | ---: |")
+          results = sorted(Path("TestResults/Providers").rglob("*.trx"))
+          if not results:
+              print("| No provider TRX results found | - | - | - | - |")
+          for result in results:
+              suite = result.relative_to("TestResults/Providers").parts[0]
+              root = ET.parse(result).getroot()
+              counters = next((node for node in root.iter() if node.tag.endswith("Counters")), None)
+              if counters is None:
+                  print(f"| {suite} | unavailable | - | - | - |")
+                  continue
+              values = counters.attrib
+              skipped = int(values.get("notExecuted", "0")) + int(values.get("notRunnable", "0"))
+              print(f"| {suite} | {values.get('total', '0')} | {values.get('passed', '0')} | {values.get('failed', '0')} | {skipped} |")
+          PY
+
+      - name: Upload provider test and coverage results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-test-and-coverage
+          path: |
+            TestResults/Providers/**/*.trx
+            TestResults/Providers/**/coverage.cobertura.xml
+          if-no-files-found: warn
 
       - name: Audit vulnerable packages
         run: dotnet list Naravel.slnx package --vulnerable --include-transitive

@@ -52,6 +52,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 ### Changed (dependencies and build hygiene)
 - `Directory.Packages.props`: Microsoft.Extensions.* / EF Core / AspNetCore.TestHost 10.0.0 -> 10.0.10, StackExchange.Redis 2.8.16 -> 2.13.17, Confluent.Kafka 2.5.3 -> 2.15.1, Microsoft.NET.Test.Sdk 17.14.1 -> 18.0.1. Removed the unreferenced `Microsoft.Extensions.Configuration.Memory` entry.
 - Package audit updates: Microsoft.Extensions.* and EF Core packages from 10.0.10 to 10.0.12, `EnyimMemcachedCore` from 3.2.0 to 3.5.1, and `Microsoft.NET.Test.Sdk` from 18.0.1 to 18.10.1. Removed the unused `Microsoft.Extensions.Hosting` version entry.
+- Added the test-only `coverlet.collector` package to collect Cobertura coverage reports as CI artifacts; no coverage threshold is enforced.
 - `Naravel.Cache.Memcached.csproj` declares `MessagePack` and `Newtonsoft.Json`; no C# source usages were found. Both references are retained pending a separate owner decision.
 - NuGet vulnerability audit is now enabled repo-wide (`Directory.Build.props`, mode `all`); the per-project `NuGetAudit=false` in 7 projects was removed. (With audit disabled, `dotnet list package --vulnerable` can never report anything.)
 - `nuget.config`: removed a machine-specific local cache source (`/home/<user>/nuget-cache`) that broke restore on any other machine and on CI.
