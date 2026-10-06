@@ -11,7 +11,6 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="EnyimMemcachedCore" />
-    <PackageReference Include="MessagePack" />
     <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
 </Project>
