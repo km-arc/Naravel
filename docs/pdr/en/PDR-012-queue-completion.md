@@ -32,13 +32,15 @@ Provide `RetryAsync(id)`, `RetryAllAsync`, `ForgetAsync(id)`, and `FlushAsync`. 
 
 ### Attempts and timeouts
 
-A reservation reclaimed after its visibility/lease timeout increments `Attempts` before it is delivered again. Initial delivery retains the existing R00 attempt convention; the contract tests must pin down whether the visible count is one-based. After `MaxAttempts` deliveries/reclaims, the worker routes the job to permanent failure handling instead of retrying indefinitely.
+A first delivery has `Attempts == 1`. Every reclaimed reservation increments `Attempts` before redelivery. Contract tests must cover the first delivery and repeated reclaim boundaries. After `MaxAttempts` deliveries/reclaims, the worker routes the job to permanent failure handling instead of retrying indefinitely.
 
-Add nullable virtual `Job.Timeout`; null uses the worker default. The effective execution timeout is the smaller non-null value of job and worker timeout. A timeout cancels the job token and follows the normal attempt/failure policy; it must not silently acknowledge a job as successful. At startup, warn when configured visibility timeout is less than the maximum relevant job/worker timeout plus a configurable safety margin. Do not promise cancellation of user code that ignores its token.
+Add nullable virtual `Job.Timeout`; null uses the worker default. The effective execution timeout is the smaller non-null value of job and worker timeout. A timeout cancels the job token and follows the normal attempt/failure policy; it must not silently acknowledge a job as successful. At startup, fail configuration when a store's visibility timeout is below the worker's default timeout. Also warn when visibility timeout is below the maximum configured job timeout plus a configurable safety margin. Do not promise cancellation of user code that ignores its token.
 
 ### Persistent batches
 
 Add `IBatchRepository` with Database and Redis implementations. Persist batch identity, pending/succeeded/failed counts, `AllowFailures`, cancellation state, and callback execution state. `CancelAsync` prevents not-yet-started batch jobs from running; already running jobs are not force-aborted. Without `AllowFailures`, the first failure prevents remaining undispatched jobs and marks the batch failed; with it, remaining jobs continue and the batch is terminal when all have settled.
+
+Database schema changes are never applied automatically at startup or service registration. Ship SQL scripts for the queue tables and an opt-in schema helper restricted to development/test use; production schema changes remain application-managed.
 
 Persist callback aliases and typed payloads, not delegates. Register typed then/catch/finally callbacks in an explicit alias registry; no type-name lookup or reflection from stored data. Persist callback progress before/after invocation so recovery is possible, and document callbacks as at-least-once across a process crash; callback implementations must be idempotent. Tests must recreate the repository and prove state survives.
 
@@ -50,7 +52,7 @@ Add `StopWhenEmpty`, `MaxJobs`, `MaxRuntime`, and `Rest` to worker options. `Sto
 
 Migrate the RabbitMQ provider to RabbitMQ.Client 7.x async APIs, remove the single-channel lock and all sync-over-async, and preserve ack/release/fail semantics. Check current supported 7.x package metadata before editing `Directory.Packages.props`; do not add another dependency.
 
-Use `Meter` named `Naravel.Queue` with processed, failed and retried counters plus a processing-duration histogram. Use `ActivitySource` named `Naravel.Queue`; carry W3C trace context (`traceparent`/`tracestate`) in the message envelope and restore it when processing. Metric tags must remain low-cardinality and exclude job IDs and payload data.
+Use `Meter` named `Naravel.Queue` with processed, failed and retried counters plus a processing-duration histogram. Use `ActivitySource` named `Naravel.Queue`; add nullable `traceparent` and `tracestate` fields to the message envelope without changing or removing existing fields, then restore them when processing. Envelopes written before these fields existed must still deserialize; pin that compatibility with a pre-change envelope regression test. Metric tags must remain low-cardinality and exclude job IDs and payload data.
 
 Add `Naravel.Queue.Testing` with a Fake supporting `AssertDispatched<T>` and `AssertChained`. It must exercise the same public dispatch contract without starting a broker or worker.
 
@@ -60,7 +62,7 @@ No new dependency is approved beyond the RabbitMQ.Client 7.x migration already a
 
 ## Verification required after approval
 
-Add focused Memory tests for worker controls, timeout cancellation and attempt exhaustion; SQLite tests for failed-job retry and batch persistence; Redis tests for persistent stores; and the existing env-gated R01 RabbitMQ contract suite for the async migration. Verify that no `.GetAwaiter().GetResult()` remains in the RabbitMQ project. Add MeterListener and fake assertions, extend queue benchmarks, update EN/FA queue docs, parity tables, changelog, and the stage checklist. Run the full solution verification and `roadmap/check.py`. Report skipped external services as NOT RUN, not as passing.
+Add focused Memory tests for worker controls, timeout cancellation and one-based attempt exhaustion; a pre-change envelope deserialization regression test; SQLite tests for failed-job retry and batch persistence; SQL scripts and opt-in development/test schema-helper tests; Redis tests for persistent stores; and the existing env-gated R01 RabbitMQ contract suite for the async migration. Verify that no `.GetAwaiter().GetResult()` remains in the RabbitMQ project. Add MeterListener and fake assertions, extend queue benchmarks, update EN/FA queue docs, parity tables, changelog, and the stage checklist. Run the full solution verification and `roadmap/check.py`. Report skipped external services as NOT RUN, not as passing.
 
 ## Alternatives considered
 
@@ -73,4 +75,4 @@ Add focused Memory tests for worker controls, timeout cancellation and attempt e
 
 ## Approval
 
-Owner approved this proposal on 2026-10-06. The failed-record delivery semantics, attempt-count convention, timeout/visibility policy, batch failure and callback behavior, worker-control defaults, metric contract, fake API, and quickstart are approved for R07 implementation.
+Owner approved this proposal on 2026-10-06. The failed-record delivery semantics, one-based attempt count, timeout/visibility policy, batch failure and callback behavior, worker-control defaults, metric contract, fake API, and quickstart are approved for R07 implementation. The owner-approved clarifications are: startup error when visibility timeout is below the worker default; warning when it is below maximum job timeout plus margin; additive nullable trace fields with a pre-change-envelope regression test; and no automatic DDL, with SQL scripts and an opt-in development/test schema helper.

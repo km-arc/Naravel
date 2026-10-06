@@ -156,7 +156,6 @@ public sealed class OrderProcessor(LockManager locks)
 
 هر acquisition موفق token یکتایی برمی‌گرداند و فقط همان token می‌تواند lock را آزاد کند. Redis از `SET NX` و compare-and-delete اتمیک استفاده می‌کند. lock حافظه‌ای فقط در همان process معتبر است. acquisition در Memcached اتمیک است، اما release فاصلهٔ زمانی کوچکی بین خواندن و حذف دارد؛ برای critical section توزیع‌شده از Redis استفاده کنید.
 
-## رفتار و محدودیت providerها
 ## محدودسازی نرخ
 
 limiter پنجرهٔ ثابت را به یک store نام‌دار وصل کنید:
@@ -178,9 +177,24 @@ process کار می‌کند؛ release در Memcached race خواندن/حذف �
 می‌گذارد. Redis افزایش و ثبت expiry اولیه را در یک عملیات Lua انجام می‌دهد؛ Memory از lock همان کلید و
 Memcached از add اتمیک و سپس increment اتمیک استفاده می‌کند. incrementهای بعدی مرز پنجرهٔ ثابت را جابه‌جا نمی‌کنند.
 
+پنجرهٔ ثابت ممکن است در بازه‌ای کوتاه پیرامون مرز دو پنجرهٔ مجاور تا **۲ برابر سقف تنظیم‌شده** درخواست
+بپذیرد؛ مثلاً یک سقف کامل درست پیش از انقضا و سقف کامل بعدی پس از reset. این الگوریتم تضمین پنجرهٔ
+لغزان نمی‌دهد؛ برای محدودیت محلی با آن رفتار، از پنجرهٔ لغزان `System.Threading.RateLimiting` استفاده کنید.
+
+limiter بررسی و به‌روزرسانی را با Cache lock انتخاب‌شده سری می‌کند. افزایش counter و ثبت expiry اولیه در
+سطح store در Redis اتمیک است، اما fast path اختصاصی Redis-atomic برای limiter به تعویق افتاده است؛ خود
+limiter از همان قرارداد Cache/lock مشترک با providerهای دیگر استفاده می‌کند.
+
 limiter از meter با نام `Naravel.Cache` counterهای `naravel.cache.ratelimiter.allowed` و
 `naravel.cache.ratelimiter.rejected`، histogram مدت عملیات و `ActivitySource` span منتشر می‌کند.
 tagهای metric فقط نام limiter و outcome هستند و subject key را شامل نمی‌شوند.
+
+benchmark نرخ عملیات روی Memory با نام `MemoryRateLimiterAttempt` در
+`benchmarks/Naravel.Benchmarks/QueueAndCacheBenchmarks.cs` قرار دارد. برای اجرای آن در Release:
+
+```sh
+dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*MemoryRateLimiterAttempt*' --job short
+```
 
 ## رفتار و محدودیت providerها
 

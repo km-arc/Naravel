@@ -14,9 +14,11 @@ Laravel surface: `Illuminate\Cache\RateLimiter` (`attempt`, `tooManyAttempts`, `
 
 Add a Cache-backed `IRateLimiter` to the existing Cache package; do not create another manager, provider package, or local in-process limiter. Leave local policies to `System.Threading.RateLimiting` and ASP.NET Core middleware. The Cache-backed limiter uses an explicitly selected Cache store and its lock capability to serialize updates to a bucket. If the selected store cannot provide the required lock semantics, registration or use must fail clearly rather than silently claim cross-process correctness.
 
-The first version supports named fixed-window policies. One atomic `AttemptAsync` operation checks the limit and records a permitted attempt under the same lock, returning a typed decision with `Allowed`, `Remaining`, and `RetryAfter`. It accepts a caller-supplied subject key; it does not infer identity from HTTP context. `ClearAsync` removes the subject's current bucket. Bucket keys are namespaced under the configured Cache prefix and use a stable, non-reversible representation of the subject key so raw identifiers are not exposed in backend keys.
+The first version supports named fixed-window policies. One atomic `AttemptAsync` operation checks the limit and records a permitted attempt under the same lock, returning a typed decision with `Allowed`, `Remaining`, and `RetryAfter`. It accepts a caller-supplied subject key; it does not infer identity from HTTP context. `ClearAsync` removes the subject's current bucket. Bucket keys are namespaced under the configured Cache prefix and use a stable, non-reversible representation of the subject key so raw identifiers are not exposed in backend keys. As with fixed-window algorithms generally, a subject may consume up to twice the nominal limit across two adjacent windows in a short boundary interval; document this behavior rather than promising a rolling-window bound.
 
 Add `ICacheStore.IncrementAsync(key, by, ttl)`. The TTL is applied only when the counter is first created; later increments must not move the window boundary. Memory protects the create/increment/expiry update with its per-key lock. Redis uses one Lua operation with `INCRBY`, `PTTL` and `PEXPIRE` only when the key has no expiry. Memcached first uses atomic `AddAsync(key, initialValue, ttl)` and, when the key already exists, its atomic increment operation. The limiter additionally uses the selected `ICacheLock` around checking the limit, updating the counter and maintaining window-start metadata.
+
+Defer a limiter-specific Redis-atomic implementation. The first limiter implementation must use the existing cross-provider Cache/lock contracts; do not add a Redis-only fast path. Benchmark the selected hot path before merge. This does not change the provider-level atomicity contract of the existing `ICacheStore.IncrementAsync` operation.
 
 Use Cache expiration for the window lifetime and define a single boundary rule: the first accepted request starts the window; the bucket expires at the end of that window. Rejected attempts do not extend it. Distributed correctness is conditional on the selected provider's lock guarantees and shared backend; Memory is explicitly process-local. No sliding-window, token-bucket, dynamic policy discovery, or Laravel-compatible global facade is proposed in this stage.
 
@@ -39,7 +41,7 @@ The exact registration and method names are proposals; keep the common path at n
 
 ## Verification required after approval
 
-Tests must cover fixed-window boundaries, concurrent attempts at the limit, expiration, clear, cancellation, Memory's process-local scope, and rejection of a store without suitable lock support. Add contract coverage for every supported Cache driver and a benchmark for the new hot path. Update English and Persian Cache docs and both parity tables. Keep the existing Cache dependency set unchanged.
+Tests must cover fixed-window boundaries (including the documented up-to-2x adjacent-window burst), concurrent attempts at the limit, expiration, clear, cancellation, Memory's process-local scope, and rejection of a store without suitable lock support. Add contract coverage for every supported Cache driver and a benchmark for the new hot path; the benchmark must be reviewed before merge. Update English and Persian Cache docs and both parity tables. Keep the existing Cache dependency set unchanged.
 
 ## Alternatives considered
 
@@ -50,4 +52,4 @@ Tests must cover fixed-window boundaries, concurrent attempts at the limit, expi
 
 ## Approval
 
-Owner approved this proposal on 2026-10-06. The Cache-lock-based fixed-window scope, provider guarantees required for distributed use, and proposed quickstart are approved for implementation.
+Owner approved this proposal on 2026-10-06. The Cache-lock-based fixed-window scope, provider guarantees required for distributed use, and proposed quickstart are approved for implementation. The owner-approved notes are: the fixed-window boundary can permit a burst up to 2x the nominal limit across adjacent windows; benchmark the selected path before merge; defer a limiter-specific Redis-atomic fast path and use the existing Cache/lock contracts.

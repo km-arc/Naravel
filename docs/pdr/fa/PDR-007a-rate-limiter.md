@@ -14,9 +14,11 @@ R04 کار Cache موجود در PDR-007 را با RateLimiter کامل می‌�
 
 یک `IRateLimiter` مبتنی بر Cache به بستهٔ موجود Cache اضافه شود؛ manager، بستهٔ provider یا محدودکنندهٔ محلی دیگری ساخته نشود. policyهای محلی به `System.Threading.RateLimiting` و middleware مربوط به ASP.NET Core واگذار شوند. محدودکنندهٔ مبتنی بر Cache از store انتخاب‌شده و قابلیت lock آن برای سری‌سازی به‌روزرسانی bucket استفاده کند. اگر store انتخاب‌شده تضمین lock لازم را نداشته باشد، ثبت یا استفاده باید با خطای روشن متوقف شود و هرگز ادعای نادرست پشتیبانی چندفرایندی نکند.
 
-نسخهٔ نخست فقط policyهای نام‌دار پنجرهٔ ثابت را پشتیبانی کند. عملیات اتمیک `AttemptAsync` بررسی سقف و ثبت تلاش مجاز را زیر همان lock انجام می‌دهد و تصمیم typed شامل `Allowed`، `Remaining` و `RetryAfter` برمی‌گرداند. فراخواننده کلید subject را صریح می‌دهد؛ هویت از HTTP context استخراج نمی‌شود. `ClearAsync` bucket جاری subject را حذف می‌کند. کلید bucket زیر prefix تنظیم‌شدهٔ Cache namespace می‌شود و نمایش پایدار و غیرقابل‌بازگشت کلید subject به کار می‌رود تا شناسهٔ خام در کلیدهای backend افشا نشود.
+نسخهٔ نخست فقط policyهای نام‌دار پنجرهٔ ثابت را پشتیبانی کند. عملیات اتمیک `AttemptAsync` بررسی سقف و ثبت تلاش مجاز را زیر همان lock انجام می‌دهد و تصمیم typed شامل `Allowed`، `Remaining` و `RetryAfter` برمی‌گرداند. فراخواننده کلید subject را صریح می‌دهد؛ هویت از HTTP context استخراج نمی‌شود. `ClearAsync` bucket جاری subject را حذف می‌کند. کلید bucket زیر prefix تنظیم‌شدهٔ Cache namespace می‌شود و نمایش پایدار و غیرقابل‌بازگشت کلید subject به کار می‌رود تا شناسهٔ خام در کلیدهای backend افشا نشود. مانند سایر الگوریتم‌های پنجرهٔ ثابت، یک subject ممکن است در بازهٔ کوتاهی پیرامون مرز دو پنجرهٔ مجاور تا دو برابر سقف اسمی درخواست مجاز داشته باشد؛ این رفتار باید مستند شود و نباید تضمین پنجرهٔ لغزان داده شود.
 
 `ICacheStore.IncrementAsync(key, by, ttl)` اضافه شود. TTL فقط هنگام ایجاد اولیهٔ counter اعمال می‌شود و incrementهای بعدی نباید مرز پنجره را جابه‌جا کنند. Memory ایجاد/increment/انقضا را با lock همان کلید محافظت می‌کند. Redis یک عملیات Lua با `INCRBY`، `PTTL` و `PEXPIRE` فقط در صورت نداشتن expiry اجرا می‌کند. Memcached ابتدا `AddAsync(key, initialValue, ttl)` اتمیک را اجرا می‌کند و اگر کلید از قبل وجود داشت از increment اتمیک آن استفاده می‌کند. خود limiter نیز هنگام بررسی سقف، به‌روزرسانی counter و نگهداری metadata شروع پنجره از `ICacheLock` store انتخاب‌شده استفاده می‌کند.
+
+پیاده‌سازی Redis-atomic اختصاصی limiter به تعویق می‌افتد. پیاده‌سازی نخست باید از قراردادهای موجود و بین‌providerی Cache/lock استفاده کند؛ fast path مختص Redis اضافه نشود. مسیر داغ انتخاب‌شده پیش از merge benchmark شود. این تصمیم قرارداد atomicity سطح provider در `ICacheStore.IncrementAsync` موجود را تغییر نمی‌دهد.
 
 طول عمر bucket با expiration مربوط به Cache برابر طول پنجره است و مرز زمانی واحدی دارد: نخستین درخواست پذیرفته‌شده پنجره را آغاز می‌کند و bucket در پایان همان پنجره منقضی می‌شود. درخواست ردشده زمان انقضا را تمدید نمی‌کند. درستی توزیع‌شده مشروط به تضمین lock در provider انتخاب‌شده و backend مشترک است؛ Memory صریحاً فقط در همان process کار می‌کند. پنجرهٔ لغزان، token bucket، کشف پویای policy و facade سراسری سازگار با Laravel در این مرحله پیشنهاد نمی‌شود.
 
@@ -39,7 +41,7 @@ var decision = await limiter.AttemptAsync("login", subjectKey, 5, TimeSpan.FromM
 
 ## راستی‌آزمایی لازم پس از تأیید
 
-تست‌ها مرز پنجرهٔ ثابت، تلاش‌های هم‌زمان در سقف، انقضا، clear، cancellation، محدودبودن Memory به process و رد store فاقد lock مناسب را پوشش دهند. برای هر Cache driver پشتیبانی‌شده contract test و برای مسیر داغ benchmark اضافه شود. مستندات Cache انگلیسی و فارسی و هر دو parity table به‌روزرسانی شوند. مجموعهٔ وابستگی‌های Cache بدون تغییر بماند.
+تست‌ها مرز پنجرهٔ ثابت (از جمله burst مستندشدهٔ حداکثر دوبرابری میان پنجره‌های مجاور)، تلاش‌های هم‌زمان در سقف، انقضا، clear، cancellation، محدودبودن Memory به process و رد store فاقد lock مناسب را پوشش دهند. برای هر Cache driver پشتیبانی‌شده contract test و برای مسیر داغ benchmark اضافه شود؛ benchmark پیش از merge بازبینی شود. مستندات Cache انگلیسی و فارسی و هر دو parity table به‌روزرسانی شوند. مجموعهٔ وابستگی‌های Cache بدون تغییر بماند.
 
 ## گزینه‌های بررسی‌شده
 
@@ -50,4 +52,4 @@ var decision = await limiter.AttemptAsync("login", subjectKey, 5, TimeSpan.FromM
 
 ## تأیید
 
-مالک این پیشنهاد را در ۲۰۲۶-۱۰-۰۶ تأیید کرد. دامنهٔ پنجرهٔ ثابت مبتنی بر Cache lock، تضمین‌های provider لازم برای استفادهٔ توزیع‌شده و quickstart پیشنهادی برای پیاده‌سازی تأیید شده‌اند.
+مالک این پیشنهاد را در ۲۰۲۶-۱۰-۰۶ تأیید کرد. دامنهٔ پنجرهٔ ثابت مبتنی بر Cache lock، تضمین‌های provider لازم برای استفادهٔ توزیع‌شده و quickstart پیشنهادی برای پیاده‌سازی تأیید شده‌اند. نکات تکمیلی مصوب مالک: در مرز پنجره‌های مجاور burst تا دو برابر سقف اسمی ممکن است؛ مسیر انتخاب‌شده پیش از merge benchmark شود؛ fast path اختصاصی Redis-atomic برای limiter به تعویق افتاده و از قراردادهای موجود Cache/lock استفاده شود.

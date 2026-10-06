@@ -156,7 +156,6 @@ public sealed class OrderProcessor(LockManager locks)
 
 Every successful acquisition returns a unique token; only that token can release the lock. Redis uses atomic `SET NX` acquisition and compare-and-delete release. The memory lock is process-local. Memcached acquisition is atomic, but release has a small read/delete race; use Redis for critical distributed sections.
 
-## Provider behavior and limitations
 ## Rate limiting
 
 Register a fixed-window limiter against a named cache store:
@@ -180,9 +179,25 @@ the key is created. Redis performs increment and first-expiry assignment in one 
 coordinates with its per-key lock; Memcached uses atomic add followed by atomic increment. Later
 increments never slide the fixed-window boundary.
 
+A fixed window can admit up to **2x the configured limit** in a short interval across an adjacent-window
+boundary (for example, the full limit just before expiry and another full limit just after reset). This is
+not a rolling-window guarantee; use `System.Threading.RateLimiting` with a sliding window for local limits
+that need that behavior.
+
+The limiter serializes the check and update with the selected Cache lock. Redis's counter increment and
+first expiry are atomic at the store level, but a limiter-specific Redis-atomic fast path is deferred; the
+limiter uses the same Cache/lock contract as the other providers.
+
 The limiter emits `naravel.cache.ratelimiter.allowed`, `naravel.cache.ratelimiter.rejected`, and a
 duration histogram through the `Naravel.Cache` meter, plus an `ActivitySource` span. Metric tags use
 only limiter name and outcome, never the subject key.
+
+The Memory throughput benchmark is `MemoryRateLimiterAttempt` in
+`benchmarks/Naravel.Benchmarks/QueueAndCacheBenchmarks.cs`. Run it in Release mode with:
+
+```sh
+dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*MemoryRateLimiterAttempt*' --job short
+```
 
 ## Provider behavior and limitations
 

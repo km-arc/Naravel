@@ -32,13 +32,15 @@ await dispatcher.DispatchAsync(new SendInvoice(invoiceId), cancellationToken);
 
 ### شمارش تلاش و timeout
 
-reservationی که پس از timeout مربوط به visibility/lease دوباره reclaim می‌شود، پیش از تحویل مجدد `Attempts` را افزایش دهد. تحویل اولیه قرارداد فعلی R00 را حفظ کند؛ تست‌های قراردادی باید مشخص کنند شمارش قابل‌مشاهده از یک شروع می‌شود یا صفر. پس از `MaxAttempts` تحویل/reclaim، worker به‌جای retry بی‌پایان job را به مسیر شکست دائمی بفرستد.
+تحویل نخست `Attempts == 1` دارد. هر reservation که دوباره reclaim می‌شود، پیش از تحویل مجدد `Attempts` را افزایش دهد. تست‌های قراردادی تحویل نخست و مرزهای reclaim تکراری را پوشش دهند. پس از `MaxAttempts` تحویل/reclaim، worker به‌جای retry بی‌پایان job را به مسیر شکست دائمی بفرستد.
 
-`Job.Timeout` مجازی و nullable اضافه شود؛ null از مقدار پیش‌فرض worker استفاده می‌کند. timeout مؤثر اجرا کوچک‌ترین مقدار غیرتهی میان timeout خود job و worker است. timeout، token مربوط به job را cancel می‌کند و طبق سیاست معمول attempt/failure پیش می‌رود؛ نباید job را بی‌سروصدا موفق اعلام کند. هنگام startup اگر visibility timeout از بیشینهٔ timeout مرتبط job/worker به‌علاوهٔ حاشیهٔ ایمنی کمتر باشد، warning ثبت شود. لغو کدی که token را نادیده می‌گیرد تضمین نشود.
+`Job.Timeout` مجازی و nullable اضافه شود؛ null از مقدار پیش‌فرض worker استفاده می‌کند. timeout مؤثر اجرا کوچک‌ترین مقدار غیرتهی میان timeout خود job و worker است. timeout، token مربوط به job را cancel می‌کند و طبق سیاست معمول attempt/failure پیش می‌رود؛ نباید job را بی‌سروصدا موفق اعلام کند. هنگام startup اگر visibility timeout یک store از timeout پیش‌فرض worker کمتر باشد، پیکربندی fail شود. همچنین اگر visibility timeout از بیشینهٔ timeout jobهای پیکربندی‌شده به‌علاوهٔ حاشیهٔ ایمنی کمتر باشد، warning ثبت شود. لغو کدی را که token را نادیده می‌گیرد تضمین نکنید.
 
 ### Batchهای پایدار
 
 `IBatchRepository` با پیاده‌سازی Database و Redis اضافه شود. شناسهٔ batch، شمارنده‌های pending/succeeded/failed، `AllowFailures`، وضعیت لغو و وضعیت اجرای callbackها پایدار شوند. `CancelAsync` از اجرای jobهای batch که هنوز شروع نشده‌اند جلوگیری می‌کند؛ jobهای در حال اجرا به‌اجبار متوقف نمی‌شوند. بدون `AllowFailures`، نخستین شکست جلوی jobهای dispatch‌نشدهٔ باقی‌مانده را می‌گیرد و batch را failed می‌کند؛ با آن، بقیه ادامه می‌یابند و batch پس از تعیین تکلیف همه terminal می‌شود.
+
+تغییر schema پایگاه‌داده هرگز هنگام startup یا ثبت service خودکار اعمال نمی‌شود. برای جدول‌های صف SQL script ارائه شود و schema helper فقط به‌شکل opt-in و محدود به محیط development/test باشد؛ تغییر schema در production را خود برنامه مدیریت می‌کند.
 
 به‌جای delegate، alias callback و payload typed ذخیره شود. callbackهای typed از نوع then/catch/finally در registry صریح alias ثبت شوند؛ از lookup نام نوع یا reflection بر اساس دادهٔ ذخیره‌شده استفاده نشود. پیشرفت callback قبل/بعد از اجرا ذخیره شود تا recovery ممکن باشد و اجرای at-least-once در crash فرایند مستند شود؛ callbackها باید idempotent باشند. تست باید repository را دوباره بسازد و بقای وضعیت را ثابت کند.
 
@@ -50,7 +52,7 @@ reservationی که پس از timeout مربوط به visibility/lease دوبار
 
 Provider مربوط به RabbitMQ به APIهای async در RabbitMQ.Client 7.x مهاجرت کند، lock تک‌کاناله و تمام sync-over-async حذف شوند و معنای ack/release/fail حفظ شود. پیش از ویرایش `Directory.Packages.props` metadata آخرین نسخهٔ پشتیبانی‌شدهٔ 7.x بررسی شود؛ وابستگی دیگری اضافه نشود.
 
-از `Meter` با نام `Naravel.Queue` و counterهای processed، failed و retried به‌علاوهٔ histogram مدت پردازش استفاده شود. `ActivitySource` با نام `Naravel.Queue` باشد؛ context ردیابی W3C (`traceparent`/`tracestate`) در envelope پیام حمل و هنگام پردازش restore شود. tagهای metric کم‌کاردینالیتی باشند و شناسهٔ job یا payload را شامل نشوند.
+از `Meter` با نام `Naravel.Queue` و counterهای processed، failed و retried به‌علاوهٔ histogram مدت پردازش استفاده شود. `ActivitySource` با نام `Naravel.Queue` باشد؛ فیلدهای nullable `traceparent` و `tracestate` به‌صورت افزایشی به envelope پیام اضافه شوند، بدون تغییر یا حذف فیلدهای موجود، و هنگام پردازش restore شوند. envelopeهای نوشته‌شده پیش از وجود این فیلدها باید همچنان deserialize شوند؛ یک regression test با envelope قبل از تغییر این سازگاری را تثبیت کند. tagهای metric کم‌کاردینالیتی باشند و شناسهٔ job یا payload را شامل نشوند.
 
 `Naravel.Queue.Testing` با Fake شامل `AssertDispatched<T>` و `AssertChained` اضافه شود. این fake باید همان قرارداد عمومی dispatch را بدون broker یا worker اجرا کند.
 
@@ -60,7 +62,7 @@ Provider مربوط به RabbitMQ به APIهای async در RabbitMQ.Client 7.x 
 
 ## راستی‌آزمایی لازم پس از تأیید
 
-تست‌های متمرکز Memory برای کنترل worker، لغو timeout و اتمام سقف تلاش؛ تست SQLite برای retry job ناموفق و پایداری batch؛ تست Redis برای storeهای پایدار؛ و اجرای contract suite مربوط به RabbitMQ از R01 با سرویس env-gated اضافه/اجرا شوند. نبود `.GetAwaiter().GetResult()` در پروژهٔ RabbitMQ بررسی شود. assertionهای MeterListener و Fake، benchmarkهای Queue، مستندات Queue انگلیسی/فارسی، parity tableها، changelog و checklist مرحله به‌روزرسانی شوند. راستی‌آزمایی کامل solution و `roadmap/check.py` اجرا شود. سرویس خارجی اجرا‌نشده باید `NOT RUN` گزارش شود، نه موفق.
+تست‌های متمرکز Memory برای کنترل worker، لغو timeout و اتمام سقف تلاش یک‌مبنا؛ regression test برای deserialize کردن envelope قبل از تغییر؛ تست SQLite برای retry job ناموفق و پایداری batch؛ SQL scriptها و تست schema helper اختیاری development/test؛ تست Redis برای storeهای پایدار؛ و اجرای contract suite مربوط به RabbitMQ از R01 با سرویس env-gated اضافه/اجرا شوند. نبود `.GetAwaiter().GetResult()` در پروژهٔ RabbitMQ بررسی شود. assertionهای MeterListener و Fake، benchmarkهای Queue، مستندات Queue انگلیسی/فارسی، parity tableها، changelog و checklist مرحله به‌روزرسانی شوند. راستی‌آزمایی کامل solution و `roadmap/check.py` اجرا شود. سرویس خارجی اجرا‌نشده باید `NOT RUN` گزارش شود، نه موفق.
 
 ## گزینه‌های بررسی‌شده
 
@@ -73,4 +75,4 @@ Provider مربوط به RabbitMQ به APIهای async در RabbitMQ.Client 7.x 
 
 ## تأیید
 
-مالک این پیشنهاد را در ۲۰۲۶-۱۰-۰۶ تأیید کرد. معنای تحویل رکوردهای شکست، قرارداد شمارش attempt، سیاست timeout/visibility، رفتار شکست batch و callback، پیش‌فرض‌های worker، قرارداد metric، API fake و quickstart برای پیاده‌سازی R07 تأیید شده‌اند.
+مالک این پیشنهاد را در ۲۰۲۶-۱۰-۰۶ تأیید کرد. معنای تحویل رکوردهای شکست، شمارش یک‌مبنای attempt، سیاست timeout/visibility، رفتار شکست batch و callback، پیش‌فرض‌های worker، قرارداد metric، API fake و quickstart برای پیاده‌سازی R07 تأیید شده‌اند. توضیحات تکمیلی مصوب مالک: اگر visibility timeout از مقدار پیش‌فرض worker کمتر باشد startup خطا می‌دهد؛ اگر از بیشینهٔ timeout job به‌علاوهٔ حاشیه کمتر باشد warning ثبت می‌شود؛ فیلدهای nullable ردیابی به‌شکل افزایشی اضافه می‌شوند و regression test envelope قدیمی الزامی است؛ DDL خودکار نداریم و SQL script به‌همراه schema helper اختیاری development/test ارائه می‌شود.

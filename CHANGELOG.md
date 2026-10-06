@@ -9,8 +9,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 - BenchmarkDotNet baselines and a sample queue connection selector for running the same queue workflow with File, Redis, RabbitMQ or Kafka.
 - `Naravel.Foundation`: `Manager<TDriver,TOptions>`, `IDriverRegistry<TDriver>`, hot reload, runtime `Extend`.
 - `Naravel.Cache` (PDR-007): named Memory stores, `CacheManager`/`LockManager` on Foundation, tagged and scoped cache views, `RememberAsync`, and token-owned locks. Opt-in `Naravel.Cache.Redis` and `Naravel.Cache.Memcached` providers.
-- R04 Cache rate limiting (PDR-007a): named fixed-window limiter, atomic TTL-aware counters in Memory/Redis/Memcached, subject-key hashing, provider-backed locking, Fake, metrics and activities.
-- R04 Cache RateLimiter (PDR-007a): named fixed-window limits with atomic TTL-aware counters for Memory/Redis/Memcached, explicit subject hashing, provider-backed locks, `Naravel.Cache.Testing.RateLimiterFake`, metrics and activity spans.
+- R04 Cache rate limiting (PDR-007a): named fixed-window limits with atomic TTL-aware counters for Memory/Redis/Memcached, explicit subject hashing, provider-backed locks, `Naravel.Cache.Testing.RateLimiterFake`, metrics and activity spans. A boundary burst up to 2x is documented; benchmark the Memory path before merge, and defer a limiter-specific Redis-atomic fast path.
 - `Naravel.Queue` with Memory, File, Redis, Database (EF Core), RabbitMQ and Kafka drivers; worker with retry/backoff,
   chaining, batching, middleware and lifecycle events.
 - R07 Queue completion: failed-job stores and retry commands, reservation attempt accounting, per-job timeouts, persistent Database/Redis batches, worker controls, metrics/tracing, and `Naravel.Queue.Testing.QueueFake`.

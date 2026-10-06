@@ -1,21 +1,35 @@
 # Naravel
 
-Laravel's concise, discoverable APIs with .NET's speed and strengths: strong typing, `async/await`, dependency injection
-and high-performance native libraries. Naravel adopts a Laravel feature only when it adds value on top of what .NET
-already offers; every such decision is documented as a PDR.
+Laravel-inspired, discoverable APIs with .NET's strengths: strong typing, `async/await`, dependency injection, and native performance. Naravel adopts a Laravel idea only when it adds practical value beyond what .NET already provides; the rationale is recorded in a PDR.
 
-**Status:** See [ROADMAP.md](ROADMAP.md) for the authoritative module and stage status.
-
-> **Verification:** Build and test results are reported by [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml).
+**Module and roadmap status:** [ROADMAP.md](ROADMAP.md) is the source of truth. Build and test results are reported by [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml).
 
 - Persian: [README.fa.md](README.fa.md)
-- AI agents / contributors: [AGENTS.md](AGENTS.md)
-- Roadmap and current priority: [ROADMAP.md](ROADMAP.md) · Persian overview: [ROADMAP.fa.md](ROADMAP.fa.md)
-- Docs: [docs/en](docs/en) · Decisions: [docs/pdr/en](docs/pdr/en)
+- Contributor and agent guidance: [AGENTS.md](AGENTS.md)
+- English docs: [docs/en](docs/en) · PDRs: [docs/pdr/en](docs/pdr/en)
+- Persian docs: [docs/fa](docs/fa) · PDRs: [docs/pdr/fa](docs/pdr/fa)
 
-## Cache in 30 seconds
+## Modules
+
+### Naravel.Foundation
+
+Shared driver-manager infrastructure used by driver-based modules. It resolves and caches named drivers, supports runtime `Extend`, reacts to configuration changes, and owns driver disposal. Applications usually consume it through Cache, Queue, or Filesystem rather than registering Foundation directly. For example, a Filesystem manager can register a local disk at runtime:
+
 ```csharp
-using Naravel.Cache;
+using Microsoft.Extensions.DependencyInjection;
+using Naravel.Filesystem;
+using Naravel.Filesystem.Drivers;
+
+var storage = app.Services.GetRequiredService<StorageManager>();
+storage.Extend("scratch", _ => new LocalStorageDriver("storage/scratch", "/scratch"));
+var scratch = storage.Disk("scratch");
+```
+
+### Naravel.Cache
+
+Named Memory, Redis, and Memcached stores; `RememberAsync`; explicit user/tenant scopes; tag-version invalidation; token-owned locks; and a Cache-backed fixed-window rate limiter. Redis and Memcached are optional provider packages.
+
+```csharp
 using Naravel.Cache.Abstractions;
 
 builder.Services.AddNaravelCache(builder.Configuration)
@@ -26,69 +40,92 @@ public sealed class SettingsService(ICacheStore cache)
     public Task<string> GetAsync(CancellationToken ct) =>
         cache.RememberAsync("site-name", TimeSpan.FromMinutes(10), _ => Task.FromResult("Naravel"), ct);
 }
-
-public sealed class Reports(CacheManager cache)
-{
-    public ICacheStore Redis => cache.Store("redis");
-}
 ```
-For Laravel-like convenience without a static facade, inject `ICacheStore` for the default or use `CacheManager` to select
-a named store, scope keys or add tags. Full setup and provider limitations: [docs/en/cache.md](docs/en/cache.md) /
-[docs/fa/cache.md](docs/fa/cache.md).
 
-## Repository layout (monorepo)
-One repository, one solution (`Naravel.slnx`), all modules. `src/Naravel.<Module>` holds a module, `src/Naravel.<Module>.<Provider>` a
-driver with a heavy dependency, `tests/` the tests, `samples/` runnable samples. Versions live in `Directory.Packages.props`, shared build
-settings and the single lock-step package version in `Directory.Build.props`. See `AGENTS.md` for the rules and current module status.
+Use `ICacheStore` for the default store and `CacheManager` to choose a named store or create a scope. Provider behavior and limitations, including Memcached's cluster-wide `FlushAsync`, are documented in [docs/en/cache.md](docs/en/cache.md) and [docs/fa/cache.md](docs/fa/cache.md).
 
-## Build & test
-```
-dotnet restore Naravel.slnx && dotnet build Naravel.slnx -c Release && dotnet test Naravel.slnx -c Release
-```
-Requires the .NET 10 SDK (latest LTS).
+### Naravel.Queue
 
-
-## Naravel.Queue (background jobs)
-
-Driver-based job queue built on `Naravel.Foundation`: dispatch, delay, priority, retry with backoff,
-chaining, batching, middleware, hosted worker, runtime `Extend`, config hot reload. Full docs with
-examples: [`docs/en/queue.md`](docs/en/queue.md) / [`docs/fa/queue.md`](docs/fa/queue.md).
+Async background jobs with named drivers, delayed and prioritized dispatch, retries and backoff, chaining, batches, failed-job handling, hosted workers, and telemetry. Jobs are **at-least-once** and should be idempotent. The Memory driver is process-local; Redis, File, and Database use visibility timeouts for recovery, while Kafka and RabbitMQ use broker redelivery.
 
 ```csharp
-builder.Services.AddQueue(builder.Configuration).AddRedisDriver(builder.Configuration);   // config section: "NaravelQueue:Stores"
+using Naravel.Queue.Extensions;
+using Naravel.Queue.Dispatch;
+using Naravel.Queue.Jobs;
+
+builder.Services.AddQueue(builder.Configuration)
+    .AddRedisDriver(builder.Configuration);
+builder.Services.AddJob<SendWelcomeEmailJob>("mail.welcome");
 builder.Services.AddQueueWorker(w => { w.Queues = new[] { "default" }; w.Concurrency = 4; });
+
+var app = builder.Build();
+var dispatcher = app.Services.GetRequiredService<IJobDispatcher>();
 await dispatcher.DispatchAsync(new SendWelcomeEmailJob("ali@example.com"));
 ```
 
-**Delivery guarantee: at-least-once.** A job can run more than once (worker crash, visibility timeout, failed ack), so jobs must be
-idempotent. Follow-up jobs of a chain are published *before* the job is acknowledged, so a chain is never silently lost.
+See [docs/en/queue.md](docs/en/queue.md) and [docs/fa/queue.md](docs/fa/queue.md) for job definitions, configuration, failed jobs, persistent batches, worker controls, and provider-specific setup.
 
-**Crash recovery.** Redis, File and Database drivers return a job to the queue when its worker disappeared for longer than
-`VisibilityTimeoutSeconds` (default 300; set it above your longest job). The Memory driver is in-process only. Kafka/RabbitMQ rely on
-the broker's own redelivery.
+### Naravel.Filesystem
 
-**Known gaps.** Worker, Memory/File, Foundation integration, and provider contract tests are present. The provider suite lives in
-`tests/Naravel.Queue.Providers.Tests`; service-backed Redis, RabbitMQ, Kafka, and Memcached cases run through CI when configured.
-Database driver behavior on SQLite still needs review because EF Core's SQLite provider has limited `DateTimeOffset` translation.
-
-## Naravel.Filesystem (named storage disks)
-
-`Naravel.Filesystem` uses Foundation's driver manager for local and S3 storage, with config reload, runtime `Extend`, and manager-owned driver disposal. The local driver rejects paths outside its configured root. Configuration, upload, S3 URLs, and limitations: [docs/en/filesystem.md](docs/en/filesystem.md) / [docs/fa/filesystem.md](docs/fa/filesystem.md).
-
-## Naravel.Cache (cache, tags, scopes and locks)
-
-`Naravel.Cache` provides named Memory/Redis/Memcached stores, `RememberAsync`, per-user/tenant scoping, tag-version invalidation, and token-owned locks. Install only the provider packages you use. Configuration and provider limitations: [docs/en/cache.md](docs/en/cache.md) / [docs/fa/cache.md](docs/fa/cache.md).
-
-## Naravel.Routing (Laravel-style routes and middleware)
-
-A thin layer on ASP.NET Core: nested groups, named routes, `where`, route model binding, resource routes, and a middleware engine with aliases,
-groups, parameters (`throttle:60,1`), priority, `withoutMiddleware`, controller attributes and terminable middleware. Details: [docs/en/routing.md](docs/en/routing.md).
+Named local and S3/S3-compatible storage disks. The local driver rejects paths outside its configured root. Naravel does not create a public HTTP endpoint; serve or authorize stored files through ASP.NET Core separately.
 
 ```csharp
-builder.Services.AddNaravelRouting(o => o.Middleware.Alias<EnsureAge>("age").Group("api", "bindings", "age:18"));
-app.UseNaravelRouting();
-app.MapNaravel(r => r.Prefix("admin").Name("admin.").Middleware("api").Group(g =>
-    g.Get("users/{user}", (string user) => user).Name("users.show")));
+using Naravel.Filesystem;
+
+builder.Services.AddNaravelFilesystem(builder.Configuration);
+
+public sealed class ArchiveService(IStorageDriver storage)
+{
+    public Task SaveAsync(string key, Stream contents, CancellationToken ct) =>
+        storage.PutAsync(key, contents, ct);
+}
 ```
 
-**Status:** See [ROADMAP.md](ROADMAP.md) for the Stage 4a/4b status.
+See [docs/en/filesystem.md](docs/en/filesystem.md) and [docs/fa/filesystem.md](docs/fa/filesystem.md) for disk configuration, uploads, S3 URLs, and security notes.
+
+### Naravel.Routing
+
+A thin layer over ASP.NET Core routing: nested route groups, names and URL generation, constraints, resource routes, model binding, and route middleware aliases/groups/parameters.
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddNaravelRouting();
+var app = builder.Build();
+app.UseNaravelRouting();
+app.MapNaravel(routes => routes
+    .Prefix("admin").Name("admin.")
+    .Group(group => group.Get("users/{id}", (int id) => Results.Ok(new { id }))
+        .Name("users.show")));
+```
+
+Route middleware is available, but ready-made throttle, signed-URL, and maintenance middleware are not yet implemented. See [docs/en/routing.md](docs/en/routing.md) and [docs/fa/routing.md](docs/fa/routing.md).
+
+## Provider packages
+
+Register the core package and only the providers your configured stores use. The snippets below are alternatives; the Database driver also requires an EF Core context and `ConfigureQueueJobs()` model mapping. Provider configuration and requirements are in the linked module docs.
+
+| Package | Example registration |
+|---|---|
+| `Naravel.Cache` (Memory) | `builder.Services.AddNaravelCache(configuration);` |
+| `Naravel.Cache.Redis` | `builder.Services.AddNaravelRedisCache(configuration);` |
+| `Naravel.Cache.Memcached` | `builder.Services.AddNaravelMemcachedCache(configuration);` |
+| `Naravel.Queue.Memory` | `builder.Services.AddMemoryDriver(configuration);` |
+| `Naravel.Queue.File` | `builder.Services.AddFileDriver(configuration);` |
+| `Naravel.Queue.Redis` | `builder.Services.AddRedisDriver(configuration);` |
+| `Naravel.Queue.Database` | `builder.Services.AddDatabaseDriver<AppDbContext>(configuration);` |
+| `Naravel.Queue.RabbitMQ` | `builder.Services.AddRabbitMqDriver(configuration);` |
+| `Naravel.Queue.Kafka` | `builder.Services.AddKafkaDriver(configuration);` |
+
+Queue registrations are extension methods in `Naravel.Queue.Extensions`. The Queue configuration uses `NaravelQueue:Stores`; Cache and Filesystem use `Cache:Stores` and `Filesystem:Stores` by default. Each supports a custom section name.
+
+## Build and test
+
+Requires the .NET 10 SDK. From the repository root:
+
+```sh
+dotnet restore Naravel.slnx
+dotnet build Naravel.slnx -c Release
+dotnet test Naravel.slnx -c Release
+```
+
+Naravel is a monorepo: `Naravel.slnx` contains all modules, providers, tests, and samples. Central package versions are in `Directory.Packages.props`; shared build settings and the lock-step package version are in `Directory.Build.props`.
