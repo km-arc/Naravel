@@ -60,6 +60,10 @@ public sealed class TaggedCacheStore : ICacheStore
         await _inner.IncrementAsync(await BuildKeyAsync(key, cancellationToken).ConfigureAwait(false), by, cancellationToken).ConfigureAwait(false);
 
     /// <inheritdoc />
+    public async Task<long> IncrementAsync(string key, long by, TimeSpan ttl, CancellationToken cancellationToken = default) =>
+        await _inner.IncrementAsync(await BuildKeyAsync(key, cancellationToken).ConfigureAwait(false), by, ttl, cancellationToken).ConfigureAwait(false);
+
+    /// <inheritdoc />
     public async Task<long> DecrementAsync(string key, long by, CancellationToken cancellationToken = default) =>
         await _inner.DecrementAsync(await BuildKeyAsync(key, cancellationToken).ConfigureAwait(false), by, cancellationToken).ConfigureAwait(false);
 

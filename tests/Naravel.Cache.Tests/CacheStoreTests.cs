@@ -45,6 +45,20 @@ public sealed class CacheStoreTests
     }
 
     [Fact]
+    public async Task Memory_increment_with_expiry_is_atomic_and_expires_from_first_increment()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var store = new MemoryCacheStore("memory", cache);
+        var increments = await Task.WhenAll(Enumerable.Range(0, 64)
+            .Select(_ => store.IncrementAsync("window", 1, TimeSpan.FromMilliseconds(400))));
+
+        increments.Distinct().Should().HaveCount(64);
+        increments.Max().Should().Be(64);
+        await Task.Delay(450);
+        (await store.ExistsAsync("window")).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Tagged_and_scoped_decorators_compose_and_flush_by_version()
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());

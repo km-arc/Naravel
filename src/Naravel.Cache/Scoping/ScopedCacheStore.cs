@@ -48,6 +48,10 @@ public sealed class ScopedCacheStore : ICacheStore
         _inner.IncrementAsync(BuildKey(key), by, cancellationToken);
 
     /// <inheritdoc />
+    public Task<long> IncrementAsync(string key, long by, TimeSpan ttl, CancellationToken cancellationToken = default) =>
+        _inner.IncrementAsync(BuildKey(key), by, ttl, cancellationToken);
+
+    /// <inheritdoc />
     public Task<long> DecrementAsync(string key, long by, CancellationToken cancellationToken = default) =>
         _inner.DecrementAsync(BuildKey(key), by, cancellationToken);
 

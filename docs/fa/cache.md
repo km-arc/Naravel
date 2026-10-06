@@ -2,6 +2,14 @@
 
 `Naravel.Cache` storeهای نام‌دار، scope بر اساس user/tenant، invalidation با نسخهٔ tag و lockهای دارای token مالکیت را فراهم می‌کند. این ماژول روی `Naravel.Foundation` ساخته شده و providerهای Redis و Memcached بسته‌های opt-in هستند.
 
+## شروع سریع
+
+```csharp
+builder.Services.AddNaravelCache(configuration).AddNaravelRedisCache(configuration);
+builder.Services.AddNaravelRateLimiter("redis");
+var decision = await limiter.AttemptAsync("login", subjectKey, 5, TimeSpan.FromMinutes(1), cancellationToken);
+```
+
 ## ثبت providerها
 
 ```csharp
@@ -149,6 +157,32 @@ public sealed class OrderProcessor(LockManager locks)
 هر acquisition موفق token یکتایی برمی‌گرداند و فقط همان token می‌تواند lock را آزاد کند. Redis از `SET NX` و compare-and-delete اتمیک استفاده می‌کند. lock حافظه‌ای فقط در همان process معتبر است. acquisition در Memcached اتمیک است، اما release فاصلهٔ زمانی کوچکی بین خواندن و حذف دارد؛ برای critical section توزیع‌شده از Redis استفاده کنید.
 
 ## رفتار و محدودیت providerها
+## محدودسازی نرخ
+
+limiter پنجرهٔ ثابت را به یک store نام‌دار وصل کنید:
+
+```csharp
+builder.Services.AddNaravelRateLimiter("redis");
+var decision = await limiter.AttemptAsync("login", subjectKey, 5, TimeSpan.FromMinutes(1), cancellationToken);
+```
+
+`IRateLimiter` را در محل استفاده تزریق کنید. هر policy و subject bucket جدا دارد و کلید subject پیش از
+قرارگرفتن در کلید cache hash می‌شود. نخستین تلاش مجاز پنجرهٔ ثابت را آغاز می‌کند؛ تلاش ردشده counter را
+افزایش نمی‌دهد و پنجره را تمدید نمی‌کند. `RateLimitDecision` شامل `Allowed`، `Remaining` و `RetryAfter`
+است و `ClearAsync` bucket یک policy/subject را پاک می‌کند. برای محدودیت‌های درون‌فرایندی از
+`System.Threading.RateLimiting` استفاده کنید؛ محدودسازی مبتنی بر Cache فقط وقتی مناسب است که همهٔ
+instanceها backend مشترک داشته باشند و lock آن هماهنگی لازم را فراهم کند. lock حافظه‌ای فقط در همان
+process کار می‌کند؛ release در Memcached race خواندن/حذف دارد، پس برای سهمیهٔ مشترک حساس Redis مناسب‌تر است.
+
+`ICacheStore.IncrementAsync(key, by, ttl)` counter را اتمیک افزایش می‌دهد و TTL را فقط هنگام ایجاد کلید
+می‌گذارد. Redis افزایش و ثبت expiry اولیه را در یک عملیات Lua انجام می‌دهد؛ Memory از lock همان کلید و
+Memcached از add اتمیک و سپس increment اتمیک استفاده می‌کند. incrementهای بعدی مرز پنجرهٔ ثابت را جابه‌جا نمی‌کنند.
+
+limiter از meter با نام `Naravel.Cache` counterهای `naravel.cache.ratelimiter.allowed` و
+`naravel.cache.ratelimiter.rejected`، histogram مدت عملیات و `ActivitySource` span منتشر می‌کند.
+tagهای metric فقط نام limiter و outcome هستند و subject key را شامل نمی‌شوند.
+
+## رفتار و محدودیت providerها
 
 | Provider | نگهداری مقدار | رفتار lock | رفتار flush |
 |---|---|---|---|
@@ -156,10 +190,10 @@ public sealed class OrderProcessor(LockManager locks)
 | Redis | JSON با `System.Text.Json` | توزیع‌شده؛ release با token اتمیک است | فقط کلیدهای زیر prefix تنظیم‌شده را scan/delete می‌کند |
 | Memcached | مقدار typed با transcoder تنظیم‌شدهٔ Enyim؛ `ttl: null` یعنی بدون انقضا | acquisition توزیع‌شده؛ release کاملاً اتمیک نیست | **کل cluster مشترک Memcached را flush می‌کند**، نه فقط prefix همین store را |
 
-برای Memcached یا وقتی فقط بخشی از کلیدها باید invalidate شوند، به‌جای `FlushAsync` از tag استفاده کنید. increment/decrement در Memcached فقط روی مقدار عددی موجود عمل می‌کنند. کلاینت فعلی Enyim این counterها را فقط به‌صورت sync ارائه می‌دهد؛ provider آن‌ها را روی thread pool اجرا می‌کند و cancellation بعد از شروع فرمان نمی‌تواند آن را متوقف کند.
+برای Memcached یا وقتی فقط بخشی از کلیدها باید invalidate شوند، به‌جای `FlushAsync` از tag استفاده کنید. increment/decrement معمول Memcached فقط روی مقدار عددی موجود عمل می‌کنند؛ overload دارای TTL برای ساخت اولیه از add اتمیک استفاده می‌کند. کلاینت فعلی Enyim counterهای موجود را فقط به‌صورت sync ارائه می‌دهد؛ provider آن‌ها را روی thread pool اجرا می‌کند و cancellation بعد از شروع فرمان نمی‌تواند آن را متوقف کند.
 
 وضعیت Memory بین چند نمونهٔ برنامه مشترک نیست. برای cache و lock چندسروری از Redis استفاده کنید.
 
-`tests/Naravel.Cache.Tests` قرارداد مشترک store را برای Memory، Redis و Memcached اجرا می‌کند. برای اجرای
+`tests/Naravel.Cache.Tests` قرارداد مشترک store را برای Memory، Redis و Memcached اجرا می‌کند و increment اتمیک با TTL اولیه را می‌سنجد. تست‌های limiter مرز پنجره، clear، جدایی storeهای نام‌دار، cancellation، Fake و خروجی Meter/Activity را پوشش می‌دهند. برای اجرای
 تست زندهٔ provider موردنظر، `NARAVEL_TEST_REDIS=host:port` یا `NARAVEL_TEST_MEMCACHED=host:port` را
 تنظیم کنید؛ در غیر این صورت xUnit تست را Skip می‌کند. CI هر دو را با service container اجرا می‌کند.

@@ -16,6 +16,8 @@ Add a Cache-backed `IRateLimiter` to the existing Cache package; do not create a
 
 The first version supports named fixed-window policies. One atomic `AttemptAsync` operation checks the limit and records a permitted attempt under the same lock, returning a typed decision with `Allowed`, `Remaining`, and `RetryAfter`. It accepts a caller-supplied subject key; it does not infer identity from HTTP context. `ClearAsync` removes the subject's current bucket. Bucket keys are namespaced under the configured Cache prefix and use a stable, non-reversible representation of the subject key so raw identifiers are not exposed in backend keys.
 
+Add `ICacheStore.IncrementAsync(key, by, ttl)`. The TTL is applied only when the counter is first created; later increments must not move the window boundary. Memory protects the create/increment/expiry update with its per-key lock. Redis uses one Lua operation with `INCRBY`, `PTTL` and `PEXPIRE` only when the key has no expiry. Memcached first uses atomic `AddAsync(key, initialValue, ttl)` and, when the key already exists, its atomic increment operation. The limiter additionally uses the selected `ICacheLock` around checking the limit, updating the counter and maintaining window-start metadata.
+
 Use Cache expiration for the window lifetime and define a single boundary rule: the first accepted request starts the window; the bucket expires at the end of that window. Rejected attempts do not extend it. Distributed correctness is conditional on the selected provider's lock guarantees and shared backend; Memory is explicitly process-local. No sliding-window, token-bucket, dynamic policy discovery, or Laravel-compatible global facade is proposed in this stage.
 
 Proposed common case (two lines):

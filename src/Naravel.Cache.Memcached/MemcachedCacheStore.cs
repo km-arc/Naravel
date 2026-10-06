@@ -69,6 +69,17 @@ public sealed class MemcachedCacheStore : ICacheStore
     }
 
     /// <inheritdoc />
+    public async Task<long> IncrementAsync(string key, long by, TimeSpan ttl, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(by);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(ttl, TimeSpan.Zero);
+        var fullKey = Key(key);
+        if (await _client.AddAsync(fullKey, by, ttl).ConfigureAwait(false)) return by;
+        return await Task.Run(() => (long)_client.Increment(fullKey, (ulong)by, (ulong)by), cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<long> DecrementAsync(string key, long by, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

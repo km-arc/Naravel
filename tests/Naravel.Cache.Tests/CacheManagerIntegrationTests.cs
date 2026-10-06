@@ -209,6 +209,7 @@ public sealed class CacheManagerIntegrationTests
         public Task<bool> RemoveAsync(string key, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<bool> ExistsAsync(string key, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<long> IncrementAsync(string key, long by, CancellationToken cancellationToken = default) => Task.FromResult(by);
+        public Task<long> IncrementAsync(string key, long by, TimeSpan ttl, CancellationToken cancellationToken = default) => Task.FromResult(by);
         public Task<long> DecrementAsync(string key, long by, CancellationToken cancellationToken = default) => Task.FromResult(-by);
         public Task FlushAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
@@ -228,6 +229,7 @@ public sealed class CacheManagerIntegrationTests
         public Task<bool> RemoveAsync(string key, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<bool> ExistsAsync(string key, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<long> IncrementAsync(string key, long by, CancellationToken cancellationToken = default) => Task.FromResult(by);
+        public Task<long> IncrementAsync(string key, long by, TimeSpan ttl, CancellationToken cancellationToken = default) => Task.FromResult(by);
         public Task<long> DecrementAsync(string key, long by, CancellationToken cancellationToken = default) => Task.FromResult(-by);
         public Task FlushAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public void Dispose() => IsDisposed = true;

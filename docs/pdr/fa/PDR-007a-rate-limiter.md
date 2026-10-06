@@ -16,6 +16,8 @@ R04 کار Cache موجود در PDR-007 را با RateLimiter کامل می‌�
 
 نسخهٔ نخست فقط policyهای نام‌دار پنجرهٔ ثابت را پشتیبانی کند. عملیات اتمیک `AttemptAsync` بررسی سقف و ثبت تلاش مجاز را زیر همان lock انجام می‌دهد و تصمیم typed شامل `Allowed`، `Remaining` و `RetryAfter` برمی‌گرداند. فراخواننده کلید subject را صریح می‌دهد؛ هویت از HTTP context استخراج نمی‌شود. `ClearAsync` bucket جاری subject را حذف می‌کند. کلید bucket زیر prefix تنظیم‌شدهٔ Cache namespace می‌شود و نمایش پایدار و غیرقابل‌بازگشت کلید subject به کار می‌رود تا شناسهٔ خام در کلیدهای backend افشا نشود.
 
+`ICacheStore.IncrementAsync(key, by, ttl)` اضافه شود. TTL فقط هنگام ایجاد اولیهٔ counter اعمال می‌شود و incrementهای بعدی نباید مرز پنجره را جابه‌جا کنند. Memory ایجاد/increment/انقضا را با lock همان کلید محافظت می‌کند. Redis یک عملیات Lua با `INCRBY`، `PTTL` و `PEXPIRE` فقط در صورت نداشتن expiry اجرا می‌کند. Memcached ابتدا `AddAsync(key, initialValue, ttl)` اتمیک را اجرا می‌کند و اگر کلید از قبل وجود داشت از increment اتمیک آن استفاده می‌کند. خود limiter نیز هنگام بررسی سقف، به‌روزرسانی counter و نگهداری metadata شروع پنجره از `ICacheLock` store انتخاب‌شده استفاده می‌کند.
+
 طول عمر bucket با expiration مربوط به Cache برابر طول پنجره است و مرز زمانی واحدی دارد: نخستین درخواست پذیرفته‌شده پنجره را آغاز می‌کند و bucket در پایان همان پنجره منقضی می‌شود. درخواست ردشده زمان انقضا را تمدید نمی‌کند. درستی توزیع‌شده مشروط به تضمین lock در provider انتخاب‌شده و backend مشترک است؛ Memory صریحاً فقط در همان process کار می‌کند. پنجرهٔ لغزان، token bucket، کشف پویای policy و facade سراسری سازگار با Laravel در این مرحله پیشنهاد نمی‌شود.
 
 حالت معمول پیشنهادی (دو خط):

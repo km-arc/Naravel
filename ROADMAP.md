@@ -33,7 +33,7 @@ needs the EN+FA PDR.
 | R01 | Driver integration tests (env-gated, CI service containers), Redis/Kafka fixes, benchmarks | R00 | - (OD-01) | DONE (2026-10-05; 202/205 tests passed with Redis + SQLite exercised; RabbitMQ/Kafka/Memcached skipped locally; roadmap check passed) |
 | R02 | Filesystem on Foundation + API parity (legacy Stage 2, PDR-008) | R00 | PDR | DONE (2026-10-04; build clean, 172/172 tests) |
 | R03 | Naravel.Redis shared connections (PDR-010) | R01 | PDR | TODO |
-| R04 | RateLimiter on Cache (Cache/locks already done; PDR-007 addendum) | R01 | PDR | TODO |
+| R04 | RateLimiter on Cache (Cache/locks already done; PDR-007 addendum) | R01 | PDR | DOING |
 | R05 | Http.Middleware + routing completion (legacy 4b) | R04 | GO | TODO |
 | R06 | Events (PDR-011) | R00 | PDR | TODO |
 | R07 | Queue completion A: failed jobs, attempts/timeouts, batches, worker controls, RabbitMQ async, metrics, fake (PDR-012) | R01 | PDR | DONE (2026-10-06; Release restore/build; 216 passed, 7 skipped; roadmap check passed) |

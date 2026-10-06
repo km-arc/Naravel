@@ -1,5 +1,9 @@
 using BenchmarkDotNet.Attributes;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Naravel.Cache;
+using Naravel.Cache.RateLimiting;
 using Naravel.Cache.Stores;
 using Naravel.Cache.Tagging;
 using Naravel.Queue.Drivers;
@@ -16,6 +20,8 @@ public class QueueAndCacheBenchmarks
     private MemoryCacheStore _cache = null!;
     private TaggedCacheStore _tagged = null!;
     private MemoryCache _memory = null!;
+    private ServiceProvider _rateLimiterProvider = null!;
+    private IRateLimiter _rateLimiter = null!;
 
     [GlobalSetup]
     public async Task Setup()
@@ -25,6 +31,18 @@ public class QueueAndCacheBenchmarks
         _tagged = new TaggedCacheStore(_cache, ["bench"]);
         await _cache.SetAsync("get", 42, TimeSpan.FromMinutes(5));
         await _tagged.SetAsync("tagged-get", 42, TimeSpan.FromMinutes(5));
+
+        var configuration = new ConfigurationManager
+        {
+            ["Cache:Default"] = "memory",
+            ["Cache:AppPrefix"] = "benchmark",
+            ["Cache:Stores:memory:Driver"] = "memory",
+            ["Cache:Stores:memory:Prefix"] = "benchmark"
+        };
+        var services = new ServiceCollection();
+        services.AddNaravelCache(configuration).AddNaravelRateLimiter("memory");
+        _rateLimiterProvider = services.BuildServiceProvider();
+        _rateLimiter = _rateLimiterProvider.GetRequiredService<IRateLimiter>();
     }
 
     [Benchmark]
@@ -55,6 +73,14 @@ public class QueueAndCacheBenchmarks
     [Benchmark]
     public Task<(bool Found, int Value)> TaggedCacheGet() => _tagged.TryGetAsync<int>("tagged-get");
 
+    [Benchmark]
+    public Task<RateLimitDecision> MemoryRateLimiterAttempt() =>
+        _rateLimiter.AttemptAsync("benchmark", "shared-subject", long.MaxValue, TimeSpan.FromMinutes(1));
+
     [GlobalCleanup]
-    public void Cleanup() => _memory.Dispose();
+    public void Cleanup()
+    {
+        _rateLimiterProvider.Dispose();
+        _memory.Dispose();
+    }
 }

@@ -27,6 +27,19 @@ public abstract class CacheStoreContractTests
         (await store.IncrementAsync(counterKey, 1)).Should().Be(42);
         (await store.TryGetAsync<long>(counterKey)).Value.Should().Be(42);
         await store.RemoveAsync(counterKey);
+
+        var expiringCounterKey = prefix + "expiring-counter";
+        var ttl = TimeSpan.FromSeconds(3);
+        (await store.IncrementAsync(expiringCounterKey, 1, ttl)).Should().Be(1);
+        var increments = await Task.WhenAll(Enumerable.Range(0, 16)
+            .Select(_ => store.IncrementAsync(expiringCounterKey, 1, ttl)));
+        increments.Distinct().Should().HaveCount(16);
+        increments.Max().Should().Be(17);
+
+        await Task.Delay(TimeSpan.FromMilliseconds(1600));
+        (await store.IncrementAsync(expiringCounterKey, 1, ttl)).Should().Be(18);
+        await Task.Delay(TimeSpan.FromMilliseconds(1600));
+        (await store.ExistsAsync(expiringCounterKey)).Should().BeFalse("later increments must not extend the original window");
     }
 }
 

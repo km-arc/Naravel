@@ -40,8 +40,8 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 ## R04 — Cache, locks, rate limiting
 
 - Laravel surface: `Illuminate\Contracts\Cache\Repository`, cache tags, atomic locks, `Illuminate\Cache\RateLimiter`.
-- Naravel: Cache/tagging/scoping/locks are implemented (PDR-007); RateLimiter is open.
-- Value: simple cache-aside, named stores, scoped keys, invalidation, atomic coordination, and rate-limit state.
+- Naravel: Cache/tagging/scoping/locks (PDR-007) and Cache-backed fixed-window RateLimiter (PDR-007a) with first-write-only TTL increments.
+- Value: simple cache-aside, named stores, scoped keys, invalidation, atomic coordination, and shared rate-limit state.
 - Native baseline: `IMemoryCache`, distributed cache abstractions, and `System.Threading.RateLimiting`; retain only the cohesive
   behavior .NET does not provide with the required provider semantics.
 - API reference: [Illuminate Cache](https://api.laravel.com/docs/13.x/Illuminate/Cache/RateLimiter.html).

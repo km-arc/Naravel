@@ -54,6 +54,23 @@ public sealed class RedisProviderTests
         proxy.LastScript.Should().Contain("redis.call('get', KEYS[1]) == ARGV[1]");
     }
 
+    [Fact]
+    public async Task Redis_ttl_increment_uses_atomic_increment_and_expiry_script()
+    {
+        var mux = DispatchProxy.Create<IConnectionMultiplexer, CacheProviderDispatchProxy>();
+        var database = DispatchProxy.Create<IDatabase, RedisDatabaseProxy>();
+        ((CacheProviderDispatchProxy)(object)mux).NextResult = database;
+        var proxy = (RedisDatabaseProxy)(object)database;
+        proxy.ScriptResult = 12L;
+        using var store = new RedisCacheStore("tests", mux, "tests");
+
+        (await store.IncrementAsync("window", 1, TimeSpan.FromSeconds(10))).Should().Be(12);
+
+        proxy.LastScript.Should().Contain("redis.call('INCRBY'");
+        proxy.LastScript.Should().Contain("redis.call('PTTL'");
+        proxy.LastScript.Should().Contain("redis.call('PEXPIRE'");
+    }
+
     public class RedisDatabaseProxy : DispatchProxy
     {
         public long ScriptResult { get; set; }

@@ -9,6 +9,13 @@ namespace Naravel.Cache.Redis;
 /// <remarks><b>Laravel equivalent:</b> the Redis cache store. Every key and flush scan is restricted to this store's configured prefix.</remarks>
 public sealed class RedisCacheStore : ICacheStore, IDisposable
 {
+    private const string IncrementWithExpiryScript = """
+        local value = redis.call('INCRBY', KEYS[1], ARGV[1])
+        if redis.call('PTTL', KEYS[1]) < 0 then
+            redis.call('PEXPIRE', KEYS[1], ARGV[2])
+        end
+        return value
+        """;
     private readonly IConnectionMultiplexer _multiplexer;
     private readonly IDatabase _database;
     private readonly string _keyPrefix;
@@ -92,6 +99,18 @@ public sealed class RedisCacheStore : ICacheStore, IDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         return await _database.StringIncrementAsync(Key(key), by).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<long> IncrementAsync(string key, long by, TimeSpan ttl, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(by);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(ttl, TimeSpan.Zero);
+        var ttlMilliseconds = Math.Max(1L, checked((long)Math.Ceiling(ttl.TotalMilliseconds)));
+        var result = await _database.ScriptEvaluateAsync(IncrementWithExpiryScript,
+            [Key(key)], [by, ttlMilliseconds]).ConfigureAwait(false);
+        return (long)result;
     }
 
     /// <inheritdoc />

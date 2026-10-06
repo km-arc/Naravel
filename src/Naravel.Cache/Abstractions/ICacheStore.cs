@@ -22,6 +22,9 @@ public interface ICacheStore
     /// <summary>Atomically increments an integer value by the given amount.</summary>
     Task<long> IncrementAsync(string key, long by, CancellationToken cancellationToken = default);
 
+    /// <summary>Atomically increments an integer value and sets its expiry only when the key is first created.</summary>
+    Task<long> IncrementAsync(string key, long by, TimeSpan ttl, CancellationToken cancellationToken = default);
+
     /// <summary>Atomically decrements an integer value by the given amount.</summary>
     Task<long> DecrementAsync(string key, long by, CancellationToken cancellationToken = default);
 

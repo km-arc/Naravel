@@ -2,7 +2,7 @@
 <html lang='en'>
 <head>
 <meta charset='utf-8' />
-<title>Naravel.Benchmarks.QueueAndCacheBenchmarks-20261006-101559</title>
+<title>Naravel.Benchmarks.QueueAndCacheBenchmarks-20261006-104313</title>
 
 <style type="text/css">
 	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
@@ -14,19 +14,19 @@
 <body>
 <pre><code>
 BenchmarkDotNet v0.15.8, Linux Ubuntu 24.04.4 LTS (Noble Numbat)
-Intel Core i7-7700 CPU 3.60GHz (Max: 1.70GHz) (Kaby Lake), 1 CPU, 8 logical and 4 physical cores
+Intel Core i7-7700 CPU 3.60GHz (Max: 4.00GHz) (Kaby Lake), 1 CPU, 8 logical and 4 physical cores
 .NET SDK 10.0.112
   [Host]   : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v3
   ShortRun : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v3
 </code></pre>
-<pre><code>Job=ShortRun  IterationCount=3  LaunchCount=1
-WarmupCount=3
+<pre><code>Job=ShortRun  IterationCount=3  LaunchCount=1  
+WarmupCount=3  
 </code></pre>
 
 <table>
-<thead><tr><th>Method                  </th><th>Mean</th><th>Error</th><th>StdDev</th><th>Gen0</th><th>Allocated</th>
+<thead><tr><th>Method            </th><th>Mean</th><th>Error</th><th>StdDev</th><th>Gen0</th><th>Allocated</th>
 </tr>
-</thead><tbody><tr><td>FailedJobStoreRecordListForget</td><td>8.340 &mu;s</td><td>6.505 &mu;s</td><td>0.3565 &mu;s</td><td>0.8087</td><td>3.31 KB</td>
+</thead><tbody><tr><td>MemoryRateLimiterAttempt</td><td>5.803 &mu;s</td><td>12.977 &mu;s</td><td>0.7113 &mu;s</td><td>0.9918</td><td>4.07 KB</td>
 </tr></tbody></table>
 </body>
 </html>

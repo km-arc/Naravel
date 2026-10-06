@@ -39,6 +39,19 @@ public sealed class MemcachedProviderTests
     }
 
     [Fact]
+    public async Task Memcached_ttl_increment_creates_the_bucket_with_expiration()
+    {
+        var client = DispatchProxy.Create<IMemcachedClient, MemcachedClientProxy>();
+        var proxy = (MemcachedClientProxy)(object)client;
+        var store = new MemcachedCacheStore("memcached", client, "app");
+
+        (await store.IncrementAsync("rate", 1, TimeSpan.FromSeconds(30))).Should().Be(1);
+
+        proxy.LastAddKey.Should().Be("app:rate");
+        proxy.LastAddExpiration.Should().Be(TimeSpan.FromSeconds(30));
+    }
+
+    [Fact]
     public async Task Memcached_lock_checks_token_before_removing_key()
     {
         var client = DispatchProxy.Create<IMemcachedClient, CacheProviderDispatchProxy>();
@@ -57,6 +70,8 @@ public sealed class MemcachedProviderTests
         public bool HasValue { get; set; }
         public string? LastKey { get; private set; }
         public TimeSpan? LastExpiration { get; private set; }
+        public string? LastAddKey { get; private set; }
+        public TimeSpan? LastAddExpiration { get; private set; }
 
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
@@ -78,7 +93,12 @@ public sealed class MemcachedProviderTests
                 return typeof(Task).GetMethod(nameof(Task.FromResult))!.MakeGenericMethod(resultContract).Invoke(null, new[] { result });
             }
 
-            if (targetMethod?.Name == "AddAsync") return Task.FromResult(true);
+            if (targetMethod?.Name == "AddAsync")
+            {
+                LastAddKey = args?[0]?.ToString();
+                LastAddExpiration = args is { Length: > 2 } && args[2] is TimeSpan expiration ? expiration : null;
+                return Task.FromResult(true);
+            }
             if (targetMethod?.Name == "GetValueAsync") return Task.FromResult(ReadValue);
             if (targetMethod?.Name == "RemoveAsync") return Task.FromResult(true);
             if (targetMethod?.Name == "FlushAllAsync") return Task.CompletedTask;

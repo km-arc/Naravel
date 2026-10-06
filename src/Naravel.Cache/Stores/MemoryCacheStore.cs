@@ -12,6 +12,7 @@ public sealed class MemoryCacheStore : ICacheStore
     private readonly string _prefix;
     private readonly ConcurrentDictionary<string, byte> _trackedKeys = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, object> _keyLocks = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _incrementExpirations = new(StringComparer.Ordinal);
 
     /// <summary>Creates a named memory store.</summary>
     public MemoryCacheStore(string name, IMemoryCache cache, string? prefix = null)
@@ -50,6 +51,7 @@ public sealed class MemoryCacheStore : ICacheStore
     {
         cancellationToken.ThrowIfCancellationRequested();
         var fullKey = BuildKey(key);
+        _incrementExpirations.TryRemove(fullKey, out _);
         var entryOptions = new MemoryCacheEntryOptions();
         if (ttl.HasValue) entryOptions.AbsoluteExpirationRelativeToNow = ttl.Value;
         RegisterTrackingCallback(entryOptions);
@@ -66,6 +68,7 @@ public sealed class MemoryCacheStore : ICacheStore
         var existed = _cache.TryGetValue(fullKey, out _);
         _cache.Remove(fullKey);
         _trackedKeys.TryRemove(fullKey, out _);
+        _incrementExpirations.TryRemove(fullKey, out _);
         return Task.FromResult(existed);
     }
 
@@ -86,8 +89,36 @@ public sealed class MemoryCacheStore : ICacheStore
         {
             var current = _cache.TryGetValue(fullKey, out var value) && value is long number ? number : 0L;
             var next = checked(current + by);
+            _incrementExpirations.TryRemove(fullKey, out _);
             _cache.Set(fullKey, next, new MemoryCacheEntryOptions());
             RegisterTrackingCallback(fullKey);
+            _trackedKeys[fullKey] = 0;
+            return Task.FromResult(next);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<long> IncrementAsync(string key, long by, TimeSpan ttl, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(by);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(ttl, TimeSpan.Zero);
+        var fullKey = BuildKey(key);
+        var gate = _keyLocks.GetOrAdd(fullKey, static _ => new object());
+        lock (gate)
+        {
+            var now = DateTimeOffset.UtcNow;
+            var hasValue = _cache.TryGetValue(fullKey, out var value) && value is long;
+            var hasLiveExpiry = _incrementExpirations.TryGetValue(fullKey, out var currentExpiry) && currentExpiry > now;
+            var current = hasValue && (!hasLiveExpiry && !_incrementExpirations.ContainsKey(fullKey) || hasLiveExpiry)
+                ? (long)value!
+                : 0L;
+            var expiresAt = hasLiveExpiry ? currentExpiry : now + ttl;
+            var next = checked(current + by);
+            var options = new MemoryCacheEntryOptions { AbsoluteExpiration = expiresAt };
+            RegisterTrackingCallback(options);
+            _cache.Set(fullKey, next, options);
+            _incrementExpirations[fullKey] = expiresAt;
             _trackedKeys[fullKey] = 0;
             return Task.FromResult(next);
         }
@@ -105,6 +136,7 @@ public sealed class MemoryCacheStore : ICacheStore
         {
             _cache.Remove(key);
             _trackedKeys.TryRemove(key, out _);
+            _incrementExpirations.TryRemove(key, out _);
         }
 
         return Task.CompletedTask;
@@ -115,6 +147,10 @@ public sealed class MemoryCacheStore : ICacheStore
 
     private void RegisterTrackingCallback(object? evictedKey)
     {
-        if (evictedKey is string key && !_cache.TryGetValue(key, out _)) _trackedKeys.TryRemove(key, out _);
+        if (evictedKey is string key && !_cache.TryGetValue(key, out _))
+        {
+            _trackedKeys.TryRemove(key, out _);
+            _incrementExpirations.TryRemove(key, out _);
+        }
     }
 }
