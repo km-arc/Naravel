@@ -39,5 +39,6 @@ each open finding must be owned by a roadmap stage.
 - R01.T04 added a cross-OS fast CI matrix, Ubuntu service containers, source-project warning-as-error enforcement and SDK SourceLink properties; full workflow execution is a CI responsibility.
 - R01.T06 recorded the local BenchmarkDotNet baseline in `docs/en/benchmarks.md` and `docs/fa/benchmarks.md`.
 - R01.T07's restore/build/test and roadmap verification is reported in [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml); live provider coverage depends on configured services.
+- Queue provider CI follow-up: Redis now increments `Attempts` only when a reservation expires, not when a scheduled delay ends; Kafka's documented `SizeAsync` sentinel (`-1`) is excluded from the shared exact-size contract. Service-backed verification remains in CI.
 - R00.T05 added the single CI workflow; fast and service jobs now cover local-free and external-provider test matrices.
 - T4 test inventory: Queue and Cache driver contracts cover their built-in and provider drivers; Foundation, Queue, Cache, and Filesystem manager tests cover runtime `Extend` and configuration reload. Routing has no driver-manager configuration surface. Remaining contract/fake gaps are tracked in D-22 and D-23.
