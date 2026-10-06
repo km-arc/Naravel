@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Diagnostics;
 using Naravel.Queue.Batching;
 using Naravel.Queue.Drivers;
 using Naravel.Queue.Jobs;
@@ -67,7 +68,7 @@ public class JobDispatcher : IJobDispatcher
         var batchOptions = new BatchOptions();
         batchConfigure?.Invoke(batchOptions);
 
-        var batch = new QueueBatch { TotalJobs = jobList.Count };
+        var batch = new QueueBatch { TotalJobs = jobList.Count, AllowFailures = batchOptions.AllowFailures };
         await _batchRepository.RegisterAsync(batch, batchOptions, cancellationToken);
 
         foreach (var job in jobList)
@@ -112,7 +113,9 @@ public class JobDispatcher : IJobDispatcher
             Queue = options.Queue ?? "default",
             MaxAttempts = options.MaxAttempts ?? (job as Job)?.MaxAttempts ?? 3,
             AvailableAt = options.ResolveAvailableAt(),
-            Priority = options.Priority
+            Priority = options.Priority,
+            TraceParent = Activity.Current?.Id,
+            TraceState = Activity.Current?.TraceStateString
         };
     }
 }

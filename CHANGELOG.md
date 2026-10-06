@@ -11,6 +11,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 - `Naravel.Cache` (PDR-007): named Memory stores, `CacheManager`/`LockManager` on Foundation, tagged and scoped cache views, `RememberAsync`, and token-owned locks. Opt-in `Naravel.Cache.Redis` and `Naravel.Cache.Memcached` providers.
 - `Naravel.Queue` with Memory, File, Redis, Database (EF Core), RabbitMQ and Kafka drivers; worker with retry/backoff,
   chaining, batching, middleware and lifecycle events.
+- R07 Queue completion: failed-job stores and retry commands, reservation attempt accounting, per-job timeouts, persistent Database/Redis batches, worker controls, metrics/tracing, and `Naravel.Queue.Testing.QueueFake`.
+- `Naravel.Queue.RabbitMQ` migrated to RabbitMQ.Client 7.2.2 async APIs with per-delivery channels and async disposal.
 - Crash recovery (`VisibilityTimeoutSeconds`) for the File and Database drivers; atomic file writes.
 - Worker hardening: survives driver errors, no double execution after acknowledgement, releases in-flight jobs on shutdown.
 - Monorepo scaffolding: central package management, shared build props, CI workflow, `.editorconfig`, `.gitignore`, `AGENTS.md`.
@@ -19,6 +21,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
   and a route middleware engine (aliases, groups, parameters, priority, `withoutMiddleware`, terminable, controller attributes); 64 tests; EN+FA docs.
 
 - `Naravel.Queue` migrated onto `Naravel.Foundation` (PDR-006): `QueueManager : Manager<IQueueDriver, QueueOptions>`, shared `AddQueueDriver` registration helper, config key `Connections` -> `Stores` (PDR-005), hot-reload-aware worker.
+
+### Changed
+- `ConfigureQueueJobs()` now maps failed-job and batch tables and `QueueJobs` connection/trace columns; apply an EF migration after upgrading.
+- Pre-1.0 Queue interfaces gained durable-store and batch operations. Custom `IFailedJobStore` and `IBatchRepository` implementations must add the new members; `SleepWhenEmpty` remains an alias for `Rest`.
+- `RabbitMQ.Client` is centrally upgraded from 6.8.1 to 7.2.2; the provider now uses async connection/channel APIs.
 
 ### Security
 - Pin the test-only SQLite native library to `SQLitePCLRaw.lib.e_sqlite3` 2.1.13 to avoid the high-severity advisory affecting 2.1.11.
@@ -47,6 +54,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 - `Naravel.Filesystem`: removed `TreatWarningsAsErrors` (no other project had it; with audit on, a vulnerability warning would have failed the build). Decide the repo-wide warning policy in PDR-008.
 
 ### Verified
+- 2026-10-06, R07: `dotnet restore Naravel.slnx`, Release build and full tests succeeded; 216 passed, 7 skipped, 0 failed. Redis, Memcached, RabbitMQ and Kafka service tests were skipped because their `NARAVEL_TEST_*` variables were unset. `roadmap/check.py` passed.
 - 2026-10-05, R01: full restore/build/test passed with 202/205 tests (Redis and SQLite live; RabbitMQ/Kafka/Memcached skipped); `roadmap/check.py` and the NuGet vulnerable-package audit passed. Sample queue dispatch ran against Redis.
 - 2026-10-05, after the Cache consistency fixes: `dotnet build Naravel.slnx -c Release --no-restore` built all 20 projects without warnings/errors; `dotnet test Naravel.slnx -c Release --no-restore` passed 199/199, including 27 Cache tests. Live Redis/Memcached/AWS integration was not run.
 - 2026-10-04, **after** the changes above (.NET runtime 10.0.12, fresh restore): `dotnet build Naravel.slnx -c Release` built all 16 projects cleanly; `dotnet test` 159/159 passed. NuGet audit was on and produced no NU19xx vulnerability warnings, so the Foundation `FrameworkReference` removal and every version bump compiled and passed.
@@ -54,5 +62,5 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 
 ### Known gaps
 - `dotnet list Naravel.slnx package --vulnerable|--outdated` printed no package table on the owner's machine (twice). Treat "no vulnerabilities" as supported only by the clean audited build above, and try the commands per project (for example `dotnet list src/Naravel.Queue.RabbitMQ package --outdated`).
-- `RabbitMQ.Client` (6.8.1 -> 7.x, needs a driver rewrite), `AWSSDK.S3` (3.7.300 -> 4.x) and StackExchange.Redis 3.x are intentionally **not** upgraded; they need owner approval.
-- RabbitMQ, Kafka and Memcached live provider tests require the CI service job or matching local services. Ready-made HTTP middleware is not implemented; Stage 4b is planned inside `Naravel.Routing`.
+- `AWSSDK.S3` (3.7.300 -> 4.x) and StackExchange.Redis 3.x are intentionally **not** upgraded; they need separate approval.
+- Redis failed-job/batch, RabbitMQ, Kafka and Memcached live provider tests require the CI service job or matching local services and were not run in the R07 verification. Ready-made HTTP middleware remains staged in R05.

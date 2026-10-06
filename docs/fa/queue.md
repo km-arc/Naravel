@@ -4,6 +4,14 @@
 (`Manager<IQueueDriver, QueueOptions>`). معادل لاراول: `illuminate/queue`
 (`Queue::push()`, `Queue::connection()`, `php artisan queue:work`).
 
+## شروع سریع
+
+```csharp
+builder.Services.AddQueue(builder.Configuration).AddRedisDriver(builder.Configuration);
+builder.Services.AddQueueWorker();
+await app.Services.GetRequiredService<IJobDispatcher>().DispatchAsync(new MyJob());
+```
+
 ## پکیج‌ها
 
 | پکیج | درایور | متد ثبت |
@@ -83,6 +91,24 @@ builder.Services.AddJob<SendWelcomeEmailJob>("mail.welcome");
 پیام قدیمی دارد، پیش از ارتقا یک alias سازگاری صریح ثبت کنید. تولید JSON با source generation نیز برای هر job از طریق
 `AddJob<TJob>(jsonTypeInfo)` قابل فعال‌سازی است.
 
+## مشاهده‌پذیری و تست
+
+صف counterهای `naravel.queue.processed`، `naravel.queue.failed` و `naravel.queue.retried` و نیز
+histogram با نام `naravel.queue.processing.duration` را از meter با نام `Naravel.Queue` منتشر می‌کند.
+`ActivitySource` با همان نام span مربوط به consumer می‌سازد و `traceparent`/`tracestate` از نوع W3C
+را از envelope صف بازیابی می‌کند. metricها شناسهٔ job یا مقدار payload را ثبت نمی‌کنند.
+
+در تست برنامه، از `QueueFake` در namespace `Naravel.Queue.Testing` برای بررسی dispatch بدون worker
+یا broker استفاده کنید:
+
+```csharp
+var queue = new QueueFake();
+await queue.DispatchAsync(new SendWelcomeEmailJob("a@x.com"));
+queue.AssertDispatched<SendWelcomeEmailJob>();
+```
+
+`AssertChained<TJob>()` jobهای زنجیرهٔ dispatchشده را بررسی می‌کند.
+
 ## مثال‌ها
 
 ### تنظیمات fluent در dispatch
@@ -146,6 +172,27 @@ var batch = await dispatcher.BatchAsync(
     });
 ```
 
+    repository پیش‌فرض batch درون‌حافظه‌ای است. برای state مشترک میان workerها و ماندگار پس از restart،
+    `AddDatabaseBatchRepository<AppDbContext>()` یا `AddRedisBatchRepository("redis")` را ثبت کنید.
+    mapping مربوط به `ConfigureQueueJobs()` جدول `QueueBatches` را هم شامل می‌شود. repository پایدار
+    delegate ذخیره نمی‌کند؛ handler typed را زیر alias صریح ثبت و فقط payload JSON آن را پایدار کنید:
+
+    ```csharp
+    var callbacks = new BatchCallbackRegistry();
+    callbacks.Register<string>("mail.batch-finished", (batch, note, ct) => SendSummaryAsync(batch, note, ct));
+    builder.Services.AddSingleton(callbacks);
+
+    await dispatcher.BatchAsync(jobs, batchConfigure: options =>
+      options.Then("mail.batch-finished", "invoice batch complete").Finally("mail.batch-finished", "finished"));
+    ```
+
+    برای batch ناموفق از `Catch(alias, payload)` و برای هر دو نتیجه از `Finally(alias, payload)` استفاده
+    کنید. با `AllowFailures = true` jobهای باقی‌مانده پس از شکست دائمی ادامه می‌یابند؛ در غیر این صورت
+    batch لغو می‌شود و worker jobهای شروع‌نشده را بدون اجرا ack می‌کند. لغو صریح با
+    `IBatchRepository.CancelAsync(batchId, cancellationToken)` همین رفتار را دارد. callbackها هنگام crash
+    فرایند تضمین at-least-once دارند و باید idempotent باشند. شکست callback وضعیت آن را pending نگه
+    می‌دارد تا startup worker بعدی دوباره آن را اجرا کند.
+
 ### `Extend` در زمان اجرا (درایوری که در startup شناخته‌شده نبود)
 
 ```csharp
@@ -160,6 +207,11 @@ await dispatcher.DispatchAsync(new MyJob(), o => o.OnConnection("test-double"));
 builder.Services.AddQueueWorker(w => { w.Connection = "redis"; w.Queues = new[] { "high" }; w.Concurrency = 8; });
 builder.Services.AddQueueWorker(w => { w.Connection = "redis"; w.Queues = new[] { "default" }; w.Concurrency = 2; });
 ```
+
+چرخهٔ عمر worker را می‌توان با `StopWhenEmpty`، `MaxJobs` و `MaxRuntime` محدود کرد؛ `Rest` مکث پس از
+poll خالی را تعیین می‌کند. شمار `MaxJobs` میان loopهای هم‌زمان یک worker مشترک است و `MaxRuntime`
+گرفتن reservation جدید را متوقف می‌کند، بدون اینکه job فعال را لغو کند. ویژگی قدیمی
+`SleepWhenEmpty` همچنان alias برای `Rest` است.
 
 ### راه‌اندازی درایور Database
 
@@ -177,6 +229,28 @@ public class AppDbContext : DbContext
 ```
 سپس یک migration از EF Core بسازید و اعمال کنید.
 
+### Jobهای ناموفق
+
+`AddQueue()` به‌صورت پیش‌فرض store ناموفق‌های درون‌حافظه‌ای ثبت می‌کند. برای ماندگاری، یکی از
+`builder.Services.AddDatabaseFailedJobStore<AppDbContext>()` یا
+`builder.Services.AddRedisFailedJobStore("redis")` را ثبت کنید. `ConfigureQueueJobs()` جدول
+`QueueFailedJobs` را هم map می‌کند؛ پس از افزودن آن migration را بسازید و اعمال کنید. Redis store
+از connection انتخاب‌شدهٔ صف و hash پیش‌فرض `netqueue:failed-jobs` استفاده می‌کند.
+
+برای مشاهده و مدیریت شکست‌های نهایی از `FailedJobManager` استفاده کنید:
+
+```csharp
+var failed = app.Services.GetRequiredService<FailedJobManager>();
+var records = await failed.ListAsync(cancellationToken);
+await failed.RetryAsync(records[0].Id, cancellationToken);
+```
+
+`RetryAllAsync` تعداد retryهای موفق و شناسه‌های انتشارناموفق را برمی‌گرداند. `ForgetAsync` یک
+شکست ذخیره‌شده را حذف می‌کند؛ `FlushAsync` همهٔ شکست‌ها را بدون dispatch پاک می‌کند. retry، envelope
+اصلی را با شناسهٔ پیام جدید و شمارش تلاش صفر به connection و queue اصلی می‌فرستد و پس از موفقیت
+انتشار، رکورد شکست را حذف می‌کند. تضمین at-least-once است: اگر فرایند پس از انتشار و پیش از حذف رکورد
+کرش کند، retry ممکن است تکرار شود. handlerهای job باید idempotent باشند.
+
 ## بازیابی بعد از کرش
 
 درایورهای Redis، File و Database وقتی worker یک job بیش از `VisibilityTimeoutSeconds` (پیش‌فرض ۳۰۰ —
@@ -190,14 +264,22 @@ idempotent باشند. ادامهٔ زنجیره قبل از ack شدن job فع
 ولی این یعنی اگر پروسه بین انتشار و ack کردن job اصلی کرش کند، ممکن است ادامهٔ زنجیره دوبار منتشر شود.
 بر همین اساس طراحی کنید.
 
+با reclaim شدن reservation منقضی‌شده در Database، Redis یا File، شمار تلاش ذخیره‌شده افزایش می‌یابد.
+وقتی این شمار به `MaxAttempts` برسد، worker شکست نهایی را ثبت می‌کند و job را دوباره اجرا نمی‌کند.
+برای محدودیت هر job مقدار `Job.Timeout` را تنظیم کنید؛ worker مقدار کوچک‌تر میان آن و
+`QueueWorkerOptions.JobTimeout` را اعمال می‌کند. Driverهایی که visibility timeout دارند، اگر این مقدار
+از timeout مؤثر job به‌علاوهٔ `VisibilityTimeoutMargin` (پیش‌فرض ۱۰ ثانیه) کمتر باشد warning می‌دهند.
+Cancellation تعاونی است؛ handlerی که token را نادیده بگیرد ممکن است به اجرا ادامه دهد.
+
 ## محدودیت‌ها
 
 - **Kafka**: تلاش مجدد به انتهای topic می‌رود (ترتیب حفظ نمی‌شود)؛ `PopAsync` اولویت حداکثر ۲۵۶ پیام آماده
   در یک batch را رعایت می‌کند، اما پیام‌های رسیده پس از poll را جابه‌جا نمی‌کند؛ job تأخیردار partition را
   تا زمان مقرر مسدود می‌کند؛ `SizeAsync` مقدار -1 برمی‌گرداند.
-- **RabbitMQ**: یک channel مشترک به‌ازای هر store؛ پیام با تأخیر طولانی می‌تواند پیام‌های کوتاه‌تر بعد از
-  خودش را معطل کند. پیش از ارتقا، ready queueهایی که بدون `x-max-priority` ساخته شده‌اند باید حذف و دوباره
-  ساخته شوند.
+- **RabbitMQ**: از عملیات async در RabbitMQ.Client 7 و channel جدا برای هر delivery در حال اجرا استفاده
+  می‌کند تا acknowledgement روی channel اصلی همان delivery انجام شود. پیام با تأخیر طولانی می‌تواند
+  پیام‌های کوتاه‌تر بعد از خودش را معطل کند. پیش از ارتقا، ready queueهایی که بدون `x-max-priority`
+  ساخته شده‌اند باید حذف و دوباره ساخته شوند.
 - **Database**: هر store که از درایور `database` با همان نوع `DbContext` استفاده کند، یک جدول مشترک
   بدون ستون store/connection دارد — اگر نیاز به تفکیک دارید از `DbContext`های متفاوت استفاده کنید.
 - **storeهای اضافه‌شده بعد از startup خودکار شناسایی نمی‌شوند.** هر `AddXxxDriver()` فقط یک‌بار، در
@@ -205,7 +287,8 @@ idempotent باشند. ادامهٔ زنجیره قبل از ack شدن job فع
   تنظیمات یک store *موجود* و reload کردن کانفیگ کار می‌کند (Naravel.Foundation درایور را می‌سازد)؛ اضافه
   کردن یک نام store کاملاً جدید نیاز به ری‌استارت دارد. این دقیقاً مثل لاراول است که آن هم بدون تغییر
   کد/فایل کانفیگ و ری‌استارت اجازهٔ افزودن کانکشن نام‌دار جدید را نمی‌دهد.
-- ردیابی Batch به‌صورت پیش‌فرض درون‌حافظه‌ای است؛ برای چند پروسه `IBatchRepository` خودتان را بدهید.
+- ردیابی Batch به‌صورت پیش‌فرض درون‌حافظه‌ای است؛ برای state پایدار و چندپروسه‌ای از
+  `AddDatabaseBatchRepository<TContext>()` یا `AddRedisBatchRepository()` استفاده کنید.
 
 ## تست‌ها
 
@@ -215,7 +298,10 @@ idempotent باشند. ادامهٔ زنجیره قبل از ack شدن job فع
 - `FileDriverRecoveryTests` — بازگرداندن reservation پس از کرش worker.
 - `WorkerTests` — اجرای دقیقاً یک‌بار، retry تا موفقیت، شکست قطعی که `FailedAsync` را دقیقاً یک‌بار صدا
   می‌زند، dispatch تأخیردار، زنجیرهٔ استاتیک و داینامیک (شامل توقف زنجیره در شکست قطعی)، callback خراب
-  Batch که نه job را دوباره اجرا می‌کند و نه worker را می‌کشد.
+  Batch که نه job را دوباره اجرا می‌کند و نه worker را می‌کشد، retry job ناموفق، timeout، کنترل worker و
+  policy شکست/cancellation مربوط به batch.
+- `QueueFakeTests` و `QueueTelemetryTests` — assertionهای dispatch و chain، instrumentهای Meter، histogram
+  مدت و بازیابی context ردیابی W3C.
 - `ManagerIntegrationTests` — مهاجرت PDR-006: دو store با یک نوع درایور از هم ایزوله می‌مانند، `Extend`
   در زمان اجرا، reload کانفیگ که یک store را تغییر می‌دهد درایورش را می‌سازد، و reload بی‌ربط این کار را
   نمی‌کند.
@@ -223,8 +309,9 @@ idempotent باشند. ادامهٔ زنجیره قبل از ack شدن job فع
 `tests/Naravel.Queue.Providers.Tests` همین قرارداد را برای Database با SQLite (همیشه اجرا می‌شود)، Redis،
 RabbitMQ و Kafka استفاده می‌کند. برای اجرای هر تست زنده، `NARAVEL_TEST_REDIS=host:port`،
 `NARAVEL_TEST_RABBITMQ=amqp://user:password@host:5672/%2f` یا `NARAVEL_TEST_KAFKA=host:port` را
-تنظیم کنید؛ در غیر این صورت xUnit آن را Skip می‌کند. تست Redis انتقال وضعیت اتمیک مبتنی بر Lua را بررسی
-می‌کند و tracker مربوط به offset در Kafka برای ack خارج از ترتیب تست واحد دارد. تست‌های provider cache نیز
+تنظیم کنید؛ در غیر این صورت xUnit آن را Skip می‌کند. تست Redis انتقال وضعیت اتمیک مبتنی بر Lua و storeهای
+پایدار failed-job و batch را بررسی می‌کند. تست SQLite retry، بازیابی/cancel batch، شمارش reclaim و ذخیرهٔ
+trace envelope را پوشش می‌دهد. tracker مربوط به offset در Kafka برای ack خارج از ترتیب تست واحد دارد. تست‌های provider cache نیز
 از `NARAVEL_TEST_REDIS` و `NARAVEL_TEST_MEMCACHED=host:port` استفاده می‌کنند.
 
 job `services` در CI تست زنده را با containerهای Redis، RabbitMQ، Kafka و Memcached اجرا می‌کند. job سریع،

@@ -38,6 +38,7 @@ public sealed class RedisQueueAtomicityTests
         database.LastScript.Should().Contain("ZRANGEBYSCORE");
         database.LastScript.Should().Contain("redis.call('LPOP'");
         database.LastScript.Should().Contain("redis.call('ZADD'");
+        database.LastScript.Should().Contain("message.Attempts = (tonumber(message.Attempts) or 0) + 1");
     }
 
     private static (IConnectionMultiplexer Multiplexer, RedisDatabaseProxy Database) CreateRedisProxy()

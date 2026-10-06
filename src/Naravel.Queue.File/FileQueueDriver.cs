@@ -20,6 +20,7 @@ public class FileQueueDriver : IQueueDriver
 {
     private readonly string _basePath;
     private readonly TimeSpan _visibilityTimeout;
+    public TimeSpan? VisibilityTimeout => _visibilityTimeout;
 
     public FileQueueDriver(string basePath, TimeSpan? visibilityTimeout = null)
     {
@@ -64,7 +65,7 @@ public class FileQueueDriver : IQueueDriver
         var reservedDir = Dir(queue, "reserved");
         var now = DateTimeOffset.UtcNow;
 
-        ReclaimStaleReservations(pendingDir, reservedDir, now);
+        await ReclaimStaleReservationsAsync(pendingDir, reservedDir, now, cancellationToken);
 
         IEnumerable<string> files;
         try { files = Directory.EnumerateFiles(pendingDir, "*.json").OrderBy(f => f, StringComparer.Ordinal); }
@@ -107,13 +108,36 @@ public class FileQueueDriver : IQueueDriver
 
     // A reserved file whose last write is older than the visibility timeout belongs to a worker that most likely
     // crashed: move it back to pending so it is retried instead of being stuck forever.
-    private void ReclaimStaleReservations(string pendingDir, string reservedDir, DateTimeOffset now)
+    private async Task ReclaimStaleReservationsAsync(
+        string pendingDir,
+        string reservedDir,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
     {
         foreach (var file in Directory.EnumerateFiles(reservedDir, "*.json"))
         {
             try
             {
                 if (now - System.IO.File.GetLastWriteTimeUtc(file) < _visibilityTimeout) continue;
+                QueuedMessage message;
+                await using (var stream = new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.Asynchronous))
+                {
+                    if (now - System.IO.File.GetLastWriteTimeUtc(file) < _visibilityTimeout) continue;
+                    using (var reader = new StreamReader(stream, leaveOpen: true))
+                    {
+                        var json = await reader.ReadToEndAsync(cancellationToken);
+                        message = JsonSerializer.Deserialize<QueuedMessage>(json)!;
+                    }
+
+                    message.Attempts++;
+                    message.ReservedAt = null;
+                    var updated = JsonSerializer.SerializeToUtf8Bytes(message);
+                    stream.SetLength(0);
+                    stream.Position = 0;
+                    await stream.WriteAsync(updated, cancellationToken);
+                    await stream.FlushAsync(cancellationToken);
+                    stream.Flush(flushToDisk: true);
+                }
                 System.IO.File.Move(file, Path.Combine(pendingDir, Path.GetFileName(file)));
             }
             catch (IOException) { /* another worker reclaimed or finished it - fine */ }

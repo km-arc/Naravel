@@ -18,7 +18,7 @@ Stage template: [roadmap/STAGE-TEMPLATE.md](roadmap/STAGE-TEMPLATE.md).
 
 ## NEXT
 ```text
-NEXT: R07
+NEXT: R04
 ```
 
 ## Stages
@@ -36,7 +36,7 @@ needs the EN+FA PDR.
 | R04 | RateLimiter on Cache (Cache/locks already done; PDR-007 addendum) | R01 | PDR | TODO |
 | R05 | Http.Middleware + routing completion (legacy 4b) | R04 | GO | TODO |
 | R06 | Events (PDR-011) | R00 | PDR | TODO |
-| R07 | Queue completion A: failed jobs, attempts/timeouts, batches, worker controls, RabbitMQ async, metrics, fake (PDR-012) | R01 | PDR | TODO |
+| R07 | Queue completion A: failed jobs, attempts/timeouts, batches, worker controls, RabbitMQ async, metrics, fake (PDR-012) | R01 | PDR | DONE (2026-10-06; Release restore/build; 216 passed, 7 skipped; roadmap check passed) |
 | R08 | Queue completion B: unique/overlap/rate-limited/throttle middleware (needs Cache) | R04, R07 | PDR | TODO |
 | R09 | Mail (PDR-013) | R06, R07 | PDR | TODO |
 | R10 | Notifications (PDR-014) | R07, R09 | PDR | TODO |
@@ -54,7 +54,7 @@ R02 was completed before this roadmap existed; its R00 dependency is nominal and
 Cache, tagging, scoping and locks (PDR-007) are done (27 tests; 199/199 solution tests on 2026-10-05); R04 is only the
 RateLimiter. Routing Stage 4a is done; R05 is Stage 4b.
 
-**Default order:** R07 → R04 → R05 → R06 → R08 → R09 → R10 → R18 → R03 → R15 → R16 → R11 → R12 → R13 → R14 → R17.
+**Default order:** R04 → R05 → R06 → R08 → R09 → R10 → R18 → R03 → R15 → R16 → R11 → R12 → R13 → R14 → R17.
 Rationale: correctness and proof first (R00, R01); then the two modules that carry the project's value (Queue, Cache);
 then the most Laravel-feeling features (middleware, events, mail); thin or likely-native stages last.
 Never run two stages that edit the same project in parallel. Parallel-safe: R15, R16, R06 touch no other module.

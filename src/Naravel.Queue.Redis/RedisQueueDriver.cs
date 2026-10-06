@@ -24,6 +24,7 @@ public class RedisQueueDriver : IQueueDriver
 {
     private readonly IConnectionMultiplexer _mux;
     private readonly TimeSpan _visibilityTimeout;
+    public TimeSpan? VisibilityTimeout => _visibilityTimeout;
 
     public RedisQueueDriver(IConnectionMultiplexer mux, TimeSpan visibilityTimeout)
     {
@@ -32,6 +33,7 @@ public class RedisQueueDriver : IQueueDriver
     }
 
     private IDatabase Db => _mux.GetDatabase();
+    internal IConnectionMultiplexer Multiplexer => _mux;
 
     private static string MessagesKey(string q) => $"netqueue:{q}:messages";
     private static string DelayedKey(string q) => $"netqueue:{q}:delayed";
@@ -57,6 +59,8 @@ public class RedisQueueDriver : IQueueDriver
                 local json = redis.call('HGET', KEYS[1], id)
                 if json then
                     local message = cjson.decode(json)
+                    message.Attempts = (tonumber(message.Attempts) or 0) + 1
+                    redis.call('HSET', KEYS[1], id, cjson.encode(message))
                     local priority = math.max(0, math.min(9, tonumber(message.Priority) or 0))
                     redis.call('RPUSH', KEYS[13 - priority], id)
                 end

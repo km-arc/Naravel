@@ -65,8 +65,9 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 ## R07 — Queue completion A
 
 - Laravel surface: `Illuminate\Contracts\Queue\Job`, failed job provider, queue middleware, batches and worker controls.
-- Naravel: existing queue manager, drivers, worker, retry, chaining and batching; completion gaps are audited.
-- Value: reliable operational controls and consistent provider behavior.
+- Naravel: failed-job storage and retry, reclaim attempts and per-job timeouts, persistent Database/Redis batches,
+  worker controls, RabbitMQ.Client 7 async operations, queue metrics/tracing and a dispatcher fake.
+- Value: reliable failure recovery, batch coordination and consistent provider behavior.
 - Native baseline: hosted services, cancellation, health checks and provider-native acknowledgement.
 - API reference: [Illuminate Queue Worker](https://api.laravel.com/docs/13.x/Illuminate/Queue/Worker.html).
 

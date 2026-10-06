@@ -30,7 +30,9 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IJobSerializer, JsonJobSerializer>();
         services.TryAddSingleton<IJobDispatcher, JobDispatcher>();
         services.TryAddSingleton<IFailedJobStore, InMemoryFailedJobStore>();
-        services.TryAddSingleton<IBatchRepository, InMemoryBatchRepository>();
+        services.TryAddSingleton<FailedJobManager>();
+        services.TryAddSingleton<BatchCallbackRegistry>();
+        services.TryAddSingleton<IBatchRepository>(sp => new InMemoryBatchRepository(sp.GetRequiredService<BatchCallbackRegistry>()));
         return services;
     }
 

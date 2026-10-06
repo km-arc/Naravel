@@ -2,11 +2,13 @@ using System.Collections.Concurrent;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Diagnostics;
 using Naravel.Queue.Dispatch;
 using Naravel.Queue.Extensions;
 using Naravel.Queue.Jobs;
 using Naravel.Queue.Memory;
 using Naravel.Queue.Serialization;
+using Naravel.Queue.Worker;
 using System.Text.Json;
 
 namespace Naravel.Queue.Tests;
@@ -59,6 +61,79 @@ public class AlwaysFailingJob : Job
     public override Task FailedAsync(JobContext context, Exception exception, CancellationToken ct)
     {
         Recorder.Add(RunId, "failed");
+        return Task.CompletedTask;
+    }
+}
+
+public class FailFirstExecutionsJob : Job
+{
+    public string RunId { get; set; } = "";
+    public int FailuresBeforeSuccess { get; set; }
+    public override int MaxAttempts => 2;
+    public override TimeSpan[] Backoff => new[] { TimeSpan.FromMilliseconds(10) };
+
+    public override Task HandleAsync(JobContext context, CancellationToken ct)
+    {
+        Recorder.Add(RunId, "attempt");
+        if (Recorder.Count(RunId, "attempt") <= FailuresBeforeSuccess)
+            throw new InvalidOperationException("not yet");
+
+        Recorder.Add(RunId, "succeeded");
+        return Task.CompletedTask;
+    }
+}
+
+public class JobTimeoutJob : Job
+{
+    public string RunId { get; set; } = "";
+    public override int MaxAttempts => 1;
+    public override TimeSpan? Timeout => TimeSpan.FromMilliseconds(50);
+
+    public override Task HandleAsync(JobContext context, CancellationToken ct)
+        => Task.Delay(System.Threading.Timeout.Infinite, ct);
+
+    public override Task FailedAsync(JobContext context, Exception exception, CancellationToken ct)
+    {
+        Recorder.Add(RunId, "failed");
+        return Task.CompletedTask;
+    }
+}
+
+public sealed class BatchGate
+{
+    public TaskCompletionSource<bool> Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public TaskCompletionSource<bool> Continue { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+}
+
+public static class BatchGates
+{
+    private static readonly ConcurrentDictionary<string, BatchGate> Gates = new();
+
+    public static void Add(string id, BatchGate gate) => Gates[id] = gate;
+    public static bool Remove(string id) => Gates.TryRemove(id, out _);
+    public static BatchGate Get(string id) => Gates[id];
+}
+
+public class BlockingBatchJob : Job
+{
+    public string RunId { get; set; } = "";
+
+    public override async Task HandleAsync(JobContext context, CancellationToken ct)
+    {
+        var gate = BatchGates.Get(RunId);
+        gate.Started.TrySetResult(true);
+        await gate.Continue.Task.WaitAsync(ct);
+    }
+}
+
+public class TraceRecordingJob : Job
+{
+    public string RunId { get; set; } = "";
+
+    public override Task HandleAsync(JobContext context, CancellationToken ct)
+    {
+        var activity = Activity.Current;
+        Recorder.Add(RunId, $"{activity?.TraceId.ToString()}|{activity?.TraceStateString}");
         return Task.CompletedTask;
     }
 }
@@ -153,7 +228,7 @@ public sealed class QueueTestHost : IAsyncDisposable
     public IJobDispatcher Dispatcher => Services.GetRequiredService<IJobDispatcher>();
     private readonly List<IHostedService> _workers;
 
-    public QueueTestHost(int concurrency = 1, IEnumerable<string>? additionalConnections = null, string? workerConnection = null, string[]? queues = null, Action<IServiceCollection>? configureServices = null)
+    public QueueTestHost(int concurrency = 1, IEnumerable<string>? additionalConnections = null, string? workerConnection = null, string[]? queues = null, Action<IServiceCollection>? configureServices = null, Action<QueueWorkerOptions>? configureWorker = null)
     {
         var connections = new[] { Connection }.Concat(additionalConnections ?? Array.Empty<string>()).Distinct().ToArray();
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
@@ -174,6 +249,7 @@ public sealed class QueueTestHost : IAsyncDisposable
             o.Queues = queues ?? new[] { "q" };
             o.Concurrency = concurrency;
             o.SleepWhenEmpty = TimeSpan.FromMilliseconds(15);
+            configureWorker?.Invoke(o);
         });
         Services = services.BuildServiceProvider();
         _workers = Services.GetServices<IHostedService>().ToList();
@@ -201,5 +277,16 @@ public static class Wait
             await Task.Delay(10);
         }
         return condition();
+    }
+
+    public static async Task<bool> UntilAsync(Func<Task<bool>> condition, int timeoutMs = 5000)
+    {
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (DateTime.UtcNow < deadline)
+        {
+            if (await condition()) return true;
+            await Task.Delay(10);
+        }
+        return await condition();
     }
 }

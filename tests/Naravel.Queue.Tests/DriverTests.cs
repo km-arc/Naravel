@@ -112,7 +112,10 @@ public abstract class QueueDriverContractTests : IDisposable
         }
         finally
         {
-            if (driver is IDisposable disposable) disposable.Dispose();
+            if (driver is IAsyncDisposable asyncDisposable)
+                await asyncDisposable.DisposeAsync();
+            else if (driver is IDisposable disposable)
+                disposable.Dispose();
             await CleanupAsync();
         }
     }
@@ -167,6 +170,8 @@ public class FileDriverRecoveryTests : IDisposable
         (await d.PopAsync("q")).Should().BeNull();        // still within the timeout
 
         await Task.Delay(300);
-        (await d.PopAsync("q"))!.Id.Should().Be(m.Id);   // reclaimed
+        var reclaimed = await d.PopAsync("q");
+        reclaimed!.Id.Should().Be(m.Id);
+        reclaimed.Attempts.Should().Be(1);
     }
 }

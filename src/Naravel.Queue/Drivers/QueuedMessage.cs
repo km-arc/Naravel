@@ -44,4 +44,10 @@ public class QueuedMessage
 
     /// <summary>Identifier of the batch this job belongs to, if dispatched via IJobDispatcher.BatchAsync.</summary>
     public string? BatchId { get; set; }
+
+    /// <summary>W3C traceparent captured when this message was dispatched.</summary>
+    public string? TraceParent { get; set; }
+
+    /// <summary>W3C tracestate captured when this message was dispatched.</summary>
+    public string? TraceState { get; set; }
 }

@@ -6,6 +6,7 @@ using Naravel.Queue;
 using Naravel.Queue.Drivers;
 using Naravel.Queue.Extensions;
 using Naravel.Queue.Events;
+using Naravel.Queue.Failed;
 using Naravel.Queue.Jobs;
 using Naravel.Queue.Serialization;
 
@@ -49,6 +50,53 @@ public class WorkerTests
         await Task.Delay(200);
         Recorder.Count(id, "attempt").Should().Be(2);
         Recorder.Count(id, "failed").Should().Be(1);
+
+        var failedJobs = await host.Services.GetRequiredService<IFailedJobStore>().ListAsync(CancellationToken.None);
+        failedJobs.Should().ContainSingle(job => job.Error!.Contains("always", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_failed_job_can_be_retried_and_is_removed_after_dispatch()
+    {
+        await using var host = new QueueTestHost();
+        var id = NewId();
+        var messageId = await host.Dispatch(new FailFirstExecutionsJob { RunId = id, FailuresBeforeSuccess = 2 });
+        var failedJobs = host.Services.GetRequiredService<FailedJobManager>();
+
+        (await Wait.UntilAsync(async () => (await failedJobs.ListAsync()).Count == 1)).Should().BeTrue();
+        (await failedJobs.RetryAsync(messageId)).Should().BeTrue();
+        (await Wait.Until(() => Recorder.Count(id, "succeeded") == 1)).Should().BeTrue();
+        (await failedJobs.ListAsync()).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task A_job_specific_timeout_cancels_a_long_running_job()
+    {
+        await using var host = new QueueTestHost();
+        var id = NewId();
+        await host.Dispatch(new JobTimeoutJob { RunId = id });
+
+        (await Wait.Until(() => Recorder.Count(id, "failed") == 1)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task A_reclaimed_job_at_its_attempt_limit_fails_without_another_execution()
+    {
+        var id = NewId();
+        await using var host = new QueueTestHost(configureServices: services => services.AddJob<AlwaysFailingJob>());
+        var job = new AlwaysFailingJob { RunId = id };
+        await host.Services.GetRequiredService<QueueManager>().Connection(host.Connection).PushAsync(new QueuedMessage
+        {
+            Queue = "q",
+            Connection = host.Connection,
+            JobType = typeof(AlwaysFailingJob).FullName!,
+            Payload = JsonSerializer.Serialize(job),
+            Attempts = job.MaxAttempts,
+            MaxAttempts = job.MaxAttempts
+        });
+
+        (await Wait.Until(() => Recorder.Count(id, "failed") == 1)).Should().BeTrue();
+        Recorder.Count(id, "attempt").Should().Be(0);
     }
 
     [Fact]
@@ -252,5 +300,114 @@ public class WorkerTests
         var batch = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
         batch.CompletedJobs.Should().Be(3);
         batch.FailedJobs.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Cancelling_a_batch_stops_jobs_that_have_not_started()
+    {
+        await using var host = new QueueTestHost();
+        var gate = new BatchGate();
+        var blockingId = NewId();
+        var skippedId = NewId();
+        BatchGates.Add(blockingId, gate);
+
+        var batch = await host.Dispatcher.BatchAsync(
+            new IJob[]
+            {
+                new BlockingBatchJob { RunId = blockingId },
+                new RecordingJob { RunId = skippedId }
+            },
+            options => options.OnQueue("q"));
+
+        await gate.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await host.Services.GetRequiredService<IBatchRepository>().CancelAsync(batch.Id, CancellationToken.None);
+        gate.Continue.TrySetResult(true);
+
+        (await Wait.Until(() => batch.IsFinished)).Should().BeTrue();
+        batch.CancelledJobs.Should().Be(1);
+        Recorder.Count(skippedId, "run").Should().Be(0);
+        BatchGates.Remove(blockingId).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AllowFailures_keeps_later_batch_jobs_runnable()
+    {
+        await using var host = new QueueTestHost();
+        var failedId = NewId();
+        var remainingId = NewId();
+
+        await host.Dispatcher.BatchAsync(
+            new IJob[]
+            {
+                new AlwaysFailingJob { RunId = failedId },
+                new RecordingJob { RunId = remainingId }
+            },
+            options => options.OnQueue("q"),
+            options => options.AllowFailures = true);
+
+        (await Wait.Until(() => Recorder.Count(failedId, "failed") == 1)).Should().BeTrue();
+        (await Wait.Until(() => Recorder.Count(remainingId, "run") == 1)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task StopWhenEmpty_exits_after_an_empty_poll()
+    {
+        await using var host = new QueueTestHost(configureWorker: options => options.StopWhenEmpty = true);
+        await Task.Delay(100);
+        var id = NewId();
+        await host.Dispatch(new RecordingJob { RunId = id });
+        await Task.Delay(100);
+        Recorder.Count(id, "run").Should().Be(0);
+    }
+
+    [Fact]
+    public async Task MaxJobs_stops_the_worker_after_the_configured_number()
+    {
+        await using var host = new QueueTestHost(concurrency: 4, configureWorker: options => options.MaxJobs = 1);
+        var first = NewId();
+        var second = NewId();
+        await host.Dispatch(new RecordingJob { RunId = first });
+        (await Wait.Until(() => Recorder.Count(first, "run") == 1)).Should().BeTrue();
+        await host.Dispatch(new RecordingJob { RunId = second });
+        await Task.Delay(100);
+        Recorder.Count(second, "run").Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Rest_delays_the_next_poll_after_an_empty_queue()
+    {
+        await using var host = new QueueTestHost(
+            configureWorker: options => options.Rest = TimeSpan.FromMilliseconds(350));
+        await Task.Delay(30);
+        var id = NewId();
+        await host.Dispatch(new RecordingJob { RunId = id });
+
+        await Task.Delay(100);
+        Recorder.Count(id, "run").Should().Be(0);
+        (await Wait.Until(() => Recorder.Count(id, "run") == 1, timeoutMs: 3000)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task MaxRuntime_stops_new_work_but_allows_the_active_job_to_finish()
+    {
+        await using var host = new QueueTestHost(configureWorker: options => options.MaxRuntime = TimeSpan.FromMilliseconds(100));
+        var gate = new BatchGate();
+        var activeId = NewId();
+        var queuedId = NewId();
+        BatchGates.Add(activeId, gate);
+        try
+        {
+            await host.Dispatch(new BlockingBatchJob { RunId = activeId });
+            await gate.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await host.Dispatch(new RecordingJob { RunId = queuedId });
+            await Task.Delay(150);
+            gate.Continue.TrySetResult(true);
+            await Task.Delay(100);
+            Recorder.Count(queuedId, "run").Should().Be(0);
+        }
+        finally
+        {
+            BatchGates.Remove(activeId);
+        }
     }
 }

@@ -1,9 +1,13 @@
 using Confluent.Kafka;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Naravel.Queue.Batching;
 using Naravel.Queue.Database;
 using Naravel.Queue.Drivers;
+using Naravel.Queue.Failed;
+using Naravel.Queue.Jobs;
 using Naravel.Queue.Kafka;
 using Naravel.Queue.Providers.Tests;
 using Naravel.Queue.Redis;
@@ -31,6 +35,125 @@ public sealed class DatabaseQueueProviderTests : QueueDriverContractTests
 
     [Fact]
     public Task Shared_contract() => RunContractAsync();
+
+    [Fact]
+    public async Task Reclaimed_reservation_increments_attempt_count()
+    {
+        var driver = new DatabaseQueueDriver<SqliteQueueContext>(
+            new SqliteQueueContextFactory(_options), TimeSpan.FromMilliseconds(100));
+        var message = new QueuedMessage { Queue = "reclaim", JobType = "job", Payload = "{}" };
+        await driver.PushAsync(message);
+        (await driver.PopAsync("reclaim"))!.Attempts.Should().Be(0);
+
+        await Task.Delay(250);
+        var reclaimed = await driver.PopAsync("reclaim");
+        reclaimed!.Id.Should().Be(message.Id);
+        reclaimed.Attempts.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Database_driver_roundtrips_connection_and_trace_context()
+    {
+        var driver = new DatabaseQueueDriver<SqliteQueueContext>(new SqliteQueueContextFactory(_options));
+        var message = new QueuedMessage
+        {
+            Queue = "trace",
+            Connection = "sqlite-store",
+            JobType = "job",
+            Payload = "{}",
+            TraceParent = "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01",
+            TraceState = "vendor=naravel"
+        };
+
+        await driver.PushAsync(message);
+        var popped = await driver.PopAsync("trace");
+
+        popped!.Connection.Should().Be("sqlite-store");
+        popped.TraceParent.Should().Be(message.TraceParent);
+        popped.TraceState.Should().Be(message.TraceState);
+    }
+
+    [Fact]
+    public async Task Batch_state_survives_repository_recreation_and_cancellation_skips_pending_jobs()
+    {
+        var factory = new SqliteQueueContextFactory(_options);
+        var gate = new BatchGate();
+        var blockingId = Guid.NewGuid().ToString("N");
+        var skippedId = Guid.NewGuid().ToString("N");
+        var callbackResult = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var callbacks = new BatchCallbackRegistry();
+        callbacks.Register<string>("batch.finished", (completedBatch, payload, _) =>
+        {
+            callbackResult.TrySetResult($"{payload}:{completedBatch.CompletedJobs}:{completedBatch.CancelledJobs}");
+            return Task.CompletedTask;
+        });
+        BatchGates.Add(blockingId, gate);
+        try
+        {
+            await using var host = new QueueTestHost(configureServices: services =>
+            {
+                services.AddSingleton<IDbContextFactory<SqliteQueueContext>>(factory);
+                services.AddSingleton(callbacks);
+                services.AddDatabaseBatchRepository<SqliteQueueContext>();
+            });
+            var batch = await host.Dispatcher.BatchAsync(
+                new IJob[]
+                {
+                    new BlockingBatchJob { RunId = blockingId },
+                    new RecordingJob { RunId = skippedId }
+                },
+                options => options.OnQueue("q"),
+                options =>
+                {
+                    options.AllowFailures = true;
+                    options.Finally("batch.finished", "persisted");
+                });
+            var repository = new DatabaseBatchRepository<SqliteQueueContext>(factory, new BatchCallbackRegistry());
+
+            await gate.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            (await repository.GetAsync(batch.Id, CancellationToken.None))!.PendingJobs.Should().Be(2);
+            await repository.CancelAsync(batch.Id, CancellationToken.None);
+            gate.Continue.TrySetResult(true);
+
+            (await Wait.UntilAsync(async () => (await repository.GetAsync(batch.Id, CancellationToken.None))?.IsFinished == true)).Should().BeTrue();
+            var persisted = await new DatabaseBatchRepository<SqliteQueueContext>(factory, new BatchCallbackRegistry())
+                .GetAsync(batch.Id, CancellationToken.None);
+            persisted!.CompletedJobs.Should().Be(1);
+            persisted.CancelledJobs.Should().Be(1);
+            persisted.AllowFailures.Should().BeTrue();
+            Recorder.Count(skippedId, "run").Should().Be(0);
+            (await callbackResult.Task.WaitAsync(TimeSpan.FromSeconds(5))).Should().Be("persisted:1:1");
+        }
+        finally
+        {
+            BatchGates.Remove(blockingId);
+        }
+    }
+
+    [Fact]
+    public async Task Failed_job_can_be_retried_after_recreating_the_sqlite_store()
+    {
+        var factory = new SqliteQueueContextFactory(_options);
+        await using var host = new QueueTestHost(configureServices: services =>
+        {
+            services.AddSingleton<IDbContextFactory<SqliteQueueContext>>(factory);
+            services.AddDatabaseFailedJobStore<SqliteQueueContext>();
+        });
+        var failedJobs = host.Services.GetRequiredService<FailedJobManager>();
+        var runId = Guid.NewGuid().ToString("N");
+        var messageId = await host.Dispatch(new FailFirstExecutionsJob
+        {
+            RunId = runId,
+            FailuresBeforeSuccess = 2
+        });
+
+        (await Wait.UntilAsync(async () => (await new DatabaseFailedJobStore<SqliteQueueContext>(factory)
+            .ListAsync(CancellationToken.None)).Count == 1)).Should().BeTrue();
+        (await failedJobs.RetryAsync(messageId)).Should().BeTrue();
+        (await Wait.Until(() => Recorder.Count(runId, "succeeded") == 1)).Should().BeTrue();
+        (await new DatabaseFailedJobStore<SqliteQueueContext>(factory)
+            .ListAsync(CancellationToken.None)).Should().BeEmpty();
+    }
 
     protected override IQueueDriver CreateDriver()
         => new DatabaseQueueDriver<SqliteQueueContext>(new SqliteQueueContextFactory(_options));
@@ -74,6 +197,54 @@ public sealed class RedisQueueProviderTests : QueueDriverContractTests
     }
 }
 
+public sealed class RedisFailedJobStoreTests
+{
+    [ServiceFact("NARAVEL_TEST_REDIS")]
+    public async Task Failed_records_survive_store_recreation_and_support_forget_and_flush()
+    {
+        using var multiplexer = ConnectionMultiplexer.Connect(Environment.GetEnvironmentVariable("NARAVEL_TEST_REDIS")!);
+        var key = $"netqueue:tests:failed:{Guid.NewGuid():N}";
+        var store = new RedisFailedJobStore(multiplexer, key);
+        var first = new QueuedMessage { Id = Guid.NewGuid().ToString("N"), Queue = "q", JobType = "recording", Payload = "{}" };
+        var second = new QueuedMessage { Id = Guid.NewGuid().ToString("N"), Queue = "q", JobType = "recording", Payload = "{}" };
+        await store.RecordAsync(first, new InvalidOperationException("first"), CancellationToken.None);
+        await store.RecordAsync(second, new InvalidOperationException("second"), CancellationToken.None);
+
+        var recreatedStore = new RedisFailedJobStore(multiplexer, key);
+        (await recreatedStore.ListAsync(CancellationToken.None)).Should().HaveCount(2);
+        (await recreatedStore.ForgetAsync(first.Id, CancellationToken.None)).Should().BeTrue();
+        (await recreatedStore.FlushAsync(CancellationToken.None)).Should().Be(1);
+        (await recreatedStore.ListAsync(CancellationToken.None)).Should().BeEmpty();
+    }
+}
+
+public sealed class RedisBatchRepositoryTests
+{
+    [ServiceFact("NARAVEL_TEST_REDIS")]
+    public async Task Batch_state_survives_repository_recreation()
+    {
+        using var multiplexer = ConnectionMultiplexer.Connect(Environment.GetEnvironmentVariable("NARAVEL_TEST_REDIS")!);
+        var keyPrefix = $"netqueue:tests:batches:{Guid.NewGuid():N}";
+        var callbacks = new BatchCallbackRegistry();
+        var repository = new RedisBatchRepository(multiplexer, callbacks, keyPrefix);
+        var batch = new QueueBatch { TotalJobs = 2 };
+        await repository.RegisterAsync(batch, new BatchOptions { AllowFailures = true }, CancellationToken.None);
+        await repository.MarkJobCompletedAsync(batch.Id, CancellationToken.None);
+
+        var recreated = new RedisBatchRepository(multiplexer, callbacks, keyPrefix);
+        (await recreated.GetAsync(batch.Id, CancellationToken.None))!.CompletedJobs.Should().Be(1);
+        await recreated.CancelAsync(batch.Id, CancellationToken.None);
+        await recreated.MarkJobCancelledAsync(batch.Id, CancellationToken.None);
+        var persisted = await recreated.GetAsync(batch.Id, CancellationToken.None);
+        persisted!.IsFinished.Should().BeTrue();
+        persisted.IsCancelled.Should().BeTrue();
+
+        var database = multiplexer.GetDatabase();
+        await database.KeyDeleteAsync($"{keyPrefix}:{batch.Id}");
+        await database.SetRemoveAsync($"{keyPrefix}:index", batch.Id);
+    }
+}
+
 public sealed class RabbitMqQueueProviderTests : QueueDriverContractTests
 {
     [ServiceFact("NARAVEL_TEST_RABBITMQ")]
@@ -92,7 +263,7 @@ public sealed class RabbitMqQueueProviderTests : QueueDriverContractTests
             string.IsNullOrEmpty(virtualHost) ? "/" : virtualHost);
     }
 
-    protected override Task CleanupAsync()
+    protected override async Task CleanupAsync()
     {
         var uri = new Uri(Environment.GetEnvironmentVariable("NARAVEL_TEST_RABBITMQ")!);
         var credentials = uri.UserInfo.Split(':', 2);
@@ -102,18 +273,20 @@ public sealed class RabbitMqQueueProviderTests : QueueDriverContractTests
             Port = uri.Port,
             UserName = credentials.Length > 0 ? Uri.UnescapeDataString(credentials[0]) : "guest",
             Password = credentials.Length > 1 ? Uri.UnescapeDataString(credentials[1]) : "guest",
-            VirtualHost = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/'))
+            VirtualHost = string.IsNullOrEmpty(uri.AbsolutePath.TrimStart('/'))
+                ? "/"
+                : Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/')),
+            ClientProvidedName = "naravel-tests-cleanup"
         };
 
-        using var connection = factory.CreateConnection("naravel-tests-cleanup");
-        using var channel = connection.CreateModel();
+        await using var connection = await factory.CreateConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
         foreach (var queue in UsedQueueNames)
         {
-            channel.QueueDelete($"netqueue.ready.{queue}");
-            channel.QueueDelete($"netqueue.delay.{queue}");
-            channel.QueueDelete($"netqueue.failed.{queue}");
+            await channel.QueueDeleteAsync($"netqueue.ready.{queue}");
+            await channel.QueueDeleteAsync($"netqueue.delay.{queue}");
+            await channel.QueueDeleteAsync($"netqueue.failed.{queue}");
         }
-        return Task.CompletedTask;
     }
 }
 

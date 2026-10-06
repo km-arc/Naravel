@@ -17,7 +17,7 @@
 | Hot reload کانفیگ | `IOptionsMonitor` + invalidate با fingerprint | Adapted | لاراول ندارد. PDR-004 |
 | Service providers | متدهای extension DI (`AddNaravelX`) | Adapted | به‌ازای هر ماژول؛ اگر ماژولی به deferred provider نیاز داشت بازبینی شود |
 | Facadeها (`Cache::get`) | — | Open | قبل از هر کاری PDR جدا لازم است |
-| `illuminate/queue` | `Naravel.Queue` (+ Memory/File/Redis/Database/RabbitMQ/Kafka) | Adapted | PDR-006؛ alias صریح و محافظت deserialization در R00؛ قرارداد مشترک providerها، تست‌های env-gated، انتقال اتمیک Redis و commit مرتب offsetهای Kafka در R01 |
+| `illuminate/queue` | `Naravel.Queue` (+ Memory/File/Redis/Database/RabbitMQ/Kafka) | Adapted | PDR-006؛ alias صریح و محافظت deserialization در R00؛ قرارداد مشترک providerها، تست‌های env-gated، انتقال اتمیک Redis و commit مرتب offsetهای Kafka در R01؛ retry job ناموفق، batch پایدار، timeout/کنترل worker، API async در RabbitMQ.Client 7، metric و Fake در R07 |
 | `illuminate/cache` | `Naravel.Cache` (+ Redis، Memcached) | Adapted | PDR-007؛ managerهای Foundation، providerهای Memory/Redis/Memcached، tag version، scope و lock توکنی؛ قرارداد مشترک و تست زندهٔ env-gated برای Redis/Memcached در R01 |
 | `illuminate/filesystem` (`Storage::disk`) | `Naravel.Filesystem` (Local، S3) | Adapted | مهاجرت به Foundation طبق PDR-008 تأییدشده پیاده‌سازی شده؛ محافظت traversal حفظ شده؛ ۲۰ تست متمرکز، در مجموعهٔ ۱۷۲ تستی solution در ۲۰۲۶-۱۰-۰۴ موفق بوده‌اند |
 | Mail / Session / Events / Notifications / Broadcasting | ماژول‌های آینده | Open | ترتیب پیشنهادی: Mail ← Session ← Events ← Notifications ← Broadcasting |

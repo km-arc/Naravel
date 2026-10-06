@@ -16,6 +16,7 @@ public class DatabaseQueueDriver<TContext> : IQueueDriver where TContext : DbCon
     private readonly IDbContextFactory<TContext> _contextFactory;
 
     private readonly TimeSpan _visibilityTimeout;
+    public TimeSpan? VisibilityTimeout => _visibilityTimeout;
 
     public DatabaseQueueDriver(IDbContextFactory<TContext> contextFactory, TimeSpan? visibilityTimeout = null)
     {
@@ -39,7 +40,9 @@ public class DatabaseQueueDriver<TContext> : IQueueDriver where TContext : DbCon
         var staleBefore = now - _visibilityTimeout;
         await db.Set<JobRecord>()
             .Where(j => j.Queue == queue && j.FailedAt == null && j.ReservedAt != null && j.ReservedAt < staleBefore)
-            .ExecuteUpdateAsync(s => s.SetProperty(j => j.ReservedAt, (DateTimeOffset?)null), cancellationToken);
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(j => j.ReservedAt, (DateTimeOffset?)null)
+                .SetProperty(j => j.Attempts, j => j.Attempts + 1), cancellationToken);
 
         // Grab a batch of candidates in priority/availability order, then try to claim them one by one.
         var candidates = await db.Set<JobRecord>()
@@ -104,6 +107,7 @@ public class DatabaseQueueDriver<TContext> : IQueueDriver where TContext : DbCon
     {
         Id = m.Id,
         Queue = m.Queue,
+        Connection = m.Connection,
         JobType = m.JobType,
         Payload = m.Payload,
         Attempts = m.Attempts,
@@ -114,13 +118,16 @@ public class DatabaseQueueDriver<TContext> : IQueueDriver where TContext : DbCon
         ReservedAt = m.ReservedAt,
         Error = m.Error,
         ChainedJobPayload = m.ChainedJobPayload,
-        BatchId = m.BatchId
+        BatchId = m.BatchId,
+        TraceParent = m.TraceParent,
+        TraceState = m.TraceState
     };
 
     private static QueuedMessage ToMessage(JobRecord r) => new()
     {
         Id = r.Id,
         Queue = r.Queue,
+        Connection = r.Connection,
         JobType = r.JobType,
         Payload = r.Payload,
         Attempts = r.Attempts,
@@ -131,6 +138,8 @@ public class DatabaseQueueDriver<TContext> : IQueueDriver where TContext : DbCon
         ReservedAt = r.ReservedAt,
         Error = r.Error,
         ChainedJobPayload = r.ChainedJobPayload,
-        BatchId = r.BatchId
+        BatchId = r.BatchId,
+        TraceParent = r.TraceParent,
+        TraceState = r.TraceState
     };
 }

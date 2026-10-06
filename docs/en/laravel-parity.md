@@ -17,7 +17,7 @@ Status: **Adopted** (ported as is) · **Adapted** (same goal, .NET-idiomatic for
 | Config hot reload | `IOptionsMonitor` + fingerprint invalidation | Adapted | Laravel has none. PDR-004 |
 | Service providers | DI extension methods (`AddNaravelX`) | Adapted | Per-module; revisit when a module needs deferred providers |
 | Facades (`Cache::get`) | — | Open | Needs its own PDR before any work |
-| `illuminate/queue` | `Naravel.Queue` (+ Memory/File/Redis/Database/RabbitMQ/Kafka) | Adapted | PDR-006; explicit aliases and guarded deserialization in R00; shared provider contracts, env-gated tests, atomic Redis transitions and ordered Kafka commits in R01 |
+| `illuminate/queue` | `Naravel.Queue` (+ Memory/File/Redis/Database/RabbitMQ/Kafka) | Adapted | PDR-006; explicit aliases and guarded deserialization in R00; shared provider contracts, env-gated tests, atomic Redis transitions and ordered Kafka commits in R01; failed-job retry, persistent batches, timeouts/worker controls, RabbitMQ.Client 7 async, metrics and Fake in R07 |
 | `illuminate/cache` | `Naravel.Cache` (+ Redis, Memcached) | Adapted | PDR-007; Foundation managers, Memory/Redis/Memcached providers, tag versions, scopes and token locks; shared contracts and env-gated Redis/Memcached integration in R01 |
 | `illuminate/filesystem` (`Storage::disk`) | `Naravel.Filesystem` (Local, S3) | Adapted | Foundation migration implemented under approved PDR-008; local traversal protection retained; 20 focused tests passed, included in the 172-test solution run on 2026-10-04 |
 | Mail / Session / Events / Notifications / Broadcasting | future modules | Open | Suggested order: Mail → Session → Events → Notifications → Broadcasting |

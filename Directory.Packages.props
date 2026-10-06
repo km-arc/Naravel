@@ -23,7 +23,7 @@
     <PackageVersion Include="EnyimMemcachedCore" Version="3.2.0" />
     <PackageVersion Include="MessagePack" Version="2.5.301" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageVersion Include="RabbitMQ.Client" Version="6.8.1" />
+    <PackageVersion Include="RabbitMQ.Client" Version="7.2.2" />
     <PackageVersion Include="Confluent.Kafka" Version="2.15.1" />
     <PackageVersion Include="AWSSDK.S3" Version="3.7.300" />
     

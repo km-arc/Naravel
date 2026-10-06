@@ -8,6 +8,9 @@ namespace Naravel.Queue.Drivers;
 /// </summary>
 public interface IQueueDriver
 {
+    /// <summary>Maximum reservation lifetime before a driver reclaims an unacknowledged message, if applicable.</summary>
+    TimeSpan? VisibilityTimeout => null;
+
     /// <summary>Enqueue a new message (or a retried one) respecting its AvailableAt/Priority.</summary>
     Task PushAsync(QueuedMessage message, CancellationToken cancellationToken = default);
 

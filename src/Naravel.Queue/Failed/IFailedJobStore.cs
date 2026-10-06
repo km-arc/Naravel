@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using Naravel.Queue.Drivers;
 
 namespace Naravel.Queue.Failed;
@@ -13,6 +14,7 @@ public interface IFailedJobStore
     Task RecordAsync(QueuedMessage message, Exception exception, CancellationToken cancellationToken);
     Task<IReadOnlyList<QueuedMessage>> ListAsync(CancellationToken cancellationToken);
     Task<bool> ForgetAsync(string id, CancellationToken cancellationToken);
+    Task<int> FlushAsync(CancellationToken cancellationToken);
 }
 
 /// <summary>Default in-process implementation. Swap for a persistent one (DB/Redis) in production if you need
@@ -23,14 +25,32 @@ public class InMemoryFailedJobStore : IFailedJobStore
 
     public Task RecordAsync(QueuedMessage message, Exception exception, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         message.Error = exception.ToString();
-        _failed[message.Id] = message;
+        _failed[message.Id] = Clone(message);
         return Task.CompletedTask;
     }
 
     public Task<IReadOnlyList<QueuedMessage>> ListAsync(CancellationToken cancellationToken)
-        => Task.FromResult<IReadOnlyList<QueuedMessage>>(_failed.Values.ToList());
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult<IReadOnlyList<QueuedMessage>>(_failed.Values.Select(Clone).ToList());
+    }
 
     public Task<bool> ForgetAsync(string id, CancellationToken cancellationToken)
-        => Task.FromResult(_failed.TryRemove(id, out _));
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(_failed.TryRemove(id, out _));
+    }
+
+    public Task<int> FlushAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var count = _failed.Count;
+        _failed.Clear();
+        return Task.FromResult(count);
+    }
+
+    private static QueuedMessage Clone(QueuedMessage message)
+        => JsonSerializer.Deserialize<QueuedMessage>(JsonSerializer.Serialize(message))!;
 }

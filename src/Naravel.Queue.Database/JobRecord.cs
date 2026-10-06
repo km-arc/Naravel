@@ -6,6 +6,7 @@ public class JobRecord
 {
     public string Id { get; set; } = default!;
     public string Queue { get; set; } = default!;
+    public string? Connection { get; set; }
     public string JobType { get; set; } = default!;
     public string Payload { get; set; } = default!;
     public int Attempts { get; set; }
@@ -18,4 +19,6 @@ public class JobRecord
     public string? Error { get; set; }
     public string? ChainedJobPayload { get; set; }
     public string? BatchId { get; set; }
+    public string? TraceParent { get; set; }
+    public string? TraceState { get; set; }
 }

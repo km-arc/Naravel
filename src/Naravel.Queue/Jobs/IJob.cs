@@ -35,6 +35,9 @@ public abstract class Job : IJob, IFailedJobHandler
     /// <summary>Connection (driver) name this job should be pushed to, unless overridden at dispatch time. Null = configured default connection.</summary>
     public virtual string? Connection => null;
 
+    /// <summary>Optional execution timeout. Null uses the worker's configured timeout.</summary>
+    public virtual TimeSpan? Timeout => null;
+
     public abstract Task HandleAsync(JobContext context, CancellationToken cancellationToken);
 
     public virtual Task FailedAsync(JobContext context, Exception exception, CancellationToken cancellationToken) => Task.CompletedTask;
