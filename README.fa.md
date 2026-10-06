@@ -3,17 +3,9 @@
 هدف ناراول، سادگی و APIهای آشنای لاراول در کنار سرعت دات‌نت است: تایپ قوی، `async/await`، تزریق وابستگی و کتابخانه‌های
 پربازدهٔ بومی .NET. هر قابلیت لاراول فقط وقتی پیاده می‌شود که روی امکانات .NET **آورده** داشته باشد؛ تصمیم در PDR ثبت می‌شود.
 
-**وضعیت:** `Naravel.Foundation`، `Naravel.Queue`، `Naravel.Filesystem` (PDR-008) و `Naravel.Cache` (PDR-007) پیاده‌سازی شده‌اند. Stage 4a از `Naravel.Routing` تأیید شده؛ middlewareهای آماده همچنان Stage 4b هستند. دیگر ماژول‌های فهرست‌شده کارهای آینده‌اند.
+**وضعیت:** وضعیت رسمی ماژول‌ها و مرحله‌ها در [ROADMAP.md](ROADMAP.md) نگهداری می‌شود.
 
-> **راستی‌آزمایی:** ۲۰۲۶-۱۰-۰۵ با .NET 10: `dotnet build Naravel.slnx -c Release --no-restore` هر ۲۰ پروژه را بدون warning و error ساخت؛ `dotnet test Naravel.slnx -c Release --no-restore` هر ۱۹۹ تست را موفق گذراند (Foundation 58، Queue 30، Filesystem 20، Cache 27، Routing 64). اتصال زنده به Redis/Memcached/AWS اجرا نشد.
->
-> | پروژهٔ تست | تعداد تست |
-> |---|---|
-> | `Naravel.Foundation.Tests` | ۵۸ |
-> | `Naravel.Queue.Tests` | ۳۰ |
-> | `Naravel.Filesystem.Tests` | ۲۰ |
-> | `Naravel.Cache.Tests` | ۲۷ |
-> | `Naravel.Routing.Tests` | ۶۴ |
+> **راستی‌آزمایی:** نتیجهٔ build و test در [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml) گزارش می‌شود.
 
 - انگلیسی: [README.md](README.md)
 - ایجنت‌های هوش مصنوعی / مشارکت‌کنندگان: [AGENTS.md](AGENTS.md)
@@ -63,8 +55,9 @@ await dispatcher.DispatchAsync(new SendWelcomeEmailJob("ali@example.com"));
 
 **بازیابی بعد از کرش.** درایورهای Redis، File و Database با `VisibilityTimeoutSeconds` (پیش‌فرض ۳۰۰) این را پشتیبانی می‌کنند.
 
-**خلأهای شناخته‌شده.** تست برای worker، درایورهای Memory/File، و مهاجرت روی Foundation (چند store، `Extend`، reload کانفیگ) وجود دارد؛
-Redis، Database، RabbitMQ و Kafka هنوز تست ندارند (`PROGRESS.md` را ببینید).
+**خلأهای شناخته‌شده.** تست‌های worker، درایورهای Memory/File، یکپارچگی Foundation و قرارداد providerها وجود دارند. مجموعهٔ تست provider در
+`tests/Naravel.Queue.Providers.Tests` است؛ آزمون‌های وابسته به سرویس Redis، RabbitMQ، Kafka و Memcached در CI و هنگام پیکربندی اجرا می‌شوند.
+رفتار درایور Database روی SQLite همچنان نیاز به بررسی دارد، چون provider مربوط به SQLite در EF Core محدودیت‌هایی در ترجمهٔ `DateTimeOffset` دارد.
 
 ## Naravel.Filesystem (دیسک‌های ذخیره‌سازی نام‌دار)
 
@@ -93,5 +86,4 @@ app.MapNaravel(r => r.Prefix("admin").Name("admin.").Middleware("api").Group(g =
     g.Get("users/{user}", (string user) => user).Name("users.show")));
 ```
 
-**وضعیت:** مرحلهٔ ۴a با ۶۴ تست نوشته شده و راستی‌آزمایی شده است (۶۴ از ۶۴ تست موفق و build بدون هشدار). گام بعدی: [PROGRESS-ROUTING.md](PROGRESS-ROUTING.md) را دنبال کنید.
-مرحلهٔ ۴b middlewareهای آماده (throttle، signed URL، maintenance mode ...) را درون `Naravel.Routing` اضافه می‌کند؛ این پیاده‌سازی‌ها هنوز موجود نیستند.
+**وضعیت:** وضعیت مرحله‌های ۴a و ۴b در [ROADMAP.md](ROADMAP.md) ثبت می‌شود.

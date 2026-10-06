@@ -4,17 +4,9 @@ Laravel's concise, discoverable APIs with .NET's speed and strengths: strong typ
 and high-performance native libraries. Naravel adopts a Laravel feature only when it adds value on top of what .NET
 already offers; every such decision is documented as a PDR.
 
-**Status:** `Naravel.Foundation`, `Naravel.Queue`, `Naravel.Filesystem` (PDR-008), and `Naravel.Cache` (PDR-007) are implemented. `Naravel.Routing` Stage 4a is verified; ready-made middleware remains Stage 4b. Other listed modules remain future work.
+**Status:** See [ROADMAP.md](ROADMAP.md) for the authoritative module and stage status.
 
-> **Verification:** Verified 2026-10-05 (.NET 10): `dotnet build Naravel.slnx -c Release --no-restore` built all 20 projects with no warnings or errors; `dotnet test Naravel.slnx -c Release --no-restore` passed 199/199 (Foundation 58, Queue 30, Filesystem 20, Cache 27, Routing 64). Live Redis/Memcached/AWS integrations were not run.
->
-> | Test project | Test cases |
-> |---|---|
-> | `Naravel.Foundation.Tests` | 58 |
-> | `Naravel.Queue.Tests` | 30 |
-> | `Naravel.Filesystem.Tests` | 20 |
-> | `Naravel.Cache.Tests` | 27 |
-> | `Naravel.Routing.Tests` | 64 |
+> **Verification:** Build and test results are reported by [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml).
 
 - Persian: [README.fa.md](README.fa.md)
 - AI agents / contributors: [AGENTS.md](AGENTS.md)
@@ -75,10 +67,9 @@ idempotent. Follow-up jobs of a chain are published *before* the job is acknowle
 `VisibilityTimeoutSeconds` (default 300; set it above your longest job). The Memory driver is in-process only. Kafka/RabbitMQ rely on
 the broker's own redelivery.
 
-**Known gaps.** Unit tests exist for the worker, the Memory/File drivers, and the Foundation migration itself (multi-store, runtime
-`Extend`, config reload); Redis, Database, RabbitMQ and Kafka drivers have no tests yet (integration tests with Testcontainers are
-planned - see `PROGRESS.md`). Database driver on SQLite is unverified (EF Core's SQLite provider has limited `DateTimeOffset`
-translation).
+**Known gaps.** Worker, Memory/File, Foundation integration, and provider contract tests are present. The provider suite lives in
+`tests/Naravel.Queue.Providers.Tests`; service-backed Redis, RabbitMQ, Kafka, and Memcached cases run through CI when configured.
+Database driver behavior on SQLite still needs review because EF Core's SQLite provider has limited `DateTimeOffset` translation.
 
 ## Naravel.Filesystem (named storage disks)
 
@@ -100,6 +91,4 @@ app.MapNaravel(r => r.Prefix("admin").Name("admin.").Middleware("api").Group(g =
     g.Get("users/{user}", (string user) => user).Name("users.show")));
 ```
 
-**Status:** Stage 4a is written with 64 tests, and is verified (64/64 tests passed, built with 1 doc warning; see the Verification note above). Next step: see
-[PROGRESS-ROUTING.md](PROGRESS-ROUTING.md). Stage 4b will add ready-made middleware (throttle, signed URLs, maintenance mode ...) inside `Naravel.Routing`;
-those implementations are not available yet.
+**Status:** See [ROADMAP.md](ROADMAP.md) for the Stage 4a/4b status.
