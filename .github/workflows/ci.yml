@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write # الزام‌آور برای احراز هویت OIDC با Trusted Publishing در NuGet
 
 jobs:
   fast:
@@ -223,8 +222,14 @@ jobs:
   publish:
     name: Publish to NuGet
     needs: [fast, services]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    # Publish only from version tags (v*). Never from main, PRs or manual runs.
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    # The repository owner configures required reviewers on this environment.
+    environment: nuget-release
+    permissions:
+      contents: read
+      id-token: write # OIDC token for NuGet Trusted Publishing; granted to this job only
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -237,5 +242,13 @@ jobs:
       - name: Pack projects
         run: dotnet pack Naravel.slnx -c Release -o ./nupkgs
 
+      - name: NuGet login (OIDC Trusted Publishing)
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          # NuGet.org profile name that owns the trusted-publishing policy.
+          # Configured by the owner as a repository/environment variable (not a secret).
+          user: ${{ vars.NUGET_USER }}
+
       - name: Push packages to NuGet.org
-        run: dotnet nuget push ./nupkgs/*.nupkg -s https://api.nuget.org/v3/index.json --skip-duplicate
+        run: dotnet nuget push ./nupkgs/*.nupkg -k "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" -s https://api.nuget.org/v3/index.json --skip-duplicate
