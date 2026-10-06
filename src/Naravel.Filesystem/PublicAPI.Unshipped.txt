@@ -1,0 +1,64 @@
+#nullable enable
+Microsoft.Extensions.DependencyInjection.FilesystemServiceCollectionExtensions
+Naravel.Filesystem.DiskOptions
+Naravel.Filesystem.DiskOptions.BaseUrl.get -> string?
+Naravel.Filesystem.DiskOptions.BaseUrl.set -> void
+Naravel.Filesystem.DiskOptions.Bucket.get -> string?
+Naravel.Filesystem.DiskOptions.Bucket.set -> void
+Naravel.Filesystem.DiskOptions.DiskOptions() -> void
+Naravel.Filesystem.DiskOptions.Driver.get -> string!
+Naravel.Filesystem.DiskOptions.Driver.set -> void
+Naravel.Filesystem.DiskOptions.Endpoint.get -> string?
+Naravel.Filesystem.DiskOptions.Endpoint.set -> void
+Naravel.Filesystem.DiskOptions.Key.get -> string?
+Naravel.Filesystem.DiskOptions.Key.set -> void
+Naravel.Filesystem.DiskOptions.Region.get -> string?
+Naravel.Filesystem.DiskOptions.Region.set -> void
+Naravel.Filesystem.DiskOptions.Root.get -> string?
+Naravel.Filesystem.DiskOptions.Root.set -> void
+Naravel.Filesystem.DiskOptions.Secret.get -> string?
+Naravel.Filesystem.DiskOptions.Secret.set -> void
+Naravel.Filesystem.Drivers.LocalStorageDriver
+Naravel.Filesystem.Drivers.LocalStorageDriver.CopyAsync(string! sourcePath, string! destinationPath, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.Drivers.LocalStorageDriver.DeleteAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.Drivers.LocalStorageDriver.ExistsAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Filesystem.Drivers.LocalStorageDriver.GetAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<byte[]!>!
+Naravel.Filesystem.Drivers.LocalStorageDriver.GetStreamAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.IO.Stream!>!
+Naravel.Filesystem.Drivers.LocalStorageDriver.GetUrlAsync(string! path, System.TimeSpan? expiration = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
+Naravel.Filesystem.Drivers.LocalStorageDriver.LocalStorageDriver(string! rootPath, string! baseUrl = "/storage") -> void
+Naravel.Filesystem.Drivers.LocalStorageDriver.MoveAsync(string! sourcePath, string! destinationPath, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.Drivers.LocalStorageDriver.PutAsync(string! path, System.IO.Stream! contents, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.Drivers.LocalStorageDriver.PutAsync(string! path, byte[]! contents, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.Drivers.LocalStorageDriver.SizeAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Filesystem.Drivers.S3StorageDriver
+Naravel.Filesystem.Drivers.S3StorageDriver.CopyAsync(string! sourcePath, string! destinationPath, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.Drivers.S3StorageDriver.DeleteAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.Drivers.S3StorageDriver.Dispose() -> void
+Naravel.Filesystem.Drivers.S3StorageDriver.ExistsAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Filesystem.Drivers.S3StorageDriver.GetAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<byte[]!>!
+Naravel.Filesystem.Drivers.S3StorageDriver.GetStreamAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.IO.Stream!>!
+Naravel.Filesystem.Drivers.S3StorageDriver.GetUrlAsync(string! path, System.TimeSpan? expiration = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
+Naravel.Filesystem.Drivers.S3StorageDriver.MoveAsync(string! sourcePath, string! destinationPath, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.Drivers.S3StorageDriver.PutAsync(string! path, System.IO.Stream! contents, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.Drivers.S3StorageDriver.PutAsync(string! path, byte[]! contents, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.Drivers.S3StorageDriver.S3StorageDriver(string! key, string! secret, string! bucket, string? endpoint, string? region = null) -> void
+Naravel.Filesystem.Drivers.S3StorageDriver.SizeAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Filesystem.FilesystemOptions
+Naravel.Filesystem.FilesystemOptions.FilesystemOptions() -> void
+Naravel.Filesystem.IStorageDriver
+Naravel.Filesystem.IStorageDriver.CopyAsync(string! sourcePath, string! destinationPath, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.IStorageDriver.DeleteAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.IStorageDriver.ExistsAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Filesystem.IStorageDriver.GetAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<byte[]!>!
+Naravel.Filesystem.IStorageDriver.GetStreamAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.IO.Stream!>!
+Naravel.Filesystem.IStorageDriver.GetUrlAsync(string! path, System.TimeSpan? expiration = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
+Naravel.Filesystem.IStorageDriver.MoveAsync(string! sourcePath, string! destinationPath, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.IStorageDriver.PutAsync(string! path, System.IO.Stream! contents, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.IStorageDriver.PutAsync(string! path, byte[]! contents, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.IStorageDriver.SizeAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Filesystem.StorageManager
+Naravel.Filesystem.StorageManager.Disk(string? name = null) -> Naravel.Filesystem.IStorageDriver!
+Naravel.Filesystem.StorageManager.StorageManager(System.IServiceProvider! provider, Naravel.Foundation.IDriverRegistry<Naravel.Filesystem.IStorageDriver!>! registry, Microsoft.Extensions.Options.IOptionsMonitor<Naravel.Filesystem.FilesystemOptions!>! options) -> void
+const Naravel.Filesystem.FilesystemOptions.Position = "Filesystem" -> string!
+static Microsoft.Extensions.DependencyInjection.FilesystemServiceCollectionExtensions.AddNaravelFilesystem(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "Filesystem") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Microsoft.Extensions.DependencyInjection.FilesystemServiceCollectionExtensions.AddNaravelFilesystem(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Naravel.Filesystem.FilesystemOptions!>! configureOptions) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

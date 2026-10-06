@@ -50,6 +50,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 - Named Memory stores now default to store-name prefixes; Memcached null TTL means no expiry. Memcached server lists are validated because the provider shares one pooled client across named stores.
 
 ### Changed (dependencies and build hygiene)
+- Added `Microsoft.CodeAnalysis.PublicApiAnalyzers` as a private source-project analyzer and enabled SDK package validation for source packages.
 - `Directory.Packages.props`: Microsoft.Extensions.* / EF Core / AspNetCore.TestHost 10.0.0 -> 10.0.10, StackExchange.Redis 2.8.16 -> 2.13.17, Confluent.Kafka 2.5.3 -> 2.15.1, Microsoft.NET.Test.Sdk 17.14.1 -> 18.0.1. Removed the unreferenced `Microsoft.Extensions.Configuration.Memory` entry.
 - Package audit updates: Microsoft.Extensions.* and EF Core packages from 10.0.10 to 10.0.12, `EnyimMemcachedCore` from 3.2.0 to 3.5.1, `MessagePack` from 2.5.301 to patched 3.1.7 (required by EnyimMemcachedCore 3.5.1), and `Microsoft.NET.Test.Sdk` from 18.0.1 to 18.10.1. Removed the unused `Microsoft.Extensions.Hosting` version entry.
 - Added the test-only `coverlet.collector` package to collect Cobertura coverage reports as CI artifacts; no coverage threshold is enforced.

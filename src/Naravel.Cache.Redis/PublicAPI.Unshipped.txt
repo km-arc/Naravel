@@ -1,0 +1,20 @@
+#nullable enable
+Naravel.Cache.Redis.RedisCacheServiceCollectionExtensions
+Naravel.Cache.Redis.RedisCacheStore
+Naravel.Cache.Redis.RedisCacheStore.DecrementAsync(string! key, long by, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Redis.RedisCacheStore.Dispose() -> void
+Naravel.Cache.Redis.RedisCacheStore.ExistsAsync(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Cache.Redis.RedisCacheStore.FlushAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.Redis.RedisCacheStore.IncrementAsync(string! key, long by, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Redis.RedisCacheStore.IncrementAsync(string! key, long by, System.TimeSpan ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Redis.RedisCacheStore.Name.get -> string!
+Naravel.Cache.Redis.RedisCacheStore.RedisCacheStore(string! name, StackExchange.Redis.IConnectionMultiplexer! multiplexer, string! prefix, int database = -1) -> void
+Naravel.Cache.Redis.RedisCacheStore.RemoveAsync(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Cache.Redis.RedisCacheStore.SetAsync<T>(string! key, T value, System.TimeSpan? ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.Redis.RedisCacheStore.TryGetAsync<T>(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<(bool Found, T? Value)>!
+Naravel.Cache.Redis.RedisLock
+Naravel.Cache.Redis.RedisLock.AcquireAsync(string! name, System.TimeSpan ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string?>!
+Naravel.Cache.Redis.RedisLock.Dispose() -> void
+Naravel.Cache.Redis.RedisLock.RedisLock(StackExchange.Redis.IConnectionMultiplexer! multiplexer, string! prefix, int database = -1) -> void
+Naravel.Cache.Redis.RedisLock.ReleaseAsync(string! name, string! token, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+static Naravel.Cache.Redis.RedisCacheServiceCollectionExtensions.AddNaravelRedisCache(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "Cache") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

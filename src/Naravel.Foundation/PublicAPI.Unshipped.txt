@@ -1,0 +1,52 @@
+#nullable enable
+Naravel.Foundation.DriverNotRegisteredException
+Naravel.Foundation.DriverNotRegisteredException.AvailableDrivers.get -> System.Collections.Generic.IReadOnlyCollection<string!>!
+Naravel.Foundation.DriverNotRegisteredException.DriverName.get -> string!
+Naravel.Foundation.DriverNotRegisteredException.DriverNotRegisteredException(string! driverName, string! driverType, System.Collections.Generic.IReadOnlyCollection<string!>! availableDrivers) -> void
+Naravel.Foundation.DriverNotRegisteredException.DriverType.get -> string!
+Naravel.Foundation.DriverRegistry<TDriver>
+Naravel.Foundation.DriverRegistry<TDriver>.Create(string! name, System.IServiceProvider! provider) -> TDriver
+Naravel.Foundation.DriverRegistry<TDriver>.CreateAsync(string! name, System.IServiceProvider! provider, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<TDriver>
+Naravel.Foundation.DriverRegistry<TDriver>.DriverRegistry() -> void
+Naravel.Foundation.DriverRegistry<TDriver>.IsAsyncOnly(string! name) -> bool
+Naravel.Foundation.DriverRegistry<TDriver>.IsRegistered(string! name) -> bool
+Naravel.Foundation.DriverRegistry<TDriver>.Names.get -> System.Collections.Generic.IReadOnlyCollection<string!>!
+Naravel.Foundation.DriverRegistry<TDriver>.Register(string! name, System.Func<System.IServiceProvider!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<TDriver>>! factory) -> void
+Naravel.Foundation.DriverRegistry<TDriver>.Register(string! name, System.Func<System.IServiceProvider!, TDriver>! factory) -> void
+Naravel.Foundation.DriverRegistry<TDriver>.Registered -> System.Action<string!>?
+Naravel.Foundation.IDriverRegistry<TDriver>
+Naravel.Foundation.IDriverRegistry<TDriver>.Create(string! name, System.IServiceProvider! provider) -> TDriver
+Naravel.Foundation.IDriverRegistry<TDriver>.CreateAsync(string! name, System.IServiceProvider! provider, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<TDriver>
+Naravel.Foundation.IDriverRegistry<TDriver>.IsAsyncOnly(string! name) -> bool
+Naravel.Foundation.IDriverRegistry<TDriver>.IsRegistered(string! name) -> bool
+Naravel.Foundation.IDriverRegistry<TDriver>.Names.get -> System.Collections.Generic.IReadOnlyCollection<string!>!
+Naravel.Foundation.IDriverRegistry<TDriver>.Register(string! name, System.Func<System.IServiceProvider!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<TDriver>>! factory) -> void
+Naravel.Foundation.IDriverRegistry<TDriver>.Register(string! name, System.Func<System.IServiceProvider!, TDriver>! factory) -> void
+Naravel.Foundation.IDriverRegistry<TDriver>.Registered -> System.Action<string!>?
+Naravel.Foundation.IManagerOptions
+Naravel.Foundation.IManagerOptions.Default.get -> string!
+Naravel.Foundation.IManagerOptions.Stores.get -> System.Collections.Generic.IDictionary<string!, Microsoft.Extensions.Configuration.IConfigurationSection!>!
+Naravel.Foundation.Manager<TDriver, TOptions>
+Naravel.Foundation.Manager<TDriver, TOptions>.Dispose() -> void
+Naravel.Foundation.Manager<TDriver, TOptions>.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Naravel.Foundation.Manager<TDriver, TOptions>.Driver(string? name = null) -> TDriver
+Naravel.Foundation.Manager<TDriver, TOptions>.DriverAsync(string? name = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<TDriver>
+Naravel.Foundation.Manager<TDriver, TOptions>.Extend(string! name, System.Func<System.IServiceProvider!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<TDriver>>! factory) -> void
+Naravel.Foundation.Manager<TDriver, TOptions>.Extend(string! name, System.Func<System.IServiceProvider!, TDriver>! factory) -> void
+Naravel.Foundation.Manager<TDriver, TOptions>.Forget(string! name) -> bool
+Naravel.Foundation.Manager<TDriver, TOptions>.ForgetAll() -> void
+Naravel.Foundation.Manager<TDriver, TOptions>.Manager(System.IServiceProvider! provider, Naravel.Foundation.IDriverRegistry<TDriver>! registry, Microsoft.Extensions.Options.IOptionsMonitor<TOptions!>! options) -> void
+Naravel.Foundation.ManagerOptions
+Naravel.Foundation.ManagerOptions.Default.get -> string!
+Naravel.Foundation.ManagerOptions.Default.set -> void
+Naravel.Foundation.ManagerOptions.ManagerOptions() -> void
+Naravel.Foundation.ManagerOptions.Stores.get -> System.Collections.Generic.Dictionary<string!, Microsoft.Extensions.Configuration.IConfigurationSection!>!
+Naravel.Foundation.ManagerOptions.Stores.set -> void
+Naravel.Foundation.ManagerOptionsExtensions
+Naravel.Foundation.ServiceCollectionExtensions
+static Naravel.Foundation.ManagerOptionsExtensions.GetStore(this Naravel.Foundation.IManagerOptions! options, string! name) -> Microsoft.Extensions.Configuration.IConfigurationSection!
+static Naravel.Foundation.ServiceCollectionExtensions.AddNaravelDriver<TDriver>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, string! name, System.Func<System.IServiceProvider!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<TDriver!>>! factory) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Naravel.Foundation.ServiceCollectionExtensions.AddNaravelDriver<TDriver>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, string! name, System.Func<System.IServiceProvider!, TDriver!>! factory) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Naravel.Foundation.ServiceCollectionExtensions.AddNaravelManager<TManager, TDriver, TOptions>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Naravel.Foundation.ServiceCollectionExtensions.ConfigureNaravelDrivers<TDriver>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Naravel.Foundation.IDriverRegistry<TDriver!>!>! configure) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+virtual Naravel.Foundation.Manager<TDriver, TOptions>.DefaultDriverName.get -> string!

@@ -1,0 +1,18 @@
+#nullable enable
+Naravel.Cache.Memcached.MemcachedCacheServiceCollectionExtensions
+Naravel.Cache.Memcached.MemcachedCacheStore
+Naravel.Cache.Memcached.MemcachedCacheStore.DecrementAsync(string! key, long by, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Memcached.MemcachedCacheStore.ExistsAsync(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Cache.Memcached.MemcachedCacheStore.FlushAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.Memcached.MemcachedCacheStore.IncrementAsync(string! key, long by, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Memcached.MemcachedCacheStore.IncrementAsync(string! key, long by, System.TimeSpan ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Memcached.MemcachedCacheStore.MemcachedCacheStore(string! name, Enyim.Caching.IMemcachedClient! client, string! prefix) -> void
+Naravel.Cache.Memcached.MemcachedCacheStore.Name.get -> string!
+Naravel.Cache.Memcached.MemcachedCacheStore.RemoveAsync(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Cache.Memcached.MemcachedCacheStore.SetAsync<T>(string! key, T value, System.TimeSpan? ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.Memcached.MemcachedCacheStore.TryGetAsync<T>(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<(bool Found, T? Value)>!
+Naravel.Cache.Memcached.MemcachedLock
+Naravel.Cache.Memcached.MemcachedLock.AcquireAsync(string! name, System.TimeSpan ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string?>!
+Naravel.Cache.Memcached.MemcachedLock.MemcachedLock(Enyim.Caching.IMemcachedClient! client, string! prefix) -> void
+Naravel.Cache.Memcached.MemcachedLock.ReleaseAsync(string! name, string! token, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+static Naravel.Cache.Memcached.MemcachedCacheServiceCollectionExtensions.AddNaravelMemcachedCache(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "Cache") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

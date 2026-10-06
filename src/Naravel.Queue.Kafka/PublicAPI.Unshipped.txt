@@ -1,0 +1,12 @@
+#nullable enable
+Naravel.Queue.Kafka.KafkaQueueDriver
+Naravel.Queue.Kafka.KafkaQueueDriver.AckAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.Kafka.KafkaQueueDriver.Dispose() -> void
+Naravel.Queue.Kafka.KafkaQueueDriver.FailAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.Kafka.KafkaQueueDriver.KafkaQueueDriver(string! bootstrapServers, string! groupId) -> void
+Naravel.Queue.Kafka.KafkaQueueDriver.PopAsync(string! queue, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Naravel.Queue.Drivers.QueuedMessage?>!
+Naravel.Queue.Kafka.KafkaQueueDriver.PushAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.Kafka.KafkaQueueDriver.ReleaseAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.TimeSpan delay, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.Kafka.KafkaQueueDriver.SizeAsync(string! queue, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Queue.Kafka.ServiceCollectionExtensions
+static Naravel.Queue.Kafka.ServiceCollectionExtensions.AddKafkaDriver(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "NaravelQueue") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

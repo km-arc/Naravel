@@ -1,0 +1,108 @@
+#nullable enable
+Naravel.Queue.Database.DatabaseBatchRepository<TContext>
+Naravel.Queue.Database.DatabaseBatchRepository<TContext>.CancelAsync(string! batchId, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Naravel.Queue.Database.DatabaseBatchRepository<TContext>.DatabaseBatchRepository(Microsoft.EntityFrameworkCore.IDbContextFactory<TContext!>! contextFactory, Naravel.Queue.Batching.BatchCallbackRegistry! callbacks) -> void
+Naravel.Queue.Database.DatabaseBatchRepository<TContext>.GetAsync(string! batchId, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Naravel.Queue.Batching.QueueBatch?>!
+Naravel.Queue.Database.DatabaseBatchRepository<TContext>.IsCancelledAsync(string! batchId, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
+Naravel.Queue.Database.DatabaseBatchRepository<TContext>.MarkJobCancelledAsync(string! batchId, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Naravel.Queue.Database.DatabaseBatchRepository<TContext>.MarkJobCompletedAsync(string! batchId, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Naravel.Queue.Database.DatabaseBatchRepository<TContext>.MarkJobFailedAsync(string! batchId, System.Exception! exception, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Naravel.Queue.Database.DatabaseBatchRepository<TContext>.RegisterAsync(Naravel.Queue.Batching.QueueBatch! batch, Naravel.Queue.Batching.BatchOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Naravel.Queue.Database.DatabaseBatchRepository<TContext>.ResumePendingCallbacksAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Naravel.Queue.Database.DatabaseFailedJobStore<TContext>
+Naravel.Queue.Database.DatabaseFailedJobStore<TContext>.DatabaseFailedJobStore(Microsoft.EntityFrameworkCore.IDbContextFactory<TContext!>! contextFactory) -> void
+Naravel.Queue.Database.DatabaseFailedJobStore<TContext>.FlushAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<int>!
+Naravel.Queue.Database.DatabaseFailedJobStore<TContext>.ForgetAsync(string! id, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
+Naravel.Queue.Database.DatabaseFailedJobStore<TContext>.ListAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Naravel.Queue.Drivers.QueuedMessage!>!>!
+Naravel.Queue.Database.DatabaseFailedJobStore<TContext>.RecordAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Exception! exception, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Naravel.Queue.Database.DatabaseQueueDriver<TContext>
+Naravel.Queue.Database.DatabaseQueueDriver<TContext>.AckAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.Database.DatabaseQueueDriver<TContext>.DatabaseQueueDriver(Microsoft.EntityFrameworkCore.IDbContextFactory<TContext!>! contextFactory, System.TimeSpan? visibilityTimeout = null) -> void
+Naravel.Queue.Database.DatabaseQueueDriver<TContext>.FailAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.Database.DatabaseQueueDriver<TContext>.PopAsync(string! queue, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Naravel.Queue.Drivers.QueuedMessage?>!
+Naravel.Queue.Database.DatabaseQueueDriver<TContext>.PushAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.Database.DatabaseQueueDriver<TContext>.ReleaseAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.TimeSpan delay, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.Database.DatabaseQueueDriver<TContext>.SizeAsync(string! queue, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Queue.Database.DatabaseQueueDriver<TContext>.VisibilityTimeout.get -> System.TimeSpan?
+Naravel.Queue.Database.FailedJobRecord
+Naravel.Queue.Database.FailedJobRecord.Envelope.get -> string!
+Naravel.Queue.Database.FailedJobRecord.Envelope.set -> void
+Naravel.Queue.Database.FailedJobRecord.Error.get -> string!
+Naravel.Queue.Database.FailedJobRecord.Error.set -> void
+Naravel.Queue.Database.FailedJobRecord.FailedAt.get -> System.DateTimeOffset
+Naravel.Queue.Database.FailedJobRecord.FailedAt.set -> void
+Naravel.Queue.Database.FailedJobRecord.FailedJobRecord() -> void
+Naravel.Queue.Database.FailedJobRecord.Id.get -> string!
+Naravel.Queue.Database.FailedJobRecord.Id.set -> void
+Naravel.Queue.Database.JobRecord
+Naravel.Queue.Database.JobRecord.Attempts.get -> int
+Naravel.Queue.Database.JobRecord.Attempts.set -> void
+Naravel.Queue.Database.JobRecord.AvailableAt.get -> System.DateTimeOffset
+Naravel.Queue.Database.JobRecord.AvailableAt.set -> void
+Naravel.Queue.Database.JobRecord.BatchId.get -> string?
+Naravel.Queue.Database.JobRecord.BatchId.set -> void
+Naravel.Queue.Database.JobRecord.ChainedJobPayload.get -> string?
+Naravel.Queue.Database.JobRecord.ChainedJobPayload.set -> void
+Naravel.Queue.Database.JobRecord.Connection.get -> string?
+Naravel.Queue.Database.JobRecord.Connection.set -> void
+Naravel.Queue.Database.JobRecord.CreatedAt.get -> System.DateTimeOffset
+Naravel.Queue.Database.JobRecord.CreatedAt.set -> void
+Naravel.Queue.Database.JobRecord.Error.get -> string?
+Naravel.Queue.Database.JobRecord.Error.set -> void
+Naravel.Queue.Database.JobRecord.FailedAt.get -> System.DateTimeOffset?
+Naravel.Queue.Database.JobRecord.FailedAt.set -> void
+Naravel.Queue.Database.JobRecord.Id.get -> string!
+Naravel.Queue.Database.JobRecord.Id.set -> void
+Naravel.Queue.Database.JobRecord.JobRecord() -> void
+Naravel.Queue.Database.JobRecord.JobType.get -> string!
+Naravel.Queue.Database.JobRecord.JobType.set -> void
+Naravel.Queue.Database.JobRecord.MaxAttempts.get -> int
+Naravel.Queue.Database.JobRecord.MaxAttempts.set -> void
+Naravel.Queue.Database.JobRecord.Payload.get -> string!
+Naravel.Queue.Database.JobRecord.Payload.set -> void
+Naravel.Queue.Database.JobRecord.Priority.get -> int
+Naravel.Queue.Database.JobRecord.Priority.set -> void
+Naravel.Queue.Database.JobRecord.Queue.get -> string!
+Naravel.Queue.Database.JobRecord.Queue.set -> void
+Naravel.Queue.Database.JobRecord.ReservedAt.get -> System.DateTimeOffset?
+Naravel.Queue.Database.JobRecord.ReservedAt.set -> void
+Naravel.Queue.Database.JobRecord.TraceParent.get -> string?
+Naravel.Queue.Database.JobRecord.TraceParent.set -> void
+Naravel.Queue.Database.JobRecord.TraceState.get -> string?
+Naravel.Queue.Database.JobRecord.TraceState.set -> void
+Naravel.Queue.Database.QueueBatchRecord
+Naravel.Queue.Database.QueueBatchRecord.AllowFailures.get -> bool
+Naravel.Queue.Database.QueueBatchRecord.AllowFailures.set -> void
+Naravel.Queue.Database.QueueBatchRecord.CancelledJobs.get -> int
+Naravel.Queue.Database.QueueBatchRecord.CancelledJobs.set -> void
+Naravel.Queue.Database.QueueBatchRecord.CatchCallbacks.get -> string!
+Naravel.Queue.Database.QueueBatchRecord.CatchCallbacks.set -> void
+Naravel.Queue.Database.QueueBatchRecord.CatchCallbacksCompleted.get -> bool
+Naravel.Queue.Database.QueueBatchRecord.CatchCallbacksCompleted.set -> void
+Naravel.Queue.Database.QueueBatchRecord.CompletedJobs.get -> int
+Naravel.Queue.Database.QueueBatchRecord.CompletedJobs.set -> void
+Naravel.Queue.Database.QueueBatchRecord.FailedJobs.get -> int
+Naravel.Queue.Database.QueueBatchRecord.FailedJobs.set -> void
+Naravel.Queue.Database.QueueBatchRecord.FinallyCallbacks.get -> string!
+Naravel.Queue.Database.QueueBatchRecord.FinallyCallbacks.set -> void
+Naravel.Queue.Database.QueueBatchRecord.FinallyCallbacksCompleted.get -> bool
+Naravel.Queue.Database.QueueBatchRecord.FinallyCallbacksCompleted.set -> void
+Naravel.Queue.Database.QueueBatchRecord.Id.get -> string!
+Naravel.Queue.Database.QueueBatchRecord.Id.set -> void
+Naravel.Queue.Database.QueueBatchRecord.IsCancelled.get -> bool
+Naravel.Queue.Database.QueueBatchRecord.IsCancelled.set -> void
+Naravel.Queue.Database.QueueBatchRecord.QueueBatchRecord() -> void
+Naravel.Queue.Database.QueueBatchRecord.ThenCallbacks.get -> string!
+Naravel.Queue.Database.QueueBatchRecord.ThenCallbacks.set -> void
+Naravel.Queue.Database.QueueBatchRecord.ThenCallbacksCompleted.get -> bool
+Naravel.Queue.Database.QueueBatchRecord.ThenCallbacksCompleted.set -> void
+Naravel.Queue.Database.QueueBatchRecord.TotalJobs.get -> int
+Naravel.Queue.Database.QueueBatchRecord.TotalJobs.set -> void
+Naravel.Queue.Database.QueueModelBuilderExtensions
+Naravel.Queue.Database.ServiceCollectionExtensions
+static Naravel.Queue.Database.QueueModelBuilderExtensions.ConfigureQueueBatches(this Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder, string! tableName = "QueueBatches") -> Microsoft.EntityFrameworkCore.ModelBuilder!
+static Naravel.Queue.Database.QueueModelBuilderExtensions.ConfigureQueueFailedJobs(this Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder, string! tableName = "QueueFailedJobs") -> Microsoft.EntityFrameworkCore.ModelBuilder!
+static Naravel.Queue.Database.QueueModelBuilderExtensions.ConfigureQueueJobs(this Microsoft.EntityFrameworkCore.ModelBuilder! modelBuilder, string! tableName = "QueueJobs") -> Microsoft.EntityFrameworkCore.ModelBuilder!
+static Naravel.Queue.Database.ServiceCollectionExtensions.AddDatabaseBatchRepository<TContext>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Naravel.Queue.Database.ServiceCollectionExtensions.AddDatabaseDriver<TContext>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "NaravelQueue") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Naravel.Queue.Database.ServiceCollectionExtensions.AddDatabaseFailedJobStore<TContext>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

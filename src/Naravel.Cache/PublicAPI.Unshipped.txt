@@ -1,0 +1,115 @@
+#nullable enable
+Microsoft.Extensions.DependencyInjection.CacheServiceCollectionExtensions
+Microsoft.Extensions.DependencyInjection.RateLimiterServiceCollectionExtensions
+Naravel.Cache.Abstractions.ICacheLock
+Naravel.Cache.Abstractions.ICacheLock.AcquireAsync(string! name, System.TimeSpan ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string?>!
+Naravel.Cache.Abstractions.ICacheLock.ReleaseAsync(string! name, string! token, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Cache.Abstractions.ICacheStore
+Naravel.Cache.Abstractions.ICacheStore.DecrementAsync(string! key, long by, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Abstractions.ICacheStore.ExistsAsync(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Cache.Abstractions.ICacheStore.FlushAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.Abstractions.ICacheStore.IncrementAsync(string! key, long by, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Abstractions.ICacheStore.IncrementAsync(string! key, long by, System.TimeSpan ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Abstractions.ICacheStore.Name.get -> string!
+Naravel.Cache.Abstractions.ICacheStore.RemoveAsync(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Cache.Abstractions.ICacheStore.SetAsync<T>(string! key, T value, System.TimeSpan? ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.Abstractions.ICacheStore.TryGetAsync<T>(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<(bool Found, T? Value)>!
+Naravel.Cache.CacheLockExtensions
+Naravel.Cache.CacheManager
+Naravel.Cache.CacheManager.CacheManager(System.IServiceProvider! provider, Naravel.Foundation.IDriverRegistry<Naravel.Cache.Abstractions.ICacheStore!>! registry, Microsoft.Extensions.Options.IOptionsMonitor<Naravel.Cache.CacheOptions!>! options) -> void
+Naravel.Cache.CacheManager.FlushTagAsync(string! tag, string? storeName = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.CacheManager.ForUser(object! userId, string? storeName = null) -> Naravel.Cache.Abstractions.ICacheStore!
+Naravel.Cache.CacheManager.Scope(string! scope, string? storeName = null) -> Naravel.Cache.Abstractions.ICacheStore!
+Naravel.Cache.CacheManager.Store(string? name = null) -> Naravel.Cache.Abstractions.ICacheStore!
+Naravel.Cache.CacheManager.Tags(params string![]! tags) -> Naravel.Cache.Abstractions.ICacheStore!
+Naravel.Cache.CacheManager.TagsOn(string? storeName, params string![]! tags) -> Naravel.Cache.Abstractions.ICacheStore!
+Naravel.Cache.CacheOptions
+Naravel.Cache.CacheOptions.AppPrefix.get -> string!
+Naravel.Cache.CacheOptions.AppPrefix.set -> void
+Naravel.Cache.CacheOptions.CacheOptions() -> void
+Naravel.Cache.CacheStoreExtensions
+Naravel.Cache.Extensions.CacheDriverRegistrationExtensions
+Naravel.Cache.LockManager
+Naravel.Cache.LockManager.LockManager(System.IServiceProvider! provider, Naravel.Foundation.IDriverRegistry<Naravel.Cache.Abstractions.ICacheLock!>! registry, Microsoft.Extensions.Options.IOptionsMonitor<Naravel.Cache.CacheOptions!>! options) -> void
+Naravel.Cache.Locks.MemoryLock
+Naravel.Cache.Locks.MemoryLock.AcquireAsync(string! name, System.TimeSpan ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string?>!
+Naravel.Cache.Locks.MemoryLock.MemoryLock(string? prefix = null) -> void
+Naravel.Cache.Locks.MemoryLock.ReleaseAsync(string! name, string! token, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Cache.RateLimiting.CacheRateLimiter
+Naravel.Cache.RateLimiting.CacheRateLimiter.AttemptAsync(string! limiter, string! subjectKey, long maxAttempts, System.TimeSpan window, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Naravel.Cache.RateLimiting.RateLimitDecision>!
+Naravel.Cache.RateLimiting.CacheRateLimiter.CacheRateLimiter(Naravel.Cache.CacheManager! cacheManager, Naravel.Cache.LockManager! lockManager, string? storeName = null) -> void
+Naravel.Cache.RateLimiting.CacheRateLimiter.ClearAsync(string! limiter, string! subjectKey, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.RateLimiting.IRateLimiter
+Naravel.Cache.RateLimiting.IRateLimiter.AttemptAsync(string! limiter, string! subjectKey, long maxAttempts, System.TimeSpan window, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Naravel.Cache.RateLimiting.RateLimitDecision>!
+Naravel.Cache.RateLimiting.IRateLimiter.ClearAsync(string! limiter, string! subjectKey, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.RateLimiting.RateLimitDecision
+Naravel.Cache.RateLimiting.RateLimitDecision.Allowed.get -> bool
+Naravel.Cache.RateLimiting.RateLimitDecision.Allowed.init -> void
+Naravel.Cache.RateLimiting.RateLimitDecision.Deconstruct(out bool Allowed, out long Remaining, out System.TimeSpan RetryAfter) -> void
+Naravel.Cache.RateLimiting.RateLimitDecision.Equals(Naravel.Cache.RateLimiting.RateLimitDecision other) -> bool
+Naravel.Cache.RateLimiting.RateLimitDecision.RateLimitDecision() -> void
+Naravel.Cache.RateLimiting.RateLimitDecision.RateLimitDecision(bool Allowed, long Remaining, System.TimeSpan RetryAfter) -> void
+Naravel.Cache.RateLimiting.RateLimitDecision.Remaining.get -> long
+Naravel.Cache.RateLimiting.RateLimitDecision.Remaining.init -> void
+Naravel.Cache.RateLimiting.RateLimitDecision.RetryAfter.get -> System.TimeSpan
+Naravel.Cache.RateLimiting.RateLimitDecision.RetryAfter.init -> void
+Naravel.Cache.Scoping.ScopedCacheStore
+Naravel.Cache.Scoping.ScopedCacheStore.DecrementAsync(string! key, long by, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Scoping.ScopedCacheStore.ExistsAsync(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Cache.Scoping.ScopedCacheStore.FlushAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.Scoping.ScopedCacheStore.IncrementAsync(string! key, long by, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Scoping.ScopedCacheStore.IncrementAsync(string! key, long by, System.TimeSpan ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Scoping.ScopedCacheStore.Name.get -> string!
+Naravel.Cache.Scoping.ScopedCacheStore.RemoveAsync(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Cache.Scoping.ScopedCacheStore.ScopedCacheStore(Naravel.Cache.Abstractions.ICacheStore! inner, string! prefix) -> void
+Naravel.Cache.Scoping.ScopedCacheStore.SetAsync<T>(string! key, T value, System.TimeSpan? ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.Scoping.ScopedCacheStore.TryGetAsync<T>(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<(bool Found, T? Value)>!
+Naravel.Cache.Stores.MemoryCacheStore
+Naravel.Cache.Stores.MemoryCacheStore.DecrementAsync(string! key, long by, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Stores.MemoryCacheStore.ExistsAsync(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Cache.Stores.MemoryCacheStore.FlushAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.Stores.MemoryCacheStore.IncrementAsync(string! key, long by, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Stores.MemoryCacheStore.IncrementAsync(string! key, long by, System.TimeSpan ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Stores.MemoryCacheStore.MemoryCacheStore(string! name, Microsoft.Extensions.Caching.Memory.IMemoryCache! cache, string? prefix = null) -> void
+Naravel.Cache.Stores.MemoryCacheStore.Name.get -> string!
+Naravel.Cache.Stores.MemoryCacheStore.RemoveAsync(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Cache.Stores.MemoryCacheStore.SetAsync<T>(string! key, T value, System.TimeSpan? ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.Stores.MemoryCacheStore.TryGetAsync<T>(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<(bool Found, T? Value)>!
+Naravel.Cache.Tagging.TaggedCacheStore
+Naravel.Cache.Tagging.TaggedCacheStore.DecrementAsync(string! key, long by, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Tagging.TaggedCacheStore.ExistsAsync(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Cache.Tagging.TaggedCacheStore.FlushAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.Tagging.TaggedCacheStore.IncrementAsync(string! key, long by, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Tagging.TaggedCacheStore.IncrementAsync(string! key, long by, System.TimeSpan ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Tagging.TaggedCacheStore.Name.get -> string!
+Naravel.Cache.Tagging.TaggedCacheStore.RemoveAsync(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Cache.Tagging.TaggedCacheStore.SetAsync<T>(string! key, T value, System.TimeSpan? ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.Tagging.TaggedCacheStore.TaggedCacheStore(Naravel.Cache.Abstractions.ICacheStore! inner, System.Collections.Generic.IEnumerable<string!>! tags) -> void
+Naravel.Cache.Tagging.TaggedCacheStore.TryGetAsync<T>(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<(bool Found, T? Value)>!
+Naravel.Cache.Tagging.TaggingExtensions
+Naravel.Cache.Testing.RateLimiterFake
+Naravel.Cache.Testing.RateLimiterFake.AssertAttempted(string! limiter, string! subjectKey) -> void
+Naravel.Cache.Testing.RateLimiterFake.AttemptAsync(string! limiter, string! subjectKey, long maxAttempts, System.TimeSpan window, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Naravel.Cache.RateLimiting.RateLimitDecision>!
+Naravel.Cache.Testing.RateLimiterFake.Attempts.get -> System.Collections.Generic.IReadOnlyList<(string! Limiter, string! Subject)>!
+Naravel.Cache.Testing.RateLimiterFake.ClearAsync(string! limiter, string! subjectKey, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.Testing.RateLimiterFake.GetAttemptCount(string! limiter, string! subjectKey) -> long
+Naravel.Cache.Testing.RateLimiterFake.RateLimiterFake(System.TimeProvider? timeProvider = null) -> void
+Naravel.Cache.Testing.RateLimiterFake.Reset() -> void
+~override Naravel.Cache.RateLimiting.RateLimitDecision.Equals(object obj) -> bool
+override Naravel.Cache.RateLimiting.RateLimitDecision.GetHashCode() -> int
+~override Naravel.Cache.RateLimiting.RateLimitDecision.ToString() -> string
+static Microsoft.Extensions.DependencyInjection.CacheServiceCollectionExtensions.AddNaravelCache(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "Cache") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Microsoft.Extensions.DependencyInjection.RateLimiterServiceCollectionExtensions.AddNaravelRateLimiter(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, string? storeName = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Naravel.Cache.CacheLockExtensions.BlockAsync(this Naravel.Cache.Abstractions.ICacheLock! cacheLock, string! name, System.TimeSpan ttl, System.TimeSpan wait, System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task!>! callback, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+static Naravel.Cache.CacheLockExtensions.BlockAsync(this Naravel.Cache.Abstractions.ICacheLock! cacheLock, string! name, System.TimeSpan ttl, System.TimeSpan wait, System.Func<System.Threading.Tasks.Task!>! callback, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+static Naravel.Cache.CacheLockExtensions.TryRunAsync(this Naravel.Cache.Abstractions.ICacheLock! cacheLock, string! name, System.TimeSpan ttl, System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task!>! callback, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+static Naravel.Cache.CacheLockExtensions.TryRunAsync(this Naravel.Cache.Abstractions.ICacheLock! cacheLock, string! name, System.TimeSpan ttl, System.Func<System.Threading.Tasks.Task!>! callback, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+static Naravel.Cache.CacheStoreExtensions.PullAsync<T>(this Naravel.Cache.Abstractions.ICacheStore! store, string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T?>!
+static Naravel.Cache.CacheStoreExtensions.RememberAsync<T>(this Naravel.Cache.Abstractions.ICacheStore! store, string! key, System.TimeSpan? ttl, System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<T>!>! factory, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+static Naravel.Cache.CacheStoreExtensions.RememberAsync<T>(this Naravel.Cache.Abstractions.ICacheStore! store, string! key, System.TimeSpan? ttl, System.Func<System.Threading.Tasks.Task<T>!>! factory, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+static Naravel.Cache.CacheStoreExtensions.RememberForeverAsync<T>(this Naravel.Cache.Abstractions.ICacheStore! store, string! key, System.Func<System.Threading.Tasks.Task<T>!>! factory, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+static Naravel.Cache.Extensions.CacheDriverRegistrationExtensions.AddCacheDriver(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! driverName, System.Func<System.IServiceProvider!, Microsoft.Extensions.Configuration.IConfigurationSection!, Naravel.Cache.Abstractions.ICacheStore!>! cacheFactory, System.Func<System.IServiceProvider!, Microsoft.Extensions.Configuration.IConfigurationSection!, Naravel.Cache.Abstractions.ICacheLock!>! lockFactory, string! sectionName = "Cache") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Naravel.Cache.RateLimiting.RateLimitDecision.operator !=(Naravel.Cache.RateLimiting.RateLimitDecision left, Naravel.Cache.RateLimiting.RateLimitDecision right) -> bool
+static Naravel.Cache.RateLimiting.RateLimitDecision.operator ==(Naravel.Cache.RateLimiting.RateLimitDecision left, Naravel.Cache.RateLimiting.RateLimitDecision right) -> bool
+static Naravel.Cache.Tagging.TaggingExtensions.Tags(this Naravel.Cache.Abstractions.ICacheStore! store, System.Collections.Generic.IEnumerable<string!>! tags) -> Naravel.Cache.Abstractions.ICacheStore!
+static Naravel.Cache.Tagging.TaggingExtensions.Tags(this Naravel.Cache.Abstractions.ICacheStore! store, params string![]! tags) -> Naravel.Cache.Abstractions.ICacheStore!

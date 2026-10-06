@@ -1,0 +1,11 @@
+#nullable enable
+Naravel.Queue.Memory.MemoryQueueDriver
+Naravel.Queue.Memory.MemoryQueueDriver.AckAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.Memory.MemoryQueueDriver.FailAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.Memory.MemoryQueueDriver.MemoryQueueDriver(string! connectionName) -> void
+Naravel.Queue.Memory.MemoryQueueDriver.PopAsync(string! queue, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Naravel.Queue.Drivers.QueuedMessage?>!
+Naravel.Queue.Memory.MemoryQueueDriver.PushAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.Memory.MemoryQueueDriver.ReleaseAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.TimeSpan delay, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.Memory.MemoryQueueDriver.SizeAsync(string! queue, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Queue.Memory.ServiceCollectionExtensions
+static Naravel.Queue.Memory.ServiceCollectionExtensions.AddMemoryDriver(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "NaravelQueue") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

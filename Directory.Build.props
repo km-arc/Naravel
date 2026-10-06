@@ -28,4 +28,10 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
+  <PropertyGroup Condition="$([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('/src/')) Or $([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('\src\'))">
+    <EnablePackageValidation>true</EnablePackageValidation>
+  </PropertyGroup>
+  <ItemGroup Condition="$([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('/src/')) Or $([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('\src\'))">
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
+  </ItemGroup>
 </Project>

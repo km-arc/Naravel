@@ -1,0 +1,152 @@
+#nullable enable
+Microsoft.AspNetCore.Builder.NaravelRoutingApplicationBuilderExtensions
+Microsoft.AspNetCore.Http.NaravelRoutingHttpContextExtensions
+Microsoft.Extensions.DependencyInjection.NaravelRoutingServiceCollectionExtensions
+Naravel.Routing.IRouteMiddleware
+Naravel.Routing.IRouteMiddleware.InvokeAsync(Microsoft.AspNetCore.Http.HttpContext! context, Microsoft.AspNetCore.Http.RequestDelegate! next, Naravel.Routing.MiddlewareArguments! arguments) -> System.Threading.Tasks.Task!
+Naravel.Routing.IRouteRegistrar
+Naravel.Routing.IRouteRegistrar.Any(string! uri, System.Delegate! handler) -> Naravel.Routing.NaravelRoute!
+Naravel.Routing.IRouteRegistrar.ApiResource(string! name, Naravel.Routing.ResourceHandlers! handlers, System.Action<Naravel.Routing.ResourceOptions!>? configure = null) -> void
+Naravel.Routing.IRouteRegistrar.Delete(string! uri, System.Delegate! handler) -> Naravel.Routing.NaravelRoute!
+Naravel.Routing.IRouteRegistrar.Domain(string! host) -> Naravel.Routing.PendingRouteGroup!
+Naravel.Routing.IRouteRegistrar.Fallback(System.Delegate! handler) -> Naravel.Routing.NaravelRoute!
+Naravel.Routing.IRouteRegistrar.Get(string! uri, System.Delegate! handler) -> Naravel.Routing.NaravelRoute!
+Naravel.Routing.IRouteRegistrar.Group(System.Action<Naravel.Routing.IRouteRegistrar!>! routes) -> void
+Naravel.Routing.IRouteRegistrar.Match(System.Collections.Generic.IEnumerable<string!>! methods, string! uri, System.Delegate! handler) -> Naravel.Routing.NaravelRoute!
+Naravel.Routing.IRouteRegistrar.Middleware(params string![]! names) -> Naravel.Routing.PendingRouteGroup!
+Naravel.Routing.IRouteRegistrar.Name(string! namePrefix) -> Naravel.Routing.PendingRouteGroup!
+Naravel.Routing.IRouteRegistrar.Options(string! uri, System.Delegate! handler) -> Naravel.Routing.NaravelRoute!
+Naravel.Routing.IRouteRegistrar.Patch(string! uri, System.Delegate! handler) -> Naravel.Routing.NaravelRoute!
+Naravel.Routing.IRouteRegistrar.Post(string! uri, System.Delegate! handler) -> Naravel.Routing.NaravelRoute!
+Naravel.Routing.IRouteRegistrar.Prefix(string! prefix) -> Naravel.Routing.PendingRouteGroup!
+Naravel.Routing.IRouteRegistrar.Put(string! uri, System.Delegate! handler) -> Naravel.Routing.NaravelRoute!
+Naravel.Routing.IRouteRegistrar.Redirect(string! uri, string! destination, bool permanent = false) -> Naravel.Routing.NaravelRoute!
+Naravel.Routing.IRouteRegistrar.Resource(string! name, Naravel.Routing.ResourceHandlers! handlers, System.Action<Naravel.Routing.ResourceOptions!>? configure = null) -> void
+Naravel.Routing.IRouteRegistrar.WithoutMiddleware(params string![]! names) -> Naravel.Routing.PendingRouteGroup!
+Naravel.Routing.ITerminableMiddleware
+Naravel.Routing.ITerminableMiddleware.TerminateAsync(Microsoft.AspNetCore.Http.HttpContext! context, Naravel.Routing.MiddlewareArguments! arguments) -> System.Threading.Tasks.Task!
+Naravel.Routing.IUrlGenerator
+Naravel.Routing.IUrlGenerator.AbsoluteRoute(Microsoft.AspNetCore.Http.HttpContext! context, string! name, object? values = null) -> string!
+Naravel.Routing.IUrlGenerator.Route(string! name, object? values = null) -> string!
+Naravel.Routing.MiddlewareArguments
+Naravel.Routing.MiddlewareArguments.At(int index) -> string?
+Naravel.Routing.MiddlewareArguments.Count.get -> int
+Naravel.Routing.MiddlewareArguments.GetEnumerator() -> System.Collections.Generic.IEnumerator<string!>!
+Naravel.Routing.MiddlewareArguments.Int(int index, int fallback) -> int
+Naravel.Routing.MiddlewareArguments.MiddlewareArguments(System.Collections.Generic.IEnumerable<string!>! values) -> void
+Naravel.Routing.MiddlewareArguments.this[int index].get -> string!
+Naravel.Routing.MiddlewareAttribute
+Naravel.Routing.MiddlewareAttribute.Except.get -> string![]?
+Naravel.Routing.MiddlewareAttribute.Except.set -> void
+Naravel.Routing.MiddlewareAttribute.MiddlewareAttribute(string! name) -> void
+Naravel.Routing.MiddlewareAttribute.Name.get -> string!
+Naravel.Routing.MiddlewareAttribute.Only.get -> string![]?
+Naravel.Routing.MiddlewareAttribute.Only.set -> void
+Naravel.Routing.MiddlewareOptions
+Naravel.Routing.MiddlewareOptions.Alias(string! name, Naravel.Routing.RouteMiddlewareDelegate! middleware) -> Naravel.Routing.MiddlewareOptions!
+Naravel.Routing.MiddlewareOptions.Alias(string! name, System.Type! type) -> Naravel.Routing.MiddlewareOptions!
+Naravel.Routing.MiddlewareOptions.Alias<T>(string! name) -> Naravel.Routing.MiddlewareOptions!
+Naravel.Routing.MiddlewareOptions.AppendToGroup(string! group, string! member) -> Naravel.Routing.MiddlewareOptions!
+Naravel.Routing.MiddlewareOptions.Group(string! name, params string![]! members) -> Naravel.Routing.MiddlewareOptions!
+Naravel.Routing.MiddlewareOptions.MiddlewareOptions() -> void
+Naravel.Routing.MiddlewareOptions.PrependToGroup(string! group, string! member) -> Naravel.Routing.MiddlewareOptions!
+Naravel.Routing.MiddlewareOptions.Priority(params System.Type![]! types) -> Naravel.Routing.MiddlewareOptions!
+Naravel.Routing.MiddlewareOptions.RemoveFromGroup(string! group, string! member) -> Naravel.Routing.MiddlewareOptions!
+Naravel.Routing.MiddlewareOptions.ReplaceInGroup(string! group, string! search, string! replace) -> Naravel.Routing.MiddlewareOptions!
+Naravel.Routing.MiddlewarePipelineFactory
+Naravel.Routing.MiddlewarePipelineFactory.GetPipeline(Microsoft.AspNetCore.Http.Endpoint! endpoint) -> System.Collections.Generic.IReadOnlyList<Naravel.Routing.ResolvedMiddleware!>!
+Naravel.Routing.MiddlewarePipelineFactory.MiddlewarePipelineFactory(Microsoft.Extensions.Options.IOptions<Naravel.Routing.RoutingOptions!>! options) -> void
+Naravel.Routing.MiddlewarePipelineFactory.Resolve(System.Collections.Generic.IEnumerable<Naravel.Routing.MiddlewareSpec!>! specs, System.Collections.Generic.IEnumerable<Naravel.Routing.MiddlewareSpec!>! without) -> System.Collections.Generic.IReadOnlyList<Naravel.Routing.ResolvedMiddleware!>!
+Naravel.Routing.MiddlewareSpec
+Naravel.Routing.MiddlewareSpec.Arguments.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Naravel.Routing.MiddlewareSpec.Inline.get -> Naravel.Routing.RouteMiddlewareDelegate?
+Naravel.Routing.MiddlewareSpec.Name.get -> string?
+Naravel.Routing.MiddlewareSpec.Type.get -> System.Type?
+Naravel.Routing.NaravelRoute
+Naravel.Routing.NaravelRoute.Configure(System.Action<Microsoft.AspNetCore.Builder.RouteHandlerBuilder!>! configure) -> Naravel.Routing.NaravelRoute!
+Naravel.Routing.NaravelRoute.Domain(string! host) -> Naravel.Routing.NaravelRoute!
+Naravel.Routing.NaravelRoute.Host.get -> string?
+Naravel.Routing.NaravelRoute.Methods.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Naravel.Routing.NaravelRoute.Middleware(Naravel.Routing.RouteMiddlewareDelegate! middleware) -> Naravel.Routing.NaravelRoute!
+Naravel.Routing.NaravelRoute.Middleware(System.Type! type, params string![]! arguments) -> Naravel.Routing.NaravelRoute!
+Naravel.Routing.NaravelRoute.Middleware(params string![]! names) -> Naravel.Routing.NaravelRoute!
+Naravel.Routing.NaravelRoute.Name(string! name) -> Naravel.Routing.NaravelRoute!
+Naravel.Routing.NaravelRoute.RouteName.get -> string?
+Naravel.Routing.NaravelRoute.Uri.get -> string!
+Naravel.Routing.NaravelRoute.Where(string! parameter, string! regex) -> Naravel.Routing.NaravelRoute!
+Naravel.Routing.NaravelRoute.WithoutMiddleware(System.Type! type) -> Naravel.Routing.NaravelRoute!
+Naravel.Routing.NaravelRoute.WithoutMiddleware(params string![]! names) -> Naravel.Routing.NaravelRoute!
+Naravel.Routing.NaravelRoutingMiddleware
+Naravel.Routing.NaravelRoutingMiddleware.InvokeAsync(Microsoft.AspNetCore.Http.HttpContext! context) -> System.Threading.Tasks.Task!
+Naravel.Routing.NaravelRoutingMiddleware.NaravelRoutingMiddleware(Microsoft.AspNetCore.Http.RequestDelegate! next, Naravel.Routing.MiddlewarePipelineFactory! factory) -> void
+Naravel.Routing.PendingRouteGroup
+Naravel.Routing.PendingRouteGroup.Domain(string! host) -> Naravel.Routing.PendingRouteGroup!
+Naravel.Routing.PendingRouteGroup.Group(System.Action<Naravel.Routing.IRouteRegistrar!>! routes) -> void
+Naravel.Routing.PendingRouteGroup.Middleware(params string![]! names) -> Naravel.Routing.PendingRouteGroup!
+Naravel.Routing.PendingRouteGroup.Name(string! namePrefix) -> Naravel.Routing.PendingRouteGroup!
+Naravel.Routing.PendingRouteGroup.Prefix(string! prefix) -> Naravel.Routing.PendingRouteGroup!
+Naravel.Routing.PendingRouteGroup.WithoutMiddleware(params string![]! names) -> Naravel.Routing.PendingRouteGroup!
+Naravel.Routing.ResolvedMiddleware
+Naravel.Routing.ResolvedMiddleware.Arguments.get -> Naravel.Routing.MiddlewareArguments!
+Naravel.Routing.ResolvedMiddleware.DisplayName.get -> string!
+Naravel.Routing.ResolvedMiddleware.Type.get -> System.Type?
+Naravel.Routing.ResourceHandlers
+Naravel.Routing.ResourceHandlers.Create.get -> System.Delegate?
+Naravel.Routing.ResourceHandlers.Create.set -> void
+Naravel.Routing.ResourceHandlers.Destroy.get -> System.Delegate?
+Naravel.Routing.ResourceHandlers.Destroy.set -> void
+Naravel.Routing.ResourceHandlers.Edit.get -> System.Delegate?
+Naravel.Routing.ResourceHandlers.Edit.set -> void
+Naravel.Routing.ResourceHandlers.Index.get -> System.Delegate?
+Naravel.Routing.ResourceHandlers.Index.set -> void
+Naravel.Routing.ResourceHandlers.ResourceHandlers() -> void
+Naravel.Routing.ResourceHandlers.Show.get -> System.Delegate?
+Naravel.Routing.ResourceHandlers.Show.set -> void
+Naravel.Routing.ResourceHandlers.Store.get -> System.Delegate?
+Naravel.Routing.ResourceHandlers.Store.set -> void
+Naravel.Routing.ResourceHandlers.Update.get -> System.Delegate?
+Naravel.Routing.ResourceHandlers.Update.set -> void
+Naravel.Routing.ResourceOptions
+Naravel.Routing.ResourceOptions.Except.get -> string![]?
+Naravel.Routing.ResourceOptions.Except.set -> void
+Naravel.Routing.ResourceOptions.Only.get -> string![]?
+Naravel.Routing.ResourceOptions.Only.set -> void
+Naravel.Routing.ResourceOptions.Parameter.get -> string?
+Naravel.Routing.ResourceOptions.Parameter.set -> void
+Naravel.Routing.ResourceOptions.ResourceOptions() -> void
+Naravel.Routing.RouteMiddlewareDelegate
+Naravel.Routing.RouteMiddlewareMetadata
+Naravel.Routing.RouteMiddlewareMetadata.Middleware.get -> System.Collections.Generic.IReadOnlyList<Naravel.Routing.MiddlewareSpec!>!
+Naravel.Routing.RouteMiddlewareMetadata.RouteMiddlewareMetadata(System.Collections.Generic.IReadOnlyList<Naravel.Routing.MiddlewareSpec!>! middleware, System.Collections.Generic.IReadOnlyList<Naravel.Routing.MiddlewareSpec!>! without) -> void
+Naravel.Routing.RouteMiddlewareMetadata.Without.get -> System.Collections.Generic.IReadOnlyList<Naravel.Routing.MiddlewareSpec!>!
+Naravel.Routing.RouteNotFoundException
+Naravel.Routing.RouteNotFoundException.RouteName.get -> string!
+Naravel.Routing.RouteNotFoundException.RouteNotFoundException(string! name) -> void
+Naravel.Routing.RoutingOptions
+Naravel.Routing.RoutingOptions.Bind<TModel>(string! parameter, System.Func<string!, Microsoft.AspNetCore.Http.HttpContext!, System.Threading.Tasks.ValueTask<TModel?>>! resolver) -> Naravel.Routing.RoutingOptions!
+Naravel.Routing.RoutingOptions.Middleware.get -> Naravel.Routing.MiddlewareOptions!
+Naravel.Routing.RoutingOptions.Pattern(string! parameter, string! regex) -> Naravel.Routing.RoutingOptions!
+Naravel.Routing.RoutingOptions.Patterns.get -> System.Collections.Generic.IDictionary<string!, string!>!
+Naravel.Routing.RoutingOptions.RoutingOptions() -> void
+Naravel.Routing.SubstituteBindings
+Naravel.Routing.SubstituteBindings.InvokeAsync(Microsoft.AspNetCore.Http.HttpContext! context, Microsoft.AspNetCore.Http.RequestDelegate! next, Naravel.Routing.MiddlewareArguments! arguments) -> System.Threading.Tasks.Task!
+Naravel.Routing.SubstituteBindings.SubstituteBindings(Microsoft.Extensions.Options.IOptions<Naravel.Routing.RoutingOptions!>! options) -> void
+Naravel.Routing.WithoutMiddlewareAttribute
+Naravel.Routing.WithoutMiddlewareAttribute.Except.get -> string![]?
+Naravel.Routing.WithoutMiddlewareAttribute.Except.set -> void
+Naravel.Routing.WithoutMiddlewareAttribute.Name.get -> string!
+Naravel.Routing.WithoutMiddlewareAttribute.Only.get -> string![]?
+Naravel.Routing.WithoutMiddlewareAttribute.Only.set -> void
+Naravel.Routing.WithoutMiddlewareAttribute.WithoutMiddlewareAttribute(string! name) -> void
+override Naravel.Routing.MiddlewareSpec.ToString() -> string!
+static Microsoft.AspNetCore.Builder.NaravelRoutingApplicationBuilderExtensions.MapNaravel(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! endpoints, System.Action<Naravel.Routing.IRouteRegistrar!>! routes) -> Microsoft.AspNetCore.Routing.IEndpointRouteBuilder!
+static Microsoft.AspNetCore.Builder.NaravelRoutingApplicationBuilderExtensions.UseNaravelRouting(this Microsoft.AspNetCore.Builder.IApplicationBuilder! app) -> Microsoft.AspNetCore.Builder.IApplicationBuilder!
+static Microsoft.AspNetCore.Builder.NaravelRoutingApplicationBuilderExtensions.WithNaravelMiddleware<TBuilder>(this TBuilder builder, params string![]! names) -> TBuilder
+static Microsoft.AspNetCore.Builder.NaravelRoutingApplicationBuilderExtensions.WithoutNaravelMiddleware<TBuilder>(this TBuilder builder, params string![]! names) -> TBuilder
+static Microsoft.AspNetCore.Http.NaravelRoutingHttpContextExtensions.GetRouteModel<TModel>(this Microsoft.AspNetCore.Http.HttpContext! context, string! parameter) -> TModel?
+static Microsoft.Extensions.DependencyInjection.NaravelRoutingServiceCollectionExtensions.AddNaravelRouting(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Naravel.Routing.RoutingOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Naravel.Routing.MiddlewareArguments.Empty.get -> Naravel.Routing.MiddlewareArguments!
+static Naravel.Routing.MiddlewareSpec.FromDelegate(Naravel.Routing.RouteMiddlewareDelegate! middleware) -> Naravel.Routing.MiddlewareSpec!
+static Naravel.Routing.MiddlewareSpec.Named(string! nameWithArguments) -> Naravel.Routing.MiddlewareSpec!
+static Naravel.Routing.MiddlewareSpec.OfType(System.Type! type, params string![]! arguments) -> Naravel.Routing.MiddlewareSpec!
+virtual Naravel.Routing.RouteMiddlewareDelegate.Invoke(Microsoft.AspNetCore.Http.HttpContext! context, Microsoft.AspNetCore.Http.RequestDelegate! next, Naravel.Routing.MiddlewareArguments! arguments) -> System.Threading.Tasks.Task!
