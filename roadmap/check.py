@@ -4,8 +4,9 @@
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,6 +26,15 @@ def main() -> int:
     errors: list[str] = []
     roadmap = ROADMAP.read_text(encoding="utf-8")
     matrix = MATRIX.read_text(encoding="utf-8")
+
+    tracked_files = subprocess.run(
+        ["git", "ls-files"], cwd=ROOT, check=True, capture_output=True, text=True
+    ).stdout.splitlines()
+    generated_files = [
+        path for path in tracked_files if {"bin", "obj"} & set(PurePosixPath(path).parts)
+    ]
+    if generated_files:
+        errors.append(f"tracked build artifacts found under bin/ or obj/: {generated_files}")
 
     next_match = re.search(r"(?m)^NEXT:\s*(R\d{2})\s*$", roadmap)
     if not next_match:
@@ -101,6 +111,12 @@ def main() -> int:
         errors.append(f"NEXT points to unknown stage {next_id}")
     elif next_id and rows[next_id][1].startswith("DONE"):
         errors.append(f"NEXT points to completed stage {next_id}")
+    elif next_id and rows[next_id][1].startswith("BLOCKED"):
+        errors.append(f"NEXT points to BLOCKED stage {next_id}; owner approval needed.")
+
+    for readme in (ROOT / "README.md", ROOT / "README.fa.md"):
+        if re.search(r"(?i)\b\d+\s*/\s*\d+\s+tests?\b", readme.read_text(encoding="utf-8")):
+            errors.append(f"{readme.relative_to(ROOT)} contains a manually-entered N/N test count")
 
     # --- REVIEW-01 additions -------------------------------------------------
     satisfied = ("DONE", "DECLINED")
