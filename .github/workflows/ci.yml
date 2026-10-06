@@ -2,11 +2,15 @@ name: CI
 
 on:
   push:
+    branches: [ main ]
+    tags: [ 'v*.*.*' ]
   pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
   contents: read
+  id-token: write 
 
 jobs:
   fast:
@@ -215,3 +219,23 @@ jobs:
 
       - name: Audit vulnerable packages
         run: dotnet list Naravel.slnx package --vulnerable --include-transitive
+
+  publish:
+    name: Publish to NuGet
+    needs: [fast, services]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Pack projects
+        run: dotnet pack Naravel.slnx -c Release -o ./nupkgs
+
+      - name: Push packages to NuGet.org
+        run: dotnet nuget push ./nupkgs/*.nupkg -s https://api.nuget.org/v3/index.json --skip-duplicate
