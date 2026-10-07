@@ -23,6 +23,7 @@ each open finding must be owned by a roadmap stage.
 | D-21 | Kafka polling still blocks a worker thread during `IConsumer.Consume`. | `src/Naravel.Queue.Kafka/KafkaQueueDriver.cs:93` calls synchronous `Consume(TimeSpan.FromMilliseconds(200))`; R07.T05 adds the limitation to the EN/FA queue guides. The async fix remains a separate PDR. | R07.T05 |
 | D-22 | Filesystem drivers lack a shared behavioral contract suite. | `LocalStorageDriver` has contract coverage and S3 has focused tests, but the common `IStorageDriver` behaviors are not exercised through a reusable contract across providers. | R17 |
 | D-23 | Reusable cache and storage test fakes are missing. | `QueueFake` and `RateLimiterFake` are shipped, but there is no reusable fake for `ICacheStore` or `IStorageDriver`; Cache manager tests currently keep their fake stores private. | R17 / DoD S3 |
+| D-25 | Kafka consumers of different queues shared one consumer group, so a new queue's consumer stalled in an eager rebalance until idle members polled again. | CI broker log: group entered `PreparingRebalance` at the second queue's join and stayed there until the first member left (~15 s); rdkafka warned about a `JoinGroup` blocked up to ~297 s; Kafka contract tests failed 10/10 in the repro workflow. Fix: one group per queue (`src/Naravel.Queue.Kafka/KafkaQueueDriver.cs`), regression test `Idle_consumer_of_another_queue_does_not_stall_a_new_queue`. Close only after the repro workflow passes 10/10. | R07.T05 |
 
 ## Resolved / historical notes
 

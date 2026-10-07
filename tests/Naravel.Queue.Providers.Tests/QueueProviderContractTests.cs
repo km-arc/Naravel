@@ -302,24 +302,24 @@ public sealed class KafkaQueueProviderTests : QueueDriverContractTests
     public Task Shared_contract() => RunContractAsync();
 
     [ServiceFact("NARAVEL_TEST_KAFKA")]
-    public async Task Cold_start_first_message_latency_diagnostic()
+    public async Task Idle_consumer_of_another_queue_does_not_stall_a_new_queue()
     {
         var driver = CreateDriver();
         try
         {
             for (var trial = 1; trial <= 5; trial++)
             {
-                var queue = QueueName($"cold-start-{trial}-{Guid.NewGuid():N}");
+                var queue = QueueName($"idle-consumer-{trial}-{Guid.NewGuid():N}");
                 var probe = new QueuedMessage
                 {
                     Queue = queue,
-                    JobType = "cold-start-diagnostic",
+                    JobType = "idle-consumer-regression",
                     Payload = "{}"
                 };
 
                 await driver.PushAsync(probe);
                 var pushedAt = Stopwatch.GetTimestamp();
-                var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(15);
+                var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(5);
                 var nullPolls = 0;
                 QueuedMessage? popped = null;
 
@@ -334,9 +334,9 @@ public sealed class KafkaQueueProviderTests : QueueDriverContractTests
 
                 var elapsedMilliseconds = Stopwatch.GetElapsedTime(pushedAt).TotalMilliseconds;
                 _output.WriteLine(
-                    $"cold-start trial={trial} queue={queue} latencyMs={elapsedMilliseconds:F1} nullPolls={nullPolls} received={popped is not null}");
+                    $"idle-consumer trial={trial} queue={queue} latencyMs={elapsedMilliseconds:F1} nullPolls={nullPolls} received={popped is not null}");
 
-                popped.Should().NotBeNull($"Kafka should eventually deliver probe {probe.Id} on trial {trial}");
+                popped.Should().NotBeNull($"a new queue must not be stalled by the idle consumers of earlier queues (probe {probe.Id}, trial {trial})");
                 popped!.Id.Should().Be(probe.Id);
                 await driver.AckAsync(popped);
             }
@@ -352,6 +352,8 @@ public sealed class KafkaQueueProviderTests : QueueDriverContractTests
     }
 
     protected override bool SupportsSize => false;
+
+    protected override Task WarmUpQueueAsync(IQueueDriver driver, string queue) => WarmUpWithProbeAsync(driver, queue);
 
     protected override IQueueDriver CreateDriver()
         => new KafkaQueueDriver(

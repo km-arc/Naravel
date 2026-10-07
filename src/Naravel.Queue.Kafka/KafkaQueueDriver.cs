@@ -19,6 +19,8 @@ namespace Naravel.Queue.Kafka;
 ///     which means a long delay will block that partition's head-of-line until it is due. If you need many
 ///     independently-delayed jobs mixed with immediate ones at scale, dedicate a separate low-traffic queue
 ///     (topic) for delayed jobs.
+///   - One consumer, in its own consumer group ("{groupId}-{queue}"), is shared per queue, so an idle consumer of one queue
+///     can never stall a rebalance of another queue.
 ///   - One consumer is shared per queue. Polling, seeking, and offset commits are serialized; worker concurrency
 ///     can execute jobs in parallel, but acknowledgements only commit past the oldest unacknowledged record.
 ///   - PopAsync drains up to 256 currently available records and returns the highest-priority job in that batch;
@@ -65,7 +67,7 @@ public class KafkaQueueDriver : IQueueDriver, IDisposable
         var consumer = new ConsumerBuilder<string, string>(new ConsumerConfig
         {
             BootstrapServers = _bootstrapServers,
-            GroupId = _groupId,
+            GroupId = $"{_groupId}-{q}",
             AutoOffsetReset = AutoOffsetReset.Earliest,
             EnableAutoCommit = false,
             EnablePartitionEof = false
