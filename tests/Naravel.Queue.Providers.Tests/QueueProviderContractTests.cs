@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Confluent.Kafka;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,7 @@ using Naravel.Queue.Tests;
 using Naravel.Testing;
 using RabbitMQ.Client;
 using StackExchange.Redis;
+using Xunit.Abstractions;
 
 namespace Naravel.Queue.Providers.Tests;
 
@@ -292,8 +294,62 @@ public sealed class RabbitMqQueueProviderTests : QueueDriverContractTests
 
 public sealed class KafkaQueueProviderTests : QueueDriverContractTests
 {
+    private readonly ITestOutputHelper _output;
+
+    public KafkaQueueProviderTests(ITestOutputHelper output) => _output = output;
+
     [ServiceFact("NARAVEL_TEST_KAFKA")]
     public Task Shared_contract() => RunContractAsync();
+
+    [ServiceFact("NARAVEL_TEST_KAFKA")]
+    public async Task Cold_start_first_message_latency_diagnostic()
+    {
+        var driver = CreateDriver();
+        try
+        {
+            for (var trial = 1; trial <= 5; trial++)
+            {
+                var queue = QueueName($"cold-start-{trial}-{Guid.NewGuid():N}");
+                var probe = new QueuedMessage
+                {
+                    Queue = queue,
+                    JobType = "cold-start-diagnostic",
+                    Payload = "{}"
+                };
+
+                await driver.PushAsync(probe);
+                var pushedAt = Stopwatch.GetTimestamp();
+                var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(15);
+                var nullPolls = 0;
+                QueuedMessage? popped = null;
+
+                while (DateTimeOffset.UtcNow < deadline)
+                {
+                    popped = await driver.PopAsync(queue);
+                    if (popped is not null) break;
+
+                    nullPolls++;
+                    await Task.Delay(TimeSpan.FromMilliseconds(200));
+                }
+
+                var elapsedMilliseconds = Stopwatch.GetElapsedTime(pushedAt).TotalMilliseconds;
+                _output.WriteLine(
+                    $"cold-start trial={trial} queue={queue} latencyMs={elapsedMilliseconds:F1} nullPolls={nullPolls} received={popped is not null}");
+
+                popped.Should().NotBeNull($"Kafka should eventually deliver probe {probe.Id} on trial {trial}");
+                popped!.Id.Should().Be(probe.Id);
+                await driver.AckAsync(popped);
+            }
+        }
+        finally
+        {
+            if (driver is IAsyncDisposable asyncDisposable)
+                await asyncDisposable.DisposeAsync();
+            else if (driver is IDisposable disposable)
+                disposable.Dispose();
+            await CleanupAsync();
+        }
+    }
 
     protected override bool SupportsSize => false;
 
