@@ -180,6 +180,28 @@ jobs:
           --results-directory TestResults/Providers/Cache
           --collect:"XPlat Code Coverage"
 
+      - name: Annotate failed provider tests
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          # Surface failing test names and messages as workflow annotations so they are
+          # readable from the run's check annotations without downloading job logs.
+          for result in sorted(Path("TestResults/Providers").rglob("*.trx")):
+              root = ET.parse(result).getroot()
+              for node in root.iter():
+                  if not node.tag.endswith("UnitTestResult") or node.attrib.get("outcome") != "Failed":
+                      continue
+                  message = next((n.text or "" for n in node.iter() if n.tag.endswith("Message")), "")
+                  trace = next((n.text or "" for n in node.iter() if n.tag.endswith("StackTrace")), "")
+                  text = (message + " | " + trace.strip().splitlines()[0] if trace.strip() else message)
+                  text = " ".join(text.split())[:900].replace("%", "%25")
+                  print(f"::error title=Failed: {node.attrib.get('testName', '?')}::{text}")
+          PY
+
       - name: Summarize env-gated provider tests
         if: always()
         shell: bash
