@@ -12,6 +12,8 @@
 NEXT: R06
 ```
 
+وضعیت R07: DOING (residual PDR-012 items open; see roadmap/stages/R07).
+
 R00 تکمیل شد: رجیستری alias برای jobها، محافظت deserialization، حفظ گزینه‌های chain، مستندات و workflow پایهٔ CI؛ build و ۲۰۸ تست کل موفق شدند.
 R02 (مهاجرت Filesystem به Foundation) قبلاً پیاده‌سازی و تأیید شده و
 با ۲۰ تست Filesystem، ۱۷۲ تست کل در تأیید ۲۰۲۶-۱۰-۰۴ ثبت شده است.
