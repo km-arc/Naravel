@@ -51,6 +51,10 @@ public abstract class QueueDriverContractTests : IDisposable
     // race the consumer joining its group. Other drivers keep the default no-op and are tested exactly as before.
     protected virtual Task WarmUpQueueAsync(IQueueDriver driver, string queue) => Task.CompletedTask;
 
+    // Kafka only prioritizes records that already reached the consumer in one poll batch (documented limitation: later
+    // arrivals are not reordered). Drivers like that override this to let both pushed messages arrive before popping.
+    protected virtual Task SettleBeforePriorityPopAsync() => Task.CompletedTask;
+
     protected static async Task WarmUpWithProbeAsync(IQueueDriver driver, string queue)
     {
         var probe = Msg(queue);
@@ -97,6 +101,7 @@ public abstract class QueueDriverContractTests : IDisposable
                 var high = Msg(priorityQueue, priority: 9);
                 await driver.PushAsync(low);
                 await driver.PushAsync(high);
+                await SettleBeforePriorityPopAsync();
                 (await PopEventuallyAsync(driver, priorityQueue))!.Id.Should().Be(high.Id);
                 (await PopEventuallyAsync(driver, priorityQueue))!.Id.Should().Be(low.Id);
             }

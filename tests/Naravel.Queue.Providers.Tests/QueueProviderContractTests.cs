@@ -355,6 +355,8 @@ public sealed class KafkaQueueProviderTests : QueueDriverContractTests
 
     protected override Task WarmUpQueueAsync(IQueueDriver driver, string queue) => WarmUpWithProbeAsync(driver, queue);
 
+    protected override Task SettleBeforePriorityPopAsync() => Task.Delay(TimeSpan.FromSeconds(1));
+
     protected override IQueueDriver CreateDriver()
         => new KafkaQueueDriver(
             Environment.GetEnvironmentVariable("NARAVEL_TEST_KAFKA")!,
