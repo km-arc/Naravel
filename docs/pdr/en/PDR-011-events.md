@@ -2,7 +2,7 @@
 
 **Native-first verdict:** .NET has no built-in, DI-aware application event dispatcher. CLR `event`/delegates couple the publisher to concrete subscriber instances, and `System.Diagnostics.DiagnosticListener` is a diagnostics channel, not an application bus. MediatR-style libraries are third-party dependencies (AGENTS.md rule 8 forbids adding one without a PDR) and bring request/response and pipeline concepts Naravel does not need. A tiny typed dispatcher on top of `Microsoft.Extensions.DependencyInjection` adds real value and stays small.
 
-Status: **Proposed — awaiting owner approval.** No code may be written for R06.T02–T04 until the owner approves this PDR (Gate in `roadmap/stages/R06-events.md`).
+Status: **Approved 2026-10-07.** The owner approved the proposal below as written (all eight items under "Approval requested"). R06.T02–T04 may proceed (Gate in `roadmap/stages/R06-events.md`).
 
 ## Context
 
@@ -88,4 +88,4 @@ The owner is asked to approve, amend or reject each of the following. Defaults a
 7. Queued listeners only in `Naravel.Events.Queue`, using the existing job type registry (OD-07).
 8. Explicit registration only (no assembly-scan discovery) in R06.
 
-Owner approval: _pending_.
+Owner approval: approved 2026-10-07, all eight items, no amendments.

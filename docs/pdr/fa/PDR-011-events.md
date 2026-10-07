@@ -2,7 +2,7 @@
 
 **داوری با اولویت .NET بومی:** .NET dispatcher رویداد برنامه‌ای داخلی و سازگار با DI ندارد. `event` و delegateهای CLR ناشر را به نمونه‌های مشخص مشترک گره می‌زنند و `System.Diagnostics.DiagnosticListener` کانال تشخیصی است، نه باس رویداد برنامه. کتابخانه‌های سبک MediatR وابستگی ثالث هستند (قاعدهٔ ۸ در AGENTS.md افزودن آن را بدون PDR ممنوع می‌کند) و مفاهیم request/response و pipeline را می‌آورند که Naravel به آن‌ها نیاز ندارد. یک dispatcher کوچک و typed روی `Microsoft.Extensions.DependencyInjection` ارزش واقعی اضافه می‌کند و کوچک می‌ماند.
 
-وضعیت: **پیشنهادی — در انتظار تأیید مالک.** تا زمانی که مالک این PDR را تأیید نکرده، نوشتن کد برای R06.T02 تا T04 مجاز نیست (Gate در `roadmap/stages/R06-events.md`).
+وضعیت: **تأییدشده در ۲۰۲۶-۱۰-۰۷.** مالک پیشنهاد زیر را همان‌گونه که نوشته شده تأیید کرد (هر هشت مورد بخش «تأیید درخواست‌شده»). R06.T02 تا T04 می‌توانند ادامه یابند (Gate در `roadmap/stages/R06-events.md`).
 
 ## زمینه
 
@@ -88,4 +88,4 @@ using var subscription = events.Listen<OrderPaid>((e, ct) => ValueTask.Completed
 7. listenerهای صف‌شونده فقط در `Naravel.Events.Queue` و با رجیستری نوع job موجود (OD-07).
 8. در R06 فقط ثبت صریح (بدون کشف با پویش assembly).
 
-تأیید مالک: _در انتظار_.
+تأیید مالک: تأییدشده در ۲۰۲۶-۱۰-۰۷، هر هشت مورد، بدون اصلاح.
