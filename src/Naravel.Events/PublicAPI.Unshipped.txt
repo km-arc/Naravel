@@ -1,0 +1,27 @@
+#nullable enable
+Naravel.Events.EventDispatchContext
+Naravel.Events.EventDispatchContext.EventDispatchContext() -> void
+Naravel.Events.EventDispatchContext.Stop() -> void
+Naravel.Events.EventDispatchContext.StopPropagation.get -> bool
+Naravel.Events.EventDispatcher
+Naravel.Events.EventDispatcher.EventDispatcher(System.IServiceProvider! provider, Naravel.Events.IEventListenerInvoker! listenerInvoker) -> void
+Naravel.Events.EventDispatcher.DispatchAsync<TEvent>(TEvent evt, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Events.EventDispatcher.Listen<TEvent>(System.Func<TEvent, Naravel.Events.EventDispatchContext!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! listener) -> System.IDisposable!
+Naravel.Events.IEventDispatcher
+Naravel.Events.IEventDispatcher.DispatchAsync<TEvent>(TEvent evt, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Events.IEventDispatcher.Listen<TEvent>(System.Func<TEvent, Naravel.Events.EventDispatchContext!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! listener) -> System.IDisposable!
+Naravel.Events.IEventListener<TEvent>
+Naravel.Events.IEventListener<TEvent>.HandleAsync(TEvent evt, Naravel.Events.EventDispatchContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Events.IEventListenerInvoker
+Naravel.Events.IEventListenerInvoker.InvokeAsync<TEvent>(Naravel.Events.IEventListener<TEvent>! listener, TEvent evt, Naravel.Events.EventDispatchContext! context, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Naravel.Events.IQueuedEventListener<TEvent>
+Naravel.Events.Testing.EventFake
+Naravel.Events.Testing.EventFake.All.get -> System.Collections.Generic.IReadOnlyList<object!>!
+Naravel.Events.Testing.EventFake.AssertDispatched<TEvent>() -> TEvent
+Naravel.Events.Testing.EventFake.AssertDispatched<TEvent>(int expectedCount) -> System.Collections.Generic.IReadOnlyList<TEvent>!
+Naravel.Events.Testing.EventFake.DispatchAsync<TEvent>(TEvent evt, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Events.Testing.EventFake.EventFake() -> void
+Naravel.Events.Testing.EventFake.Listen<TEvent>(System.Func<TEvent, Naravel.Events.EventDispatchContext!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! listener) -> System.IDisposable!
+Naravel.Events.Testing.EventFake.Reset() -> void
+Microsoft.Extensions.DependencyInjection.NaravelEventsServiceCollectionExtensions
+static Microsoft.Extensions.DependencyInjection.NaravelEventsServiceCollectionExtensions.AddNaravelEvents(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

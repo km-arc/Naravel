@@ -14,6 +14,15 @@ dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*'
 | get در cache دارای tag | 236.3 ns | 432 B |
 | serialize + deserialize با reflection | 481.9 ns | 208 B |
 | serialize + deserialize با source generation | 301.4 ns | 88 B |
+| dispatch گرم `Naravel.Events` با یک listener بدون کار | 137.8 ns | 24 B |
 
 این نتایج خط مبنای محلی‌اند و ادعای throughput سرویس نیستند. BenchmarkDotNet برای serialization با
 source generation توزیع چندقله‌ای گزارش کرد؛ پیش از مقایسهٔ تغییرهای کوچک، روی سخت‌افزار هدف دوباره اجرا کنید.
+بنچمارک Events با job کوتاه سه‌تکراری روی Ubuntu 24.04.5 و .NET 10.0.12 اجرا شد؛ بازهٔ اطمینان ۹۹٫۹٪ گسترده بود،
+پس این عدد فقط خط مبنای اولیه است. هدف تخصیص صفر حاصل نشد: context dispatch برای پشتیبانی از توقف انتشار تخصیص می‌یابد.
+
+اجرای بنچمارک Events:
+
+```sh
+dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*EventDispatchBenchmarks*' --job short --warmupCount 1 --iterationCount 3 --launchCount 1
+```

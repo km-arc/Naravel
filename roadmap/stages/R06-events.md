@@ -8,7 +8,7 @@ Out of scope: model/observer events; queued listeners must live in the optional 
 Decisions: S2: listener lists per event type are built once and cached (no per-dispatch reflection).
 
 ## Tasks
-- [ ] **R06.T01 — PDR-011:** native-first verdict (delegates/MediatR-style vs a tiny dispatcher), quickstart (`events.Listen<OrderPaid>(...)`, `await events.DispatchAsync(new OrderPaid(id))`), subscribers, ordering, stop-propagation, queued-listener adapter. **Accept:** PDR EN+FA.
-- [ ] **R06.T02 — Core dispatcher:** `IEventDispatcher`, DI-resolved `IEventListener<TEvent>`, cached listener plans, `EventFake`. **Accept:** tests for order, multiple listeners, exception policy, `Extend` where applicable, fake assertions, `Meter`/`ActivitySource`.
-- [ ] **R06.T03 — Queued listeners (adapter):** `Naravel.Events.Queue` dispatches listeners marked queued through `IJobDispatcher`. **Accept:** test with Memory queue runs the listener in the worker.
-- [ ] **R06.T04 — Validate:** benchmark (dispatch/s, 0 allocations in steady state if achievable), docs EN/FA, parity/status/changelog, full verification. **Accept:** DoD 5–7.
+- [x] **R06.T01 — PDR-011:** native-first verdict (delegates/MediatR-style vs a tiny dispatcher), quickstart (`events.Listen<OrderPaid>(...)`, `await events.DispatchAsync(new OrderPaid(id))`), subscribers, ordering, stop-propagation, queued-listener adapter. **Accept:** PDR EN+FA.
+- [x] **R06.T02 — Core dispatcher:** `IEventDispatcher`, DI-resolved `IEventListener<TEvent>`, cached listener plans, `EventFake`. **Accept:** tests for order, multiple listeners, exception policy, DI override (not driver-based; `Extend` is inapplicable), fake assertions, `Meter`/`ActivitySource`.
+- [x] **R06.T03 — Queued listeners (adapter):** `Naravel.Events.Queue` dispatches listeners marked queued through `IJobDispatcher`. **Accept:** test with Memory queue runs the listener in the worker.
+- [x] **R06.T04 — Validate:** benchmark (dispatch/s, 0 allocations in steady state if achievable), docs EN/FA, parity/status/changelog, full verification. **Accept:** DoD 5–7.
