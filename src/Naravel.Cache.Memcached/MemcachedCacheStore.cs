@@ -1,3 +1,4 @@
+using System.Globalization;
 using Enyim.Caching;
 using Naravel.Cache.Abstractions;
 
@@ -35,6 +36,15 @@ public sealed class MemcachedCacheStore : ICacheStore
     {
         cancellationToken.ThrowIfCancellationRequested();
         var fullKey = Key(key);
+        if (TryGetIntegralType(typeof(T), out var integralType))
+        {
+            // Integral values are stored as decimal text so that memcached INCR/DECR can operate on them.
+            var raw = await _client.GetAsync<object>(fullKey).ConfigureAwait(false);
+            if (!raw.HasValue || raw.Value is null) return (false, default);
+            var number = Convert.ChangeType(raw.Value, integralType, CultureInfo.InvariantCulture);
+            return (true, (T)number);
+        }
+
         var result = await _client.GetAsync<T>(fullKey).ConfigureAwait(false);
         return result.HasValue ? (true, result.Value) : (false, default);
     }
@@ -43,7 +53,10 @@ public sealed class MemcachedCacheStore : ICacheStore
     public async Task SetAsync<T>(string key, T value, TimeSpan? ttl, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await _client.SetAsync(Key(key), value!, ttl ?? TimeSpan.Zero).ConfigureAwait(false);
+        object stored = TryGetIntegralType(typeof(T), out _)
+            ? Convert.ToString(value, CultureInfo.InvariantCulture)!
+            : value!;
+        await _client.SetAsync(Key(key), stored, ttl ?? TimeSpan.Zero).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -65,7 +78,9 @@ public sealed class MemcachedCacheStore : ICacheStore
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentOutOfRangeException.ThrowIfNegative(by);
-        return await Task.Run(() => (long)_client.Increment(Key(key), (ulong)by, (ulong)by), cancellationToken).ConfigureAwait(false);
+        var fullKey = Key(key);
+        if (await _client.AddAsync(fullKey, Counter(by), TimeSpan.Zero).ConfigureAwait(false)) return by;
+        return await Task.Run(() => (long)_client.Increment(fullKey, (ulong)by, (ulong)by), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -75,7 +90,7 @@ public sealed class MemcachedCacheStore : ICacheStore
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(by);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(ttl, TimeSpan.Zero);
         var fullKey = Key(key);
-        if (await _client.AddAsync(fullKey, by, ttl).ConfigureAwait(false)) return by;
+        if (await _client.AddAsync(fullKey, Counter(by), ttl).ConfigureAwait(false)) return by;
         return await Task.Run(() => (long)_client.Increment(fullKey, (ulong)by, (ulong)by), cancellationToken).ConfigureAwait(false);
     }
 
@@ -84,7 +99,9 @@ public sealed class MemcachedCacheStore : ICacheStore
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentOutOfRangeException.ThrowIfNegative(by);
-        return await Task.Run(() => (long)_client.Decrement(Key(key), 0UL, (ulong)by), cancellationToken).ConfigureAwait(false);
+        var fullKey = Key(key);
+        await _client.AddAsync(fullKey, Counter(0), TimeSpan.Zero).ConfigureAwait(false);
+        return await Task.Run(() => (long)_client.Decrement(fullKey, 0UL, (ulong)by), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -92,6 +109,19 @@ public sealed class MemcachedCacheStore : ICacheStore
     {
         cancellationToken.ThrowIfCancellationRequested();
         return _client.FlushAllAsync();
+    }
+
+    // memcached INCR/DECR only work on values stored as decimal ASCII text. Enyim serializes numbers
+    // (for example a boxed long) as typed binary, which the server rejects as non-numeric, so every
+    // counter is created and written as text.
+    private static string Counter(long value) => value.ToString(CultureInfo.InvariantCulture);
+
+    private static bool TryGetIntegralType(Type type, out Type integralType)
+    {
+        integralType = Nullable.GetUnderlyingType(type) ?? type;
+        return integralType == typeof(long) || integralType == typeof(int) || integralType == typeof(short)
+            || integralType == typeof(sbyte) || integralType == typeof(ulong) || integralType == typeof(uint)
+            || integralType == typeof(ushort) || integralType == typeof(byte);
     }
 
     private async Task<bool> ExistsCoreAsync(string key) => (await _client.GetAsync<object>(key).ConfigureAwait(false)).HasValue;
