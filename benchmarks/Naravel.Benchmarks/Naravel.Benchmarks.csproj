@@ -11,6 +11,7 @@
     <ProjectReference Include="..\..\src\Naravel.Queue\Naravel.Queue.csproj" />
     <ProjectReference Include="..\..\src\Naravel.Queue.Memory\Naravel.Queue.Memory.csproj" />
     <ProjectReference Include="..\..\src\Naravel.Cache\Naravel.Cache.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Events\Naravel.Events.csproj" />
     <ProjectReference Include="..\..\src\Naravel.Routing\Naravel.Routing.csproj" />
   </ItemGroup>
 </Project>
