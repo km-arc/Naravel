@@ -27,14 +27,23 @@ def main() -> int:
     roadmap = ROADMAP.read_text(encoding="utf-8")
     matrix = MATRIX.read_text(encoding="utf-8")
 
-    tracked_files = subprocess.run(
-        ["git", "ls-files"], cwd=ROOT, check=True, capture_output=True, text=True
-    ).stdout.splitlines()
-    generated_files = [
-        path for path in tracked_files if {"bin", "obj"} & set(PurePosixPath(path).parts)
-    ]
-    if generated_files:
-        errors.append(f"tracked build artifacts found under bin/ or obj/: {generated_files}")
+    try:
+        tracked_files = subprocess.run(
+            ["git", "ls-files"], cwd=ROOT, check=True, capture_output=True, text=True
+        ).stdout.splitlines()
+    except (OSError, subprocess.CalledProcessError):
+        tracked_files = None
+        print("NOTICE: git not available or not a repository; tracked-artifact check skipped")
+    if tracked_files is not None:
+        generated_files = [
+            path
+            for path in tracked_files
+            if {"bin", "obj", "BenchmarkDotNet.Artifacts", ".vscode"} & set(PurePosixPath(path).parts)
+        ]
+        if generated_files:
+            errors.append(
+                f"tracked build artifacts found (bin/, obj/, BenchmarkDotNet.Artifacts/, .vscode/): {generated_files}"
+            )
 
     next_match = re.search(r"(?m)^NEXT:\s*(R\d{2})\s*$", roadmap)
     if not next_match:
@@ -112,11 +121,27 @@ def main() -> int:
     elif next_id and rows[next_id][1].startswith("DONE"):
         errors.append(f"NEXT points to completed stage {next_id}")
     elif next_id and rows[next_id][1].startswith("BLOCKED"):
-        errors.append(f"NEXT points to BLOCKED stage {next_id}; owner approval needed.")
+        reason = rows[next_id][1]
+        if re.search(r"(?i)awaiting (PDR|GO) approval", reason):
+            # Allowed by the PDR-batching rule in ROADMAP.md: informational only.
+            print(f"NOTICE: NEXT={next_id} is {reason}: owner approval needed")
+        else:
+            errors.append(f"NEXT points to BLOCKED stage {next_id} without 'awaiting PDR/GO approval': {reason}")
 
-    for readme in (ROOT / "README.md", ROOT / "README.fa.md"):
-        if re.search(r"(?i)\b\d+\s*/\s*\d+\s+tests?\b", readme.read_text(encoding="utf-8")):
-            errors.append(f"{readme.relative_to(ROOT)} contains a manually-entered N/N test count")
+    count_ratio = re.compile(r"(?<![\d/.])\d+\s*/\s*\d+(?![\d/])")
+    count_tests = re.compile(r"(?i)\b\d+\s+tests?\b")
+    for doc in (ROOT / "README.md", ROOT / "README.fa.md", ROOT / "AGENTS.md"):
+        if not doc.exists():
+            continue
+        for number, line in enumerate(doc.read_text(encoding="utf-8").splitlines(), 1):
+            if "check:allow-count" in line:
+                continue
+            mentions = re.search(r"(?i)test|passed|\u062a\u0633\u062a", line)
+            if mentions and (count_ratio.search(line) or count_tests.search(line)):
+                errors.append(
+                    f"{doc.relative_to(ROOT)}:{number} contains a hand-typed test count; link to CI instead "
+                    "(or add <!-- check:allow-count -->)"
+                )
 
     # --- REVIEW-01 additions -------------------------------------------------
     satisfied = ("DONE", "DECLINED")
