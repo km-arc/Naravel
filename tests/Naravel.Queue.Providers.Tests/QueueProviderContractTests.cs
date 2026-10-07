@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Confluent.Kafka;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,7 @@ using Naravel.Queue.Tests;
 using Naravel.Testing;
 using RabbitMQ.Client;
 using StackExchange.Redis;
+using Xunit.Abstractions;
 
 namespace Naravel.Queue.Providers.Tests;
 
@@ -292,10 +294,68 @@ public sealed class RabbitMqQueueProviderTests : QueueDriverContractTests
 
 public sealed class KafkaQueueProviderTests : QueueDriverContractTests
 {
+    private readonly ITestOutputHelper _output;
+
+    public KafkaQueueProviderTests(ITestOutputHelper output) => _output = output;
+
     [ServiceFact("NARAVEL_TEST_KAFKA")]
     public Task Shared_contract() => RunContractAsync();
 
+    [ServiceFact("NARAVEL_TEST_KAFKA")]
+    public async Task Idle_consumer_of_another_queue_does_not_stall_a_new_queue()
+    {
+        var driver = CreateDriver();
+        try
+        {
+            for (var trial = 1; trial <= 5; trial++)
+            {
+                var queue = QueueName($"idle-consumer-{trial}-{Guid.NewGuid():N}");
+                var probe = new QueuedMessage
+                {
+                    Queue = queue,
+                    JobType = "idle-consumer-regression",
+                    Payload = "{}"
+                };
+
+                await driver.PushAsync(probe);
+                var pushedAt = Stopwatch.GetTimestamp();
+                var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(5);
+                var nullPolls = 0;
+                QueuedMessage? popped = null;
+
+                while (DateTimeOffset.UtcNow < deadline)
+                {
+                    popped = await driver.PopAsync(queue);
+                    if (popped is not null) break;
+
+                    nullPolls++;
+                    await Task.Delay(TimeSpan.FromMilliseconds(200));
+                }
+
+                var elapsedMilliseconds = Stopwatch.GetElapsedTime(pushedAt).TotalMilliseconds;
+                _output.WriteLine(
+                    $"idle-consumer trial={trial} queue={queue} latencyMs={elapsedMilliseconds:F1} nullPolls={nullPolls} received={popped is not null}");
+
+                popped.Should().NotBeNull($"a new queue must not be stalled by the idle consumers of earlier queues (probe {probe.Id}, trial {trial})");
+                popped!.Id.Should().Be(probe.Id);
+                await driver.AckAsync(popped);
+            }
+        }
+        finally
+        {
+            if (driver is IAsyncDisposable asyncDisposable)
+                await asyncDisposable.DisposeAsync();
+            else if (driver is IDisposable disposable)
+                disposable.Dispose();
+            await CleanupAsync();
+        }
+    }
+
     protected override bool SupportsSize => false;
+
+    protected override Task WarmUpQueueAsync(IQueueDriver driver, string queue) => WarmUpWithProbeAsync(driver, queue);
+
+    protected override Task SettleBeforePriorityPopAsync() => Task.Delay(TimeSpan.FromSeconds(1));
 
     protected override IQueueDriver CreateDriver()
         => new KafkaQueueDriver(

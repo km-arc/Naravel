@@ -278,7 +278,10 @@ is cooperative; handlers that ignore their token may continue running.
 
 - **Kafka**: retries move to the tail of the topic (order is not preserved); `PopAsync` prioritizes
   up to 256 records already available in one poll batch, but later arrivals are not reordered; a
-  delayed job blocks its partition until due; `SizeAsync` returns -1.
+  delayed job blocks its partition until due; `SizeAsync` returns -1. Each queue uses its own consumer group
+  (`<groupId>-<queue>`), so an idle consumer of one queue cannot stall another queue. **Upgrade note (pre-1.0):**
+  the new group ids start from the earliest retained offset, so messages that were already acknowledged under the old
+  shared group id may be processed again; drain Kafka queues before upgrading. Polling still blocks a worker thread (D-21).
 - **RabbitMQ**: uses RabbitMQ.Client 7 async operations and a separate channel for each in-flight
   delivery so acknowledgements stay on their originating channel. A long-delay message can hold
   back shorter ones queued after it. Existing ready queues created without `x-max-priority` must be

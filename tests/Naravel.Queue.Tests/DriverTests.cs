@@ -36,6 +36,34 @@ public abstract class QueueDriverContractTests : IDisposable
         AvailableAt = DateTimeOffset.UtcNow + (delay ?? TimeSpan.Zero),
     };
 
+    protected static async Task<QueuedMessage?> PopEventuallyAsync(IQueueDriver driver, string queue, TimeSpan? timeout = null)
+    {
+        var deadline = DateTimeOffset.UtcNow + (timeout ?? TimeSpan.FromSeconds(10));
+        while (true)
+        {
+            var message = await driver.PopAsync(queue);
+            if (message is not null || DateTimeOffset.UtcNow >= deadline) return message;
+            await Task.Delay(50);
+        }
+    }
+
+    // Brokers with asynchronous consumer start-up (Kafka) override this so the first real assertion on a queue does not
+    // race the consumer joining its group. Other drivers keep the default no-op and are tested exactly as before.
+    protected virtual Task WarmUpQueueAsync(IQueueDriver driver, string queue) => Task.CompletedTask;
+
+    // Kafka only prioritizes records that already reached the consumer in one poll batch (documented limitation: later
+    // arrivals are not reordered). Drivers like that override this to let both pushed messages arrive before popping.
+    protected virtual Task SettleBeforePriorityPopAsync() => Task.CompletedTask;
+
+    protected static async Task WarmUpWithProbeAsync(IQueueDriver driver, string queue)
+    {
+        var probe = Msg(queue);
+        await driver.PushAsync(probe);
+        var popped = await PopEventuallyAsync(driver, queue);
+        popped.Should().NotBeNull("the driver must deliver a probe message to a freshly created queue");
+        await driver.AckAsync(popped!);
+    }
+
     protected async Task RunContractAsync()
     {
         var driver = CreateDriver();
@@ -45,11 +73,12 @@ public abstract class QueueDriverContractTests : IDisposable
             (await driver.PopAsync(emptyQueue)).Should().BeNull();
 
             var ackQueue = QueueName("ack");
+            await WarmUpQueueAsync(driver, ackQueue);
             var message = Msg(ackQueue);
             await driver.PushAsync(message);
             if (SupportsSize)
                 (await driver.SizeAsync(ackQueue)).Should().Be(1);
-            var popped = await driver.PopAsync(ackQueue);
+            var popped = await PopEventuallyAsync(driver, ackQueue);
             popped!.Id.Should().Be(message.Id);
             (await driver.PopAsync(ackQueue)).Should().BeNull("a reserved message must not be handed out again");
             await driver.AckAsync(popped);
@@ -58,47 +87,54 @@ public abstract class QueueDriverContractTests : IDisposable
                 (await driver.SizeAsync(ackQueue)).Should().Be(0);
 
             var delayedQueue = QueueName("delayed");
+            await WarmUpQueueAsync(driver, delayedQueue);
             await driver.PushAsync(Msg(delayedQueue, delay: TimeSpan.FromMilliseconds(300)));
             (await driver.PopAsync(delayedQueue)).Should().BeNull();
             await Task.Delay(400);
-            (await driver.PopAsync(delayedQueue)).Should().NotBeNull();
+            (await PopEventuallyAsync(driver, delayedQueue)).Should().NotBeNull();
 
             if (SupportsPriority)
             {
                 var priorityQueue = QueueName("priority");
+                await WarmUpQueueAsync(driver, priorityQueue);
                 var low = Msg(priorityQueue, priority: 0);
                 var high = Msg(priorityQueue, priority: 9);
                 await driver.PushAsync(low);
                 await driver.PushAsync(high);
-                (await driver.PopAsync(priorityQueue))!.Id.Should().Be(high.Id);
-                (await driver.PopAsync(priorityQueue))!.Id.Should().Be(low.Id);
+                await SettleBeforePriorityPopAsync();
+                (await PopEventuallyAsync(driver, priorityQueue))!.Id.Should().Be(high.Id);
+                (await PopEventuallyAsync(driver, priorityQueue))!.Id.Should().Be(low.Id);
             }
 
             var releaseQueue = QueueName("release");
+            await WarmUpQueueAsync(driver, releaseQueue);
             await driver.PushAsync(Msg(releaseQueue));
-            var released = (await driver.PopAsync(releaseQueue))!;
+            var released = (await PopEventuallyAsync(driver, releaseQueue))!;
             released.Attempts = 1;
             await driver.ReleaseAsync(released, TimeSpan.FromMilliseconds(200));
             (await driver.PopAsync(releaseQueue)).Should().BeNull();
             await Task.Delay(300);
-            var retried = await driver.PopAsync(releaseQueue);
+            var retried = await PopEventuallyAsync(driver, releaseQueue);
             retried.Should().NotBeNull();
             retried!.Attempts.Should().Be(1);
 
             var failedQueue = QueueName("failed");
+            await WarmUpQueueAsync(driver, failedQueue);
             await driver.PushAsync(Msg(failedQueue));
-            await driver.FailAsync((await driver.PopAsync(failedQueue))!);
+            await driver.FailAsync((await PopEventuallyAsync(driver, failedQueue))!);
             (await driver.PopAsync(failedQueue)).Should().BeNull();
             if (SupportsSize)
                 (await driver.SizeAsync(failedQueue)).Should().Be(0);
 
             var isolatedQueue = QueueName("isolated");
+            await WarmUpQueueAsync(driver, isolatedQueue);
             var otherQueue = QueueName("other");
             await driver.PushAsync(Msg(isolatedQueue));
             (await driver.PopAsync(otherQueue)).Should().BeNull();
-            (await driver.PopAsync(isolatedQueue)).Should().NotBeNull();
+            (await PopEventuallyAsync(driver, isolatedQueue)).Should().NotBeNull();
 
             var concurrentQueue = QueueName("concurrent");
+            await WarmUpQueueAsync(driver, concurrentQueue);
             const int total = 60;
             for (var i = 0; i < total; i++) await driver.PushAsync(Msg(concurrentQueue));
 

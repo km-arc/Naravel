@@ -41,6 +41,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 - Added `ROADMAP.md` as the authoritative project plan with dependency/gate-aware priorities R00–R17, a Persian owner overview, parity matrix, audit, backlog, stage briefs, and a roadmap consistency checker. CI reports checker results; prior Filesystem and Cache work is recorded without treating unfinished RateLimiter work as complete.
 
 ### Fixed
+- `Naravel.Queue.Kafka`: each queue now consumes in its own consumer group (`<groupId>-<queue>`). With one shared group, a new queue's consumer triggered an eager rebalance that waited for idle consumers of other queues to poll again, stalling delivery for minutes (broker log evidence in D-25). **Breaking (pre-1.0):** new group ids restart from the earliest retained offset; drain Kafka queues before upgrading.
 - `Naravel.Queue.Redis`: atomically push, promote delayed work, reclaim reservations, reserve, ack, release and fail with Lua scripts.
 - `Naravel.Queue.Kafka`: serialize consumer operations, commit only contiguous acknowledged offsets per partition, and prioritize up to 256 records already available in a poll batch.
 - `Naravel.Queue.RabbitMQ`: honor queue message priority using broker priority queues. Existing ready queues created without `x-max-priority` must be recreated before upgrade.
