@@ -129,7 +129,9 @@ public sealed class MemcachedCacheStore : ICacheStore
     // for items that exist, so it must not be used for existence checks.
     private async Task<bool> ExistsCoreAsync(string key)
     {
+#pragma warning disable CS0618 // Obsolete in favour of GetAsync<T>, which cannot express "any type" (see above).
         var result = await _client.GetAsync(key).ConfigureAwait(false);
+#pragma warning restore CS0618
         return result.Success && result.HasValue;
     }
 }
