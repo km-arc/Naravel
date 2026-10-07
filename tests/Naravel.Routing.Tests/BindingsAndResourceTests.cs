@@ -1,5 +1,8 @@
 using System.Net;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 
 namespace Naravel.Routing.Tests;
 
@@ -120,4 +123,45 @@ public class BindingsAndResourceTests
         app.Urls.Route("api.photos.index").Should().Be("/api/photos");
         app.Log.Events.Should().Equal(">A", "<A");
     }
+
+    [Fact]
+    public async Task Controller_resource_maps_seven_named_conventional_routes()
+    {
+        await using var app = await TestApp.StartAsync(
+            native: endpoints => endpoints.MapNaravelControllerResource<PhotoController>("photos"),
+            controllers: true);
+
+        var routes = app.Endpoints.OfType<RouteEndpoint>()
+            .Select(endpoint => (Endpoint: endpoint, Name: endpoint.Metadata.GetMetadata<RouteNameMetadata>()?.RouteName))
+            .Where(item => item.Name?.StartsWith("photos.", StringComparison.Ordinal) == true)
+            .ToArray();
+
+        routes.Select(item => item.Name).Distinct().Should().BeEquivalentTo(
+            "photos.index", "photos.create", "photos.store", "photos.show", "photos.edit", "photos.update", "photos.destroy");
+        (await app.GetStringAsync("/photos")).Should().Be("index");
+        (await app.GetStringAsync("/photos/create")).Should().Be("create");
+        (await app.SendStringAsync(HttpMethod.Post, "/photos")).Should().Be("store");
+        (await app.GetStringAsync("/photos/7")).Should().Be("show:7");
+        (await app.GetStringAsync("/photos/7/edit")).Should().Be("edit:7");
+        (await app.SendStringAsync(HttpMethod.Put, "/photos/7")).Should().Be("update:7");
+        (await app.SendStringAsync(HttpMethod.Patch, "/photos/7")).Should().Be("update:7");
+        (await app.SendStringAsync(HttpMethod.Delete, "/photos/7")).Should().Be("destroy:7");
+    }
+}
+
+public sealed class PhotoController : ControllerBase
+{
+    public IActionResult Index() => Content("index");
+
+    public IActionResult Create() => Content("create");
+
+    public IActionResult Store() => Content("store");
+
+    public IActionResult Show(string id) => Content("show:" + id);
+
+    public IActionResult Edit(string id) => Content("edit:" + id);
+
+    public IActionResult Update(string id) => Content("update:" + id);
+
+    public IActionResult Destroy(string id) => Content("destroy:" + id);
 }

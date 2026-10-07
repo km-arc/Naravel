@@ -49,9 +49,9 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 ## R05 — HTTP middleware and routing completion
 
 - Laravel surface: `Illuminate\Routing\Router`, route registration, middleware, signed URLs, throttle and maintenance behavior.
-- Naravel: Routing Stage 4a exists; ready-made middleware and controller resource follow-ups are open.
+- Naravel: Stage 4a routing plus Stage 4b throttle (local fixed window), signed URLs, maintenance, cache/input/guest middleware, and conventional MVC controller resource mapping.
 - Value: concise route/middleware composition on top of ASP.NET Core.
-- Native baseline: ASP.NET Core routing/middleware, Data Protection, and `System.Threading.RateLimiting`.
+- Native baseline: ASP.NET Core routing/middleware, Data Protection, and `System.Threading.RateLimiting`; throttle and maintenance state are process-local.
 - API reference: [Illuminate Routing](https://api.laravel.com/docs/13.x/Illuminate/Routing/Router.html).
 
 ## R06 — Events

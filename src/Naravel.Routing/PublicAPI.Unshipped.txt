@@ -28,6 +28,8 @@ Naravel.Routing.ITerminableMiddleware.TerminateAsync(Microsoft.AspNetCore.Http.H
 Naravel.Routing.IUrlGenerator
 Naravel.Routing.IUrlGenerator.AbsoluteRoute(Microsoft.AspNetCore.Http.HttpContext! context, string! name, object? values = null) -> string!
 Naravel.Routing.IUrlGenerator.Route(string! name, object? values = null) -> string!
+Naravel.Routing.IUrlGenerator.SignedRoute(string! name, object? values = null) -> string!
+Naravel.Routing.IUrlGenerator.TemporarySignedRoute(string! name, System.DateTimeOffset expiresAt, object? values = null) -> string!
 Naravel.Routing.MiddlewareArguments
 Naravel.Routing.MiddlewareArguments.At(int index) -> string?
 Naravel.Routing.MiddlewareArguments.Count.get -> int
@@ -53,6 +55,11 @@ Naravel.Routing.MiddlewareOptions.PrependToGroup(string! group, string! member) 
 Naravel.Routing.MiddlewareOptions.Priority(params System.Type![]! types) -> Naravel.Routing.MiddlewareOptions!
 Naravel.Routing.MiddlewareOptions.RemoveFromGroup(string! group, string! member) -> Naravel.Routing.MiddlewareOptions!
 Naravel.Routing.MiddlewareOptions.ReplaceInGroup(string! group, string! search, string! replace) -> Naravel.Routing.MiddlewareOptions!
+Naravel.Routing.MaintenanceModeService
+Naravel.Routing.MaintenanceModeService.Disable() -> void
+Naravel.Routing.MaintenanceModeService.Enable(string? bypassSecret = null, System.TimeSpan? retryAfter = null) -> void
+Naravel.Routing.MaintenanceModeService.IsEnabled.get -> bool
+Naravel.Routing.MaintenanceModeService.MaintenanceModeService() -> void
 Naravel.Routing.MiddlewarePipelineFactory
 Naravel.Routing.MiddlewarePipelineFactory.GetPipeline(Microsoft.AspNetCore.Http.Endpoint! endpoint) -> System.Collections.Generic.IReadOnlyList<Naravel.Routing.ResolvedMiddleware!>!
 Naravel.Routing.MiddlewarePipelineFactory.MiddlewarePipelineFactory(Microsoft.Extensions.Options.IOptions<Naravel.Routing.RoutingOptions!>! options) -> void
@@ -124,6 +131,7 @@ Naravel.Routing.RouteNotFoundException.RouteName.get -> string!
 Naravel.Routing.RouteNotFoundException.RouteNotFoundException(string! name) -> void
 Naravel.Routing.RoutingOptions
 Naravel.Routing.RoutingOptions.Bind<TModel>(string! parameter, System.Func<string!, Microsoft.AspNetCore.Http.HttpContext!, System.Threading.Tasks.ValueTask<TModel?>>! resolver) -> Naravel.Routing.RoutingOptions!
+Naravel.Routing.RoutingOptions.ConfigureThrottlePolicy(string! name, int permitLimit, System.TimeSpan window) -> Naravel.Routing.RoutingOptions!
 Naravel.Routing.RoutingOptions.Middleware.get -> Naravel.Routing.MiddlewareOptions!
 Naravel.Routing.RoutingOptions.Pattern(string! parameter, string! regex) -> Naravel.Routing.RoutingOptions!
 Naravel.Routing.RoutingOptions.Patterns.get -> System.Collections.Generic.IDictionary<string!, string!>!
@@ -139,6 +147,7 @@ Naravel.Routing.WithoutMiddlewareAttribute.Only.get -> string![]?
 Naravel.Routing.WithoutMiddlewareAttribute.Only.set -> void
 Naravel.Routing.WithoutMiddlewareAttribute.WithoutMiddlewareAttribute(string! name) -> void
 override Naravel.Routing.MiddlewareSpec.ToString() -> string!
+static Microsoft.AspNetCore.Builder.NaravelRoutingApplicationBuilderExtensions.MapNaravelControllerResource<TController>(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! endpoints, string! name, string! parameter = "id") -> Microsoft.AspNetCore.Routing.IEndpointRouteBuilder!
 static Microsoft.AspNetCore.Builder.NaravelRoutingApplicationBuilderExtensions.MapNaravel(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! endpoints, System.Action<Naravel.Routing.IRouteRegistrar!>! routes) -> Microsoft.AspNetCore.Routing.IEndpointRouteBuilder!
 static Microsoft.AspNetCore.Builder.NaravelRoutingApplicationBuilderExtensions.UseNaravelRouting(this Microsoft.AspNetCore.Builder.IApplicationBuilder! app) -> Microsoft.AspNetCore.Builder.IApplicationBuilder!
 static Microsoft.AspNetCore.Builder.NaravelRoutingApplicationBuilderExtensions.WithNaravelMiddleware<TBuilder>(this TBuilder builder, params string![]! names) -> TBuilder

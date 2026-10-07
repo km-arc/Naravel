@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Routing;
 
 namespace Naravel.Routing;
 
-internal sealed class UrlGenerator(LinkGenerator links) : IUrlGenerator
+internal sealed class UrlGenerator(LinkGenerator links, SignedUrlService signedUrls) : IUrlGenerator
 {
     public string Route(string name, object? values = null)
     {
@@ -17,4 +17,9 @@ internal sealed class UrlGenerator(LinkGenerator links) : IUrlGenerator
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         return links.GetUriByName(context, name, values) ?? throw new RouteNotFoundException(name);
     }
+
+    public string SignedRoute(string name, object? values = null) => signedUrls.Sign(Route(name, values), null);
+
+    public string TemporarySignedRoute(string name, DateTimeOffset expiresAt, object? values = null) =>
+        signedUrls.Sign(Route(name, values), expiresAt);
 }

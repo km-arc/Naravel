@@ -9,16 +9,16 @@
 مرجع رسمی اولویت و وضعیت مرحله‌ها [ROADMAP.md](ROADMAP.md) است. مرحلهٔ بعدی:
 
 ```text
-NEXT: R05
+NEXT: R06
 ```
 
 R00 تکمیل شد: رجیستری alias برای jobها، محافظت deserialization، حفظ گزینه‌های chain، مستندات و workflow پایهٔ CI؛ build و ۲۰۸ تست کل موفق شدند.
 R02 (مهاجرت Filesystem به Foundation) قبلاً پیاده‌سازی و تأیید شده و
 با ۲۰ تست Filesystem، ۱۷۲ تست کل در تأیید ۲۰۲۶-۱۰-۰۴ ثبت شده است.
 
-Cache و lockها تحت PDR-007 و RateLimiter تحت PDR-007a تکمیل شدند. verification کامل Release در ۲۰۲۶-۱۰-۰۶
-با ۲۲۵ تست موفق و ۷ تست skipشده گذشت؛ benchmark کوتاه Memory برای limiter میانگین ۴٫۸۵ میکروثانیه بر عملیات
-ثبت کرد. Routing مرحلهٔ 4a تکمیل شده، اما middlewareهای آماده در R05 هستند و به اجازهٔ صریح مالک نیاز دارند.
+Cache و lockها تحت PDR-007، RateLimiter تحت PDR-007a و Routing مرحلهٔ 4b تحت PDR-009 تکمیل شدند.
+verification کامل Release در ۲۰۲۶-۱۰-۰۶ با ۲۳۳ تست موفق و ۷ تست skipشده گذشت. benchmark کوتاه Memory
+برای RateLimiter حدود ۴٫۸۵ میکروثانیه و benchmark pipeline روتینگ حدود ۴۴۴ نانوثانیه بر عملیات ثبت کردند.
 
 ## دروازه‌های تأیید
 
@@ -42,7 +42,7 @@ Cache و lockها تحت PDR-007 و RateLimiter تحت PDR-007a تکمیل شد�
 - Encryption مرحلهٔ جدید R18 است (لایهٔ نازک روی Data Protection)؛ Validation ساخته نمی‌شود.
 - نوع job از رجیستری alias خوانده می‌شود، نه از `Type.GetType` روی داده‌ی صف.
 
-**ترتیب پیش‌فرض:** R05 → R06 → R08 → R09 → R10 → R18 → R03 → R15 → R16 → R11 → R12 → R13 → R14 → R17.
+**ترتیب پیش‌فرض:** R06 → R08 → R09 → R10 → R18 → R03 → R15 → R16 → R11 → R12 → R13 → R14 → R17.
 
 **قانون PDR دسته‌ای:** اگر `NEXT` منتظر تأیید PDR باشد، ایجنت PDRهای کل آن «موج» را می‌نویسد و می‌ایستد؛ مالک موج را یک‌جا تأیید می‌کند.
 

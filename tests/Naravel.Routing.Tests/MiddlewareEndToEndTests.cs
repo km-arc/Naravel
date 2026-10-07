@@ -1,6 +1,8 @@
 using System.Net;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Naravel.Routing.Tests;
 
@@ -43,6 +45,123 @@ public class MiddlewareEndToEndTests
 
         (await app.Client.GetAsync("/m")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         app.Log.Events.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Throttle_limits_requests_and_returns_rate_limit_headers()
+    {
+        await using var app = await TestApp.StartAsync(
+            routes: r => r.Get("/limited", () => "ok").Middleware("throttle:2,1"));
+
+        var first = await app.Client.GetAsync("/limited");
+        var second = await app.Client.GetAsync("/limited");
+        var rejected = await app.Client.GetAsync("/limited");
+
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+        first.Headers.GetValues("X-RateLimit-Limit").Should().Equal("2");
+        first.Headers.GetValues("X-RateLimit-Remaining").Should().Equal("1");
+        second.Headers.GetValues("X-RateLimit-Remaining").Should().Equal("0");
+        rejected.StatusCode.Should().Be((HttpStatusCode)429);
+        rejected.Headers.GetValues("X-RateLimit-Limit").Should().Equal("2");
+        rejected.Headers.GetValues("X-RateLimit-Remaining").Should().Equal("0");
+        rejected.Headers.Should().ContainKey("Retry-After");
+    }
+
+    [Fact]
+    public async Task Throttle_resolves_named_policies()
+    {
+        await using var app = await TestApp.StartAsync(
+            routes: r => r.Get("/login", () => "ok").Middleware("throttle:login"),
+            options: o => o.ConfigureThrottlePolicy("login", 1, TimeSpan.FromMinutes(1)));
+
+        (await app.Client.GetAsync("/login")).StatusCode.Should().Be(HttpStatusCode.OK);
+        var rejected = await app.Client.GetAsync("/login");
+
+        rejected.StatusCode.Should().Be((HttpStatusCode)429);
+        rejected.Headers.GetValues("X-RateLimit-Limit").Should().Equal("1");
+    }
+
+    [Fact]
+    public async Task Signed_urls_accept_valid_reject_tampered_and_expired_requests()
+    {
+        await using var app = await TestApp.StartAsync(routes: r =>
+            r.Get("/download", () => "file").Name("download").Middleware("signed"));
+
+        var validUrl = app.Urls.SignedRoute("download", new { file = "report.csv" });
+        (await app.Client.GetAsync(validUrl)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        (await app.Client.GetAsync(validUrl + "&file=changed.csv")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var expiredUrl = app.Urls.TemporarySignedRoute("download", DateTimeOffset.UtcNow.AddMinutes(-1));
+        (await app.Client.GetAsync(expiredUrl)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Maintenance_mode_returns_retry_after_and_accepts_secret_bypass()
+    {
+        await using var app = await TestApp.StartAsync(
+            routes: r => r.Get("/status", () => "ok").Middleware("maintenance"));
+        var maintenance = app.App.Services.GetRequiredService<MaintenanceModeService>();
+        maintenance.Enable("secret", TimeSpan.FromSeconds(25));
+
+        var unavailable = await app.Client.GetAsync("/status");
+        unavailable.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+        unavailable.Headers.GetValues("Retry-After").Should().Equal("25");
+
+        using var bypass = new HttpRequestMessage(HttpMethod.Get, "/status");
+        bypass.Headers.Add("X-Naravel-Maintenance-Bypass", "secret");
+        (await app.Client.SendAsync(bypass)).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Cache_headers_applies_validated_cache_control_directives()
+    {
+        await using var app = await TestApp.StartAsync(routes: r =>
+            r.Get("/cached", () => "ok").Middleware("cache.headers:public,max-age=60"));
+
+        var response = await app.Client.GetAsync("/cached");
+
+        response.Headers.CacheControl!.Public.Should().BeTrue();
+        response.Headers.CacheControl.MaxAge.Should().Be(TimeSpan.FromSeconds(60));
+    }
+
+    [Fact]
+    public async Task Input_middleware_trims_query_and_normalizes_empty_form_values()
+    {
+        await using var app = await TestApp.StartAsync(routes: r =>
+        {
+            r.Get("/trim", (HttpContext context) =>
+                $"{context.Request.Query["name"]}|{(context.Request.Query["empty"][0] is null ? "null" : "value")}")
+                .Middleware("trim", "convert.empty");
+            r.Post("/form", async (HttpContext context) =>
+            {
+                var form = await context.Request.ReadFormAsync();
+                return $"{form["name"]}|{(form["empty"][0] is null ? "null" : "value")}";
+            }).Middleware("trim", "convert.empty");
+        });
+
+        (await app.GetStringAsync("/trim?name=%20Ada%20&empty=")).Should().Be("Ada|null");
+        using var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["name"] = "  Ada  ",
+            ["empty"] = string.Empty
+        });
+        var response = await app.Client.PostAsync("/form", content);
+        (await response.Content.ReadAsStringAsync()).Should().Be("Ada|null");
+    }
+
+    [Fact]
+    public async Task Guest_middleware_blocks_authenticated_users_only()
+    {
+        await using var app = await TestApp.StartAsync(
+            routes: r => r.Get("/guest", () => "guest").Middleware("test.authenticated", "guest"),
+            options: o => o.Middleware.Alias("test.authenticated", async (context, next, _) =>
+            {
+                context.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "user-1")], "test"));
+                await next(context);
+            }));
+
+        (await app.Client.GetAsync("/guest")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]

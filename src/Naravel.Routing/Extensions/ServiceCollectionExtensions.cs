@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Naravel.Routing;
 
@@ -18,10 +19,14 @@ public static class NaravelRoutingServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddRouting();
+        services.AddDataProtection();
         services.AddOptions<RoutingOptions>();
         if (configure is not null) services.Configure(configure);
 
         services.TryAddSingleton<MiddlewarePipelineFactory>();
+        services.TryAddSingleton<ThrottleLimiterRegistry>();
+        services.TryAddSingleton<SignedUrlService>(sp => new SignedUrlService(sp.GetRequiredService<IDataProtectionProvider>()));
+        services.TryAddSingleton<MaintenanceModeService>();
         services.TryAddSingleton<IUrlGenerator, UrlGenerator>();
         return services;
     }

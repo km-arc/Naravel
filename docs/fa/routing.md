@@ -5,8 +5,7 @@
 مسیرهای resource و یک سیستم کامل **middleware مسیر** (alias، group، پارامتر، اولویت، `withoutMiddleware`، terminable).
 طراحی: [PDR-009](../pdr/fa/PDR-009-routing-and-http-middleware.md). نسخهٔ انگلیسی: [../en/routing.md](../en/routing.md).
 
-> وضعیت: در مرحلهٔ ۴a پیاده شد و در **۲۰۲۶-۱۰-۰۴ راستی‌آزمایی شد**: هر ۶۴ تست موفق بود و پروژه بدون خطای XML-doc و بدون هشدار CS1734 build می‌شود. `PROGRESS-ROUTING.md` را ببینید.
-> CI (یا `dotnet test Naravel.slnx` روی ماشین شما) اولین build واقعی است؛ `PROGRESS-ROUTING.md` را ببینید.
+> مرحلهٔ ۴a در ۲۰۲۶-۱۰-۰۴ با ۶۴ تست تأیید شد. مرحلهٔ ۴b middlewareهای آماده و نگاشت resource کنترلر را که پایین‌تر آمده اضافه می‌کند.
 
 ## راه‌اندازی
 
@@ -84,6 +83,17 @@ r.Resource("photos", handlers, o => { o.Only = new[] { "index", "show" }; o.Para
 فقط handlerهایی که set کرده‌اید مسیر می‌شوند. نام‌ها: `photos.index`، `photos.show` و ...؛ نام پارامتر مفرد آخرین بخش است (`categories` می‌شود `category`) مگر `Parameter` بدهید.
 گروه‌های `.Prefix()/.Name()/.Middleware()` را مثل همیشه دور آن‌ها بگذارید.
 
+برای controllerهای متعارف MVC، هر هفت action را با `MapNaravelControllerResource<TController>` نگاشت کنید:
+
+```csharp
+builder.Services.AddControllers();
+var app = builder.Build();
+app.MapControllers();
+app.MapNaravelControllerResource<PhotosController>("photos");
+```
+
+نام actionهای کنترلر به‌ترتیب `Index`، `Create`، `Store`، `Show`، `Edit`، `Update` و `Destroy` است. پارامتر مسیر item پیش‌فرض `id` و نام مسیرها `photos.index`، `photos.show` و مانند آن است. actionها باید از conventional routing استفاده کنند، نه route template اختصاصی.
+
 ### Route model binding
 
 ```csharp
@@ -94,6 +104,31 @@ alias داخلی `bindings` هر پارامتری را که binding دارد res
 در .NET به type خودتان `BindAsync`/`TryParse` ایستا بدهید (بومی Minimal API).
 
 ## Middleware
+
+### Middlewareهای آماده
+
+aliasهای داخلی route عبارت‌اند از `throttle`، `signed`، `maintenance`، `cache.headers`، `trim`، `convert.empty` و `guest`.
+
+`throttle` از limiter پنجرهٔ ثابت و process-local در `System.Threading.RateLimiting` استفاده می‌کند. شکل مستقیم `throttle:60,1` یعنی سقف درخواست و پنجره بر حسب دقیقه؛ policy نام‌دار را هنگام setup ثبت کنید:
+
+```csharp
+builder.Services.AddNaravelRouting(o => o.ConfigureThrottlePolicy("login", 5, TimeSpan.FromMinutes(1)));
+app.MapNaravel(r => r.Post("/login", Login).Middleware("throttle:login"));
+```
+
+partition بر اساس شناسهٔ کاربر احراز‌شده (یا نام identity) ساخته می‌شود و اگر موجود نباشد IP درخواست را به کار می‌برد؛ endpoint و policy نیز جداکننده‌اند. پاسخ‌ها `X-RateLimit-Limit` و `X-RateLimit-Remaining` دارند؛ درخواست ردشده 429 و `Retry-After` می‌گیرد. این محدودیت process-local است و سهمیهٔ instanceها را هماهنگ نمی‌کند. پنجرهٔ ثابت ممکن است در بازه‌ای کوتاه پیرامون مرز دو پنجره تا ۲ برابر سقف را بپذیرد.
+
+`IUrlGenerator.SignedRoute(name, values)` و `TemporarySignedRoute(name, expiresAt, values)` URL نسبی امضاشده می‌سازند. برای اعتبارسنجی، `.Middleware("signed")` را وصل کنید. امضا path و query را پوشش می‌دهد، نه host را؛ URL موقت پس از انقضا رد می‌شود. برای تولید و اعتبارسنجی لینک در چند instance، کلیدهای Data Protection باید پایدار و مشترک باشند؛ در production از key ring در برابر ذخیره‌سازی ناامن محافظت کنید.
+
+`MaintenanceModeService` یک کلید process-local است که از DI گرفته می‌شود. در حالت maintenance، درخواست با 503 و `Retry-After` پاسخ می‌گیرد. bypass اختیاری با header `X-Naravel-Maintenance-Bypass` و secret متناظر انجام می‌شود. CLI ندارد و state را بین instanceها هماهنگ نمی‌کند.
+
+`cache.headers:public,max-age=60` directiveهای معتبر `Cache-Control` را اعمال می‌کند. `trim` مقدارهای query و form را trim می‌کند؛ `convert.empty` مقدارهای خالی query/form را به null تبدیل می‌کند. JSON body عمداً تغییر نمی‌کند. `guest` درخواست anonymous را عبور می‌دهد و برای user احراز‌شده 403 می‌دهد؛ مقصد redirect از Auth نمی‌گیرد.
+
+benchmark مسیر اجرای middleware (یک `DefaultHttpContext` و یک route middleware عبوری) را در Release اجرا کنید:
+
+```sh
+dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*InvokeRouteMiddlewarePipeline*' --job short
+```
 
 ### نوشتن middleware
 
@@ -135,22 +170,22 @@ public sealed class EnsureAge : IRouteMiddleware
 - callbackهای terminable بعد از ارسال پاسخ اجرا می‌شوند؛ اگر چندتا باشند ترتیبشان تضمین‌شده نیست.
 - رشتهٔ نام کلاس (`'App\Http\Middleware\X'`) پشتیبانی نمی‌شود؛ alias یا type بدهید.
 
-## middlewareهای آماده
+## middlewareهای بومی
 
-`Naravel.Routing` موتور middleware مسیر (ثبت، alias، group، پارامتر، ترتیب و اجرا) را فراهم می‌کند. middlewareهای آماده مانند throttle، signed URL،
-maintenance mode و TrimStrings برای مرحلهٔ ۴b در همین بسته برنامه‌ریزی شده‌اند؛ این مرحله هنوز شروع نشده و این پیاده‌سازی‌ها فعلاً موجود نیستند. CORS،
-هدرهای proxy، host filtering، محدودیت اندازهٔ post و رمزنگاری cookie قابلیت‌های بومی ASP.NET Core هستند و دوباره پیاده نمی‌شوند (نگاه کنید به PDR-009).
+CORS، هدرهای proxy، host filtering، محدودیت اندازهٔ request و رمزنگاری cookie قابلیت‌های بومی ASP.NET Core هستند و دوباره پیاده نمی‌شوند (نگاه کنید به PDR-009). middlewareهای وابسته به Auth/Session، throttle مبتنی بر Redis، `route:list` و فرمان‌های CLI مربوط به maintenance به ماژول‌های بعدی تعلق دارند.
 
-## تست‌ها چه چیزی را پوشش می‌دهند (`tests/Naravel.Routing.Tests`، ۶۴ تست، **همه در ۲۰۲۶-۱۰-۰۴ موفق**)
+## تست‌ها چه چیزی را پوشش می‌دهند (`tests/Naravel.Routing.Tests`)
 
 - resolution (بدون HTTP): alias، آرگومان، group (تودرتو، چرخه، mutatorها)، حذف، حذف تکراری، اولویت، cache هر endpoint، attributeهای کنترلر.
 - end-to-end روی `TestServer`: verbها، گروه و پیشوند نام، ساخت URL، `Where` و الگوی سراسری (anchor)، domain، fallback، redirect، ترتیب middleware،
   قطع زنجیره، `WithoutMiddleware`، delegate درجا و alias، آداپتر `IMiddleware`، terminable، اولویت، endpoint و گروه بومی، attribute کنترلر
-  (`Only`/`Except`/`WithoutMiddleware`)، model binding و مسیرهای resource.
+    (`Only`/`Except`/`WithoutMiddleware`)، model binding، resource در Minimal API و MVC، throttle، signed URL، maintenance، cache headers، نرمال‌سازی ورودی و guest.
 
 ## محدودیت‌های این مرحله
 
-- نگاشت `Resource` برای کنترلر در این مرحله نیست (فقط Minimal API)؛ کنترلرها attribute میدلور دارند و attribute routing معمولی را استفاده می‌کنند.
+- نگاشت resource کنترلر نام actionهای متعارف MVC و routeهای conventional را انتظار دارد؛ route template اختصاصی کنترلر با resource map ترکیب نمی‌شود.
 - هنوز دستور `route:list` نداریم (به ماژول Console نیاز دارد).
+- state مربوط به maintenance و throttle محلی هر process است؛ برای هماهنگی instanceها زیرساخت مشترک لازم است.
+- signed URL برای چند instance به Data Protection key ring پایدار و مشترک نیاز دارد و به path/query متصل است، نه host.
 - ترتیب metadata برای middlewareِ وصل‌شده به `MapGroup` بومی از ترتیب metadata خود ASP.NET Core پیروی می‌کند؛ حذف (exclusion) به ترتیب وابسته نیست.
 - پیکربندی مسیرها یک‌بار هنگام استارت خوانده می‌شود (بدون hot reload).

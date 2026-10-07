@@ -21,6 +21,14 @@ public interface IUrlGenerator
     /// <summary>Returns the absolute URL of a named route using the scheme and host of <paramref name="context"/>.</summary>
     /// <exception cref="RouteNotFoundException">No route has that name, or required values are missing.</exception>
     string AbsoluteRoute(HttpContext context, string name, object? values = null);
+
+    /// <summary>Returns a relative URL for a named route with a Data Protection signature.</summary>
+    /// <exception cref="RouteNotFoundException">No route has that name, or required values are missing.</exception>
+    string SignedRoute(string name, object? values = null);
+
+    /// <summary>Returns a signed relative URL that expires at the specified time.</summary>
+    /// <exception cref="RouteNotFoundException">No route has that name, or required values are missing.</exception>
+    string TemporarySignedRoute(string name, DateTimeOffset expiresAt, object? values = null);
 }
 
 /// <summary>Thrown when a route name cannot be turned into a URL.</summary>
