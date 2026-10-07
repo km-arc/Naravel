@@ -197,7 +197,8 @@ jobs:
                       continue
                   message = next((n.text or "" for n in node.iter() if n.tag.endswith("Message")), "")
                   trace = next((n.text or "" for n in node.iter() if n.tag.endswith("StackTrace")), "")
-                  text = (message + " | " + trace.strip().splitlines()[0] if trace.strip() else message)
+                  frames = [line.strip() for line in trace.splitlines() if ".cs:line" in line]
+                  text = message + " | " + " <- ".join(frames[:3]) if frames else message
                   text = " ".join(text.split())[:900].replace("%", "%25")
                   print(f"::error title=Failed: {node.attrib.get('testName', '?')}::{text}")
           PY
