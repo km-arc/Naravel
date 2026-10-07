@@ -39,10 +39,11 @@ public sealed class MemcachedCacheStore : ICacheStore
         if (TryGetIntegralType(typeof(T), out var integralType))
         {
             // Integral values are stored as decimal text so that memcached INCR/DECR can operate on them.
-            var raw = await _client.GetAsync<object>(fullKey).ConfigureAwait(false);
-            if (!raw.HasValue || raw.Value is null) return (false, default);
-            var number = Convert.ChangeType(raw.Value, integralType, CultureInfo.InvariantCulture);
-            return (true, (T)number);
+            var text = await _client.GetAsync<string>(fullKey).ConfigureAwait(false);
+            if (text.HasValue && text.Value is not null)
+            {
+                return (true, (T)Convert.ChangeType(text.Value, integralType, CultureInfo.InvariantCulture));
+            }
         }
 
         var result = await _client.GetAsync<T>(fullKey).ConfigureAwait(false);
@@ -124,5 +125,11 @@ public sealed class MemcachedCacheStore : ICacheStore
             || integralType == typeof(ushort) || integralType == typeof(byte);
     }
 
-    private async Task<bool> ExistsCoreAsync(string key) => (await _client.GetAsync<object>(key).ConfigureAwait(false)).HasValue;
+    // The non-generic Get reports presence for any stored value type; Enyim's GetAsync<object> reports a miss
+    // for items that exist, so it must not be used for existence checks.
+    private async Task<bool> ExistsCoreAsync(string key)
+    {
+        var result = await _client.GetAsync(key).ConfigureAwait(false);
+        return result.Success && result.HasValue;
+    }
 }
