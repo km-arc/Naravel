@@ -7,6 +7,7 @@ builder.Configuration.AddJsonFile("config/appsettings.json", optional: false, re
 	.AddEnvironmentVariables();
 builder.Services.AddControllers();
 QueueSampleConfig.Configure(builder.Services, builder.Configuration);
+EventsSampleConfig.Configure(builder.Services);
 RoutingSampleConfig.Configure(builder.Services);
 
 var app = builder.Build();

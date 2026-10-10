@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Naravel Events Sample</title>
+    <style>
+        body { font-family: Georgia, serif; background: #f4f7fb; color: #1f2937; margin: 0; padding: 2rem; }
+        main { max-width: 900px; margin: 0 auto; background: white; border-radius: 8px; padding: 2rem; }
+        h1 { margin-top: 0; }
+        ul { line-height: 1.8; }
+        button { background: #0f172a; color: white; border: 0; border-radius: 6px; padding: 0.8rem 1.2rem; cursor: pointer; margin-right: 0.5rem; }
+        button.secondary { background: #475569; }
+        pre { background: #0f172a; color: #e2e8f0; padding: 1rem; border-radius: 6px; min-height: 6rem; overflow-x: auto; }
+        code { background: #e2e8f0; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Naravel Events Sample</h1>
+        <p>Dispatches an <code>OrderPlaced</code> event through <code>Naravel.Events</code> and shows which listeners ran.</p>
+        <ul>
+            <li>DI listeners run synchronously, in registration order (fraud screen, then read model)</li>
+            <li>A <code>Listen</code> callback registered for the request runs after the DI listeners</li>
+            <li>The receipt listener is queued: dispatch only enqueues it and the worker runs it later</li>
+            <li>An order above 10,000 makes the fraud screen call <code>context.Stop()</code>, so nothing after it runs</li>
+        </ul>
+        <p>
+            <button id="normal">Place a normal order</button>
+            <button id="large">Place a 25,000 order</button>
+            <button id="refresh" class="secondary">Refresh trace</button>
+            <button id="clear" class="secondary">Clear trace</button>
+        </p>
+        <pre id="output">Place an order to see the trace.</pre>
+        <p>The queued receipt appears after the worker processes it (about a second). The queue worker uses the connection configured in <code>NaravelQueue:SampleConnection</code>, and the adapter dispatches on <code>NaravelQueue:Default</code>; keep them equal.</p>
+    </main>
+    <script>
+        const output = document.getElementById('output');
+        const show = (lines) => { output.textContent = lines.length ? lines.join('\n') : 'Trace is empty.'; };
+        const readTrace = async () => show(await (await fetch('/events/trace')).json());
+        const place = async (total) => {
+            const response = await fetch('/events/orders?total=' + total, { method: 'POST' });
+            show((await response.json()).trace);
+        };
+        document.getElementById('normal').onclick = () => place(120);
+        document.getElementById('large').onclick = () => place(25000);
+        document.getElementById('refresh').onclick = readTrace;
+        document.getElementById('clear').onclick = async () => { await fetch('/events/trace', { method: 'DELETE' }); await readTrace(); };
+    </script>
+</body>
+</html>
