@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Naravel.Events.Queue</PackageId>
+    <Description>Optional Naravel.Events adapter for running selected event listeners through Naravel.Queue.</Description>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Naravel.Events\Naravel.Events.csproj" />
+    <ProjectReference Include="..\Naravel.Queue\Naravel.Queue.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Naravel.Events.Tests" />
+  </ItemGroup>
+</Project>

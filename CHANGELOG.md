@@ -11,6 +11,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 - `Naravel.Cache` (PDR-007): named Memory stores, `CacheManager`/`LockManager` on Foundation, tagged and scoped cache views, `RememberAsync`, and token-owned locks. Opt-in `Naravel.Cache.Redis` and `Naravel.Cache.Memcached` providers.
 - R04 Cache rate limiting (PDR-007a): named fixed-window limits with atomic TTL-aware counters for Memory/Redis/Memcached, explicit subject hashing, provider-backed locks, `Naravel.Cache.Testing.RateLimiterFake`, metrics and activity spans. A boundary burst up to 2x is documented; benchmark the Memory path before merge, and defer a limiter-specific Redis-atomic fast path.
 - R05 Routing (PDR-009): local fixed-window throttle, Data Protection signed/temporary URLs, maintenance mode, cache headers, query/form normalization, guest middleware, and conventional MVC controller resource routes.
+- R06 Events (PDR-011): scoped typed dispatcher and disposable subscriptions, DI listener plans, stop propagation, first-exception propagation, `EventFake`, `Naravel.Events` telemetry, and optional `Naravel.Events.Queue` adapter using explicit listener aliases.
 - `Naravel.Queue` with Memory, File, Redis, Database (EF Core), RabbitMQ and Kafka drivers; worker with retry/backoff,
   chaining, batching, middleware and lifecycle events.
 - R07 Queue completion: failed-job stores and retry commands, reservation attempt accounting, per-job timeouts, persistent Database/Redis batches, worker controls, metrics/tracing, and `Naravel.Queue.Testing.QueueFake`.

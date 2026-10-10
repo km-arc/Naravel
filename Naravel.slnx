@@ -2,6 +2,8 @@
   <Folder Name="/src/">
     <Project Path="src/Naravel.Cache.Memcached/Naravel.Cache.Memcached.csproj" />
     <Project Path="src/Naravel.Cache/Naravel.Cache.csproj" />
+    <Project Path="src/Naravel.Events/Naravel.Events.csproj" />
+    <Project Path="src/Naravel.Events.Queue/Naravel.Events.Queue.csproj" />
     <Project Path="src/Naravel.Filesystem/Naravel.Filesystem.csproj" />
     <Project Path="src/Naravel.Foundation/Naravel.Foundation.csproj" />
     <Project Path="src/Naravel.Routing/Naravel.Routing.csproj" />
@@ -22,6 +24,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Naravel.Foundation.Tests/Naravel.Foundation.Tests.csproj" />
+    <Project Path="tests/Naravel.Events.Tests/Naravel.Events.Tests.csproj" />
     <Project Path="tests/Naravel.Queue.Tests/Naravel.Queue.Tests.csproj" />
     <Project Path="tests/Naravel.Queue.Providers.Tests/Naravel.Queue.Providers.Tests.csproj" />
     <Project Path="tests/Naravel.Cache.Tests/Naravel.Cache.Tests.csproj" />
