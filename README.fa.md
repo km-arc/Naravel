@@ -65,6 +65,40 @@ await dispatcher.DispatchAsync(new SendWelcomeEmailJob("ali@example.com"));
 
 برای تعریف job، تنظیمات، مدیریت jobهای ناموفق، batchهای پایدار، کنترل worker و راه‌اندازی providerها به [docs/fa/queue.md](docs/fa/queue.md) و [docs/en/queue.md](docs/en/queue.md) مراجعه کنید.
 
+### Naravel.Events
+
+رویدادهای تایپ‌شدهٔ ناهمگام و درون‌فرایندی. listenerهای `IEventListener<TEvent>` که در DI ثبت شده‌اند به ترتیب ثبت اجرا می‌شوند و پس از آن‌ها callbackهای `Listen` مخصوص scope جاری فراخوانی می‌شوند (هرکدام یک subscription از نوع `IDisposable` برمی‌گردانند). هر listener می‌تواند با `context.Stop()` ادامهٔ انتشار را متوقف کند؛ نخستین exception به caller منتقل می‌شود و dispatch متوقف می‌گردد. listenerها بر اساس همان نوع دقیقی انتخاب می‌شوند که به `DispatchAsync<TEvent>` داده می‌شود، بدون fan-out بر اساس کلاس پایه یا interface. dispatcher از نوع scoped است، `Meter` و `ActivitySource` با نام `Naravel.Events` منتشر می‌کند و `Naravel.Events.Testing.EventFake` رویدادهای dispatch‌شده را برای تست ثبت می‌کند.
+
+```csharp
+using Naravel.Events;
+
+builder.Services.AddNaravelEvents();
+builder.Services.AddScoped<IEventListener<OrderPaid>, UpdateOrderReadModel>();
+
+public sealed record OrderPaid(string OrderId);
+
+public sealed class UpdateOrderReadModel : IEventListener<OrderPaid>
+{
+    public Task HandleAsync(OrderPaid evt, EventDispatchContext context, CancellationToken ct = default) =>
+        Task.CompletedTask;
+}
+
+public sealed class CheckoutService(IEventDispatcher events)
+{
+    public Task PayAsync(string orderId, CancellationToken ct) =>
+        events.DispatchAsync(new OrderPaid(orderId), ct);
+}
+```
+
+adapter اختیاری `Naravel.Events.Queue` یک listener را به‌جای اجرای مستقیم، از طریق `Naravel.Queue` اجرا می‌کند. `IQueuedEventListener<TEvent>` را پیاده‌سازی و با یک alias صریح ثبت کنید؛ آنچه در صف ذخیره می‌شود alias است، نه نام نوع CLR. Queue و یک driver را مثل همیشه پیکربندی کنید. adapter روی connection پیش‌فرض و queue با نام `default` dispatch می‌کند و رویداد را با `System.Text.Json` serialize می‌کند؛ پس رویدادها را کوچک و قابل serialize نگه دارید. اجرای صف‌شده مانند هر job دیگر Queue به‌صورت at-least-once است.
+
+```csharp
+builder.Services.AddNaravelEventsQueue();
+builder.Services.AddQueuedEventListener<OrderPaid, SendReceipt>("order-paid.receipt");
+```
+
+جزئیات: [docs/fa/events.md](docs/fa/events.md) و [docs/en/events.md](docs/en/events.md). برای یک مثال قابل اجرا، صفحهٔ `/events` در sample را اجرا کنید.
+
 ### Naravel.Filesystem
 
 دیسک‌های نام‌دار برای ذخیره‌سازی local و S3/S3-compatible. درایور local مسیرهای بیرون از ریشهٔ تنظیم‌شده را رد می‌کند. Naravel برای فایل‌ها endpoint عمومی HTTP نمی‌سازد؛ ارائه یا کنترل دسترسی را جداگانه با ASP.NET Core انجام دهید.
@@ -98,7 +132,7 @@ app.MapNaravel(routes => routes
         .Name("users.show")));
 ```
 
-موتور route middleware موجود است، اما middlewareهای آمادهٔ throttle، signed URL و maintenance هنوز پیاده‌سازی نشده‌اند. جزئیات: [docs/fa/routing.md](docs/fa/routing.md) و [docs/en/routing.md](docs/en/routing.md).
+aliasهای آمادهٔ route middleware عبارت‌اند از `throttle` (پنجرهٔ ثابت در سطح فرایند)، `signed`، `maintenance`، `cache.headers`، `trim`، `convert.empty` و `guest`؛ aliasها، groupها و پارامترهای سفارشی هم پشتیبانی می‌شوند. وضعیت throttle و maintenance در سطح فرایند است و signed URL برای چند instance به key ring مشترک و پایدار Data Protection نیاز دارد. جزئیات: [docs/fa/routing.md](docs/fa/routing.md) و [docs/en/routing.md](docs/en/routing.md).
 
 ## بسته‌های provider
 
@@ -115,8 +149,25 @@ app.MapNaravel(routes => routes
 | `Naravel.Queue.Database` | `builder.Services.AddDatabaseDriver<AppDbContext>(configuration);` |
 | `Naravel.Queue.RabbitMQ` | `builder.Services.AddRabbitMqDriver(configuration);` |
 | `Naravel.Queue.Kafka` | `builder.Services.AddKafkaDriver(configuration);` |
+| `Naravel.Events.Queue` (adapter) | `builder.Services.AddNaravelEventsQueue();` |
 
 extension methodهای Queue در `Naravel.Queue.Extensions` قرار دارند. بخش تنظیمات Queue به‌طور پیش‌فرض `NaravelQueue:Stores`، Cache بخش `Cache:Stores` و Filesystem بخش `Filesystem:Stores` است؛ برای هرکدام می‌توان نام بخش دیگری تعیین کرد.
+
+## برنامهٔ نمونه
+
+`samples/Naravel.Sample` یک برنامهٔ وب قابل اجراست که ماژول‌ها را نشان می‌دهد و هرگز pack نمی‌شود.
+
+```sh
+dotnet run --project samples/Naravel.Sample/Naravel.Sample.csproj
+```
+
+| نشانی | چه چیزی را نشان می‌دهد |
+|---|---|
+| `/queue` | dispatch در Queue، تأخیر، اولویت، retry/backoff، زنجیره و batch (به‌طور پیش‌فرض روی فایل) |
+| `/events` | dispatch رویداد `OrderPlaced`: listenerهای DI، توقف انتشار، callback از نوع `Listen` و listener صف‌شده |
+| `/routing/` | گروه مسیر، constraint، resource، model binding و route middleware |
+
+برای تعویض provider و headerهای نمونه، [samples/Naravel.Sample/README.md](samples/Naravel.Sample/README.md) را ببینید.
 
 ## ساخت و تست
 
