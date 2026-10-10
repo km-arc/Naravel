@@ -5,7 +5,8 @@
 
 > Historical tracker: the authoritative project-wide stage status and `NEXT` pointer now live in
 > [ROADMAP.md](ROADMAP.md), with routing completion tracked as R05. Keep this file as the detailed record
-> of PDR-009, Stage 4a, and the pending owner-gated middleware scope; do not use its historical pointer below.
+> of PDR-009, Stage 4a, and the owner-gated Stage 4b middleware scope (now tracked as R05); do not use its
+> historical pointer below. Statuses and test counts here are dated snapshots, never current status.
 
 ## Historical verification note (2026-10-04)
 

@@ -12,15 +12,14 @@
 NEXT: R07
 ```
 
-وضعیت R07: DOING (residual PDR-012 items open; see roadmap/stages/R07).
+## منبع واحد وضعیت و تعداد تست (D-18)
 
-R00 تکمیل شد: رجیستری alias برای jobها، محافظت deserialization، حفظ گزینه‌های chain، مستندات و workflow پایهٔ CI؛ build و ۲۰۸ تست کل موفق شدند.
-R02 (مهاجرت Filesystem به Foundation) قبلاً پیاده‌سازی و تأیید شده و
-با ۲۰ تست Filesystem، ۱۷۲ تست کل در تأیید ۲۰۲۶-۱۰-۰۴ ثبت شده است.
-
-Cache و lockها تحت PDR-007، RateLimiter تحت PDR-007a و Routing مرحلهٔ 4b تحت PDR-009 تکمیل شدند.
-verification کامل Release در ۲۰۲۶-۱۰-۰۶ با ۲۳۳ تست موفق و ۷ تست skipشده گذشت. benchmark کوتاه Memory
-برای RateLimiter حدود ۴٫۸۵ میکروثانیه و benchmark pipeline روتینگ حدود ۴۴۴ نانوثانیه بر عملیات ثبت کردند.
+- وضعیت هر مرحله و اشارهگر `NEXT` فقط در جدول [ROADMAP.md](ROADMAP.md) نگهداری می‌شود و در هیچ سند دیگری کپی نمی‌شود.
+- تعداد تست‌های تأییدشده فقط در شواهد تاریخ‌دارِ سلول وضعیت همان جدول ثبت می‌شود؛ عددهای زنده را خلاصهٔ اجرای
+  [CI](https://github.com/km-arc/Naravel/actions/workflows/ci.yml) نشان می‌دهد.
+- فایل‌های تاریخی (`PROGRESS*.md`، `CHANGELOG.md`، `roadmap/REVIEW-01.md` و یادداشت‌های بسته‌شدهٔ `roadmap/AUDIT.md`)
+  عکس‌های تاریخ‌دار هستند، نه وضعیت جاری. اجرای `roadmap/check.py` نقض این قاعده را رد می‌کند.
+- نتیجهٔ benchmarkها در [docs/fa/benchmarks.md](docs/fa/benchmarks.md) است.
 
 ## دروازه‌های تأیید
 

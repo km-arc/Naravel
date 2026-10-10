@@ -14,7 +14,7 @@ Decisions: OD-01 (env-gated tests, service containers, SQLite, BenchmarkDotNet).
 - [x] **R01.T04 — CI (D-17):** fast Ubuntu/Windows/macOS matrix and Ubuntu service job added; package audit and SDK SourceLink settings added. **Accept:** YAML parsed; source build has zero warnings; package audit is clean. Service image startup remains for CI execution.
 - [x] **R01.T05 — Reproduce then fix drivers (D-12, D-14):** Redis state changes use Lua; Kafka consumer operations are serialized and commits advance only through contiguous acknowledged offsets. Unit regressions cover script use and out-of-order acks. **Accept:** live Redis/SQLite contracts, Redis script assertions and Kafka tracker tests pass; Kafka live service remains CI-gated. Memory/File code is untouched.
 - [x] **R01.T06 — Benchmarks (OD-06):** non-packable BenchmarkDotNet project runs five queue/cache/serializer workloads; bilingual baseline tables are recorded. **Accept:** full `dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*'` run completed and values are documented in EN/FA.
-- [x] **R01.T07 — Validate:** full restore/build/test passed (202 succeeded, 3 skipped); `check.py` passed. Local services exercised: Redis and SQLite; RabbitMQ, Kafka and Memcached live tests are configured in CI. **Accept:** roadmap status names local and CI-only services accurately.
+- [x] **R01.T07 — Validate:** full restore/build/test passed (totals are in the R01 row of ROADMAP.md); `check.py` passed. Local services exercised: Redis and SQLite; RabbitMQ, Kafka and Memcached live tests are configured in CI. **Accept:** roadmap status names local and CI-only services accurately.
 
 ## Exit evidence
 `DONE (date, counts, services exercised)`; `NEXT` → R07.

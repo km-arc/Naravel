@@ -5,7 +5,7 @@ nested groups (`prefix`, `name`, `domain`, `middleware`), `where()` constraints,
 binding, resource routes, and a full **route middleware** system (aliases, groups, parameters, priority, `withoutMiddleware`, terminable).
 Design: [PDR-009](../pdr/en/PDR-009-routing-and-http-middleware.md). Persian version: [../fa/routing.md](../fa/routing.md).
 
-> Stage 4a passed 64 tests on 2026-10-04. Stage 4b adds the ready-made middleware and controller resource mapping described below.
+> Routing status and verification are tracked in [ROADMAP.md](../../ROADMAP.md) (R05). This guide describes the implemented behavior.
 
 ## Setup
 

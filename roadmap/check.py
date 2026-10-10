@@ -128,19 +128,57 @@ def main() -> int:
         else:
             errors.append(f"NEXT points to BLOCKED stage {next_id} without 'awaiting PDR/GO approval': {reason}")
 
+    # --- D-18: single source of truth for stage status and verified test counts -----------------
+    # Stage status and NEXT live only in the ROADMAP.md table. A verified test count may appear only in the dated
+    # evidence of a ROADMAP.md status cell (R00.T06); live numbers come from the CI run summary. Historical records keep
+    # dated snapshots. Every other Markdown file must link instead of copying a count or a stage status.
+    # (\d matches Persian digits too, so the Persian documents are covered.)
     count_ratio = re.compile(r"(?<![\d/.])\d+\s*/\s*\d+(?![\d/])")
-    count_tests = re.compile(r"(?i)\b\d+\s+tests?\b")
-    for doc in (ROOT / "README.md", ROOT / "README.fa.md", ROOT / "AGENTS.md"):
-        if not doc.exists():
+    count_tests = re.compile(
+        r"(?i)\b\d+\s+(?:[a-z-]+\s+){0,2}(?:tests?|passed|skipped|succeeded|failed)\b|(?<![A-Za-z\d])\d+\s+\u062a\u0633\u062a"
+    )
+    mentions_tests = re.compile(r"(?i)test|passed|skipped|\u062a\u0633\u062a")
+    status_claim = re.compile(r"\bR\d{2}\b.*\b(?:DONE|TODO|DOING|BLOCKED|DECLINED)\b|\b(?:DONE|TODO|DOING|BLOCKED|DECLINED)\b.*\bR\d{2}\b")
+    historical = {
+        "PROGRESS.md",
+        "PROGRESS-ROUTING.md",
+        "CHANGELOG.md",
+        "roadmap/AUDIT.md",
+        "roadmap/REVIEW-01.md",
+    }
+    # Stage files, the template and the parity matrix legitimately talk about stage ids and statuses.
+    status_exempt_prefixes = (
+        "ROADMAP.md",
+        "roadmap/stages/",
+        "roadmap/STAGE-TEMPLATE.md",
+        "roadmap/PARITY-MATRIX.md",
+        "roadmap/BACKLOG.md",
+    )
+    skipped_dirs = {".git", "bin", "obj", "node_modules", "TestResults", "BenchmarkDotNet.Artifacts"}
+    if tracked_files is not None:
+        markdown_docs = [ROOT / path for path in tracked_files if path.endswith(".md")]
+    else:
+        markdown_docs = sorted(ROOT.rglob("*.md"))
+    for doc in markdown_docs:
+        rel_path = doc.relative_to(ROOT)
+        rel = rel_path.as_posix()
+        if not doc.exists() or skipped_dirs & set(rel_path.parts) or rel in historical:
             continue
         for number, line in enumerate(doc.read_text(encoding="utf-8").splitlines(), 1):
             if "check:allow-count" in line:
                 continue
-            mentions = re.search(r"(?i)test|passed|\u062a\u0633\u062a", line)
-            if mentions and (count_ratio.search(line) or count_tests.search(line)):
+            in_status_table = rel == "ROADMAP.md" and line.startswith("| R")
+            if in_status_table:
+                continue
+            if mentions_tests.search(line) and (count_ratio.search(line) or count_tests.search(line)):
                 errors.append(
-                    f"{doc.relative_to(ROOT)}:{number} contains a hand-typed test count; link to CI instead "
-                    "(or add <!-- check:allow-count -->)"
+                    f"{rel}:{number} contains a hand-typed test count; record verified counts only in the ROADMAP.md "
+                    "status cell and link to it or CI elsewhere (or add <!-- check:allow-count -->)"
+                )
+            if not rel.startswith(status_exempt_prefixes) and status_claim.search(line):
+                errors.append(
+                    f"{rel}:{number} repeats a stage status; ROADMAP.md is the only place for stage status "
+                    "(link to it, or add <!-- check:allow-count -->)"
                 )
 
     # --- REVIEW-01 additions -------------------------------------------------
