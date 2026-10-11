@@ -19,6 +19,10 @@ namespace Naravel.Queue.Redis;
 /// PopAsync first promotes any due delayed jobs and reclaims any reserved jobs whose visibility
 /// timeout expired (e.g. because the worker crashed) back onto the ready lists - a bonus feature
 /// on top of what Laravel's own redis driver does out of the box.
+///
+/// Fencing: every Pop stamps the message with a fresh <c>ReservationId</c>. Ack/Release/Fail only act while the stored
+/// token still matches, and a reclaim clears it, so a worker whose reservation expired cannot delete or re-queue the
+/// copy that another worker now owns. Messages without a token keep the previous unfenced behaviour.
 /// </summary>
 public class RedisQueueDriver : IQueueDriver
 {
@@ -72,6 +76,7 @@ public class RedisQueueDriver : IQueueDriver
                 if json then
                     local message = cjson.decode(json)
                         message.Attempts = (tonumber(message.Attempts) or 0) + 1
+                        message.ReservationId = nil
                         redis.call('HSET', KEYS[1], id, cjson.encode(message))
                     local priority = math.max(0, math.min(9, tonumber(message.Priority) or 0))
                     redis.call('RPUSH', KEYS[13 - priority], id)
@@ -87,6 +92,7 @@ public class RedisQueueDriver : IQueueDriver
                 if json then
                     local message = cjson.decode(json)
                     message.ReservedAt = ARGV[3]
+                    message.ReservationId = ARGV[4]
                     local updated = cjson.encode(message)
                     redis.call('HSET', KEYS[1], id, updated)
                     redis.call('ZADD', KEYS[3], ARGV[2], id)
@@ -97,13 +103,28 @@ public class RedisQueueDriver : IQueueDriver
         return false
         """;
 
+    // ARGV[2] / ARGV[6] / ARGV[3] below carry the caller's ReservationId ('' = unfenced legacy message). A mismatch
+    // (reservation reclaimed or taken over) returns 0 and changes nothing.
     private const string AckScript = """
+        if ARGV[2] ~= '' then
+            local current = redis.call('HGET', KEYS[2], ARGV[1])
+            if current then
+                local stored = cjson.decode(current)
+                if stored.ReservationId ~= ARGV[2] then return 0 end
+            end
+        end
         redis.call('ZREM', KEYS[1], ARGV[1])
         redis.call('HDEL', KEYS[2], ARGV[1])
         return 1
         """;
 
     private const string ReleaseScript = """
+        if ARGV[6] ~= '' then
+            local current = redis.call('HGET', KEYS[2], ARGV[1])
+            if not current then return 0 end
+            local stored = cjson.decode(current)
+            if stored.ReservationId ~= ARGV[6] then return 0 end
+        end
         redis.call('ZREM', KEYS[1], ARGV[1])
         redis.call('HSET', KEYS[2], ARGV[1], ARGV[2])
         if tonumber(ARGV[4]) > tonumber(ARGV[5]) then
@@ -115,6 +136,12 @@ public class RedisQueueDriver : IQueueDriver
         """;
 
     private const string FailScript = """
+        if ARGV[3] ~= '' then
+            local current = redis.call('HGET', KEYS[2], ARGV[1])
+            if not current then return 0 end
+            local stored = cjson.decode(current)
+            if stored.ReservationId ~= ARGV[3] then return 0 end
+        end
         redis.call('ZREM', KEYS[1], ARGV[1])
         redis.call('HDEL', KEYS[2], ARGV[1])
         redis.call('RPUSH', KEYS[3], ARGV[2])
@@ -140,7 +167,8 @@ public class RedisQueueDriver : IQueueDriver
             [MessagesKey(queue), DelayedKey(queue), ReservedKey(queue),
                 ReadyKey(queue, 9), ReadyKey(queue, 8), ReadyKey(queue, 7), ReadyKey(queue, 6), ReadyKey(queue, 5),
                 ReadyKey(queue, 4), ReadyKey(queue, 3), ReadyKey(queue, 2), ReadyKey(queue, 1), ReadyKey(queue, 0)],
-            [nowMs, (DateTimeOffset.UtcNow + _visibilityTimeout).ToUnixTimeMilliseconds(), DateTimeOffset.UtcNow.ToString("O")]);
+            [nowMs, (DateTimeOffset.UtcNow + _visibilityTimeout).ToUnixTimeMilliseconds(), DateTimeOffset.UtcNow.ToString("O"),
+                Guid.NewGuid().ToString("N")]);
         if (result.IsNull) return null;
         return JsonSerializer.Deserialize<QueuedMessage>((string)result!);
     }
@@ -150,7 +178,7 @@ public class RedisQueueDriver : IQueueDriver
         cancellationToken.ThrowIfCancellationRequested();
         var db = Db;
         await db.ScriptEvaluateAsync(AckScript,
-            [ReservedKey(message.Queue), MessagesKey(message.Queue)], [message.Id]);
+            [ReservedKey(message.Queue), MessagesKey(message.Queue)], [message.Id, message.ReservationId ?? string.Empty]);
     }
 
     public async Task ReleaseAsync(QueuedMessage message, TimeSpan delay, CancellationToken cancellationToken = default)
@@ -160,18 +188,30 @@ public class RedisQueueDriver : IQueueDriver
         message.ReservedAt = null;
         message.AvailableAt = DateTimeOffset.UtcNow + delay;
         var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var (reservationId, envelope) = SerializeWithoutReservation(message);
         await db.ScriptEvaluateAsync(ReleaseScript,
             [ReservedKey(message.Queue), MessagesKey(message.Queue), DelayedKey(message.Queue), ReadyKey(message.Queue, message.Priority)],
-            [message.Id, JsonSerializer.Serialize(message), message.AvailableAt.ToUnixTimeMilliseconds(), message.AvailableAt.ToUnixTimeMilliseconds(), nowMs]);
+            [message.Id, envelope, message.AvailableAt.ToUnixTimeMilliseconds(), message.AvailableAt.ToUnixTimeMilliseconds(), nowMs, reservationId]);
     }
 
     public async Task FailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var db = Db;
+        var (reservationId, envelope) = SerializeWithoutReservation(message);
         await db.ScriptEvaluateAsync(FailScript,
             [ReservedKey(message.Queue), MessagesKey(message.Queue), FailedKey(message.Queue)],
-            [message.Id, JsonSerializer.Serialize(message)]);
+            [message.Id, envelope, reservationId]);
+    }
+
+    // The stored envelope of a released/failed message must not carry the old token, but the caller's object keeps it:
+    // a stale worker that releases and then fails the same instance must stay fenced for both calls.
+    private static (string ReservationId, string Envelope) SerializeWithoutReservation(QueuedMessage message)
+    {
+        var reservationId = message.ReservationId;
+        message.ReservationId = null;
+        try { return (reservationId ?? string.Empty, JsonSerializer.Serialize(message)); }
+        finally { message.ReservationId = reservationId; }
     }
 
     public async Task<long> SizeAsync(string queue, CancellationToken cancellationToken = default)

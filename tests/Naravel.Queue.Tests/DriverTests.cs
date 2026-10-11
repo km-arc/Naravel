@@ -235,4 +235,48 @@ public class FileDriverRecoveryTests : IDisposable
         reclaimed!.Id.Should().Be(m.Id);
         reclaimed.Attempts.Should().Be(1);
     }
+
+    [Fact]
+    public async Task Stale_worker_cannot_ack_release_or_fail_a_reservation_that_another_worker_now_owns()
+    {
+        var d = new FileQueueDriver(_dir, TimeSpan.FromMilliseconds(600));
+        var m = new QueuedMessage { Queue = "fence", JobType = "x", Payload = "{}" };
+        await d.PushAsync(m);
+
+        var stale = (await d.PopAsync("fence"))!;
+        stale.ReservationId.Should().NotBeNullOrEmpty();
+
+        await Task.Delay(900); // the first worker is too slow: its reservation is reclaimed and re-reserved
+        var current = (await d.PopAsync("fence"))!;
+        current.Id.Should().Be(m.Id);
+        current.ReservationId.Should().NotBe(stale.ReservationId);
+
+        await d.AckAsync(stale);                               // must not delete the second worker's reserved file
+        Directory.EnumerateFiles(Path.Combine(_dir, "fence", "reserved"), "*.json").Should().HaveCount(1);
+
+        await d.ReleaseAsync(stale, TimeSpan.Zero);            // must not create a duplicate pending copy
+        Directory.EnumerateFiles(Path.Combine(_dir, "fence", "pending"), "*.json").Should().BeEmpty();
+
+        await d.FailAsync(stale);                              // must not move the live job to failed
+        Directory.Exists(Path.Combine(_dir, "fence", "failed")).Should().BeFalse();
+
+        await d.AckAsync(current);                             // the real owner still completes it
+        Directory.EnumerateFiles(Path.Combine(_dir, "fence", "reserved"), "*.json").Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Envelope_without_reservation_id_deserializes_and_stays_unfenced()
+    {
+        const string legacyEnvelope = "{\"Id\":\"legacy1\",\"Queue\":\"q\",\"JobType\":\"x\",\"Payload\":\"{}\"}";
+        var message = System.Text.Json.JsonSerializer.Deserialize<QueuedMessage>(legacyEnvelope)!;
+        message.ReservationId.Should().BeNull();
+
+        var d = new FileQueueDriver(_dir);
+        await d.PushAsync(message);
+        var popped = (await d.PopAsync("q"))!;
+        popped.ReservationId.Should().NotBeNullOrEmpty();
+
+        await d.AckAsync(new QueuedMessage { Id = "legacy1", Queue = "q", JobType = "x", Payload = "{}" });
+        Directory.EnumerateFiles(Path.Combine(_dir, "q", "reserved"), "*.json").Should().BeEmpty();
+    }
 }

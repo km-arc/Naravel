@@ -36,6 +36,15 @@ public class QueuedMessage
     /// <summary>Set by a driver when a worker reserves the message. Null means "not currently being processed".</summary>
     public DateTimeOffset? ReservedAt { get; set; }
 
+    /// <summary>
+    /// Opaque token a driver assigns on every <c>PopAsync</c>. Drivers that can reclaim an expired reservation (Redis,
+    /// Database, File) only honour <c>AckAsync</c>/<c>ReleaseAsync</c>/<c>FailAsync</c> when this token still matches the
+    /// stored reservation, so a slow worker whose reservation was reclaimed cannot delete or re-queue the copy that
+    /// another worker now owns. <see langword="null"/> (envelopes created before this field existed, or drivers that do
+    /// not reclaim) keeps the previous unfenced behaviour.
+    /// </summary>
+    public string? ReservationId { get; set; }
+
     /// <summary>Last error message/stack trace, populated after a failed attempt.</summary>
     public string? Error { get; set; }
 

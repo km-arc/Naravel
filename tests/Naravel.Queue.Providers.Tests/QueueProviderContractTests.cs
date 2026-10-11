@@ -54,6 +54,48 @@ public sealed class DatabaseQueueProviderTests : QueueDriverContractTests
     }
 
     [Fact]
+    public async Task Stale_worker_cannot_ack_release_or_fail_a_reservation_that_another_worker_now_owns()
+    {
+        var driver = new DatabaseQueueDriver<SqliteQueueContext>(
+            new SqliteQueueContextFactory(_options), TimeSpan.FromMilliseconds(600));
+        var message = new QueuedMessage { Queue = "fencing", JobType = "job", Payload = "{}" };
+        await driver.PushAsync(message);
+
+        var stale = (await driver.PopAsync("fencing"))!;
+        stale.ReservationId.Should().NotBeNullOrEmpty();
+
+        await Task.Delay(900); // the first worker is "too slow": its reservation expires and is reclaimed
+        var current = (await driver.PopAsync("fencing"))!;
+        current.Id.Should().Be(message.Id);
+        current.ReservationId.Should().NotBe(stale.ReservationId);
+
+        await driver.AckAsync(stale);                              // must NOT delete the row the second worker owns
+        (await driver.SizeAsync("fencing")).Should().Be(1);
+
+        await driver.ReleaseAsync(stale, TimeSpan.Zero);           // must NOT make it available to a third worker
+        (await driver.PopAsync("fencing")).Should().BeNull();
+
+        await driver.FailAsync(stale);                             // must NOT mark the live job as failed
+        (await driver.SizeAsync("fencing")).Should().Be(1);
+
+        await driver.AckAsync(current);                            // the real owner still completes it
+        (await driver.SizeAsync("fencing")).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task A_message_without_a_reservation_id_keeps_the_unfenced_behaviour()
+    {
+        var driver = new DatabaseQueueDriver<SqliteQueueContext>(new SqliteQueueContextFactory(_options));
+        var message = new QueuedMessage { Queue = "legacy-ack", JobType = "job", Payload = "{}" };
+        await driver.PushAsync(message);
+        await driver.PopAsync("legacy-ack");
+
+        await driver.AckAsync(new QueuedMessage { Id = message.Id, Queue = "legacy-ack", JobType = "job", Payload = "{}" });
+
+        (await driver.SizeAsync("legacy-ack")).Should().Be(0);
+    }
+
+    [Fact]
     public async Task Database_driver_roundtrips_connection_and_trace_context()
     {
         var driver = new DatabaseQueueDriver<SqliteQueueContext>(new SqliteQueueContextFactory(_options));
@@ -174,6 +216,40 @@ public sealed class RedisQueueProviderTests : QueueDriverContractTests
 
     [ServiceFact("NARAVEL_TEST_REDIS")]
     public Task Shared_contract() => RunContractAsync();
+
+    [ServiceFact("NARAVEL_TEST_REDIS")]
+    public async Task Stale_worker_cannot_ack_release_or_fail_a_reservation_that_another_worker_now_owns()
+    {
+        _multiplexer = ConnectionMultiplexer.Connect(Environment.GetEnvironmentVariable("NARAVEL_TEST_REDIS")!);
+        try
+        {
+            var driver = new RedisQueueDriver(_multiplexer, TimeSpan.FromSeconds(1));
+            var queue = QueueName("fencing");
+            var message = Msg(queue);
+            await driver.PushAsync(message);
+
+            var stale = (await driver.PopAsync(queue))!;
+            stale.ReservationId.Should().NotBeNullOrEmpty();
+
+            await Task.Delay(1300); // reservation expires; the next Pop reclaims it for a second worker
+            var current = (await PopEventuallyAsync(driver, queue))!;
+            current.Id.Should().Be(message.Id);
+            current.ReservationId.Should().NotBe(stale.ReservationId);
+            current.Attempts.Should().Be(1);
+
+            await driver.AckAsync(stale);
+            await driver.ReleaseAsync(stale, TimeSpan.Zero);
+            await driver.FailAsync(stale);
+            (await driver.PopAsync(queue)).Should().BeNull("the live reservation must survive a stale worker's Ack/Release/Fail");
+
+            await driver.AckAsync(current);
+            (await driver.SizeAsync(queue)).Should().Be(0);
+        }
+        finally
+        {
+            await CleanupAsync();
+        }
+    }
 
     protected override IQueueDriver CreateDriver()
     {

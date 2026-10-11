@@ -15,6 +15,11 @@ namespace Naravel.Queue.File;
 ///
 /// Reservation uses File.Move (pending -> reserved), which is effectively atomic on a single
 /// volume, so two workers racing for the same file will not both succeed.
+///
+/// Fencing: each reservation stamps the message with a fresh <c>ReservationId</c> that is stored in the reserved file.
+/// Ack/Release/Fail only act on a reserved file whose token still matches (a reclaim clears it), so a worker whose
+/// reservation expired cannot delete or re-queue the copy another worker now owns. Messages without a token keep the
+/// previous unfenced behaviour.
 /// </summary>
 public class FileQueueDriver : IQueueDriver
 {
@@ -99,6 +104,7 @@ public class FileQueueDriver : IQueueDriver
             }
 
             message.ReservedAt = now;
+            message.ReservationId = Guid.NewGuid().ToString("N");
             await WriteAtomicAsync(dest, JsonSerializer.Serialize(message), cancellationToken);
             return message;
         }
@@ -131,6 +137,7 @@ public class FileQueueDriver : IQueueDriver
 
                     message.Attempts++;
                     message.ReservedAt = null;
+                    message.ReservationId = null;
                     var updated = JsonSerializer.SerializeToUtf8Bytes(message);
                     stream.SetLength(0);
                     stream.Position = 0;
@@ -144,29 +151,34 @@ public class FileQueueDriver : IQueueDriver
         }
     }
 
-    public Task AckAsync(QueuedMessage message, CancellationToken cancellationToken = default)
+    public async Task AckAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
-        var file = FindReservedFile(message);
+        var file = await FindOwnedReservedFileAsync(message, cancellationToken);
         if (file != null) System.IO.File.Delete(file);
-        return Task.CompletedTask;
     }
 
     public async Task ReleaseAsync(QueuedMessage message, TimeSpan delay, CancellationToken cancellationToken = default)
     {
-        var reservedFile = FindReservedFile(message);
+        var fenced = message.ReservationId is not null;
+        var reservedFile = await FindOwnedReservedFileAsync(message, cancellationToken);
+        if (fenced && reservedFile is null) return; // reservation was reclaimed or taken over: nothing of ours to hand back
+
         message.ReservedAt = null;
         message.AvailableAt = DateTimeOffset.UtcNow + delay;
 
         var newPath = Path.Combine(Dir(message.Queue, "pending"), PendingFileName(message));
-        await WriteAtomicAsync(newPath, JsonSerializer.Serialize(message), cancellationToken);
+        await WriteAtomicAsync(newPath, SerializeWithoutReservation(message), cancellationToken);
         if (reservedFile != null) System.IO.File.Delete(reservedFile);
     }
 
     public async Task FailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
-        var reservedFile = FindReservedFile(message);
+        var fenced = message.ReservationId is not null;
+        var reservedFile = await FindOwnedReservedFileAsync(message, cancellationToken);
+        if (fenced && reservedFile is null) return; // reservation was reclaimed or taken over
+
         var failedPath = Path.Combine(Dir(message.Queue, "failed"), $"{message.Id}.json");
-        await WriteAtomicAsync(failedPath, JsonSerializer.Serialize(message), cancellationToken);
+        await WriteAtomicAsync(failedPath, SerializeWithoutReservation(message), cancellationToken);
         if (reservedFile != null) System.IO.File.Delete(reservedFile);
     }
 
@@ -178,4 +190,30 @@ public class FileQueueDriver : IQueueDriver
 
     private string? FindReservedFile(QueuedMessage message)
         => Directory.EnumerateFiles(Dir(message.Queue, "reserved"), $"*_{message.Id}.json").FirstOrDefault();
+
+    // The stored envelope must not carry the old token, but the caller's object keeps it so a stale worker stays fenced.
+    private static string SerializeWithoutReservation(QueuedMessage message)
+    {
+        var reservationId = message.ReservationId;
+        message.ReservationId = null;
+        try { return JsonSerializer.Serialize(message); }
+        finally { message.ReservationId = reservationId; }
+    }
+
+    // Returns the reserved file only if this caller still owns the reservation. A message without a ReservationId
+    // (legacy envelope) is not fenced and gets the file as before.
+    private async Task<string?> FindOwnedReservedFileAsync(QueuedMessage message, CancellationToken cancellationToken)
+    {
+        var file = FindReservedFile(message);
+        if (file is null || message.ReservationId is null) return file;
+
+        try
+        {
+            var json = await System.IO.File.ReadAllTextAsync(file, cancellationToken);
+            var stored = JsonSerializer.Deserialize<QueuedMessage>(json);
+            return string.Equals(stored?.ReservationId, message.ReservationId, StringComparison.Ordinal) ? file : null;
+        }
+        catch (IOException) { return null; }   // being reclaimed or replaced right now: not ours
+        catch (JsonException) { return null; }
+    }
 }

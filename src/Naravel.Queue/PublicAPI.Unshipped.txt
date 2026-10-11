@@ -137,6 +137,8 @@ Naravel.Queue.Drivers.QueuedMessage.Queue.set -> void
 Naravel.Queue.Drivers.QueuedMessage.QueuedMessage() -> void
 Naravel.Queue.Drivers.QueuedMessage.ReservedAt.get -> System.DateTimeOffset?
 Naravel.Queue.Drivers.QueuedMessage.ReservedAt.set -> void
+Naravel.Queue.Drivers.QueuedMessage.ReservationId.get -> string?
+Naravel.Queue.Drivers.QueuedMessage.ReservationId.set -> void
 Naravel.Queue.Drivers.QueuedMessage.TraceParent.get -> string?
 Naravel.Queue.Drivers.QueuedMessage.TraceParent.set -> void
 Naravel.Queue.Drivers.QueuedMessage.TraceState.get -> string?

@@ -42,6 +42,7 @@ public class DatabaseQueueDriver<TContext> : IQueueDriver where TContext : DbCon
             .Where(j => j.Queue == queue && j.FailedAt == null && j.ReservedAt != null && j.ReservedAt < staleBefore)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(j => j.ReservedAt, (DateTimeOffset?)null)
+                .SetProperty(j => j.ReservationId, (string?)null)
                 .SetProperty(j => j.Attempts, j => j.Attempts + 1), cancellationToken);
 
         // Grab a batch of candidates in priority/availability order, then try to claim them one by one.
@@ -54,13 +55,17 @@ public class DatabaseQueueDriver<TContext> : IQueueDriver where TContext : DbCon
 
         foreach (var candidate in candidates)
         {
+            var reservationId = Guid.NewGuid().ToString("N");
             var affected = await db.Set<JobRecord>()
                 .Where(j => j.Id == candidate.Id && j.ReservedAt == null)
-                .ExecuteUpdateAsync(s => s.SetProperty(j => j.ReservedAt, now), cancellationToken);
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(j => j.ReservedAt, now)
+                    .SetProperty(j => j.ReservationId, reservationId), cancellationToken);
 
             if (affected == 1)
             {
                 candidate.ReservedAt = now;
+                candidate.ReservationId = reservationId;
                 return ToMessage(candidate);
             }
             // affected == 0 means another worker claimed it between our SELECT and UPDATE - try the next candidate.
@@ -72,16 +77,17 @@ public class DatabaseQueueDriver<TContext> : IQueueDriver where TContext : DbCon
     public async Task AckAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
-        await db.Set<JobRecord>().Where(j => j.Id == message.Id).ExecuteDeleteAsync(cancellationToken);
+        await Owned(db, message).ExecuteDeleteAsync(cancellationToken);
     }
 
     public async Task ReleaseAsync(QueuedMessage message, TimeSpan delay, CancellationToken cancellationToken = default)
     {
         await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
         var availableAt = DateTimeOffset.UtcNow + delay;
-        await db.Set<JobRecord>().Where(j => j.Id == message.Id)
+        await Owned(db, message)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(j => j.ReservedAt, (DateTimeOffset?)null)
+                .SetProperty(j => j.ReservationId, (string?)null)
                 .SetProperty(j => j.AvailableAt, availableAt)
                 .SetProperty(j => j.Attempts, message.Attempts)
                 .SetProperty(j => j.Error, message.Error), cancellationToken);
@@ -90,11 +96,24 @@ public class DatabaseQueueDriver<TContext> : IQueueDriver where TContext : DbCon
     public async Task FailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
-        await db.Set<JobRecord>().Where(j => j.Id == message.Id)
+        await Owned(db, message)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(j => j.FailedAt, DateTimeOffset.UtcNow)
+                .SetProperty(j => j.ReservationId, (string?)null)
                 .SetProperty(j => j.Attempts, message.Attempts)
                 .SetProperty(j => j.Error, message.Error), cancellationToken);
+    }
+
+    // Fencing: a message that carries a ReservationId only affects the row while that reservation is still current.
+    // After the visibility timeout reclaimed the row (token cleared) or another worker re-reserved it (new token), a
+    // late Ack/Release/Fail from the original worker matches zero rows instead of deleting or re-queuing the new copy.
+    // Messages without a token (envelopes created before this field existed) keep the previous unfenced behaviour.
+    private static IQueryable<JobRecord> Owned(TContext db, QueuedMessage message)
+    {
+        var id = message.Id;
+        var query = db.Set<JobRecord>().Where(j => j.Id == id);
+        var reservationId = message.ReservationId;
+        return reservationId is null ? query : query.Where(j => j.ReservationId == reservationId);
     }
 
     public async Task<long> SizeAsync(string queue, CancellationToken cancellationToken = default)
@@ -116,6 +135,7 @@ public class DatabaseQueueDriver<TContext> : IQueueDriver where TContext : DbCon
         CreatedAt = m.CreatedAt,
         AvailableAt = m.AvailableAt,
         ReservedAt = m.ReservedAt,
+        ReservationId = m.ReservationId,
         Error = m.Error,
         ChainedJobPayload = m.ChainedJobPayload,
         BatchId = m.BatchId,
@@ -136,6 +156,7 @@ public class DatabaseQueueDriver<TContext> : IQueueDriver where TContext : DbCon
         CreatedAt = r.CreatedAt,
         AvailableAt = r.AvailableAt,
         ReservedAt = r.ReservedAt,
+        ReservationId = r.ReservationId,
         Error = r.Error,
         ChainedJobPayload = r.ChainedJobPayload,
         BatchId = r.BatchId,

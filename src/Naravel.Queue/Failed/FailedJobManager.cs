@@ -75,6 +75,7 @@ public sealed class FailedJobManager
         message.Attempts = 0;
         message.Error = null;
         message.ReservedAt = null;
+        message.ReservationId = null;
         message.AvailableAt = DateTimeOffset.UtcNow;
 
         await _queues.Connection(message.Connection).PushAsync(message, cancellationToken);

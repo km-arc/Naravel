@@ -258,6 +258,21 @@ await failed.RetryAsync(records[0].Id, cancellationToken);
 درون‌پروسه است، پس چیزی برای بازیابی وجود ندارد. Kafka و RabbitMQ به تحویل مجدد خود broker متکی‌اند که
 Naravel آن را نمی‌شمارد؛ بخش [حسابداری تلاش به تفکیک درایور](#حسابداری-تلاش-به-تفکیک-درایور) را ببینید.
 
+### حصار رزرو (Reservation fencing) در Redis، File و Database
+
+هر `PopAsync` به پیام یک `QueuedMessage.ReservationId` تازه می‌زند. متدهای `AckAsync`، `ReleaseAsync` و `FailAsync`
+فقط تا زمانی عمل می‌کنند که همان توکن هنوز توکن ذخیره‌شده باشد، و reclaim شدن یک reservation منقضی‌شده آن را پاک
+می‌کند. پس workerی که از `VisibilityTimeoutSeconds` بیشتر طول بکشد دیگر نمی‌تواند نسخه‌ای را که اکنون worker دیگری
+در اختیار دارد حذف، دوباره صف یا failed کند: ack دیرهنگام او بی‌اثر است و job فقط یک‌بار دیگر اجرا می‌شود
+(همان at-least-once قبلی). پیام‌های بدون توکن (envelopeهایی که پیش از این فیلد نوشته شده‌اند) رفتار قبلیِ بدون حصار را
+حفظ می‌کنند و Memory، RabbitMQ و Kafka تغییری نکرده‌اند چون reclaim مبتنی بر انقضا در خود درایور ندارند.
+
+ارتقای درایور **Database** یک ستون nullable به نام `ReservationId varchar(64)` به جدول jobs اضافه می‌کند. **پیش از**
+استقرار پکیج جدید یک EF migration اعمال کنید (برای جدول پیش‌فرض:
+`ALTER TABLE QueueJobs ADD ReservationId varchar(64) NULL`)، وگرنه polling با خطای ستون ناشناخته شکست می‌خورد. حصار یک
+job طولانی را ایمن نمی‌کند: اگر از visibility timeout بیشتر طول بکشد باز هم دوبار اجرا می‌شود، پس
+`VisibilityTimeoutSeconds` را بالاتر از طولانی‌ترین job نگه دارید.
+
 ## تضمین تحویل: حداقل یک‌بار (at-least-once)
 
 یک job ممکن است بیش از یک‌بار اجرا شود (کرش worker، تایم‌اوت visibility، شکست در ack)، پس jobها باید
