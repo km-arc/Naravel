@@ -294,7 +294,7 @@ visibility timeout when it starts:
 
 - **Error:** the visibility timeout is shorter than `QueueWorkerOptions.JobTimeout`. The job would be
   reclaimed and executed a second time while it is still allowed to run, so `StartAsync` throws an
-  `InvalidOperationException` (the host stops) and the error is logged.
+  `InvalidOperationException` (the host fails to start) and the error is logged.
 - **Warning:** `QueueWorkerOptions.MaxJobTimeout` is set and the visibility timeout is shorter than
   `MaxJobTimeout + VisibilityMargin` (10 seconds by default). Set `MaxJobTimeout` to the longest
   `Job.Timeout` you use; when it is unset no such warning is produced.

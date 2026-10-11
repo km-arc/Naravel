@@ -55,10 +55,21 @@ public class QueueWorkerService : BackgroundService
         _logger = logger;
     }
 
+    /// <summary>
+    /// Validates the driver's visibility timeout before the worker starts. Done here rather than in
+    /// <see cref="BackgroundService.ExecuteAsync"/> because whether an exception thrown from ExecuteAsync reaches
+    /// <c>StartAsync</c> depends on the runtime's BackgroundService implementation; throwing from StartAsync itself
+    /// reliably stops the host before any job is reserved.
+    /// </summary>
+    public override Task StartAsync(CancellationToken cancellationToken)
+    {
+        ValidateVisibilityTimeoutAtStartup();
+        return base.StartAsync(cancellationToken);
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _startedAt = DateTimeOffset.UtcNow;
-        ValidateVisibilityTimeoutAtStartup(); // synchronous on purpose: a misconfiguration must fail StartAsync, not a background task
         try
         {
             await _batchRepository.ResumePendingCallbacksAsync(stoppingToken);
