@@ -66,6 +66,8 @@ Naravel.Queue.Database.JobRecord.Queue.get -> string!
 Naravel.Queue.Database.JobRecord.Queue.set -> void
 Naravel.Queue.Database.JobRecord.ReservedAt.get -> System.DateTimeOffset?
 Naravel.Queue.Database.JobRecord.ReservedAt.set -> void
+Naravel.Queue.Database.JobRecord.ReservationId.get -> string?
+Naravel.Queue.Database.JobRecord.ReservationId.set -> void
 Naravel.Queue.Database.JobRecord.TraceParent.get -> string?
 Naravel.Queue.Database.JobRecord.TraceParent.set -> void
 Naravel.Queue.Database.JobRecord.TraceState.get -> string?

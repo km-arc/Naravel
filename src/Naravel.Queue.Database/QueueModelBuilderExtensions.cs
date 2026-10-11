@@ -19,6 +19,7 @@ public static class QueueModelBuilderExtensions
             b.Property(j => j.Id).HasMaxLength(64);
             b.Property(j => j.Queue).HasMaxLength(128).IsRequired();
             b.Property(j => j.Connection).HasMaxLength(128);
+            b.Property(j => j.ReservationId).HasMaxLength(64);
             b.Property(j => j.TraceParent).HasMaxLength(128);
             b.Property(j => j.TraceState).HasMaxLength(512);
             b.Property(j => j.JobType).IsRequired();

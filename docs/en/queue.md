@@ -260,6 +260,20 @@ than `VisibilityTimeoutSeconds` (default 300 - set it above your longest job). T
 in-process only, so there is nothing to recover from. Kafka and RabbitMQ rely on the broker's own
 redelivery, which Naravel does not count; see [Attempt accounting by driver](#attempt-accounting-by-driver).
 
+### Reservation fencing (Redis, File, Database)
+
+Every `PopAsync` stamps the message with a fresh `QueuedMessage.ReservationId`. `AckAsync`, `ReleaseAsync` and
+`FailAsync` only act while that token is still the stored one, and reclaiming an expired reservation clears it. A
+worker that outlives its `VisibilityTimeoutSeconds` therefore cannot delete, re-queue or fail the copy another worker
+now owns: its late acknowledgement is a silent no-op and the job simply runs a second time (at-least-once, as before).
+Messages without a token (envelopes written before this field existed) keep the previous unfenced behaviour, and
+Memory, RabbitMQ and Kafka are unchanged because they have no expiry-based reclaim in the driver.
+
+Upgrading the **Database** driver adds one nullable column, `ReservationId varchar(64)`, to the jobs table. Apply an EF
+migration (for the default table: `ALTER TABLE QueueJobs ADD ReservationId varchar(64) NULL`) **before** deploying the
+new package, otherwise polling fails with an unknown-column error. Fencing does not make a long job safe: it still
+runs twice if it exceeds the visibility timeout, so keep `VisibilityTimeoutSeconds` above your longest job.
+
 ## Delivery guarantee: at-least-once
 
 A job can run more than once (worker crash, visibility timeout, a failed acknowledgement), so jobs

@@ -15,6 +15,9 @@ public class JobRecord
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset AvailableAt { get; set; }
     public DateTimeOffset? ReservedAt { get; set; }
+
+    /// <summary>Token of the current reservation; Ack/Release/Fail only affect the row while it still matches.</summary>
+    public string? ReservationId { get; set; }
     public DateTimeOffset? FailedAt { get; set; }
     public string? Error { get; set; }
     public string? ChainedJobPayload { get; set; }
