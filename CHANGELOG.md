@@ -14,6 +14,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 - R06 Events (PDR-011): scoped typed dispatcher and disposable subscriptions, DI listener plans, stop propagation, first-exception propagation, `EventFake`, `Naravel.Events` telemetry, and optional `Naravel.Events.Queue` adapter using explicit listener aliases.
 - `Naravel.Queue` with Memory, File, Redis, Database (EF Core), RabbitMQ and Kafka drivers; worker with retry/backoff,
   chaining, batching, middleware and lifecycle events.
+- R07.T05 Docs: the Kafka blocking-poll limitation (D-21) is described in the EN/FA queue guides and separated from the future async fix.
 - R07 Queue completion: failed-job stores and retry commands, reservation attempt accounting, per-job timeouts, persistent Database/Redis batches, worker controls, metrics/tracing, and `Naravel.Queue.Testing.QueueFake`.
 - `Naravel.Queue.RabbitMQ` migrated to RabbitMQ.Client 7.2.2 async APIs with per-delivery channels and async disposal.
 - Crash recovery (`VisibilityTimeoutSeconds`) for the File and Database drivers; atomic file writes.
