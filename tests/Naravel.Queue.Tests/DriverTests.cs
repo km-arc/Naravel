@@ -118,6 +118,26 @@ public abstract class QueueDriverContractTests : IDisposable
             retried.Should().NotBeNull();
             retried!.Attempts.Should().Be(1);
 
+            // R07.T07: worker-initiated retries. The worker stores the incremented Attempts on the envelope and releases
+            // it; every driver must hand the next delivery exactly that value across consecutive retries (no extra
+            // increment from Release itself, no lost update). Crash redelivery is a different path and is not asserted here.
+            var retryQueue = QueueName("retry-attempts");
+            await WarmUpQueueAsync(driver, retryQueue);
+            await driver.PushAsync(Msg(retryQueue));
+            var attempt = (await PopEventuallyAsync(driver, retryQueue))!;
+            attempt.Attempts.Should().Be(0);
+            for (var expected = 1; expected <= 3; expected++)
+            {
+                attempt.Attempts = expected;
+                await driver.ReleaseAsync(attempt, TimeSpan.Zero);
+                attempt = (await PopEventuallyAsync(driver, retryQueue))!;
+                attempt.Attempts.Should().Be(expected, $"retry {expected} must carry the attempt count the worker stored");
+            }
+
+            // Shutdown hand-back: the worker releases without counting an attempt, so the value must be unchanged.
+            await driver.ReleaseAsync(attempt, TimeSpan.Zero);
+            (await PopEventuallyAsync(driver, retryQueue))!.Attempts.Should().Be(3);
+
             var failedQueue = QueueName("failed");
             await WarmUpQueueAsync(driver, failedQueue);
             await driver.PushAsync(Msg(failedQueue));

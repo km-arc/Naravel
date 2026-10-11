@@ -257,8 +257,8 @@ should remain idempotent.
 
 Redis, File and Database drivers return a job to the queue when its worker disappeared for longer
 than `VisibilityTimeoutSeconds` (default 300 - set it above your longest job). The Memory driver is
-in-process only, so there is nothing to recover from. Kafka/RabbitMQ rely on the broker's own
-redelivery.
+in-process only, so there is nothing to recover from. Kafka and RabbitMQ rely on the broker's own
+redelivery, which Naravel does not count; see [Attempt accounting by driver](#attempt-accounting-by-driver).
 
 ## Delivery guarantee: at-least-once
 
@@ -273,6 +273,60 @@ the job again. Set `Job.Timeout` for a per-job limit; the worker uses the smalle
 `QueueWorkerOptions.JobTimeout`. Drivers with a visibility timeout emit a warning when it is shorter
 than the effective job timeout plus `VisibilityTimeoutMargin` (10 seconds by default). Cancellation
 is cooperative; handlers that ignore their token may continue running.
+
+### Attempt accounting by driver
+
+`QueuedMessage.Attempts` is stored on the message envelope. There are two ways it can change:
+
+- **Worker-initiated retry** (the job threw): the worker adds one and releases the message. Every driver
+  must hand the next delivery exactly that value, and `Release` itself never adds another. The shared driver
+  contract tests assert this across consecutive retries, and a worker test asserts one increment per failure.
+  When the count reaches `MaxAttempts` the worker records the failure in the failed-job store and calls the
+  driver's `FailAsync`.
+- **Crash or expired-reservation redelivery** (the worker disappeared): counted only by drivers that track
+  reservations themselves.
+
+| Driver | Worker-initiated retry | Crash / expired-reservation redelivery |
+|---|---|---|
+| Memory | counted | not applicable (in-process) |
+| File, Database, Redis | counted | **counted** when the visibility timeout expires |
+| RabbitMQ | counted (the delivery is acknowledged and a new message carrying the updated count is published) | **not counted** |
+| Kafka | counted (the job is produced again to the tail of the topic and the original offset is committed) | **not counted** |
+
+On RabbitMQ and Kafka, a message whose worker died before acknowledging it is redelivered by the broker
+(unacknowledged deliveries are requeued when the channel or connection closes; an uncommitted Kafka offset is
+read again after a restart or rebalance). That is at-least-once delivery, and Naravel's `Attempts` does not
+change. A job that kills the whole process every time it runs (for example an out-of-memory crash) can therefore
+be redelivered without limit on these two drivers. Mitigate it with idempotent jobs, `Job.Timeout`, process
+memory limits, and alerts on repeated worker restarts or growing consumer lag.
+
+Jobs that exhaust `MaxAttempts` are also published to `netqueue.failed.<queue>` (RabbitMQ) or the
+`netqueue-<queue>-failed` topic (Kafka). Naravel never consumes these; inspect them with broker tooling and use
+`FailedJobManager` to retry.
+
+#### RabbitMQ: broker-side delivery limit and dead-lettering
+
+Checked against the RabbitMQ [quorum queue](https://www.rabbitmq.com/docs/quorum-queues) and
+[dead letter exchange](https://www.rabbitmq.com/docs/dlx) documentation on 2026-10-11:
+
+- Quorum queues support a delivery limit: the policy key `delivery-limit` or the queue argument `x-delivery-limit`.
+  The default is 20 since RabbitMQ 4.0. A message returned more times than the limit is dropped, or dead-lettered
+  when a dead letter exchange is configured. From RabbitMQ 4.3 the limit counts failed deliveries (for example a
+  client crash or lost connection, and `basic.reject`) and not a plain requeue with `basic.nack`; earlier versions
+  counted every acquisition, so check your broker version.
+- A dead letter exchange is set with the policy key `dead-letter-exchange` or the queue argument
+  `x-dead-letter-exchange`; the argument overrides the policy. Messages are dead-lettered on rejection without
+  requeue, TTL expiry, a queue length limit, and the quorum delivery limit.
+- The queue type is chosen when the queue is declared (`x-queue-type`) and cannot be set or changed by a policy.
+  `x-max-priority` applies to classic queues only and is ignored by quorum queues; strict quorum priorities exist
+  from RabbitMQ 4.3.
+
+**Current limitation:** the driver declares `netqueue.ready.<queue>` as a classic queue with `x-max-priority`, and
+declares it again on every operation. Because the type cannot be changed by policy, and RabbitMQ rejects
+re-declaring an existing queue with different arguments, an operator cannot turn this queue into a quorum queue,
+and so cannot use `delivery-limit`, without driver support. A configurable queue type is not implemented and
+needs its own decision (AUDIT D-27). Until then, crash redelivery on RabbitMQ is unbounded and uncounted, as described
+above. Kafka has no broker-side redelivery limit; the committed offset is the only state.
 
 ## Limitations
 
