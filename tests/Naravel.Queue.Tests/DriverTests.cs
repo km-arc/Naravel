@@ -279,4 +279,35 @@ public class FileDriverRecoveryTests : IDisposable
         await d.AckAsync(new QueuedMessage { Id = "legacy1", Queue = "q", JobType = "x", Payload = "{}" });
         Directory.EnumerateFiles(Path.Combine(_dir, "q", "reserved"), "*.json").Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task Many_concurrent_consumers_deliver_every_message_exactly_once_without_throwing()
+    {
+        // Regression for the Windows-only UnauthorizedAccessException seen in CI: reserve/rewrite/delete races between
+        // workers must be absorbed by the driver, never surface as an exception.
+        var d = new FileQueueDriver(_dir);
+        const int total = 200;
+        for (var i = 0; i < total; i++)
+            await d.PushAsync(new QueuedMessage { Queue = "stress", JobType = "x", Payload = "{}" });
+
+        var seen = new System.Collections.Concurrent.ConcurrentDictionary<string, int>();
+        var consumers = Enumerable.Range(0, 16).Select(_ => Task.Run(async () =>
+        {
+            var idle = 0;
+            while (idle < 20)
+            {
+                var m = await d.PopAsync("stress");
+                if (m is null) { idle++; await Task.Delay(2); continue; }
+                idle = 0;
+                seen.AddOrUpdate(m.Id, 1, (_, n) => n + 1);
+                await d.AckAsync(m);
+            }
+        })).ToArray();
+
+        await Task.WhenAll(consumers);
+
+        seen.Should().HaveCount(total);
+        seen.Values.Should().OnlyContain(n => n == 1);
+        (await d.SizeAsync("stress")).Should().Be(0);
+    }
 }
