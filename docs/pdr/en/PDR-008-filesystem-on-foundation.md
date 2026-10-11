@@ -1,6 +1,6 @@
 # PDR-008 — Filesystem on Foundation
 
-Status: **Accepted and implemented 2026-10-04.** The owner approved this PDR, including the public API/config migration and S3 region/client-lifetime decisions. Stage 2 passed the full solution build and test suite (172 tests).
+Status: **Accepted and implemented 2026-10-04.** The owner approved this PDR, including the public API/config migration and S3 region/client-lifetime decisions. Stage 2 verification evidence is in the R02 row of [ROADMAP.md](../../../ROADMAP.md).
 
 ## Context
 
@@ -61,4 +61,4 @@ Example configuration:
 
 ## Approval recorded
 
-The owner approved the proposed decisions on 2026-10-04. Implementation preserves the path-containment fix, and the listed tests and EN/FA docs are complete. The solution build succeeded and all 172 tests passed on 2026-10-04; live AWS/S3 integration was not run.
+The owner approved the proposed decisions on 2026-10-04. Implementation preserves the path-containment fix, and the listed tests and EN/FA docs are complete. The solution build and test run is recorded in the R02 row of [ROADMAP.md](../../../ROADMAP.md) (2026-10-04); live AWS/S3 integration was not run.

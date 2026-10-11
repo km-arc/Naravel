@@ -2,7 +2,8 @@
 
 Historical record of approved decisions and completed work. The authoritative current status and sole
 `NEXT` pointer are now in [ROADMAP.md](ROADMAP.md); this file preserves the prior stage history and
-decisions. Begin new roadmap work there.
+decisions. Begin new roadmap work there. Statuses and test counts below are dated snapshots from the time of each entry,
+never current status.
 
 Legend: `[x]` done · `[ ]` not started · `[~]` in progress
 

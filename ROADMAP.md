@@ -51,8 +51,15 @@ needs the EN+FA PDR.
 
 R17 lists every stage in release scope; the owner may mark an out-of-scope stage `DECLINED`/`BLOCKED` to release without it.
 R02 was completed before this roadmap existed; its R00 dependency is nominal and does not invalidate it.
-Cache, tagging, scoping and locks (PDR-007) are done (27 tests; 199/199 solution tests on 2026-10-05); R04 is only the
-RateLimiter. Routing Stage 4a is done; R05 is Stage 4b.
+## Single source of truth (D-18)
+
+- **Stage status and `NEXT`:** only the table and `NEXT` block in this file. Other documents link here; they do not copy a stage status.
+- **Verified test counts:** only in the dated evidence of a stage's status cell above (R00.T06). Live numbers come from the
+  [CI run summary](https://github.com/km-arc/Naravel/actions/workflows/ci.yml) ("Test results by project"). No other document states a test total.
+- **Historical records** (`PROGRESS*.md`, `CHANGELOG.md`, `roadmap/REVIEW-01.md`, the resolved notes in `roadmap/AUDIT.md`) keep
+  dated snapshots. They are never current status.
+- `roadmap/check.py` enforces this: it fails on a hand-typed test count or a repeated stage status outside those places. Put
+  `<!-- check:allow-count -->` on a line only when a number is not a test total (for example HTTP status codes).
 
 **Default order:** R07 → R08 → R09 → R10 → R18 → R03 → R15 → R16 → R11 → R12 → R13 → R14 → R17.
 Rationale: correctness and proof first (R00, R01); then the two modules that carry the project's value (Queue, Cache);

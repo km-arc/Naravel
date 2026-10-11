@@ -5,7 +5,7 @@
 مسیرهای resource و یک سیستم کامل **middleware مسیر** (alias، group، پارامتر، اولویت، `withoutMiddleware`، terminable).
 طراحی: [PDR-009](../pdr/fa/PDR-009-routing-and-http-middleware.md). نسخهٔ انگلیسی: [../en/routing.md](../en/routing.md).
 
-> مرحلهٔ ۴a در ۲۰۲۶-۱۰-۰۴ با ۶۴ تست تأیید شد. مرحلهٔ ۴b middlewareهای آماده و نگاشت resource کنترلر را که پایین‌تر آمده اضافه می‌کند.
+> وضعیت و راستی‌آزمایی روتینگ در [ROADMAP.md](../../ROADMAP.md) (R05) پیگیری می‌شود. این راهنما رفتار پیاده‌شده را شرح می‌دهد.
 
 ## راه‌اندازی
 

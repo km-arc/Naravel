@@ -63,7 +63,7 @@ Example configuration:
 
 ## Implementation and verification
 
-The test suite covers `CacheManager`, `MemoryCacheStore`, `MemoryLock`, `ScopedCacheStore` and `TaggedCacheStore`, with no Queue tests. Foundation integration tests cover two names using the same driver type, runtime `Extend`, config reload of an existing store, unrelated reload stability, default selection and disposal. Provider tests cover configuration and prefix-bounded Redis flushing, plus Memcached configuration, key handling and TTL behavior. The Cache project has 27 test cases. Live Redis/Memcached integration was not run.
+The test suite covers `CacheManager`, `MemoryCacheStore`, `MemoryLock`, `ScopedCacheStore` and `TaggedCacheStore`, with no Queue tests. Foundation integration tests cover two names using the same driver type, runtime `Extend`, config reload of an existing store, unrelated reload stability, default selection and disposal. Provider tests cover configuration and prefix-bounded Redis flushing, plus Memcached configuration, key handling and TTL behavior. Verification evidence is tracked in [ROADMAP.md](../../../ROADMAP.md) and CI. Live Redis/Memcached integration was not run locally.
 
 The bilingual Cache guides, parity tables, `AGENTS.md`, `PROGRESS.md`, README files and `CHANGELOG.md` document the implemented APIs and provider constraints. Full solution build and tests passed on 2026-10-05; live Redis/Memcached integration remains unverified.
 

@@ -53,6 +53,8 @@ dotnet restore Naravel.slnx && dotnet build Naravel.slnx -c Release && dotnet te
 
 ## Module status
 The status table in [ROADMAP.md](ROADMAP.md) is the single source of truth. See the module docs for current APIs and usage.
+Verified test totals are recorded only in a stage's ROADMAP status cell, and live numbers come from CI. Do not copy a
+status or a count into other documents; `roadmap/check.py` fails on it (see "Single source of truth" in ROADMAP.md).
 
 ## Routing / middleware work
 Routing's current state and remaining work are tracked in [ROADMAP.md](ROADMAP.md) (R05); detailed Stage 4a/4b

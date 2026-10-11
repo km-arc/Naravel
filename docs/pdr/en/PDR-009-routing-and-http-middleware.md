@@ -2,7 +2,7 @@
 
 Status: **Accepted.** The owner approved the plan in chat (architecture, package scope, feature scope, stage order) and then told the agent to continue
 after reading the three sign-off items below, which is recorded as approval of them. On 2026-10-04, the owner consolidated ready-made HTTP middleware
-into `Naravel.Routing`; Stage 4b remains pending and will extend that project.
+into `Naravel.Routing`; Stage 4b extends that same project (current status: [ROADMAP.md](../../../ROADMAP.md), R05).
 
 PDR-007 (Cache) and PDR-008 (Filesystem) were approved and implemented (see `PROGRESS.md`). This PDR is numbered 009 so those numbers stay stable.
 
