@@ -255,7 +255,8 @@ await failed.RetryAsync(records[0].Id, cancellationToken);
 
 درایورهای Redis، File و Database وقتی worker یک job بیش از `VisibilityTimeoutSeconds` (پیش‌فرض ۳۰۰ —
 بالاتر از طولانی‌ترین job خودتان بگذارید) ناپدید شود، آن را به صف برمی‌گردانند. درایور Memory فقط
-درون‌پروسه است، پس چیزی برای بازیابی وجود ندارد. Kafka/RabbitMQ به تحویل مجدد خود broker متکی‌اند.
+درون‌پروسه است، پس چیزی برای بازیابی وجود ندارد. Kafka و RabbitMQ به تحویل مجدد خود broker متکی‌اند که
+Naravel آن را نمی‌شمارد؛ بخش [حسابداری تلاش به تفکیک درایور](#حسابداری-تلاش-به-تفکیک-درایور) را ببینید.
 
 ## تضمین تحویل: حداقل یک‌بار (at-least-once)
 
@@ -270,6 +271,58 @@ idempotent باشند. ادامهٔ زنجیره قبل از ack شدن job فع
 `QueueWorkerOptions.JobTimeout` را اعمال می‌کند. Driverهایی که visibility timeout دارند، اگر این مقدار
 از timeout مؤثر job به‌علاوهٔ `VisibilityTimeoutMargin` (پیش‌فرض ۱۰ ثانیه) کمتر باشد warning می‌دهند.
 Cancellation تعاونی است؛ handlerی که token را نادیده بگیرد ممکن است به اجرا ادامه دهد.
+
+### حسابداری تلاش به تفکیک درایور
+
+`QueuedMessage.Attempts` روی envelope پیام ذخیره می‌شود و به دو شکل تغییر می‌کند:
+
+- **retry آغازشده توسط worker** (job خطا داد): worker یک واحد اضافه می‌کند و پیام را release می‌کند. هر درایور
+  باید دقیقاً همین مقدار را به تحویل بعدی بدهد و خود `Release` هرگز واحد دیگری اضافه نمی‌کند. تست‌های contract
+  مشترک درایورها این را در retryهای پیاپی بررسی می‌کنند و یک تست worker یک افزایش به ازای هر شکست را بررسی می‌کند.
+  وقتی شمار به `MaxAttempts` برسد، worker شکست را در failed-job store ثبت می‌کند و `FailAsync` درایور را فرا می‌خواند.
+- **تحویل مجدد پس از کرش یا انقضای reservation** (worker ناپدید شد): فقط درایورهایی می‌شمارند که خودشان
+  reservationها را ردیابی می‌کنند.
+
+| درایور | retry آغازشده توسط worker | تحویل مجدد پس از کرش / انقضای reservation |
+|---|---|---|
+| Memory | شمرده می‌شود | کاربرد ندارد (درون‌پروسه) |
+| File، Database، Redis | شمرده می‌شود | با انقضای visibility timeout **شمرده می‌شود** |
+| RabbitMQ | شمرده می‌شود (delivery ack می‌شود و پیام تازه‌ای با شمار به‌روز منتشر می‌شود) | **شمرده نمی‌شود** |
+| Kafka | شمرده می‌شود (job دوباره به انتهای topic فرستاده و offset اصلی commit می‌شود) | **شمرده نمی‌شود** |
+
+در RabbitMQ و Kafka، پیامی که worker پیش از ack شدنش مرده باشد توسط broker دوباره تحویل می‌شود (deliveryهای
+ack‌نشده هنگام بسته شدن channel یا connection به صف برمی‌گردند؛ offset commit‌نشدهٔ Kafka پس از ری‌استارت یا
+rebalance دوباره خوانده می‌شود). این تحویل at-least-once است و `Attempts` در Naravel تغییر نمی‌کند. بنابراین jobی که هر
+بار کل پروسه را از کار می‌اندازد (مثلاً کرش out-of-memory) روی این دو درایور می‌تواند بی‌پایان دوباره تحویل شود.
+با jobهای idempotent، `Job.Timeout`، سقف حافظهٔ پروسه و هشدار روی ری‌استارت‌های مکرر worker یا رشد consumer lag
+آن را مهار کنید.
+
+jobهایی که `MaxAttempts` را تمام کنند علاوه بر آن به `netqueue.failed.<queue>` (RabbitMQ) یا topic
+`netqueue-<queue>-failed` (Kafka) هم منتشر می‌شوند. Naravel هرگز این‌ها را مصرف نمی‌کند؛ با ابزار broker بررسی‌شان
+کنید و برای retry از `FailedJobManager` استفاده کنید.
+
+#### RabbitMQ: سقف تحویل و dead-letter سمت broker
+
+با مستندات [quorum queue](https://www.rabbitmq.com/docs/quorum-queues) و
+[dead letter exchange](https://www.rabbitmq.com/docs/dlx) در RabbitMQ در تاریخ ۲۰۲۶-۱۰-۱۱ تطبیق داده شد:
+
+- quorum queueها سقف تحویل دارند: کلید policy با نام `delivery-limit` یا آرگومان صف `x-delivery-limit`.
+  مقدار پیش‌فرض از RabbitMQ 4.0 برابر ۲۰ است. پیامی که بیش از این سقف برگردانده شود حذف می‌شود، یا اگر dead letter
+  exchange تنظیم شده باشد dead-letter می‌شود. از RabbitMQ 4.3 این سقف تحویل‌های ناموفق را می‌شمارد (مثل کرش client،
+  قطع connection و `basic.reject`) و requeue ساده با `basic.nack` را نمی‌شمارد؛ نسخه‌های قبلی هر acquisition را
+  می‌شمردند، پس نسخهٔ broker خود را بررسی کنید.
+- dead letter exchange با کلید policy به نام `dead-letter-exchange` یا آرگومان صف `x-dead-letter-exchange` تنظیم
+  می‌شود؛ آرگومان بر policy غلبه می‌کند. پیام‌ها هنگام reject بدون requeue، انقضای TTL، رسیدن به سقف طول صف و سقف
+  تحویل quorum، dead-letter می‌شوند.
+- نوع صف هنگام declare تعیین می‌شود (`x-queue-type`) و با policy قابل تنظیم یا تغییر نیست. `x-max-priority` فقط
+  برای classic queue است و quorum queue آن را نادیده می‌گیرد؛ اولویت سخت‌گیرانهٔ quorum از RabbitMQ 4.3 وجود دارد.
+
+**محدودیت فعلی:** درایور `netqueue.ready.<queue>` را به‌صورت classic queue با `x-max-priority` declare می‌کند و در هر
+عملیات دوباره declare می‌کند. چون نوع صف با policy تغییر نمی‌کند و RabbitMQ اجازهٔ declare دوبارهٔ صف موجود با
+آرگومان‌های متفاوت را نمی‌دهد، اپراتور بدون پشتیبانی درایور نمی‌تواند این صف را به quorum تبدیل کند و در نتیجه
+نمی‌تواند از `delivery-limit` استفاده کند. نوع صف قابل‌پیکربندی پیاده نشده و تصمیم جداگانه می‌خواهد (AUDIT D-27). تا آن
+زمان، تحویل مجدد پس از کرش در RabbitMQ بی‌سقف و شمرده‌نشده است، همان‌طور که بالا آمد. Kafka سقف تحویل مجدد سمت
+broker ندارد؛ offset commit‌شده تنها وضعیت است.
 
 ## محدودیت‌ها
 

@@ -56,6 +56,20 @@ public class WorkerTests
     }
 
     [Fact]
+    public async Task Worker_initiated_retries_increment_the_attempt_exactly_once_per_failure()
+    {
+        await using var host = new QueueTestHost();
+        var id = NewId();
+        await host.Dispatch(new FlakyJob { RunId = id, FailTimes = 2 });
+
+        (await Wait.Until(() => Recorder.Count(id, "ok") == 1)).Should().BeTrue();
+        Recorder.Count(id, "attempt-1").Should().Be(1);
+        Recorder.Count(id, "attempt-2").Should().Be(1);
+        Recorder.Count(id, "attempt-3").Should().Be(1);
+        Recorder.Count(id, "attempt-4").Should().Be(0, "a release after a failure must not add a second increment");
+    }
+
+    [Fact]
     public async Task A_failed_job_can_be_retried_and_is_removed_after_dispatch()
     {
         await using var host = new QueueTestHost();

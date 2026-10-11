@@ -42,6 +42,7 @@ public class FlakyJob : Job
     public override Task HandleAsync(JobContext context, CancellationToken ct)
     {
         Recorder.Add(RunId, "attempt");
+        Recorder.Add(RunId, $"attempt-{context.Attempt}");
         if (context.Attempt <= FailTimes) throw new InvalidOperationException("boom");
         Recorder.Add(RunId, "ok");
         return Task.CompletedTask;

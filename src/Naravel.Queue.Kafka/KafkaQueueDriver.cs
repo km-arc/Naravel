@@ -27,6 +27,9 @@ namespace Naravel.Queue.Kafka;
 ///     messages published after the poll are not reordered ahead of already returned jobs.
 ///   - SizeAsync is not cheaply available from the consumer API and returns -1; use Kafka's own consumer-lag
 ///     tooling (e.g. kafka-consumer-groups.sh) to monitor backlog.
+///   - Attempts: a worker-initiated retry re-produces the message with the updated attempt count. Crash redelivery
+///     (an uncommitted offset read again after a restart or rebalance) is at-least-once and is NOT counted; Kafka
+///     has no broker-side redelivery limit (see docs/en/queue.md, "Attempt accounting by driver").
 /// </summary>
 public class KafkaQueueDriver : IQueueDriver, IDisposable
 {

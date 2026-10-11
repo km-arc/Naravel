@@ -21,6 +21,11 @@ namespace Naravel.Queue.RabbitMQ;
 /// delayed-message-exchange plugin. Caveat: because RabbitMQ only expires messages once they reach
 /// the head of the queue, a very-long-delay message queued before a short-delay one can make the
 /// short one wait slightly longer than requested - fine for typical retry/delay use cases.
+///
+/// Attempts: a worker-initiated retry acknowledges the delivery and republishes the message with the updated
+/// attempt count. Crash redelivery (unacknowledged deliveries that the broker requeues when the channel or
+/// connection closes) is at-least-once and is NOT counted. The ready queue is a classic queue, so quorum-queue
+/// features such as delivery-limit are not available (see docs/en/queue.md, "Attempt accounting by driver").
 /// </summary>
 public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
 {
@@ -194,9 +199,8 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// Registers the "rabbitmq" driver for every configured store whose "Driver" is "rabbitmq".
     /// Reads that store's own "HostName"/"Port"/"UserName"/"Password"/"VirtualHost".
-    /// Note: this driver keeps a single shared channel per store (fine for moderate throughput
-    /// with the worker's Concurrency option); for very high throughput, run one worker process per
-    /// desired parallel channel.
+    /// Note: the connection is shared per store, and each in-flight delivery holds its own channel so
+    /// its acknowledgement stays on the channel that fetched it.
     /// </summary>
     public static IServiceCollection AddRabbitMqDriver(this IServiceCollection services, IConfiguration configuration, string sectionName = "NaravelQueue")
         => services.AddQueueDriver(configuration, "rabbitmq", (_, store) =>
