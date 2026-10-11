@@ -284,9 +284,25 @@ process crashes between publishing it and acknowledging the original job. Design
 Reclaiming an expired Database, Redis, or File reservation increments the stored attempt count.
 When that count reaches `MaxAttempts`, the worker records a permanent failure without executing
 the job again. Set `Job.Timeout` for a per-job limit; the worker uses the smaller of that value and
-`QueueWorkerOptions.JobTimeout`. Drivers with a visibility timeout emit a warning when it is shorter
-than the effective job timeout plus `VisibilityTimeoutMargin` (10 seconds by default). Cancellation
-is cooperative; handlers that ignore their token may continue running.
+`QueueWorkerOptions.JobTimeout`. Cancellation is cooperative; handlers that ignore their token may
+continue running.
+
+#### Startup validation of the visibility timeout
+
+For drivers that reclaim expired reservations (Database, Redis, File) the worker checks the driver's
+visibility timeout when it starts:
+
+- **Error:** the visibility timeout is shorter than `QueueWorkerOptions.JobTimeout`. The job would be
+  reclaimed and executed a second time while it is still allowed to run, so `StartAsync` throws an
+  `InvalidOperationException` (the host stops) and the error is logged.
+- **Warning:** `QueueWorkerOptions.MaxJobTimeout` is set and the visibility timeout is shorter than
+  `MaxJobTimeout + VisibilityMargin` (10 seconds by default). Set `MaxJobTimeout` to the longest
+  `Job.Timeout` you use; when it is unset no such warning is produced.
+- A job whose own `Job.Timeout` is longer than the visibility timeout minus the margin still logs a
+  warning when it is first processed.
+- Drivers without a visibility timeout (Memory, RabbitMQ, Kafka) are not validated.
+
+`VisibilityMargin` replaces the earlier `VisibilityTimeoutMargin` name.
 
 ### Attempt accounting by driver
 
