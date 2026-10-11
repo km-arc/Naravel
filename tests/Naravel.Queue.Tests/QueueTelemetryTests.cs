@@ -1,6 +1,10 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
+using Naravel.Queue.Drivers;
+using Naravel.Queue.Extensions;
 
 namespace Naravel.Queue.Tests;
 
@@ -65,5 +69,43 @@ public class QueueTelemetryTests
         }
 
         (await Wait.Until(() => Recorder.Count(id, $"{traceId}|vendor=naravel") == 1)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Envelope_written_before_trace_context_existed_still_deserializes_and_its_job_runs()
+    {
+        // R07.T06: an explicit pre-change envelope. It predates TraceParent/TraceState, so neither property is present
+        // in the stored JSON, and a worker started after the upgrade must still process it (as a new root trace).
+        var id = Guid.NewGuid().ToString("N");
+        var jobType = typeof(RecordingJob).FullName!;
+        var legacyEnvelopeJson = $$"""
+            {
+              "Id": "{{Guid.NewGuid():N}}",
+              "Queue": "q",
+              "JobType": "{{jobType}}",
+              "Payload": "{\"RunId\":\"{{id}}\"}",
+              "Attempts": 0,
+              "MaxAttempts": 3,
+              "Priority": 0,
+              "CreatedAt": "2026-01-01T00:00:00+00:00",
+              "AvailableAt": "2026-01-01T00:00:00+00:00"
+            }
+            """;
+
+        using (var document = JsonDocument.Parse(legacyEnvelopeJson))
+        {
+            var names = document.RootElement.EnumerateObject().Select(p => p.Name).ToArray();
+            names.Should().NotContain(new[] { "TraceParent", "TraceState", "traceparent", "tracestate" },
+                "the fixture must be a genuinely pre-change envelope");
+        }
+
+        var message = JsonSerializer.Deserialize<QueuedMessage>(legacyEnvelopeJson)!;
+        message.TraceParent.Should().BeNull();
+        message.TraceState.Should().BeNull();
+
+        await using var host = new QueueTestHost(configureServices: services => services.AddJob<RecordingJob>());
+        await host.Services.GetRequiredService<QueueManager>().Connection(host.Connection).PushAsync(message);
+
+        (await Wait.Until(() => Recorder.Count(id, "run") == 1)).Should().BeTrue();
     }
 }
