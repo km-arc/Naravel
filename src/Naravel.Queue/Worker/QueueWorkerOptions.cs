@@ -30,6 +30,13 @@ public class QueueWorkerOptions
     /// <summary>Optional per-job execution timeout. If a job runs longer than this, it is cancelled and treated as failed for that attempt.</summary>
     public TimeSpan? JobTimeout { get; set; }
 
-    /// <summary>Safety margin used when comparing a job timeout with the driver's visibility timeout.</summary>
-    public TimeSpan VisibilityTimeoutMargin { get; set; } = TimeSpan.FromSeconds(10);
+    /// <summary>
+    /// Optional upper bound on the timeout any job handled by this worker may declare (a job's own
+    /// <c>Job.Timeout</c>). When set, startup logs a warning if the driver's visibility timeout is below
+    /// <c>MaxJobTimeout + <see cref="VisibilityMargin"/></c>. Null = no bound declared, no such warning.
+    /// </summary>
+    public TimeSpan? MaxJobTimeout { get; set; }
+
+    /// <summary>Safety margin added to <see cref="MaxJobTimeout"/> (and to a job's own timeout) when comparing it with the driver's visibility timeout.</summary>
+    public TimeSpan VisibilityMargin { get; set; } = TimeSpan.FromSeconds(10);
 }

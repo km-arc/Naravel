@@ -58,6 +58,7 @@ public class QueueWorkerService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _startedAt = DateTimeOffset.UtcNow;
+        ValidateVisibilityTimeoutAtStartup(); // synchronous on purpose: a misconfiguration must fail StartAsync, not a background task
         try
         {
             await _batchRepository.ResumePendingCallbacksAsync(stoppingToken);
@@ -84,7 +85,6 @@ public class QueueWorkerService : BackgroundService
             // the whole pop→handle→ack/release/fail cycle of one message: RabbitMQ's delivery tags and Kafka's
             // consumer offsets are scoped to the specific driver/channel instance that popped the message.
             var driver = _manager.Connection(_options.Connection);
-            WarnIfVisibilityTimeoutIsTooShort(driver, _options.JobTimeout, "$worker");
             QueuedMessage? message = null;
 
             foreach (var queue in _options.Queues)
@@ -340,11 +340,41 @@ public class QueueWorkerService : BackgroundService
         }
     }
 
+    // Startup rules (PDR-012, D-13):
+    //  - visibility timeout < worker default JobTimeout  -> ERROR (the job is reclaimed while it may still be running);
+    //  - MaxJobTimeout set and visibility < MaxJobTimeout + VisibilityMargin -> WARNING only;
+    //  - drivers without a visibility timeout (Memory, RabbitMQ, Kafka) and unset options are never validated.
+    private void ValidateVisibilityTimeoutAtStartup()
+    {
+        var driver = _manager.Connection(_options.Connection);
+        var visibilityTimeout = driver.VisibilityTimeout;
+        if (!visibilityTimeout.HasValue) return;
+
+        var connection = _options.Connection ?? _manager.DefaultConnectionName;
+
+        if (_options.JobTimeout is { } jobTimeout && visibilityTimeout.Value < jobTimeout)
+        {
+            var message =
+                $"Naravel.Queue: visibility timeout {visibilityTimeout.Value} on connection '{connection}' is shorter than the worker JobTimeout {jobTimeout}; " +
+                "a running job would be reclaimed and executed twice. Raise the driver's visibility timeout or lower JobTimeout.";
+            _logger.LogError("{Message}", message);
+            throw new InvalidOperationException(message);
+        }
+
+        if (_options.MaxJobTimeout is { } maxJobTimeout &&
+            visibilityTimeout.Value < maxJobTimeout + _options.VisibilityMargin)
+        {
+            _logger.LogWarning(
+                "Naravel.Queue: visibility timeout {VisibilityTimeout} on connection '{Connection}' is shorter than MaxJobTimeout {MaxJobTimeout} plus VisibilityMargin {Margin}; a job that uses its full timeout may be reclaimed while running.",
+                visibilityTimeout.Value, connection, maxJobTimeout, _options.VisibilityMargin);
+        }
+    }
+
     private void WarnIfVisibilityTimeoutIsTooShort(IQueueDriver driver, TimeSpan? jobTimeout, string scope)
     {
         var visibilityTimeout = driver.VisibilityTimeout;
         if (!visibilityTimeout.HasValue || !jobTimeout.HasValue ||
-            visibilityTimeout.Value >= jobTimeout.Value + _options.VisibilityTimeoutMargin)
+            visibilityTimeout.Value >= jobTimeout.Value + _options.VisibilityMargin)
             return;
 
         var connection = _options.Connection ?? _manager.DefaultConnectionName;
@@ -352,7 +382,7 @@ public class QueueWorkerService : BackgroundService
 
         _logger.LogWarning(
             "Naravel.Queue: visibility timeout {VisibilityTimeout} on connection '{Connection}' is shorter than job timeout {JobTimeout} plus margin {Margin}; the job may be reclaimed while running.",
-            visibilityTimeout.Value, connection, jobTimeout.Value, _options.VisibilityTimeoutMargin);
+            visibilityTimeout.Value, connection, jobTimeout.Value, _options.VisibilityMargin);
     }
 
     private static TimeSpan ComputeBackoff(QueuedMessage message, IJob? job)
