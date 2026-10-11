@@ -391,14 +391,16 @@ public class WorkerTests
     public async Task Rest_delays_the_next_poll_after_an_empty_queue()
     {
         await using var host = new QueueTestHost(
-            configureWorker: options => options.Rest = TimeSpan.FromMilliseconds(350));
-        await Task.Delay(30);
+            configureWorker: options => options.Rest = TimeSpan.FromMilliseconds(1500));
+        // Give the worker time to make its first (empty) poll even on a slow runner; only then dispatch. The next poll is
+        // a full Rest later, so the job must not run in the meantime.
+        await Task.Delay(300);
         var id = NewId();
         await host.Dispatch(new RecordingJob { RunId = id });
 
         await Task.Delay(100);
         Recorder.Count(id, "run").Should().Be(0);
-        (await Wait.Until(() => Recorder.Count(id, "run") == 1, timeoutMs: 3000)).Should().BeTrue();
+        (await Wait.Until(() => Recorder.Count(id, "run") == 1, timeoutMs: 5000)).Should().BeTrue();
     }
 
     [Fact]

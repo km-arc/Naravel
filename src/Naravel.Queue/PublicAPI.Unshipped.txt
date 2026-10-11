@@ -271,6 +271,7 @@ override Naravel.Queue.Failed.FailedJobRetryResult.Equals(object? obj) -> bool
 override Naravel.Queue.Failed.FailedJobRetryResult.GetHashCode() -> int
 override Naravel.Queue.Failed.FailedJobRetryResult.ToString() -> string!
 override Naravel.Queue.Worker.QueueWorkerService.ExecuteAsync(System.Threading.CancellationToken stoppingToken) -> System.Threading.Tasks.Task!
+override Naravel.Queue.Worker.QueueWorkerService.StartAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
 static Naravel.Queue.Batching.BatchCallbackReference.operator !=(Naravel.Queue.Batching.BatchCallbackReference? left, Naravel.Queue.Batching.BatchCallbackReference? right) -> bool
 static Naravel.Queue.Batching.BatchCallbackReference.operator ==(Naravel.Queue.Batching.BatchCallbackReference? left, Naravel.Queue.Batching.BatchCallbackReference? right) -> bool
 static Naravel.Queue.Dispatch.ChainLink.operator !=(Naravel.Queue.Dispatch.ChainLink? left, Naravel.Queue.Dispatch.ChainLink? right) -> bool

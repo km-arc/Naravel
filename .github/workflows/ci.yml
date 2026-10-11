@@ -47,6 +47,35 @@ jobs:
               --collect:"XPlat Code Coverage"
           done
 
+      - name: Annotate failed tests
+        if: failure()
+        shell: bash
+        run: |
+          # Surface each failed test as a check-run annotation (name, message, first stack frames) so the failure is
+          # readable from the checks UI/API without opening the raw log.
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          def esc(text):
+              return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+          shown = 0
+          for result in sorted(Path("TestResults").rglob("*.trx")):
+              root = ET.parse(result).getroot()
+              for node in root.iter():
+                  if not node.tag.endswith("UnitTestResult") or node.attrib.get("outcome") != "Failed":
+                      continue
+                  message = next((n.text or "" for n in node.iter() if n.tag.endswith("}Message") or n.tag == "Message"), "")
+                  stack = next((n.text or "" for n in node.iter() if n.tag.endswith("StackTrace")), "")
+                  frames = "\n".join(stack.strip().splitlines()[:6])
+                  body = (message.strip() + "\n" + frames)[:1500]
+                  print(f"::error title=Failed test ({result.parent.parent.name}): {esc(node.attrib.get('testName', '?'))}::{esc(body)}")
+                  shown += 1
+                  if shown >= 10:
+                      raise SystemExit(0)
+          PY
+
       - name: Summarize test results by project
         if: always() && matrix.os == 'ubuntu-latest'
         shell: bash

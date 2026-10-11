@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Naravel.Queue.Drivers;
 
@@ -92,7 +93,28 @@ public class FileQueueDriver : IQueueDriver
         await WriteAtomicAsync(path, JsonSerializer.Serialize(message), cancellationToken);
     }
 
-    public async Task<QueuedMessage?> PopAsync(string queue, CancellationToken cancellationToken = default)
+    // Workers inside one process serialize their reserve/reclaim/settle steps per queue folder. Windows reports file moves,
+    // deletes and timestamp reads that overlap with another worker's as sharing violations, access-denied or a missing
+    // file (GetLastWriteTimeUtc then returns year 1601, which looks like an expired reservation), and CI showed that this
+    // delivered messages more than once. The lock makes the in-process case exact; the file moves below still arbitrate
+    // between separate processes.
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> QueueGates = new(StringComparer.OrdinalIgnoreCase);
+
+    private SemaphoreSlim GateFor(string queue)
+        => QueueGates.GetOrAdd(Path.GetFullPath(Path.Combine(_basePath, Sanitize(queue))), _ => new SemaphoreSlim(1, 1));
+
+    private async Task<T> WithGateAsync<T>(string queue, Func<Task<T>> action, CancellationToken cancellationToken)
+    {
+        var gate = GateFor(queue);
+        await gate.WaitAsync(cancellationToken);
+        try { return await action(); }
+        finally { gate.Release(); }
+    }
+
+    public Task<QueuedMessage?> PopAsync(string queue, CancellationToken cancellationToken = default)
+        => WithGateAsync(queue, () => PopCoreAsync(queue, cancellationToken), cancellationToken);
+
+    private async Task<QueuedMessage?> PopCoreAsync(string queue, CancellationToken cancellationToken)
     {
         var pendingDir = Dir(queue, "pending");
         var reservedDir = Dir(queue, "reserved");
@@ -141,6 +163,14 @@ public class FileQueueDriver : IQueueDriver
         return null;
     }
 
+    // File.GetLastWriteTimeUtc returns 1601-01-01 instead of throwing when the file is missing or momentarily
+    // unreadable (another worker is replacing/deleting it). That must never look like an expired reservation.
+    private bool IsExpired(string file, DateTimeOffset now)
+    {
+        var lastWrite = System.IO.File.GetLastWriteTimeUtc(file);
+        return lastWrite.Year > 1601 && now - lastWrite >= _visibilityTimeout;
+    }
+
     // A reserved file whose last write is older than the visibility timeout belongs to a worker that most likely
     // crashed: move it back to pending so it is retried instead of being stuck forever.
     private async Task ReclaimStaleReservationsAsync(
@@ -153,11 +183,11 @@ public class FileQueueDriver : IQueueDriver
         {
             try
             {
-                if (now - System.IO.File.GetLastWriteTimeUtc(file) < _visibilityTimeout) continue;
+                if (!IsExpired(file, now)) continue;
                 QueuedMessage message;
                 await using (var stream = new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None, 4096, FileOptions.Asynchronous))
                 {
-                    if (now - System.IO.File.GetLastWriteTimeUtc(file) < _visibilityTimeout) continue;
+                    if (!IsExpired(file, now)) continue;
                     using (var reader = new StreamReader(stream, leaveOpen: true))
                     {
                         var json = await reader.ReadToEndAsync(cancellationToken);
@@ -180,13 +210,19 @@ public class FileQueueDriver : IQueueDriver
         }
     }
 
-    public async Task AckAsync(QueuedMessage message, CancellationToken cancellationToken = default)
+    public Task AckAsync(QueuedMessage message, CancellationToken cancellationToken = default)
+        => WithGateAsync(message.Queue, async () => { await AckCoreAsync(message, cancellationToken); return 0; }, cancellationToken);
+
+    private async Task AckCoreAsync(QueuedMessage message, CancellationToken cancellationToken)
     {
         var file = await FindOwnedReservedFileAsync(message, cancellationToken);
         if (file != null) await DeleteWithRetryAsync(file, cancellationToken);
     }
 
-    public async Task ReleaseAsync(QueuedMessage message, TimeSpan delay, CancellationToken cancellationToken = default)
+    public Task ReleaseAsync(QueuedMessage message, TimeSpan delay, CancellationToken cancellationToken = default)
+        => WithGateAsync(message.Queue, async () => { await ReleaseCoreAsync(message, delay, cancellationToken); return 0; }, cancellationToken);
+
+    private async Task ReleaseCoreAsync(QueuedMessage message, TimeSpan delay, CancellationToken cancellationToken)
     {
         var fenced = message.ReservationId is not null;
         var reservedFile = await FindOwnedReservedFileAsync(message, cancellationToken);
@@ -200,7 +236,10 @@ public class FileQueueDriver : IQueueDriver
         if (reservedFile != null) await DeleteWithRetryAsync(reservedFile, cancellationToken);
     }
 
-    public async Task FailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
+    public Task FailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
+        => WithGateAsync(message.Queue, async () => { await FailCoreAsync(message, cancellationToken); return 0; }, cancellationToken);
+
+    private async Task FailCoreAsync(QueuedMessage message, CancellationToken cancellationToken)
     {
         var fenced = message.ReservationId is not null;
         var reservedFile = await FindOwnedReservedFileAsync(message, cancellationToken);
