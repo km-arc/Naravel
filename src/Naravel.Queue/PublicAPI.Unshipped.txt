@@ -254,8 +254,10 @@ Naravel.Queue.Worker.QueueWorkerOptions.SleepWhenEmpty.get -> System.TimeSpan
 Naravel.Queue.Worker.QueueWorkerOptions.SleepWhenEmpty.set -> void
 Naravel.Queue.Worker.QueueWorkerOptions.StopWhenEmpty.get -> bool
 Naravel.Queue.Worker.QueueWorkerOptions.StopWhenEmpty.set -> void
-Naravel.Queue.Worker.QueueWorkerOptions.VisibilityTimeoutMargin.get -> System.TimeSpan
-Naravel.Queue.Worker.QueueWorkerOptions.VisibilityTimeoutMargin.set -> void
+Naravel.Queue.Worker.QueueWorkerOptions.MaxJobTimeout.get -> System.TimeSpan?
+Naravel.Queue.Worker.QueueWorkerOptions.MaxJobTimeout.set -> void
+Naravel.Queue.Worker.QueueWorkerOptions.VisibilityMargin.get -> System.TimeSpan
+Naravel.Queue.Worker.QueueWorkerOptions.VisibilityMargin.set -> void
 Naravel.Queue.Worker.QueueWorkerService
 Naravel.Queue.Worker.QueueWorkerService.QueueWorkerService(Naravel.Queue.Worker.QueueWorkerOptions! options, Naravel.Queue.QueueManager! manager, Naravel.Queue.Serialization.IJobSerializer! serializer, Naravel.Queue.Dispatch.IJobDispatcher! dispatcher, Naravel.Queue.Batching.IBatchRepository! batchRepository, Naravel.Queue.Failed.IFailedJobStore! failedJobStore, System.IServiceProvider! rootProvider, Microsoft.Extensions.Logging.ILogger<Naravel.Queue.Worker.QueueWorkerService!>! logger) -> void
 abstract Naravel.Queue.Jobs.Job.HandleAsync(Naravel.Queue.Jobs.JobContext! context, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!

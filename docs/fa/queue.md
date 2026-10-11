@@ -283,9 +283,25 @@ idempotent باشند. ادامهٔ زنجیره قبل از ack شدن job فع
 با reclaim شدن reservation منقضی‌شده در Database، Redis یا File، شمار تلاش ذخیره‌شده افزایش می‌یابد.
 وقتی این شمار به `MaxAttempts` برسد، worker شکست نهایی را ثبت می‌کند و job را دوباره اجرا نمی‌کند.
 برای محدودیت هر job مقدار `Job.Timeout` را تنظیم کنید؛ worker مقدار کوچک‌تر میان آن و
-`QueueWorkerOptions.JobTimeout` را اعمال می‌کند. Driverهایی که visibility timeout دارند، اگر این مقدار
-از timeout مؤثر job به‌علاوهٔ `VisibilityTimeoutMargin` (پیش‌فرض ۱۰ ثانیه) کمتر باشد warning می‌دهند.
-Cancellation تعاونی است؛ handlerی که token را نادیده بگیرد ممکن است به اجرا ادامه دهد.
+`QueueWorkerOptions.JobTimeout` را اعمال می‌کند. Cancellation تعاونی است؛ handlerی که token را نادیده
+بگیرد ممکن است به اجرا ادامه دهد.
+
+#### اعتبارسنجی visibility timeout هنگام راه‌اندازی
+
+برای driverهایی که reservation منقضی‌شده را reclaim می‌کنند (Database، Redis، File)، worker هنگام شروع
+visibility timeout درایور را بررسی می‌کند:
+
+- **خطا:** visibility timeout از `QueueWorkerOptions.JobTimeout` کمتر باشد. در این حالت job هنوز مجاز به
+  اجراست اما reclaim می‌شود و بار دوم اجرا می‌گردد؛ پس `StartAsync` یک `InvalidOperationException` پرتاب
+  می‌کند (host متوقف می‌شود) و خطا لاگ می‌شود.
+- **هشدار:** `QueueWorkerOptions.MaxJobTimeout` تنظیم شده باشد و visibility timeout از
+  `MaxJobTimeout + VisibilityMargin` (پیش‌فرض ۱۰ ثانیه) کمتر باشد. `MaxJobTimeout` را برابر بلندترین
+  `Job.Timeout` پروژه بگذارید؛ اگر تنظیم نشده باشد چنین هشداری تولید نمی‌شود.
+- اگر `Job.Timeout` خودِ یک job از visibility timeout منهای margin بیشتر باشد، هنگام اولین پردازش آن job
+  همچنان warning لاگ می‌شود.
+- Driverهای بدون visibility timeout (Memory، RabbitMQ، Kafka) اعتبارسنجی نمی‌شوند.
+
+`VisibilityMargin` جایگزین نام قبلی `VisibilityTimeoutMargin` است.
 
 ### حسابداری تلاش به تفکیک درایور
 
