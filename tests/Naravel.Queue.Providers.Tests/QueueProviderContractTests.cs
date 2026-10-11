@@ -427,6 +427,98 @@ public sealed class KafkaQueueProviderTests : QueueDriverContractTests
         }
     }
 
+    // CHARACTERIZATION (AUDIT D-29): pins the documented limitation that a delayed record at the head of a partition
+    // blocks ready records behind it until it is due. It PASSES today. When the delay strategy is changed (R07.T11),
+    // this test is expected to fail: replace it with one asserting the ready message is delivered first, and update the
+    // limitation text in docs/en|fa/queue.md. Assumes a single-partition topic (CI and docker-compose set
+    // KAFKA_NUM_PARTITIONS=1); with several partitions the two records may land on different partitions.
+    [ServiceFact("NARAVEL_TEST_KAFKA")]
+    public async Task Delayed_record_at_the_partition_head_blocks_ready_records_behind_it_until_due()
+    {
+        var driver = CreateDriver();
+        try
+        {
+            var queue = QueueName("hol-delayed-" + Guid.NewGuid().ToString("N"));
+            await WarmUpQueueAsync(driver, queue);
+
+            var delayed = Msg(queue, delay: TimeSpan.FromSeconds(4));
+            var ready = Msg(queue);
+            await driver.PushAsync(delayed);
+            await driver.PushAsync(ready);
+            var pushedAt = Stopwatch.GetTimestamp();
+
+            await AssertNothingDeliveredForAsync(driver, queue, TimeSpan.FromSeconds(2));
+
+            var first = await PopEventuallyAsync(driver, queue, TimeSpan.FromSeconds(20));
+            first.Should().NotBeNull();
+            first!.Id.Should().Be(delayed.Id, "log order wins: the ready record had to wait behind the delayed one");
+            Stopwatch.GetElapsedTime(pushedAt).Should().BeGreaterThan(TimeSpan.FromSeconds(3));
+            await driver.AckAsync(first);
+
+            var second = await PopEventuallyAsync(driver, queue, TimeSpan.FromSeconds(20));
+            second.Should().NotBeNull();
+            second!.Id.Should().Be(ready.Id);
+            await driver.AckAsync(second);
+        }
+        finally
+        {
+            if (driver is IDisposable disposable) disposable.Dispose();
+            await CleanupAsync();
+        }
+    }
+
+    // CHARACTERIZATION (AUDIT D-29): a worker retry is re-produced to the tail with AvailableAt = now + backoff, so one
+    // retrying job holds back every record produced after it for the whole backoff (5-60 s by default). Same expectations
+    // as the test above.
+    [ServiceFact("NARAVEL_TEST_KAFKA")]
+    public async Task A_retry_backoff_blocks_records_produced_after_it_until_the_backoff_elapses()
+    {
+        var driver = CreateDriver();
+        try
+        {
+            var queue = QueueName("hol-retry-" + Guid.NewGuid().ToString("N"));
+            await WarmUpQueueAsync(driver, queue);
+
+            var job = Msg(queue);
+            await driver.PushAsync(job);
+            var attempt = (await PopEventuallyAsync(driver, queue, TimeSpan.FromSeconds(20)))!;
+            attempt.Attempts = 1;
+            await driver.ReleaseAsync(attempt, TimeSpan.FromSeconds(4)); // the worker's retry with backoff
+
+            var other = Msg(queue);                                      // an unrelated job produced afterwards
+            await driver.PushAsync(other);
+            var releasedAt = Stopwatch.GetTimestamp();
+
+            await AssertNothingDeliveredForAsync(driver, queue, TimeSpan.FromSeconds(2));
+
+            var first = await PopEventuallyAsync(driver, queue, TimeSpan.FromSeconds(20));
+            first.Should().NotBeNull();
+            first!.Id.Should().Be(job.Id);
+            first.Attempts.Should().Be(1);
+            Stopwatch.GetElapsedTime(releasedAt).Should().BeGreaterThan(TimeSpan.FromSeconds(3));
+            await driver.AckAsync(first);
+
+            var second = await PopEventuallyAsync(driver, queue, TimeSpan.FromSeconds(20));
+            second!.Id.Should().Be(other.Id);
+            await driver.AckAsync(second);
+        }
+        finally
+        {
+            if (driver is IDisposable disposable) disposable.Dispose();
+            await CleanupAsync();
+        }
+    }
+
+    private static async Task AssertNothingDeliveredForAsync(IQueueDriver driver, string queue, TimeSpan window)
+    {
+        var until = DateTimeOffset.UtcNow + window;
+        while (DateTimeOffset.UtcNow < until)
+        {
+            (await driver.PopAsync(queue)).Should().BeNull("a not-yet-due record at the partition head blocks everything behind it (D-29)");
+            await Task.Delay(200);
+        }
+    }
+
     protected override bool SupportsSize => false;
 
     protected override Task WarmUpQueueAsync(IQueueDriver driver, string queue) => WarmUpWithProbeAsync(driver, queue);

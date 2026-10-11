@@ -346,7 +346,9 @@ above. Kafka has no broker-side redelivery limit; the committed offset is the on
 
 - **Kafka**: retries move to the tail of the topic (order is not preserved); `PopAsync` prioritizes
   up to 256 records already available in one poll batch, but later arrivals are not reordered; a
-  delayed job blocks its partition until due; `SizeAsync` returns -1. Each queue uses its own consumer group
+  delayed job blocks its partition until due - and because every worker retry is re-produced with its backoff as a delay
+  (5-60 s by default), one retrying job also holds back later jobs in a single-partition queue for that long (D-29);
+  `SizeAsync` returns -1. Each queue uses its own consumer group
   (`<groupId>-<queue>`), so an idle consumer of one queue cannot stall another queue. **Upgrade note (pre-1.0):**
   the new group ids start from the earliest retained offset, so messages that were already acknowledged under the old
   shared group id may be processed again; drain Kafka queues before upgrading. Polling still blocks a worker thread (D-21).
