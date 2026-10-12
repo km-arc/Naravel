@@ -109,5 +109,5 @@ static Naravel.Queue.Database.ServiceCollectionExtensions.AddDatabaseBatchReposi
 static Naravel.Queue.Database.ServiceCollectionExtensions.AddDatabaseDriver<TContext>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "NaravelQueue") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static Naravel.Queue.Database.ServiceCollectionExtensions.AddDatabaseFailedJobStore<TContext>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 Naravel.Queue.Database.QueueSchema
-static Naravel.Queue.Database.QueueSchema.EnsureSqliteSchemaAsync(Microsoft.EntityFrameworkCore.DbContext! context, Microsoft.Extensions.Hosting.IHostEnvironment! environment, System.Threading.CancellationToken cancellationToken = default) -> System.Threading.Tasks.Task!
+static Naravel.Queue.Database.QueueSchema.EnsureSqliteSchemaAsync(Microsoft.EntityFrameworkCore.DbContext! context, Microsoft.Extensions.Hosting.IHostEnvironment! environment, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 static Naravel.Queue.Database.QueueSchema.SqliteScript.get -> string!
