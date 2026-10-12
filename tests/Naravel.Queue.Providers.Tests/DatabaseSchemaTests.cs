@@ -99,7 +99,8 @@ public sealed class DatabaseSchemaTests : IDisposable
 
         var act = () => driver.PushAsync(new QueuedMessage { Queue = "q", JobType = "job", Payload = "{}" });
 
-        (await act.Should().ThrowAsync<SqliteException>()).Which.Message.Should().Contain("no such table");
+        // EF wraps the provider error (DbUpdateException -> SqliteException), so look at the whole exception text.
+        (await act.Should().ThrowAsync<Exception>()).Which.ToString().Should().Contain("no such table");
     }
 
     [Fact]
