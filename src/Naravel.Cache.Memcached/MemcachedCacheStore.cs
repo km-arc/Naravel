@@ -46,6 +46,19 @@ public sealed class MemcachedCacheStore : ICacheStore
             }
         }
 
+        if (TryGetTextType(typeof(T), out var textType))
+        {
+            // Guid, DateTimeOffset and decimal are not round-tripped by Enyim's transcoder (a hit came back as the
+            // default value), so they are stored as culture-invariant text and parsed back.
+            var text = await _client.GetAsync<string>(fullKey).ConfigureAwait(false);
+            if (text.HasValue && text.Value is not null)
+            {
+                return (true, (T)DecodeText(text.Value, textType));
+            }
+
+            return (false, default);
+        }
+
         var result = await _client.GetAsync<T>(fullKey).ConfigureAwait(false);
         return result.HasValue ? (true, result.Value) : (false, default);
     }
@@ -56,7 +69,9 @@ public sealed class MemcachedCacheStore : ICacheStore
         cancellationToken.ThrowIfCancellationRequested();
         object stored = TryGetIntegralType(typeof(T), out _)
             ? Convert.ToString(value, CultureInfo.InvariantCulture)!
-            : value!;
+            : value is not null && TryGetTextType(typeof(T), out _)
+                ? EncodeText(value)
+                : value!;
         await _client.SetAsync(Key(key), stored, ttl ?? TimeSpan.Zero).ConfigureAwait(false);
     }
 
@@ -123,6 +138,28 @@ public sealed class MemcachedCacheStore : ICacheStore
         return integralType == typeof(long) || integralType == typeof(int) || integralType == typeof(short)
             || integralType == typeof(sbyte) || integralType == typeof(ulong) || integralType == typeof(uint)
             || integralType == typeof(ushort) || integralType == typeof(byte);
+    }
+
+    private static bool TryGetTextType(Type type, out Type textType)
+    {
+        textType = Nullable.GetUnderlyingType(type) ?? type;
+        return textType == typeof(Guid) || textType == typeof(DateTimeOffset) || textType == typeof(decimal);
+    }
+
+    private static string EncodeText(object value) => value switch
+    {
+        Guid guid => guid.ToString("D", CultureInfo.InvariantCulture),
+        DateTimeOffset moment => moment.ToString("O", CultureInfo.InvariantCulture),
+        decimal number => number.ToString(CultureInfo.InvariantCulture),
+        _ => throw new NotSupportedException($"Type {value.GetType()} is not text-encoded.")
+    };
+
+    private static object DecodeText(string text, Type type)
+    {
+        if (type == typeof(Guid)) return Guid.Parse(text);
+        if (type == typeof(DateTimeOffset))
+            return DateTimeOffset.ParseExact(text, "O", CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+        return decimal.Parse(text, NumberStyles.Number, CultureInfo.InvariantCulture);
     }
 
     // The non-generic Get reports presence for any stored value type; Enyim's GetAsync<object> reports a miss
