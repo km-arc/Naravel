@@ -27,7 +27,7 @@ public sealed class DatabaseSchemaTests : IDisposable
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
-        if (File.Exists(_databasePath)) File.Delete(_databasePath);
+        if (System.IO.File.Exists(_databasePath)) System.IO.File.Delete(_databasePath);
     }
 
     private sealed class TestEnvironment(string name) : IHostEnvironment
