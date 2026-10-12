@@ -1,3 +1,4 @@
+using FluentAssertions.Execution;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -121,36 +122,41 @@ public sealed class MemcachedSerializerRoundTripTests
         return services.BuildServiceProvider();
     }
 
+    private static async Task CheckAsync<T>(ICacheStore store, string name, T value)
+    {
+        try
+        {
+            await store.SetAsync(name, value, TimeSpan.FromMinutes(1));
+            var (found, loaded) = await store.TryGetAsync<T>(name);
+            found.Should().BeTrue($"{name} must be found after it was stored");
+            if (found) loaded.Should().BeEquivalentTo(value, $"{name} must round-trip unchanged");
+        }
+        catch (Exception ex) when (ex is not Xunit.Sdk.XunitException)
+        {
+            Execute.Assertion.FailWith("{0} threw {1}: {2}", name, ex.GetType().Name, ex.Message);
+        }
+    }
+
     [ServiceFact("NARAVEL_TEST_MEMCACHED")]
     public async Task Common_value_types_round_trip_through_the_real_server()
     {
         await using var provider = BuildProvider();
         var store = provider.GetRequiredService<CacheManager>().Store("memcached");
+
+        // One scope: every value type that does not survive is reported together instead of stopping at the first.
+        using (new AssertionScope())
         {
-            var ttl = TimeSpan.FromMinutes(1);
-            var id = Guid.NewGuid();
-            var moment = new DateTime(2026, 10, 12, 8, 30, 15, DateTimeKind.Utc);
-            var bytes = new byte[] { 0, 1, 2, 250, 255 };
-
-            await store.SetAsync("string", "naravel ناراول", ttl);
-            await store.SetAsync("int", 123456, ttl);
-            await store.SetAsync("long", 9_000_000_000L, ttl);
-            await store.SetAsync("double", 3.14159265358979, ttl);
-            await store.SetAsync("bool", true, ttl);
-            await store.SetAsync("guid", id, ttl);
-            await store.SetAsync("datetime", moment, ttl);
-            await store.SetAsync("bytes", bytes, ttl);
-            await store.SetAsync("strings", new[] { "a", "b", "c" }, ttl);
-
-            (await store.TryGetAsync<string>("string")).Should().Be((true, "naravel ناراول"));
-            (await store.TryGetAsync<int>("int")).Should().Be((true, 123456));
-            (await store.TryGetAsync<long>("long")).Should().Be((true, 9_000_000_000L));
-            (await store.TryGetAsync<double>("double")).Should().Be((true, 3.14159265358979));
-            (await store.TryGetAsync<bool>("bool")).Should().Be((true, true));
-            (await store.TryGetAsync<Guid>("guid")).Should().Be((true, id));
-            (await store.TryGetAsync<DateTime>("datetime")).Value.Should().Be(moment);
-            (await store.TryGetAsync<byte[]>("bytes")).Value.Should().Equal(bytes);
-            (await store.TryGetAsync<string[]>("strings")).Value.Should().Equal("a", "b", "c");
+            await CheckAsync(store, "string", "naravel \u0646\u0627\u0631\u0627\u0648\u0644");
+            await CheckAsync(store, "int", 123456);
+            await CheckAsync(store, "long", 9_000_000_000L);
+            await CheckAsync(store, "double", 3.14159265358979);
+            await CheckAsync(store, "bool", true);
+            await CheckAsync(store, "guid", Guid.NewGuid());
+            await CheckAsync(store, "datetime", new DateTime(2026, 10, 12, 8, 30, 15, DateTimeKind.Utc));
+            await CheckAsync(store, "datetimeoffset", new DateTimeOffset(2026, 10, 12, 8, 30, 15, TimeSpan.Zero));
+            await CheckAsync(store, "decimal", 12345.6789m);
+            await CheckAsync(store, "bytes", new byte[] { 0, 1, 2, 250, 255 });
+            await CheckAsync(store, "strings", new[] { "a", "b", "c" });
             (await store.TryGetAsync<string>("missing")).Found.Should().BeFalse();
         }
     }
