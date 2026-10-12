@@ -228,7 +228,35 @@ public class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder) => modelBuilder.ConfigureQueueJobs();
 }
 ```
-Then create and apply an EF Core migration.
+Then create and apply an EF Core migration. **EF Core migrations are the production path** for every provider.
+
+#### SQLite script and development/test helper
+
+For development, tests and tooling on SQLite, `QueueSchema` ships the DDL for `QueueJobs`, `QueueFailedJobs` and
+`QueueBatches` (also kept as `src/Naravel.Queue.Database/Schema/sqlite.sql`, so it can be run with the `sqlite3` CLI):
+
+```csharp
+// Opt-in: nothing creates tables on its own.
+await using var db = await factory.CreateDbContextAsync();
+await QueueSchema.EnsureSqliteSchemaAsync(db, app.Environment);   // CREATE TABLE IF NOT EXISTS ...
+```
+
+- The helper only runs when the environment is `Development`, `Test` or `Testing`; any other environment throws
+  `InvalidOperationException` and creates nothing. It also requires the SQLite provider.
+- It is idempotent, so calling it on every start of a development database is safe.
+- The script assumes the date columns of `JobRecord` are stored as UTC ticks (`INTEGER`), because SQLite cannot compare
+  `DateTimeOffset` values stored as text in the polling query. Add this to your context:
+
+```csharp
+var utcTicks = new ValueConverter<DateTimeOffset, long>(v => v.UtcTicks, t => new DateTimeOffset(t, TimeSpan.Zero));
+modelBuilder.Entity<JobRecord>().Property(j => j.CreatedAt).HasConversion(utcTicks);
+modelBuilder.Entity<JobRecord>().Property(j => j.AvailableAt).HasConversion(utcTicks);
+modelBuilder.Entity<JobRecord>().Property(j => j.ReservedAt).HasConversion(utcTicks);
+modelBuilder.Entity<JobRecord>().Property(j => j.FailedAt).HasConversion(utcTicks);
+```
+
+- The script uses the default table names. If you pass other names to `ConfigureQueueJobs(tableName)`, use migrations.
+- A test keeps the script and the model in step: it compares the script's columns with the model's mapped columns.
 
 ### Failed jobs
 

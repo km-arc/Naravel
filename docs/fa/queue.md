@@ -227,7 +227,35 @@ public class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder) => modelBuilder.ConfigureQueueJobs();
 }
 ```
-سپس یک migration از EF Core بسازید و اعمال کنید.
+سپس یک migration از EF Core بسازید و اعمال کنید. **مسیر production برای همهٔ providerها migrationهای EF Core است.**
+
+#### اسکریپت SQLite و helper مخصوص development/test
+
+برای development، تست و ابزارها روی SQLite، کلاس `QueueSchema` اسکریپت DDL جدول‌های `QueueJobs`، `QueueFailedJobs` و
+`QueueBatches` را دارد (همان فایل در `src/Naravel.Queue.Database/Schema/sqlite.sql` هم هست و با CLI ‌ی `sqlite3` اجرا می‌شود):
+
+```csharp
+// اختیاری: هیچ چیزی خودبه‌خود جدول نمی‌سازد.
+await using var db = await factory.CreateDbContextAsync();
+await QueueSchema.EnsureSqliteSchemaAsync(db, app.Environment);   // CREATE TABLE IF NOT EXISTS ...
+```
+
+- helper فقط وقتی محیط `Development`، `Test` یا `Testing` باشد اجرا می‌شود؛ در هر محیط دیگر `InvalidOperationException`
+  می‌دهد و چیزی نمی‌سازد. provider هم باید SQLite باشد.
+- idempotent است، پس اجرای آن در هر شروعِ پایگاه‌دادهٔ development بی‌خطر است.
+- اسکریپت فرض می‌کند ستون‌های تاریخ `JobRecord` به‌صورت UTC ticks (`INTEGER`) ذخیره می‌شوند، چون SQLite در کوئری polling
+  نمی‌تواند مقدارهای `DateTimeOffset` ذخیره‌شده به‌صورت متن را مقایسه کند. این کد را به context خود اضافه کنید:
+
+```csharp
+var utcTicks = new ValueConverter<DateTimeOffset, long>(v => v.UtcTicks, t => new DateTimeOffset(t, TimeSpan.Zero));
+modelBuilder.Entity<JobRecord>().Property(j => j.CreatedAt).HasConversion(utcTicks);
+modelBuilder.Entity<JobRecord>().Property(j => j.AvailableAt).HasConversion(utcTicks);
+modelBuilder.Entity<JobRecord>().Property(j => j.ReservedAt).HasConversion(utcTicks);
+modelBuilder.Entity<JobRecord>().Property(j => j.FailedAt).HasConversion(utcTicks);
+```
+
+- اسکریپت از نام‌های پیش‌فرض جدول استفاده می‌کند. اگر نام دیگری به `ConfigureQueueJobs(tableName)` می‌دهید، از migration استفاده کنید.
+- یک تست اسکریپت و مدل را هم‌گام نگه می‌دارد: ستون‌های اسکریپت را با ستون‌های map‌شدهٔ مدل مقایسه می‌کند.
 
 ### Jobهای ناموفق
 
