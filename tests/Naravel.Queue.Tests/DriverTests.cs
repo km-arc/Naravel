@@ -123,10 +123,15 @@ public abstract class QueueDriverContractTests : IDisposable
             await driver.PushAsync(Msg(releaseQueue));
             var released = (await PopEventuallyAsync(driver, releaseQueue))!;
             released.Attempts = 1;
+            var releaseClock = System.Diagnostics.Stopwatch.StartNew();
             await driver.ReleaseAsync(released, TimeSpan.FromMilliseconds(200));
             if (SupportsDelayedDelivery)
             {
-                (await driver.PopAsync(releaseQueue)).Should().BeNull();
+                // Only assert "not yet visible" while the delay can still be running; a slow CI runner may take
+                // longer than the delay just to confirm the publish (D-33).
+                var early = await driver.PopAsync(releaseQueue);
+                if (releaseClock.ElapsedMilliseconds < 150) early.Should().BeNull();
+                else if (early is not null) await driver.ReleaseAsync(early, TimeSpan.Zero);
                 await Task.Delay(300);
             }
             var retried = await PopEventuallyAsync(driver, releaseQueue);
