@@ -102,6 +102,7 @@ Naravel.Queue.Drivers.ConfigurationSectionExtensions
 Naravel.Queue.Drivers.IQueueDriver
 Naravel.Queue.Drivers.IQueueDriver.AckAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Naravel.Queue.Drivers.IQueueDriver.FailAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.Drivers.IQueueDriver.TryFailAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
 Naravel.Queue.Drivers.IQueueDriver.PopAsync(string! queue, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Naravel.Queue.Drivers.QueuedMessage?>!
 Naravel.Queue.Drivers.IQueueDriver.PushAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Naravel.Queue.Drivers.IQueueDriver.ReleaseAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.TimeSpan delay, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!

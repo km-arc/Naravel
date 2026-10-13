@@ -272,7 +272,7 @@ public class FileDriverRecoveryTests : IDisposable
         await d.ReleaseAsync(stale, TimeSpan.Zero);            // must not create a duplicate pending copy
         Directory.EnumerateFiles(Path.Combine(_dir, "fence", "pending"), "*.json").Should().BeEmpty();
 
-        await d.FailAsync(stale);                              // must not move the live job to failed
+        (await d.TryFailAsync(stale)).Should().BeFalse();                // must not move the live job to failed
         Directory.Exists(Path.Combine(_dir, "fence", "failed")).Should().BeFalse();
 
         await d.AckAsync(current);                             // the real owner still completes it

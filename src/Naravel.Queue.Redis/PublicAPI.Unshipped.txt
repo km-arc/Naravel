@@ -20,6 +20,7 @@ Naravel.Queue.Redis.RedisFailedJobStore.RedisFailedJobStore(StackExchange.Redis.
 Naravel.Queue.Redis.RedisQueueDriver
 Naravel.Queue.Redis.RedisQueueDriver.AckAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Naravel.Queue.Redis.RedisQueueDriver.FailAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Queue.Redis.RedisQueueDriver.TryFailAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
 Naravel.Queue.Redis.RedisQueueDriver.PopAsync(string! queue, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Naravel.Queue.Drivers.QueuedMessage?>!
 Naravel.Queue.Redis.RedisQueueDriver.PushAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Naravel.Queue.Redis.RedisQueueDriver.RedisQueueDriver(StackExchange.Redis.IConnectionMultiplexer! mux, System.TimeSpan visibilityTimeout) -> void
