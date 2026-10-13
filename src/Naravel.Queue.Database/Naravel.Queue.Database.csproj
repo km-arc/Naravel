@@ -14,6 +14,12 @@
     <!-- Provider-agnostic: bring your own EF Core provider package (SqlServer / Npgsql / Sqlite / MySql). -->
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Exposed through QueueSchema.SqliteScript; also kept as a plain file so it can be run with the sqlite3 CLI. -->
+    <EmbeddedResource Include="Schema\sqlite.sql" LogicalName="Naravel.Queue.Database.Schema.sqlite.sql" />
   </ItemGroup>
 
   <ItemGroup>
