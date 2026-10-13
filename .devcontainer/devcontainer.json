@@ -1,0 +1,13 @@
+{
+  "name": "Naravel (.NET 10)",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:10.0",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
+  "postCreateCommand": "dotnet restore Naravel.slnx",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-dotnettools.csdevkit", "editorconfig.editorconfig"]
+    }
+  }
+}
