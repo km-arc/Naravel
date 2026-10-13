@@ -18,7 +18,7 @@ Stage template: [roadmap/STAGE-TEMPLATE.md](roadmap/STAGE-TEMPLATE.md).
 
 ## NEXT
 ```text
-NEXT: R07
+NEXT: R08
 ```
 
 ## Stages
@@ -36,7 +36,7 @@ needs the EN+FA PDR.
 | R04 | RateLimiter on Cache (Cache/locks already done; PDR-007 addendum) | R01 | PDR | DONE (2026-10-06; Release restore/build/test, 225 passed, 7 skipped; roadmap check passed) |
 | R05 | Http.Middleware + routing completion (legacy 4b) | R04 | GO | DONE (2026-10-06; Release restore/build/test, 233 passed, 7 skipped; routing benchmark and roadmap check passed) |
 | R06 | Events (PDR-011) | R00 | PDR | DONE (2026-10-07; Release restore/build/test, 243 passed, 8 skipped; Events benchmark 137.8 ns/24 B; roadmap check passed) |
-| R07 | Queue completion A: failed jobs, attempts/timeouts, batches, worker controls, RabbitMQ async, metrics, fake (PDR-012) | R01 | PDR | DOING (residual PDR-012 items open; see roadmap/stages/R07) |
+| R07 | Queue completion A: failed jobs, attempts/timeouts, batches, worker controls, RabbitMQ async, metrics, fake (PDR-012) | R01 | PDR | DONE (2026-10-13; all residual tasks R07.T03-T11 merged; CI green on main at 02e27ef on ubuntu/windows/macos plus the services job with Redis, RabbitMQ, Memcached and Kafka; roadmap check passed; no local .NET SDK, so CI is the verification) |
 | R08 | Queue completion B: unique/overlap/rate-limited/throttle middleware (needs Cache) | R04, R07 | PDR | TODO |
 | R09 | Mail (PDR-013) | R06, R07 | PDR | TODO |
 | R10 | Notifications (PDR-014) | R07, R09 | PDR | TODO |
@@ -61,7 +61,7 @@ R02 was completed before this roadmap existed; its R00 dependency is nominal and
 - `roadmap/check.py` enforces this: it fails on a hand-typed test count or a repeated stage status outside those places. Put
   `<!-- check:allow-count -->` on a line only when a number is not a test total (for example HTTP status codes).
 
-**Default order:** R07 → R08 → R09 → R10 → R18 → R03 → R15 → R16 → R11 → R12 → R13 → R14 → R17.
+**Default order:** R08 → R09 → R10 → R18 → R03 → R15 → R16 → R11 → R12 → R13 → R14 → R17.
 Rationale: correctness and proof first (R00, R01); then the two modules that carry the project's value (Queue, Cache);
 then the most Laravel-feeling features (middleware, events, mail); thin or likely-native stages last.
 Never run two stages that edit the same project in parallel. Parallel-safe: R15, R16, R06 touch no other module.
