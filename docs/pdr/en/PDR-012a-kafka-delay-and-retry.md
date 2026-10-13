@@ -2,7 +2,7 @@
 
 **Native-first verdict:** Kafka has no per-message delay and no per-message acknowledgement: a consumer group keeps one committed offset per partition. Nothing in Confluent.Kafka or the .NET runtime changes that, so "native" gives no way to delay one record without also holding back every record behind it. Naravel must therefore either build delay on top of extra topics or stop pretending Kafka can delay.
 
-Status: **Proposed, awaiting owner approval** (drafted 2026-10-13). No code may be written for R07.T11 before approval (AGENTS.md hard rule 1).
+Status: **Approved 2026-10-13** (option (c)). Drafted and approved the same day; implementation record below.
 
 ## Context
 
@@ -64,4 +64,19 @@ Invert the two characterization tests: delayed dispatch to Kafka is rejected; a 
 
 ## Approval
 
-Pending. Record the owner's decision and date here, then proceed under R07.T11.
+Owner approved option (c) on 2026-10-13, with the condition that the explanation (why Kafka cannot delay, the
+three-job example, why a retry was worse, what happens now, and the rejected alternatives) is written into the user
+documentation. Option (a) stays in the backlog. D-21 and D-27 remain open and are not covered by this approval.
+
+## Implementation record (2026-10-13)
+
+- `IQueueDriver.SupportsDelayedDelivery` (default `true`); `KafkaQueueDriver` returns `false`.
+- `KafkaQueueDriver.PushAsync` throws `NotSupportedException` when `AvailableAt` is more than one second in the future
+  (the tolerance absorbs the gap between the dispatcher computing `AvailableAt` and the driver checking it);
+  `ReleaseAsync` ignores the delay and re-produces for immediate delivery. The read path still honors records with a
+  future `AvailableAt` that older versions wrote.
+- `QueueWorkerService` passes a zero delay to a driver without delayed delivery and logs one warning per job type.
+- Tests: `KafkaDelayedDeliveryTests` (no broker), `WorkerDelayedDeliveryTests`, the shared contract's
+  `SupportsDelayedDelivery` switch, and the two env-gated Kafka tests that replace the characterization tests. Tests were
+  NOT RUN locally (no .NET SDK); CI is the verification.
+- Docs: EN/FA `queue.md` section "Kafka: no delayed delivery", README notes, `CHANGELOG.md` (breaking, pre-1.0), AUDIT D-29 closed.

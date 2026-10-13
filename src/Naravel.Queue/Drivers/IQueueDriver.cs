@@ -11,6 +11,14 @@ public interface IQueueDriver
     /// <summary>Maximum reservation lifetime before a driver reclaims an unacknowledged message, if applicable.</summary>
     TimeSpan? VisibilityTimeout => null;
 
+    /// <summary>
+    /// Whether the backend can hold a message back until <see cref="QueuedMessage.AvailableAt"/> without delaying other
+    /// messages (PDR-012a). Defaults to <c>true</c>. A driver that cannot (Kafka) returns <c>false</c>, rejects a delayed
+    /// <see cref="PushAsync"/> and delivers a <see cref="ReleaseAsync"/> retry immediately; the worker then logs that the
+    /// job's backoff is not applied.
+    /// </summary>
+    bool SupportsDelayedDelivery => true;
+
     /// <summary>Enqueue a new message (or a retried one) respecting its AvailableAt/Priority.</summary>
     Task PushAsync(QueuedMessage message, CancellationToken cancellationToken = default);
 

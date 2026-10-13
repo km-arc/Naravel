@@ -47,12 +47,19 @@ public static class QueueSampleConfig
             .OnConnection(connection)
             .OnQueue("default"));
 
-        await dispatcher.DispatchAsync(new SendWelcomeEmailJob("sara@example.com", "Sara"), options => options
-            .OnConnection(connection)
-            .OnQueue("emails")
-            .DelayFor(TimeSpan.FromSeconds(2))
-            .WithPriority(9)
-            .WithMaxAttempts(4));
+        await dispatcher.DispatchAsync(new SendWelcomeEmailJob("sara@example.com", "Sara"), options =>
+        {
+            options
+                .OnConnection(connection)
+                .OnQueue("emails")
+                .WithPriority(9)
+                .WithMaxAttempts(4);
+
+            // Kafka cannot delay one job without blocking the queue behind it (PDR-012a), so the demo only delays
+            // on drivers that can.
+            if (!string.Equals(connection, "kafka", StringComparison.OrdinalIgnoreCase))
+                options.DelayFor(TimeSpan.FromSeconds(2));
+        });
 
         await dispatcher.DispatchAsync(new FlakyReportJob("Monthly Sales"), options => options
             .OnConnection(connection)

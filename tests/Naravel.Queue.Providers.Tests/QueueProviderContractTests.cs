@@ -427,38 +427,39 @@ public sealed class KafkaQueueProviderTests : QueueDriverContractTests
         }
     }
 
-    // CHARACTERIZATION (AUDIT D-29): pins the documented limitation that a delayed record at the head of a partition
-    // blocks ready records behind it until it is due. It PASSES today. When the delay strategy is changed (R07.T11),
-    // this test is expected to fail: replace it with one asserting the ready message is delivered first, and update the
-    // limitation text in docs/en|fa/queue.md. Assumes a single-partition topic (CI and docker-compose set
-    // KAFKA_NUM_PARTITIONS=1); with several partitions the two records may land on different partitions.
+    // PDR-012a (AUDIT D-29): Kafka cannot delay one record without blocking the ones behind it, so a worker retry is
+    // delivered immediately and the backoff is not applied. Before the change a 30 s backoff held back every record in
+    // the (single-partition) queue for 30 s, which would exceed the 15 s windows below.
     [ServiceFact("NARAVEL_TEST_KAFKA")]
-    public async Task Delayed_record_at_the_partition_head_blocks_ready_records_behind_it_until_due()
+    public async Task A_retry_with_backoff_is_delivered_immediately_and_does_not_block_later_records()
     {
         var driver = CreateDriver();
         try
         {
-            var queue = QueueName("hol-delayed-" + Guid.NewGuid().ToString("N"));
+            var queue = QueueName("retry-now-" + Guid.NewGuid().ToString("N"));
             await WarmUpQueueAsync(driver, queue);
 
-            var delayed = Msg(queue, delay: TimeSpan.FromSeconds(4));
-            var ready = Msg(queue);
-            await driver.PushAsync(delayed);
-            await driver.PushAsync(ready);
-            var pushedAt = Stopwatch.GetTimestamp();
+            var job = Msg(queue);
+            await driver.PushAsync(job);
+            var attempt = (await PopEventuallyAsync(driver, queue, TimeSpan.FromSeconds(20)))!;
+            attempt.Attempts = 1;
+            await driver.ReleaseAsync(attempt, TimeSpan.FromSeconds(30));
 
-            await AssertNothingDeliveredForAsync(driver, queue, TimeSpan.FromSeconds(2));
+            var other = Msg(queue);
+            await driver.PushAsync(other);
+            var releasedAt = Stopwatch.GetTimestamp();
 
-            var first = await PopEventuallyAsync(driver, queue, TimeSpan.FromSeconds(20));
-            first.Should().NotBeNull();
-            first!.Id.Should().Be(delayed.Id, "log order wins: the ready record had to wait behind the delayed one");
-            Stopwatch.GetElapsedTime(pushedAt).Should().BeGreaterThan(TimeSpan.FromSeconds(3));
-            await driver.AckAsync(first);
+            var delivered = new List<string>();
+            for (var i = 0; i < 2; i++)
+            {
+                var message = await PopEventuallyAsync(driver, queue, TimeSpan.FromSeconds(15));
+                message.Should().NotBeNull("the retry and the unrelated record must both be delivered without waiting for the backoff");
+                delivered.Add(message!.Id);
+                await driver.AckAsync(message);
+            }
 
-            var second = await PopEventuallyAsync(driver, queue, TimeSpan.FromSeconds(20));
-            second.Should().NotBeNull();
-            second!.Id.Should().Be(ready.Id);
-            await driver.AckAsync(second);
+            Stopwatch.GetElapsedTime(releasedAt).Should().BeLessThan(TimeSpan.FromSeconds(15));
+            delivered.Should().BeEquivalentTo(new[] { job.Id, other.Id });
         }
         finally
         {
@@ -467,40 +468,36 @@ public sealed class KafkaQueueProviderTests : QueueDriverContractTests
         }
     }
 
-    // CHARACTERIZATION (AUDIT D-29): a worker retry is re-produced to the tail with AvailableAt = now + backoff, so one
-    // retrying job holds back every record produced after it for the whole backoff (5-60 s by default). Same expectations
-    // as the test above.
+    // Compatibility: a record that an earlier preview wrote with a future AvailableAt (delayed dispatch) is still read and
+    // honored. It is produced here with a raw producer because the driver now refuses to write such a record.
     [ServiceFact("NARAVEL_TEST_KAFKA")]
-    public async Task A_retry_backoff_blocks_records_produced_after_it_until_the_backoff_elapses()
+    public async Task A_record_written_by_an_older_version_with_a_future_AvailableAt_is_still_honored()
     {
         var driver = CreateDriver();
         try
         {
-            var queue = QueueName("hol-retry-" + Guid.NewGuid().ToString("N"));
+            var queue = QueueName("legacy-delayed-" + Guid.NewGuid().ToString("N"));
             await WarmUpQueueAsync(driver, queue);
 
-            var job = Msg(queue);
-            await driver.PushAsync(job);
-            var attempt = (await PopEventuallyAsync(driver, queue, TimeSpan.FromSeconds(20)))!;
-            attempt.Attempts = 1;
-            await driver.ReleaseAsync(attempt, TimeSpan.FromSeconds(4)); // the worker's retry with backoff
+            var legacy = Msg(queue, delay: TimeSpan.FromSeconds(3));
+            using (var producer = new ProducerBuilder<string, string>(new ProducerConfig
+            {
+                BootstrapServers = Environment.GetEnvironmentVariable("NARAVEL_TEST_KAFKA")!
+            }).Build())
+            {
+                await producer.ProduceAsync($"netqueue-{queue}", new Message<string, string>
+                {
+                    Key = legacy.Id,
+                    Value = System.Text.Json.JsonSerializer.Serialize(legacy)
+                });
+            }
 
-            var other = Msg(queue);                                      // an unrelated job produced afterwards
-            await driver.PushAsync(other);
-            var releasedAt = Stopwatch.GetTimestamp();
+            await AssertNothingDeliveredForAsync(driver, queue, TimeSpan.FromSeconds(1.5));
 
-            await AssertNothingDeliveredForAsync(driver, queue, TimeSpan.FromSeconds(2));
-
-            var first = await PopEventuallyAsync(driver, queue, TimeSpan.FromSeconds(20));
-            first.Should().NotBeNull();
-            first!.Id.Should().Be(job.Id);
-            first.Attempts.Should().Be(1);
-            Stopwatch.GetElapsedTime(releasedAt).Should().BeGreaterThan(TimeSpan.FromSeconds(3));
-            await driver.AckAsync(first);
-
-            var second = await PopEventuallyAsync(driver, queue, TimeSpan.FromSeconds(20));
-            second!.Id.Should().Be(other.Id);
-            await driver.AckAsync(second);
+            var popped = await PopEventuallyAsync(driver, queue, TimeSpan.FromSeconds(20));
+            popped.Should().NotBeNull();
+            popped!.Id.Should().Be(legacy.Id);
+            await driver.AckAsync(popped);
         }
         finally
         {
@@ -514,12 +511,14 @@ public sealed class KafkaQueueProviderTests : QueueDriverContractTests
         var until = DateTimeOffset.UtcNow + window;
         while (DateTimeOffset.UtcNow < until)
         {
-            (await driver.PopAsync(queue)).Should().BeNull("a not-yet-due record at the partition head blocks everything behind it (D-29)");
+            (await driver.PopAsync(queue)).Should().BeNull("a legacy record with a future AvailableAt is not delivered before it is due");
             await Task.Delay(200);
         }
     }
 
     protected override bool SupportsSize => false;
+
+    protected override bool SupportsDelayedDelivery => false;
 
     protected override Task WarmUpQueueAsync(IQueueDriver driver, string queue) => WarmUpWithProbeAsync(driver, queue);
 
