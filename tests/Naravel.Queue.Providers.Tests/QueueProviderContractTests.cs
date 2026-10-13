@@ -75,7 +75,7 @@ public sealed class DatabaseQueueProviderTests : QueueDriverContractTests
         await driver.ReleaseAsync(stale, TimeSpan.Zero);           // must NOT make it available to a third worker
         (await driver.PopAsync("fencing")).Should().BeNull();
 
-        await driver.FailAsync(stale);                             // must NOT mark the live job as failed
+        (await driver.TryFailAsync(stale)).Should().BeFalse();               // must NOT mark the live job as failed
         (await driver.SizeAsync("fencing")).Should().Be(1);
 
         await driver.AckAsync(current);                            // the real owner still completes it
@@ -239,7 +239,7 @@ public sealed class RedisQueueProviderTests : QueueDriverContractTests
 
             await driver.AckAsync(stale);
             await driver.ReleaseAsync(stale, TimeSpan.Zero);
-            await driver.FailAsync(stale);
+            (await driver.TryFailAsync(stale)).Should().BeFalse();
             (await driver.PopAsync(queue)).Should().BeNull("the live reservation must survive a stale worker's Ack/Release/Fail");
 
             await driver.AckAsync(current);

@@ -195,13 +195,18 @@ public class RedisQueueDriver : IQueueDriver
     }
 
     public async Task FailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
+        => await TryFailAsync(message, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<bool> TryFailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var db = Db;
         var (reservationId, envelope) = SerializeWithoutReservation(message);
-        await db.ScriptEvaluateAsync(FailScript,
+        var result = await db.ScriptEvaluateAsync(FailScript,
             [ReservedKey(message.Queue), MessagesKey(message.Queue), FailedKey(message.Queue)],
             [message.Id, envelope, reservationId]);
+        return (long)result == 1;
     }
 
     // The stored envelope of a released/failed message must not carry the old token, but the caller's object keeps it:

@@ -236,18 +236,23 @@ public class FileQueueDriver : IQueueDriver
         if (reservedFile != null) await DeleteWithRetryAsync(reservedFile, cancellationToken);
     }
 
-    public Task FailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
-        => WithGateAsync(message.Queue, async () => { await FailCoreAsync(message, cancellationToken); return 0; }, cancellationToken);
+    public async Task FailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
+        => await TryFailAsync(message, cancellationToken);
 
-    private async Task FailCoreAsync(QueuedMessage message, CancellationToken cancellationToken)
+    /// <inheritdoc />
+    public Task<bool> TryFailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
+        => WithGateAsync(message.Queue, () => FailCoreAsync(message, cancellationToken), cancellationToken);
+
+    private async Task<bool> FailCoreAsync(QueuedMessage message, CancellationToken cancellationToken)
     {
         var fenced = message.ReservationId is not null;
         var reservedFile = await FindOwnedReservedFileAsync(message, cancellationToken);
-        if (fenced && reservedFile is null) return; // reservation was reclaimed or taken over
+        if (fenced && reservedFile is null) return false; // reservation was reclaimed or taken over
 
         var failedPath = Path.Combine(Dir(message.Queue, "failed"), $"{message.Id}.json");
         await WriteAtomicAsync(failedPath, SerializeWithoutReservation(message), cancellationToken);
         if (reservedFile != null) await DeleteWithRetryAsync(reservedFile, cancellationToken);
+        return true;
     }
 
     public Task<long> SizeAsync(string queue, CancellationToken cancellationToken = default)

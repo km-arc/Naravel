@@ -34,6 +34,18 @@ public interface IQueueDriver
     /// <summary>Move a message to the "failed" store after it has exhausted all attempts.</summary>
     Task FailAsync(QueuedMessage message, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Like <see cref="FailAsync"/>, but reports whether the call took effect. Drivers that fence acknowledgements to a
+    /// reservation (Redis, File, Database) return <see langword="false"/> when the caller's reservation was reclaimed or
+    /// taken over, so nothing was changed; the worker uses this to avoid recording a failure for a job that another
+    /// worker now owns. The default implementation calls <see cref="FailAsync"/> and returns <see langword="true"/>.
+    /// </summary>
+    async Task<bool> TryFailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
+    {
+        await FailAsync(message, cancellationToken);
+        return true;
+    }
+
     /// <summary>Approximate number of pending (ready + delayed) messages in a queue. Some drivers (e.g. Kafka) may return -1 if unavailable.</summary>
     Task<long> SizeAsync(string queue, CancellationToken cancellationToken = default);
 }

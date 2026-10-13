@@ -320,7 +320,17 @@ public class QueueWorkerService : BackgroundService
         {
             message.Connection ??= _options.Connection;
             await _failedJobStore.RecordAsync(message, ex, stoppingToken);
-            await driver.FailAsync(message, stoppingToken);
+            if (!await driver.TryFailAsync(message, stoppingToken))
+            {
+                // Fenced out: this worker outlived the visibility timeout and another worker now owns the job, so the job
+                // is not ours to fail. Drop the record written just above and skip every failure side effect.
+                await _failedJobStore.ForgetAsync(message.Id, stoppingToken);
+                _logger.LogWarning(
+                    "Naravel.Queue: job {JobId} on queue '{Queue}' exhausted its attempts, but this worker no longer owns the reservation; the failure was not recorded.",
+                    message.Id, message.Queue);
+                return;
+            }
+
             QueueTelemetry.Failed.Add(1);
             _logger.LogError(ex, "Naravel.Queue: job {JobId} on queue '{Queue}' failed permanently after {Attempts} attempts.",
                 message.Id, message.Queue, message.Attempts);

@@ -32,6 +32,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 - `ICacheStore` adds `IncrementAsync(key, by, ttl)`; external custom stores must implement the TTL-aware atomic counter operation.
 - `ConfigureQueueJobs()` now maps failed-job and batch tables and `QueueJobs` connection/trace columns; apply an EF migration after upgrading.
 - Queue reservation fencing (AUDIT D-28): `QueuedMessage.ReservationId` is stamped on every Redis/File/Database `PopAsync`, and `AckAsync`/`ReleaseAsync`/`FailAsync` are no-ops once the reservation was reclaimed or re-taken. **Database users must add the nullable `QueueJobs.ReservationId varchar(64)` column (EF migration) before upgrading.** Envelopes without the field stay unfenced; Redis scripts take an extra `ARGV` token.
+- `IQueueDriver.TryFailAsync` (default member): returns `false` when a fencing driver (Redis/File/Database) lost the reservation. The queue worker then removes its `IFailedJobStore` record and skips the `failed` handler, so a fenced-out worker no longer leaves a failed-job record for a job another worker owns (AUDIT D-28).
 - Pre-1.0 Queue interfaces gained durable-store and batch operations. Custom `IFailedJobStore` and `IBatchRepository` implementations must add the new members; `SleepWhenEmpty` remains an alias for `Rest`.
 - `RabbitMQ.Client` is centrally upgraded from 6.8.1 to 7.2.2; the provider now uses async connection/channel APIs.
 

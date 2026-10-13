@@ -94,14 +94,19 @@ public class DatabaseQueueDriver<TContext> : IQueueDriver where TContext : DbCon
     }
 
     public async Task FailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
+        => await TryFailAsync(message, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<bool> TryFailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
-        await Owned(db, message)
+        var rows = await Owned(db, message)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(j => j.FailedAt, DateTimeOffset.UtcNow)
                 .SetProperty(j => j.ReservationId, (string?)null)
                 .SetProperty(j => j.Attempts, message.Attempts)
                 .SetProperty(j => j.Error, message.Error), cancellationToken);
+        return rows > 0;
     }
 
     // Fencing: a message that carries a ReservationId only affects the row while that reservation is still current.
