@@ -2,7 +2,7 @@
 
 **داوری با اولویت .NET بومی:** دات‌نت هیچ ابزار بومی برای هماهنگی در سطح job ندارد: `System.Threading.RateLimiting` فقط درون یک پروسس کار می‌کند، `SemaphoreSlim` و `lock` از مرز پروسس عبور نمی‌کنند و ack بروکر نمی‌گوید کدام jobها اجازهٔ اجرای هم‌زمان دارند. پس هماهنگی بین چند پروسس به یک store مشترک نیاز دارد و Naravel آن را دارد: `ICacheLock` و `IRateLimiter` از PDR-007 و PDR-007a (R04). Naravel فقط باید سیاست نازک سطح job را روی آن‌ها بگذارد، نه موتور قفل یا محدودکنندهٔ دوم.
 
-وضعیت: **پیشنهادی ۲۰۲۶-۱۰-۱۳، منتظر تأیید مالک.** تصمیم‌های قبلی مالک در گفتگو (۲۰۲۶-۱۰-۱۳): مرز ماژول یک **پروژهٔ adapter جدا** است و **debounce به `roadmap/BACKLOG.md` منتقل می‌شود** (خارج از R08).
+وضعیت: **تأییدشده ۲۰۲۶-۱۰-۱۳.** تصمیم‌های قبلی مالک در گفتگو (۲۰۲۶-۱۰-۱۳): مرز ماژول یک **پروژهٔ adapter جدا** است و **debounce به `roadmap/BACKLOG.md` منتقل می‌شود** (خارج از R08).
 
 ## زمینه
 
@@ -68,4 +68,13 @@ Debounce (به BACKLOG)، semaphore توزیع‌شده با N مجوز، موت
 
 ## تأیید
 
-هنوز تأیید نشده. پرسش‌های باز برای مالک: (الف) شکل دقیق بازگشت dispatch رد‌شدهٔ unique؛ (ب) آیا تغییر رفتار middlewareهای short-circuit (بخش ۲) به‌عنوان breaking پیش از 1.0 پذیرفته می‌شود.
+مالک در ۲۰۲۶-۱۰-۱۳ با این پاسخ‌ها به پرسش‌های باز تأیید کرد:
+
+- **(الف) dispatch رد‌شدهٔ unique مقدار `null` برمی‌گرداند.** `IJobDispatcher.DispatchAsync` به `Task<string?>` تبدیل می‌شود؛ `null` یعنی dispatch به‌دلیل تکراری‌بودن رد شد. این همراه `UniqueJob` پیاده‌سازی می‌شود، نه هنوز.
+- **(ب) تغییر رفتار short-circuit به‌عنوان breaking پیش از 1.0 پذیرفته شد.** میدل‌ویری که نه `next` را صدا بزند و نه outcome تنظیم کند، job را شکست می‌دهد. تغییر هستهٔ بخش ۲ پیش‌تر ادغام شده (PR #31) و در `CHANGELOG.md` آمده است.
+
+## سابقهٔ پیاده‌سازی
+
+- ۲۰۲۶-۱۰-۱۳: پروژهٔ `Naravel.Queue.Coordination` با `WithoutOverlapping`، `RateLimited`، `ThrottlesExceptions` و `AddQueueCoordination()`؛ تست‌ها در `tests/Naravel.Queue.Coordination.Tests` (Memory با worker واقعی، و تست دو‌workerهٔ Redis با شرط محیطی)؛ مستندات `docs/*/queue-coordination.md`. تست‌ها به‌صورت محلی **اجرا نشدند** (NOT RUN؛ SDK دات‌نت در دسترس نبود)؛ CI راستی‌آزمایی است.
+- انحراف‌های کوچک از بخش ۳: عمر پیش‌فرض قفل ثابت ۱۵ دقیقه است چون میدل‌ویر timeout job را نمی‌بیند (`ExpireAfter` را بالاتر از طولانی‌ترین اجرا بگذارید)؛ `AddQueueCoordination()` اگر Cache نباشد در شروع خطا می‌دهد، ولی هنوز دربارهٔ ترکیب store حافظه‌ای با اتصال صف غیر‌Memory هشدار نمی‌دهد (مستندات این محدودیت را می‌گویند).
+- هنوز انجام نشده: `UniqueJob` (نیاز به hook در dispatch و بازگشت `string?`)، `AssertNotDispatched` در fake، تگ `outcome` در meter و جدول parity (R08.T03).

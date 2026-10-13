@@ -14,6 +14,7 @@
     <Project Path="src/Naravel.Queue.Database/Naravel.Queue.Database.csproj" />
     <Project Path="src/Naravel.Queue.RabbitMQ/Naravel.Queue.RabbitMQ.csproj" />
     <Project Path="src/Naravel.Queue.Kafka/Naravel.Queue.Kafka.csproj" />
+    <Project Path="src/Naravel.Queue.Coordination/Naravel.Queue.Coordination.csproj" />
     <Project Path="src/Naravel.Cache.Redis/Naravel.Cache.Redis.csproj" />
   </Folder>
   <Folder Name="/samples/">
@@ -27,6 +28,7 @@
     <Project Path="tests/Naravel.Events.Tests/Naravel.Events.Tests.csproj" />
     <Project Path="tests/Naravel.Queue.Tests/Naravel.Queue.Tests.csproj" />
     <Project Path="tests/Naravel.Queue.Providers.Tests/Naravel.Queue.Providers.Tests.csproj" />
+    <Project Path="tests/Naravel.Queue.Coordination.Tests/Naravel.Queue.Coordination.Tests.csproj" />
     <Project Path="tests/Naravel.Cache.Tests/Naravel.Cache.Tests.csproj" />
     <Project Path="tests/Naravel.Filesystem.Tests/Naravel.Filesystem.Tests.csproj" />
     <Project Path="tests/Naravel.Routing.Tests/Naravel.Routing.Tests.csproj" />
