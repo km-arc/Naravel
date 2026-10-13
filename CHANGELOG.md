@@ -68,6 +68,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 ### Verification
 - Build, test, and workflow verification results are available from [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml).
 
+### Fixed
+- `Naravel.Cache.Memcached`: `Guid`, `DateTimeOffset` and `decimal` values were returned as their default value on a cache hit; they are now stored as invariant text and round-trip correctly.
+
+### Added (R07.T09)
+- Env-gated `MemcachedSerializerRoundTripTests` (`NARAVEL_TEST_MEMCACHED`) round-trip common value types and a plain object through a real Memcached server, covering the pinned `MessagePack` 3.1.7; `Directory.Packages.props` now explains why the pin exists.
+
 ### Known gaps
 - Package audits report no vulnerable packages. Major-version updates needing owner approval remain unchanged: `StackExchange.Redis` 3.x, `AWSSDK.S3` 4.x, `SQLitePCLRaw.lib.e_sqlite3` 3.x, `FluentAssertions` 8.x, and `xunit.runner.visualstudio` 4.x.
 - `AWSSDK.S3` (3.7.300 -> 4.x) and StackExchange.Redis 3.x are intentionally **not** upgraded; they need separate approval.
