@@ -16,6 +16,10 @@ public abstract class QueueDriverContractTests : IDisposable
 
     protected virtual bool SupportsSize => true;
 
+    // Kafka cannot delay one record without blocking the ones behind it (PDR-012a): it rejects a delayed push and
+    // delivers a released message immediately. Every other driver honors AvailableAt and the release delay.
+    protected virtual bool SupportsDelayedDelivery => true;
+
     protected string QueuePrefix => _queuePrefix;
 
     protected IReadOnlyCollection<string> UsedQueueNames => _usedQueues;
@@ -88,10 +92,18 @@ public abstract class QueueDriverContractTests : IDisposable
 
             var delayedQueue = QueueName("delayed");
             await WarmUpQueueAsync(driver, delayedQueue);
-            await driver.PushAsync(Msg(delayedQueue, delay: TimeSpan.FromMilliseconds(300)));
-            (await driver.PopAsync(delayedQueue)).Should().BeNull();
-            await Task.Delay(400);
-            (await PopEventuallyAsync(driver, delayedQueue)).Should().NotBeNull();
+            if (SupportsDelayedDelivery)
+            {
+                await driver.PushAsync(Msg(delayedQueue, delay: TimeSpan.FromMilliseconds(300)));
+                (await driver.PopAsync(delayedQueue)).Should().BeNull();
+                await Task.Delay(400);
+                (await PopEventuallyAsync(driver, delayedQueue)).Should().NotBeNull();
+            }
+            else
+            {
+                var delayedPush = () => driver.PushAsync(Msg(delayedQueue, delay: TimeSpan.FromSeconds(5)));
+                await delayedPush.Should().ThrowAsync<NotSupportedException>();
+            }
 
             if (SupportsPriority)
             {
@@ -112,8 +124,11 @@ public abstract class QueueDriverContractTests : IDisposable
             var released = (await PopEventuallyAsync(driver, releaseQueue))!;
             released.Attempts = 1;
             await driver.ReleaseAsync(released, TimeSpan.FromMilliseconds(200));
-            (await driver.PopAsync(releaseQueue)).Should().BeNull();
-            await Task.Delay(300);
+            if (SupportsDelayedDelivery)
+            {
+                (await driver.PopAsync(releaseQueue)).Should().BeNull();
+                await Task.Delay(300);
+            }
             var retried = await PopEventuallyAsync(driver, releaseQueue);
             retried.Should().NotBeNull();
             retried!.Attempts.Should().Be(1);

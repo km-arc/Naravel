@@ -46,7 +46,7 @@ Use `ICacheStore` for the default store and `CacheManager` to choose a named sto
 
 ### Naravel.Queue
 
-Async background jobs with named drivers, delayed and prioritized dispatch, retries and backoff, chaining, batches, failed-job handling, hosted workers, and telemetry. Jobs are **at-least-once** and should be idempotent. The Memory driver is process-local; Redis, File, and Database use visibility timeouts for recovery, while Kafka and RabbitMQ use broker redelivery.
+Async background jobs with named drivers, delayed and prioritized dispatch, retries and backoff, chaining, batches, failed-job handling, hosted workers, and telemetry. Jobs are **at-least-once** and should be idempotent. The Memory driver is process-local; Redis, File, and Database use visibility timeouts for recovery, while Kafka and RabbitMQ use broker redelivery. Kafka does not support delayed delivery (delayed dispatch is rejected; retries are immediate); see [docs/en/queue.md](docs/en/queue.md#kafka-no-delayed-delivery).
 
 ```csharp
 using Naravel.Queue.Extensions;

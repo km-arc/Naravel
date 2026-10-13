@@ -23,6 +23,9 @@ await app.Services.GetRequiredService<IJobDispatcher>().DispatchAsync(new MyJob(
 | `Naravel.Queue.RabbitMQ` | `rabbitmq` | `AddRabbitMqDriver(configuration)` |
 | `Naravel.Queue.Kafka` | `kafka` | `AddKafkaDriver(configuration)` |
 
+> **Kafka does not support delayed delivery** (`DelayFor`, `RunAt`, retry `Backoff`). See
+> [Kafka: no delayed delivery](#kafka-no-delayed-delivery) before choosing it for jobs that wait.
+
 ## Configuration
 
 Every Naravel module uses one shared keyword, `"Stores"`, for its named connections (PDR-005) - the
@@ -142,6 +145,10 @@ public class ChargeCardJob : Job
     }
 }
 ```
+
+> **Backoff on Kafka:** the Kafka driver cannot hold one job back without holding back the whole queue, so a retry
+> there runs immediately and the `Backoff` is not applied (the worker logs this once per job type). Use Redis,
+> Database or RabbitMQ for spaced retries. Details: [Kafka: no delayed delivery](#kafka-no-delayed-delivery).
 
 ### Chaining (static and dynamic)
 
@@ -321,7 +328,7 @@ visibility timeout when it starts:
 | Memory | counted | not applicable (in-process) |
 | File, Database, Redis | counted | **counted** when the visibility timeout expires |
 | RabbitMQ | counted (the delivery is acknowledged and a new message carrying the updated count is published) | **not counted** |
-| Kafka | counted (the job is produced again to the tail of the topic and the original offset is committed) | **not counted** |
+| Kafka | counted (the job is produced again to the tail of the topic for immediate delivery, with no backoff, and the original offset is committed) | **not counted** |
 
 On RabbitMQ and Kafka, a message whose worker died before acknowledging it is redelivered by the broker
 (unacknowledged deliveries are requeued when the channel or connection closes; an uncommitted Kafka offset is
@@ -358,13 +365,64 @@ and so cannot use `delivery-limit`, without driver support. A configurable queue
 needs its own decision (AUDIT D-27). Until then, crash redelivery on RabbitMQ is unbounded and uncounted, as described
 above. Kafka has no broker-side redelivery limit; the committed offset is the only state.
 
+#### Kafka: no delayed delivery
+
+*Decision: PDR-012a (AUDIT D-29), approved 2026-10-13.*
+
+**In short:** the Kafka driver does not delay jobs. A delayed dispatch is rejected with an error, and a failed job is
+retried immediately instead of after its backoff. For delayed jobs or spaced retries use Redis, Database or RabbitMQ.
+
+**Why.** Kafka is a log, not a queue. Think of a tape: records are written one after another, and a consumer group
+keeps a single bookmark per partition saying "everything before this is done". It cannot skip a record in the middle
+and come back to it later. So a record that is not due yet cannot be set aside; everything behind it has to wait too.
+
+Example: three jobs are on one partition, in this order.
+
+1. job A, an email that must run in 60 seconds
+2. job B, an SMS that is ready now
+3. job C, an invoice that is ready now
+
+Redis, Database and RabbitMQ run B and C immediately and A after 60 seconds. Kafka cannot: A sits at the head, is not
+due, and B and C wait behind it for 60 seconds. Earlier versions of the driver did exactly that.
+
+**Why a retry was worse.** When a job fails, the worker puts it back with its backoff (5 to 60 seconds by default).
+On Kafka that is a delayed record like job A, so one failing job could silently stall every healthy job in the queue
+for up to a minute, with no error anywhere. The old documentation only mentioned long delays, not this case.
+
+**What happens now**
+
+| Case | Behavior |
+|---|---|
+| `DispatchAsync(job, o => o.DelayFor(...))` or `RunAt(...)` on a Kafka store | rejected with a `NotSupportedException` that names the queue and points here; nothing is produced |
+| A job fails and has a `Backoff` | produced again for immediate delivery; the backoff is **not** applied; a warning is logged once per job type; `OnRetryingAsync` reports a zero delay |
+| Chains, failed-job retries and batches | unchanged: they are produced without a delay |
+| A record already in a topic with a future `AvailableAt` (written by an older preview) | still honored for compatibility; it blocks its partition until due, as before |
+
+Because the retry is immediate, a job that fails for a reason that needs time to clear (a downstream service that is
+down) will burn through its `MaxAttempts` quickly on Kafka. Keep such jobs on a store that supports delay, or make
+them tolerate the failure inside `HandleAsync`.
+
+`IQueueDriver.SupportsDelayedDelivery` tells the worker (and your own code) whether a driver can delay. It defaults
+to `true`; only the Kafka driver returns `false`.
+
+**Alternatives that were considered and rejected**
+
+- *Pause the partition and poll on a timer.* It removes the CPU cost of re-reading the same record, but Kafka still
+  cannot skip a record, so the head-of-line blocking stays.
+- *One shared delay topic.* The same blocking, one level down, because the head of that topic blocks the rest of it.
+- *Delay topics per fixed step (for example 5 s, 30 s, 5 min).* This works, because all records in a topic then have the
+  same delay, but it needs more topics, rounds delays up to a step, and a forwarding loop that must itself tolerate
+  duplicates after a crash. It is a large piece of concurrent code that needs a live broker to verify, so it is
+  deferred to the backlog and will be revisited only if users need delayed jobs on Kafka.
+- *Sleeping inside the worker.* It would hold a worker slot and an uncommitted offset, and the delay would be lost on
+  restart.
+
 ## Limitations
 
 - **Kafka**: retries move to the tail of the topic (order is not preserved); `PopAsync` prioritizes
   up to 256 records already available in one poll batch, but later arrivals are not reordered; a
-  delayed job blocks its partition until due - and because every worker retry is re-produced with its backoff as a delay
-  (5-60 s by default), one retrying job also holds back later jobs in a single-partition queue for that long (D-29);
-  `SizeAsync` returns -1. Each queue uses its own consumer group
+  delayed delivery is not supported: a delayed dispatch is rejected and a retry runs immediately without its backoff
+  ([Kafka: no delayed delivery](#kafka-no-delayed-delivery), PDR-012a); `SizeAsync` returns -1. Each queue uses its own consumer group
   (`<groupId>-<queue>`), so an idle consumer of one queue cannot stall another queue. **Upgrade note (pre-1.0):**
   the new group ids start from the earliest retained offset, so messages that were already acknowledged under the old
   shared group id may be processed again; drain Kafka queues before upgrading.

@@ -46,7 +46,7 @@ public sealed class SettingsService(ICacheStore cache)
 
 ### Naravel.Queue
 
-صف پس‌زمینهٔ async با درایورهای نام‌دار، dispatch تأخیردار و اولویت‌دار، retry و backoff، زنجیره، batch، مدیریت jobهای ناموفق، worker میزبانی‌شده و telemetry. تحویل **حداقل یک‌بار** است؛ jobها باید idempotent باشند. درایور Memory فقط در همان پردازه است؛ Redis، File و Database برای بازیابی از visibility timeout استفاده می‌کنند و Kafka و RabbitMQ به redelivery بروکر متکی‌اند.
+صف پس‌زمینهٔ async با درایورهای نام‌دار، dispatch تأخیردار و اولویت‌دار، retry و backoff، زنجیره، batch، مدیریت jobهای ناموفق، worker میزبانی‌شده و telemetry. تحویل **حداقل یک‌بار** است؛ jobها باید idempotent باشند. درایور Memory فقط در همان پردازه است؛ Redis، File و Database برای بازیابی از visibility timeout استفاده می‌کنند و Kafka و RabbitMQ به redelivery بروکر متکی‌اند. Kafka تحویل با تأخیر را پشتیبانی نمی‌کند (dispatch تأخیری رد می‌شود و retry فوری است)؛ [docs/fa/queue.md](docs/fa/queue.md#kafka-بدون-تحویل-با-تأخیر) را ببینید.
 
 ```csharp
 using Naravel.Queue.Extensions;

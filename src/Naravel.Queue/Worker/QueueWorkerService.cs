@@ -343,6 +343,18 @@ public class QueueWorkerService : BackgroundService
         else
         {
             var delay = ComputeBackoff(message, job);
+            if (delay > TimeSpan.Zero && !driver.SupportsDelayedDelivery)
+            {
+                // PDR-012a: the driver cannot hold one message back without blocking the others (Kafka), so the retry is
+                // immediate. Say so once per job type instead of silently ignoring the configured backoff.
+                if (_visibilityWarnings.TryAdd($"backoff:{message.JobType}", 0))
+                {
+                    _logger.LogWarning(
+                        "Naravel.Queue: the driver of connection '{Connection}' does not support delayed delivery, so the backoff {Delay} of job type '{JobType}' is not applied and retries run immediately. Use a store whose driver supports delay (Redis, Database, RabbitMQ) if this job needs spaced retries.",
+                        message.Connection ?? _options.Connection ?? _manager.DefaultConnectionName, delay, message.JobType);
+                }
+                delay = TimeSpan.Zero;
+            }
             await driver.ReleaseAsync(message, delay, stoppingToken);
             QueueTelemetry.Retried.Add(1);
             _logger.LogWarning(ex, "Naravel.Queue: job {JobId} on queue '{Queue}' failed (attempt {Attempt}/{Max}), retrying in {Delay}.",

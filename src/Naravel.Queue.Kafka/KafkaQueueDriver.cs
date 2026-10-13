@@ -15,10 +15,13 @@ namespace Naravel.Queue.Kafka;
 ///   - A retried job (ReleaseAsync) is re-produced to the tail of the same topic and the original offset
 ///     is committed - i.e. retries go to the back of the queue rather than being retried in place. This is
 ///     the standard pattern for retries on Kafka and keeps consumption strictly sequential per partition.
-///   - A delayed job (AvailableAt in the future) is left uncommitted and the consumer seeks back to it,
-///     which means a long delay will block that partition's head-of-line until it is due. If you need many
-///     independently-delayed jobs mixed with immediate ones at scale, dedicate a separate low-traffic queue
-///     (topic) for delayed jobs.
+///   - Delayed delivery is NOT supported (PDR-012a, AUDIT D-29). A partition is read in offset order and only one
+///     offset can be committed, so holding one record back would hold back every record behind it. Instead of
+///     stalling silently, <see cref="PushAsync"/> rejects a message whose AvailableAt is in the future with a
+///     <see cref="NotSupportedException"/>, and <see cref="ReleaseAsync"/> re-produces a retry for immediate delivery
+///     (the job's backoff is not applied; the worker logs this once per job type). Use Redis, Database or RabbitMQ for
+///     delayed jobs or spaced retries. Records that an earlier version wrote with a future AvailableAt are still
+///     honored when read: the consumer seeks back to them, which blocks that partition until they are due.
 ///   - One consumer, in its own consumer group ("{groupId}-{queue}"), is shared per queue, so an idle consumer of one queue
 ///     can never stall a rebalance of another queue.
 ///   - One consumer is shared per queue. Polling, seeking, and offset commits are serialized; worker concurrency
@@ -62,6 +65,13 @@ public class KafkaQueueDriver : IQueueDriver, IDisposable
         }).Build();
     }
 
+    // Clock tolerance between the dispatcher computing AvailableAt and the driver checking it. Anything further in the
+    // future is a real delay (DelayFor/RunAt) and is rejected.
+    private static readonly TimeSpan DelayTolerance = TimeSpan.FromSeconds(1);
+
+    /// <summary>Always <c>false</c>: Kafka cannot delay one record without blocking the ones behind it (PDR-012a).</summary>
+    public bool SupportsDelayedDelivery => false;
+
     private static string TopicFor(string queue) => $"netqueue-{queue}";
     private static string FailedTopicFor(string queue) => $"netqueue-{queue}-failed";
 
@@ -81,6 +91,14 @@ public class KafkaQueueDriver : IQueueDriver, IDisposable
 
     public async Task PushAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
+        if (message.AvailableAt - DateTimeOffset.UtcNow > DelayTolerance)
+        {
+            throw new NotSupportedException(
+                $"The Kafka queue driver does not support delayed delivery (message '{message.Id}' for queue '{message.Queue}' is available at {message.AvailableAt:O}). " +
+                "Kafka reads a partition in order, so one delayed record would block every record behind it. " +
+                "Dispatch without DelayFor/RunAt, or use a store whose driver supports delay (Redis, Database, RabbitMQ). See PDR-012a.");
+        }
+
         await _producer.ProduceAsync(TopicFor(message.Queue),
             new Message<string, string> { Key = message.Id, Value = JsonSerializer.Serialize(message) },
             cancellationToken);
@@ -155,8 +173,9 @@ public class KafkaQueueDriver : IQueueDriver, IDisposable
 
     public async Task ReleaseAsync(QueuedMessage message, TimeSpan delay, CancellationToken cancellationToken = default)
     {
+        // PDR-012a: the delay is deliberately ignored; a future AvailableAt would block the partition head-of-line.
         message.ReservedAt = null;
-        message.AvailableAt = DateTimeOffset.UtcNow + delay;
+        message.AvailableAt = DateTimeOffset.UtcNow;
         await _producer.ProduceAsync(TopicFor(message.Queue),
             new Message<string, string> { Key = message.Id, Value = JsonSerializer.Serialize(message) },
             cancellationToken);
