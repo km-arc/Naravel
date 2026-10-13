@@ -298,3 +298,8 @@ virtual Naravel.Queue.Jobs.Job.FailedAsync(Naravel.Queue.Jobs.JobContext! contex
 virtual Naravel.Queue.Jobs.Job.MaxAttempts.get -> int
 virtual Naravel.Queue.Jobs.Job.Queue.get -> string?
 virtual Naravel.Queue.Jobs.Job.Timeout.get -> System.TimeSpan?
+
+Naravel.Queue.Jobs.JobContext.Release(System.TimeSpan delay) -> void
+Naravel.Queue.Jobs.JobContext.Skip() -> void
+Naravel.Queue.Middleware.IHasJobMiddleware
+Naravel.Queue.Middleware.IHasJobMiddleware.Middleware(Naravel.Queue.Jobs.JobContext! context) -> System.Collections.Generic.IEnumerable<Naravel.Queue.Middleware.IJobMiddleware!>!
