@@ -10,5 +10,6 @@ internal static class QueueTelemetry
     internal static readonly Counter<long> Processed = Meter.CreateCounter<long>("naravel.queue.processed");
     internal static readonly Counter<long> Failed = Meter.CreateCounter<long>("naravel.queue.failed");
     internal static readonly Counter<long> Retried = Meter.CreateCounter<long>("naravel.queue.retried");
+    internal static readonly Counter<long> Outcome = Meter.CreateCounter<long>("naravel.queue.outcome");
     internal static readonly Histogram<double> ProcessingDuration = Meter.CreateHistogram<double>("naravel.queue.processing.duration", "ms");
 }

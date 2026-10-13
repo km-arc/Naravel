@@ -31,4 +31,29 @@ public sealed class JobContext
 
     /// <summary>Queues another job to run immediately after this one completes successfully, on the same connection/queue.</summary>
     public void Then(IJob job) => ChainedJobs.Add(job);
+
+    /// <summary>
+    /// For job middleware that decides not to call <c>next</c>: hand the job back to its queue after <paramref name="delay"/>
+    /// without counting an attempt, running its chain or reporting success (PDR-012b). Drivers that cannot delay release immediately.
+    /// </summary>
+    /// <remarks><b>Laravel equivalent:</b> <c>$job-&gt;release($delay)</c> inside job middleware. <b>Not ported:</b> exception-based control flow.</remarks>
+    public void Release(TimeSpan delay)
+    {
+        if (delay < TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(delay), "The delay cannot be negative.");
+        Outcome = JobOutcome.Released;
+        ReleaseDelay = delay;
+    }
+
+    /// <summary>
+    /// For job middleware that decides not to call <c>next</c>: acknowledge the message and drop the job without running it,
+    /// its chain or success handling (PDR-012b).
+    /// </summary>
+    /// <remarks><b>Laravel equivalent:</b> <c>$job-&gt;delete()</c> inside job middleware.</remarks>
+    public void Skip() => Outcome = JobOutcome.Skipped;
+
+    internal JobOutcome Outcome { get; private set; }
+    internal TimeSpan ReleaseDelay { get; private set; }
+    internal bool JobExecuted { get; set; }
 }
+
+internal enum JobOutcome { None, Released, Skipped }

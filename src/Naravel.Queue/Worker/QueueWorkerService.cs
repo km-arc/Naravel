@@ -223,14 +223,42 @@ public class QueueWorkerService : BackgroundService
             jobCts?.CancelAfter(effectiveTimeout!.Value);
             var jobToken = jobCts?.Token ?? stoppingToken;
 
-            Func<Task> handler = () => job.HandleAsync(context, jobToken);
-            foreach (var middleware in sp.GetServices<IJobMiddleware>().Reverse())
+            Func<Task> handler = async () =>
+            {
+                context.JobExecuted = true;
+                await job.HandleAsync(context, jobToken);
+            };
+            var middlewares = (job is IHasJobMiddleware own ? own.Middleware(context) : Enumerable.Empty<IJobMiddleware>())
+                .Reverse()
+                .Concat(sp.GetServices<IJobMiddleware>().Reverse());
+            foreach (var middleware in middlewares)
             {
                 var next = handler;
                 handler = () => middleware.InvokeAsync(context, next);
             }
 
             await handler();
+
+            if (!context.JobExecuted)
+            {
+                if (context.Outcome == JobOutcome.Released)
+                {
+                    var delay = context.ReleaseDelay > TimeSpan.Zero && !driver.SupportsDelayedDelivery ? TimeSpan.Zero : context.ReleaseDelay;
+                    await driver.ReleaseAsync(message, delay, stoppingToken);
+                    QueueTelemetry.Outcome.Add(1, new KeyValuePair<string, object?>("outcome", "released"));
+                    return;
+                }
+                if (context.Outcome == JobOutcome.Skipped)
+                {
+                    await driver.AckAsync(message, stoppingToken);
+                    QueueTelemetry.Outcome.Add(1, new KeyValuePair<string, object?>("outcome", "skipped"));
+                    if (!string.IsNullOrEmpty(message.BatchId))
+                        await _batchRepository.MarkJobCancelledAsync(message.BatchId, stoppingToken);
+                    return;
+                }
+                throw new InvalidOperationException(
+                    "A job middleware returned without calling next and without calling JobContext.Release or JobContext.Skip, so the job was not run. Call one of them, or call next.");
+            }
 
             // At-least-once delivery: publish follow-up jobs BEFORE acknowledging, so a failure here retries this
             // job instead of silently losing the chain. Jobs must therefore be idempotent (documented in README).
