@@ -20,6 +20,7 @@ Decisions: OD-01, OD-02, OD-07, S1–S3.
 ## Previous completion record
 
 R07 was previously marked complete on 2026-10-06 after a Release restore/build/test run and `roadmap/check.py` (totals were in the status cell at that time). That verification is historical; the residual PDR-012 requirements below reopen the stage.
+All residual tasks were completed and verified by CI on 2026-10-13; the stage is DONE in ROADMAP.md.
 
 ## Residual tasks
 

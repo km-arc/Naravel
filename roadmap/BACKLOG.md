@@ -17,4 +17,4 @@ Do not implement these in an active stage unless its owner-approved scope explic
 | Validation / Form Requests | Not built (OD-04) | Document FluentValidation/DataAnnotations; revisit after R17. |
 | Testing fakes | Assigned: DoD S3 per stage; Queue in R07.T07 | - |
 | Observability (`Meter`, `ActivitySource`) | Assigned: DoD S3 per stage; Queue in R07.T07 | - |
-
+| Queue job debounce (Laravel-style "only the latest dispatch runs") | Moved out of R08 by owner on 2026-10-13 | Needs a durable "latest dispatch" record per key; revisit after PDR-012b middleware ships. |
