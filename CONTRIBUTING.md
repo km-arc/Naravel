@@ -22,3 +22,21 @@ dotnet test Naravel.slnx -c Release
 ```
 
 Stop the services with `docker compose down` when finished.
+
+### One-command local run (same as CI)
+
+`scripts/test-local.sh` (Linux/macOS) or `scripts/test-local.ps1` (Windows) starts the services, exports the
+`NARAVEL_TEST_*` variables, then restores, builds and tests the whole solution, so a CI failure can be reproduced
+before pushing:
+
+```sh
+scripts/test-local.sh                                   # services + all tests
+scripts/test-local.sh --down                            # ...then stop the services
+scripts/test-local.sh --no-services                     # fast loop, provider tests skipped
+scripts/test-local.sh -- --filter "FullyQualifiedName~Redis"
+```
+
+### Dev container
+
+Open the repository in VS Code or Codespaces ("Reopen in Container") for a ready .NET 10 SDK with Docker access
+(`.devcontainer/`). `global.json` pins the SDK feature band, so local and CI builds use the same compiler.

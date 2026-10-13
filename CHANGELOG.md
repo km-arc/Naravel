@@ -5,6 +5,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 ## [Unreleased] - 0.1.0-preview
 
 ### Added
+- Local development: `scripts/test-local.sh|ps1` (services + env-gated provider tests in one command), `.devcontainer/`, and `global.json` pinning the .NET 10 SDK band.
 - R01 queue/cache driver contract suites, environment-gated provider integrations, SQLite queue coverage, and Redis atomicity/Kafka offset-order regressions; CI now runs cross-OS fast tests and service-container integration tests.
 - BenchmarkDotNet baselines and a sample queue connection selector for running the same queue workflow with File, Redis, RabbitMQ or Kafka.
 - `Naravel.Foundation`: `Manager<TDriver,TOptions>`, `IDriverRegistry<TDriver>`, hot reload, runtime `Extend`.
