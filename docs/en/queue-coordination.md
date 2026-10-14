@@ -146,6 +146,7 @@ Rules and limits:
 | Memory (`AddNaravelCache` default) | **inside one process only**. Two worker processes do not see each other's locks. |
 | Redis (`AddNaravelRedisCache`) or another shared store | across every worker that uses it |
 
+- At startup `AddQueueCoordination()` logs a warning when the Cache lock/store is Memory but the queue driver is not the Memory one, because that combination looks active while coordinating nothing across processes.
 - The lock is not part of the job's transaction. If a worker crashes after taking the lock, it stays until its lifetime ends.
 - Everything is **at-least-once**. The middleware reduce duplicates and overload; they do not make a job run exactly once, so jobs must stay idempotent.
 - `AddQueueCoordination()` checks at startup that a Cache lock and store are registered and fails with a clear message if not.

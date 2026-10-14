@@ -73,11 +73,23 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 
 ## R08 — Queue completion B
 
-- Laravel surface: unique jobs, debounce/overlap prevention and rate-limited jobs.
-- Naravel: future Queue features integrated with Cache/locks.
+- Laravel surface: unique jobs, overlap prevention, rate-limited jobs and exception throttling.
+- Naravel: `Naravel.Queue.Coordination` (opt-in, needs Cache) plus a small core: per-job middleware (`IHasJobMiddleware`), explicit
+  `JobContext.Release/Skip` outcomes, and `IUniqueJob` with `IUniqueJobGate`.
 - Value: prevent duplicate or conflicting work using explicit .NET contracts.
 - Native baseline: distributed coordination must use an approved Cache/Redis abstraction; do not promise cross-process uniqueness from memory-only locks.
 - API reference: [Illuminate Queue Middleware](https://api.laravel.com/docs/13.x/Illuminate/Queue/Middleware/WithoutOverlapping.html).
+
+| Laravel | Naravel | Difference |
+|---|---|---|
+| `ShouldBeUnique` | `IUniqueJob` | Rejected dispatch returns `null` (`Task<string?>`); default lock lifetime is 1 hour, not unbounded; not allowed in chains or batches. |
+| `ShouldBeUniqueUntilProcessing` | `IUniqueJob.UniqueUntilProcessing => true` | Same meaning. |
+| `WithoutOverlapping` | `WithoutOverlapping(key)` | Key is caller-supplied text; default lock lifetime 15 minutes (middleware cannot see the job timeout). |
+| `RateLimited` | `RateLimited(limiter, max, window, subject)` | Uses the R04 fixed-window limiter, which can pass up to 2x at a window boundary. |
+| `ThrottlesExceptions` | `ThrottlesExceptions(max, window, backoff, key)` | Circuit-breaker semantics; counters live in the Cache store. |
+| `$job->release()` / `delete()` in middleware | `JobContext.Release(delay)` / `Skip()` | Explicit outcomes instead of exceptions; a middleware that does neither nor calls `next` fails the job (pre-1.0 breaking). |
+| Debounce (`Debounced`) | not ported | Moved to `roadmap/BACKLOG.md` by the owner (2026-10-13). |
+| Memory-only guarantees | single process | `AddQueueCoordination()` warns at startup when a Memory cache is combined with a non-Memory queue driver. |
 
 ## R09 — Mail
 

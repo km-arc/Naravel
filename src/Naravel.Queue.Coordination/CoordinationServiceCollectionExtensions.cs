@@ -1,7 +1,11 @@
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Naravel.Cache.Abstractions;
+using Naravel.Cache.Locks;
+using Naravel.Cache.Stores;
 using Naravel.Queue.Coordination;
+using Naravel.Queue;
 using Naravel.Queue.Dispatch;
 
 namespace Microsoft.Extensions.DependencyInjection;
@@ -34,8 +38,9 @@ public static class CoordinationServiceCollectionExtensions
         {
             try
             {
-                services.GetRequiredService<ICacheLock>();
-                services.GetRequiredService<ICacheStore>();
+                var locks = services.GetRequiredService<ICacheLock>();
+                var store = services.GetRequiredService<ICacheStore>();
+                WarnWhenMemoryCoordinatesSharedQueue(locks, store);
             }
             catch (InvalidOperationException exception)
             {
@@ -46,6 +51,26 @@ public static class CoordinationServiceCollectionExtensions
             }
 
             return Task.CompletedTask;
+        }
+
+        // PDR-012b section 4: a Memory lock/store is invisible to other processes. Combined with a queue that several processes can
+        // share, WithoutOverlapping/RateLimited/IUniqueJob would look active while coordinating nothing, so say so once at startup.
+        // The Memory queue driver lives in a package this one does not reference, hence the type-name check.
+        private void WarnWhenMemoryCoordinatesSharedQueue(ICacheLock locks, ICacheStore store)
+        {
+            if (locks is not MemoryLock && store is not MemoryCacheStore) return;
+
+            var queue = services.GetService<QueueManager>();
+            string? driverName;
+            try { driverName = queue?.Connection().GetType().Name; }
+            catch (Exception) { return; }
+            if (driverName is null || driverName == "MemoryQueueDriver") return;
+
+            services.GetService<ILoggerFactory>()?.CreateLogger("Naravel.Queue.Coordination").LogWarning(
+                "Naravel.Queue.Coordination is using a Memory cache lock/store with the {Driver} queue driver. Locks, rate limits and unique keys are then " +
+                "visible inside this process only, so several worker or web processes do not coordinate with each other. Register a shared Cache store " +
+                "(for example AddNaravelRedisCache) if more than one process runs jobs.",
+                driverName);
         }
 
         public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
