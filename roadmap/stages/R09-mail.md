@@ -8,7 +8,7 @@ Out of scope: view engines (the PDR chooses an `IMailRenderer` interface, no eng
 Decisions: OD-01 (dependency approval via PDR for the SMTP library), S1–S3.
 
 ## Tasks
-- [ ] **R09.T01 — PDR-013:** compare `System.Net.Mail`, MailKit, FluentEmail; define quickstart (`await mail.To(user).SendAsync(new Welcome(user))`), transports, queue adapter, `Mailable` shape. May reject building a transport and wrap a library. **Accept:** PDR EN+FA.
+- [ ] **R09.T01 — PDR-013:** compare `System.Net.Mail`, MailKit, FluentEmail; define quickstart (`await mail.To(user).SendAsync(new Welcome(user))`), transports, queue adapter, `Mailable` shape. May reject building a transport and wrap a library. **Accept:** PDR EN+FA. PDR-013 was approved 2026-10-07; the open items (Mailable, named transports, queue payload) are drafted in `PDR-013a` and await owner approval.
 - [ ] **R09.T02 — Core:** `IMailer` on `Manager<,>`, `Mailable`, built-in `log` and `array`(fake) transports. **Accept:** `Extend` + config-reload tests, `MailFake` assertions.
 - [ ] **R09.T03 — SMTP provider and queue adapter:** `Naravel.Mail.Smtp`, `Naravel.Mail.Queue` (`QueueAsync`). **Accept:** queue adapter test with Memory queue; SMTP test env-gated (`NARAVEL_TEST_SMTP`).
 - [ ] **R09.T04 — Validate:** docs EN/FA, parity/status/changelog, full verification. **Accept:** DoD 5–7.
