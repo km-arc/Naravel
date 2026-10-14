@@ -99,6 +99,24 @@ builder.Services.AddQueuedEventListener<OrderPaid, SendReceipt>("order-paid.rece
 
 See [docs/en/events.md](docs/en/events.md) and [docs/fa/events.md](docs/fa/events.md), and run the sample's `/events` page for a working example.
 
+### Naravel.Mail
+
+Typed mail without a network dependency in the core package: a `Mailable` class describes the message, a named transport (`log` by default, `array` for tests, `smtp` via an optional package in a later task) delivers it, and `MailFake` makes it testable. A transport failure is reported to the caller and never retried silently.
+
+```csharp
+builder.Services.AddNaravelMail(builder.Configuration);   // Mail:Default defaults to "log"
+
+public class WelcomeMail(User user) : Mailable
+{
+    public override MailMessage Build(MailBuilder mail) =>
+        mail.From("app@example.com").Subject("Welcome").Text($"Hi {user.Name}").Build();
+}
+
+await mailer.To(user.Email).SendAsync(new WelcomeMail(user), cancellationToken);
+```
+
+See [docs/en/mail.md](docs/en/mail.md) and [docs/fa/mail.md](docs/fa/mail.md).
+
 ### Naravel.Filesystem
 
 Named local and S3/S3-compatible storage disks. The local driver rejects paths outside its configured root. Naravel does not create a public HTTP endpoint; serve or authorize stored files through ASP.NET Core separately.
@@ -150,6 +168,7 @@ Register the core package and only the providers your configured stores use. The
 | `Naravel.Queue.RabbitMQ` | `builder.Services.AddRabbitMqDriver(configuration);` |
 | `Naravel.Queue.Kafka` | `builder.Services.AddKafkaDriver(configuration);` |
 | `Naravel.Events.Queue` (adapter) | `builder.Services.AddNaravelEventsQueue();` |
+| `Naravel.Mail` | `builder.Services.AddNaravelMail(configuration);` |
 
 Queue registrations are extension methods in `Naravel.Queue.Extensions`. The Queue configuration uses `NaravelQueue:Stores`; Cache and Filesystem use `Cache:Stores` and `Filesystem:Stores` by default. Each supports a custom section name.
 

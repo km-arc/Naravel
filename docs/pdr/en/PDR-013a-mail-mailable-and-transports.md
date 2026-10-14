@@ -2,7 +2,7 @@
 
 **Native-first verdict:** .NET still has no modern mail sender or message model, and nothing native gives a typed, testable "message as a class" or a way to pick a transport per environment. Naravel adds only the thin contract on top of [PDR-013](PDR-013-mail.md); the actual SMTP work stays in a separately installable MailKit package, as already approved.
 
-Status: **PROPOSED 2026-10-14, awaiting owner approval.** No code before approval.
+Status: **Approved 2026-10-14.**
 
 ## Why an addendum
 
@@ -66,7 +66,7 @@ Tests for `Mailable` building, `To(...)` validation, transport selection/`Extend
 
 ## Approval
 
-Not yet approved. Open questions for the owner:
+The owner approved all four points on 2026-10-14 (answers (a) yes, (b) yes, (c) yes, (d) yes) and additionally required that the usage and implementation documentation be written and kept up to date with the code. Questions as asked:
 
 - (a) Is the `Mailable` + `To(...).SendAsync(...)` shape accepted?
 - (b) Do you accept reversing PDR-013's "no manager" caution in favor of named transports (`smtp`/`log`/`array`)?
