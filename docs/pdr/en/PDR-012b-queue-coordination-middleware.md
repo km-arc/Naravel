@@ -70,11 +70,20 @@ Regression test first for the core change: a middleware that returns without `ne
 
 Owner approved on 2026-10-13 with these answers to the open questions:
 
-- **(a) Rejected unique dispatch returns `null`.** `IJobDispatcher.DispatchAsync` becomes `Task<string?>`; `null` means the dispatch was rejected as a duplicate. This is implemented together with `UniqueJob`, not yet.
+- **(a) Rejected unique dispatch returns `null`.** `IJobDispatcher.DispatchAsync` becomes `Task<string?>`; `null` means the dispatch was rejected as a duplicate. Implemented with `IUniqueJob` (2026-10-14).
 - **(b) The short-circuit behavior change is accepted as pre-1.0 breaking.** A middleware that neither calls `next` nor sets an outcome fails the job. The core change (section 2) was already merged (PR #31); it is listed in `CHANGELOG.md`.
 
 ## Implementation record
 
 - 2026-10-13: `Naravel.Queue.Coordination` with `WithoutOverlapping`, `RateLimited`, `ThrottlesExceptions` and `AddQueueCoordination()`; tests in `tests/Naravel.Queue.Coordination.Tests` (Memory through a real worker, plus an env-gated Redis test with two workers); EN/FA `docs/*/queue-coordination.md`. Tests were NOT RUN locally (no .NET SDK); CI is the verification.
 - Deviations from section 3, all small: the default lock lifetime is a fixed 15 minutes because middleware cannot see the job's timeout (set `ExpireAfter` above the longest run); `AddQueueCoordination()` fails at startup when Cache is missing but does not yet warn about a Memory store combined with a non-Memory queue connection (the docs state the limit).
-- Not done yet: `UniqueJob` (needs a dispatch hook and the `string?` return), the fake's `AssertNotDispatched`, the `outcome` meter tag, and the parity table (R08.T03).
+- 2026-10-14: unique jobs. Deviations from section 3 and the reasons:
+  - **`IUniqueJob` (an interface on the job) instead of a `UniqueJob` middleware.** Uniqueness must be decided at dispatch, before a message exists, and middleware only runs on a worker. The job declares `UniqueKey`, `UniqueFor` (default 1 hour) and `UniqueUntilProcessing`; the dispatcher enforces it.
+  - **`IUniqueJobGate` in `Naravel.Queue`, implemented by `CacheUniqueJobGate` in `Naravel.Queue.Coordination`.** Keeps Queue free of a Cache reference (section 1). `JobDispatcher` takes the gate as an optional constructor argument; a unique job dispatched without a gate throws, naming `AddQueueCoordination()`.
+  - **The lock owner is the message id.** The worker that releases the key knows the message id but not the Cache lock token, and adding the token to `QueuedMessage` would need a new column in every Database queue table. The gate stores `messageId|token` beside the lock and re-checks it on release (fenced: a stale worker cannot free a newer dispatch's key).
+  - **Release points:** success, permanent failure, `Skip`, and job start for `UniqueUntilProcessing`. A retry or a `Release` keeps the key; a failed push releases it at once. The release never throws on the success path (it runs after the acknowledgement).
+  - **Chains and batches reject unique jobs** (`ArgumentException`): a rejected link would stall a chain and a rejected batch member would leave the batch incomplete. This is stricter than section 3, which did not say.
+  - `IJobDispatcher.DispatchAsync` / `QueueFake.DispatchAsync` now return `Task<string?>` (decision (a)); `DispatchChainAsync` and `JobChain.DispatchAsync` still return `Task<string>`. `QueueFake` mimics the gate and gains `AssertNotDispatched` and `AssertDispatchedCount`.
+  - Tests: `tests/Naravel.Queue.Coordination.Tests/UniqueJobTests.cs` (Memory through a real worker: rejection and re-dispatch, different keys, `UntilProcessing`, key held during a retry, key freed after permanent failure, missing gate, chain/batch, fake; env-gated Redis test with two hosts). Docs: unique-jobs section and a "why it is built this way" table in EN/FA `queue-coordination.md`, a note in `queue.md`. NOT RUN locally (no .NET SDK); CI is the verification.
+- Already present, so not repeated: the `outcome` meter tag (`released`/`skipped`) shipped with the core change in PR #31.
+- Still open (R08.T03): the Memory-store warning in `AddQueueCoordination()`, the parity table and the final verification.

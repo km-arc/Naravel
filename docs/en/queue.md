@@ -77,6 +77,9 @@ var dispatcher = app.Services.GetRequiredService<IJobDispatcher>();
 await dispatcher.DispatchAsync(new SendWelcomeEmailJob("ali@example.com"));
 ```
 
+`DispatchAsync` returns the message id as `string?`. It is `null` only when the job is an `IUniqueJob` and an identical job is already pending or
+running (the dispatch was rejected and nothing was queued). See [queue-coordination](queue-coordination.md#unique-jobs-iuniquejob).
+
 ## Job registration
 
 Dispatching a job registers its CLR type in the current process. A worker-only process must register every job it can
