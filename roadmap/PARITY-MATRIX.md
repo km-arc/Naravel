@@ -94,7 +94,7 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 ## R09 — Mail
 
 - Laravel surface: `Illuminate\Contracts\Mail\Mailer`, mailables and transport configuration.
-- Naravel: future Mail module after Events and Queue prerequisites.
+- Naravel: `Naravel.Mail` core (Mailable, `MailManager` on Foundation, `log`/`array` transports, `MailFake`, `IMailQueue` seam) per PDR-013/PDR-013a; SMTP (`Naravel.Mail.Smtp`) and `Naravel.Mail.Queue` follow in R09.T03.
 - Value: typed messages, testable transport selection, optional queued delivery.
 - Native baseline: `System.Net.Mail` is limited; evaluate modern provider libraries only through the PDR/dependency gate.
 - API reference: [Illuminate Mail](https://api.laravel.com/docs/13.x/Illuminate/Contracts/Mail/Mailer.html).
@@ -197,7 +197,7 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 | Image | Unassessed | BACKLOG |
 | JsonSchema | Native (`System.Text.Json.Schema`) | - |
 | Log | Native (`ILogger`) | - |
-| Mail | Evaluate vs MailKit/FluentEmail | R09 |
+| Mail | Adapted (MailKit wrapped, optional) | R09 |
 | Notifications | Adapt | R10 |
 | Pagination | Adapt (cursor value) | R16 |
 | Pipeline | Native (delegates/middleware); revisit if Routing needs shared engine | - |

@@ -1,0 +1,74 @@
+#nullable enable
+Microsoft.Extensions.DependencyInjection.MailServiceCollectionExtensions
+Naravel.Mail.IMailer
+Naravel.Mail.IMailer.DefaultFrom.get -> string?
+Naravel.Mail.IMailer.QueueAsync(Naravel.Mail.MailMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Mail.IMailer.SendAsync(Naravel.Mail.MailMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Mail.IMailer.To(string! address) -> Naravel.Mail.PendingMail!
+Naravel.Mail.IMailQueue
+Naravel.Mail.IMailQueue.EnqueueAsync(Naravel.Mail.MailMessage! message, string? transport, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Mail.IMailRenderer
+Naravel.Mail.IMailRenderer.RenderAsync(string! template, object! model, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
+Naravel.Mail.IMailTransport
+Naravel.Mail.IMailTransport.SendAsync(Naravel.Mail.MailMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Mail.Mailable
+Naravel.Mail.Mailable.Mailable() -> void
+Naravel.Mail.MailBuilder
+Naravel.Mail.MailBuilder.Bcc(string! address) -> Naravel.Mail.MailBuilder!
+Naravel.Mail.MailBuilder.Cc(string! address) -> Naravel.Mail.MailBuilder!
+Naravel.Mail.MailBuilder.To(string! address) -> Naravel.Mail.MailBuilder!
+Naravel.Mail.MailBuilder.Build() -> Naravel.Mail.MailMessage!
+Naravel.Mail.MailBuilder.From(string! address) -> Naravel.Mail.MailBuilder!
+Naravel.Mail.MailBuilder.Html(string! html) -> Naravel.Mail.MailBuilder!
+Naravel.Mail.MailBuilder.MailBuilder(System.Collections.Generic.IEnumerable<string!>! to, string? defaultFrom = null) -> void
+Naravel.Mail.MailBuilder.Subject(string! subject) -> Naravel.Mail.MailBuilder!
+Naravel.Mail.MailBuilder.Text(string! text) -> Naravel.Mail.MailBuilder!
+Naravel.Mail.MailManager
+Naravel.Mail.MailManager.MailManager(System.IServiceProvider! provider, Naravel.Foundation.IDriverRegistry<Naravel.Mail.IMailTransport!>! registry, Microsoft.Extensions.Options.IOptionsMonitor<Naravel.Mail.MailOptions!>! options) -> void
+Naravel.Mail.MailManager.Mailer(string? name = null) -> Naravel.Mail.IMailer!
+Naravel.Mail.MailMessage
+Naravel.Mail.MailMessage.Bcc.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Naravel.Mail.MailMessage.Cc.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Naravel.Mail.MailMessage.From.get -> string!
+Naravel.Mail.MailMessage.HtmlBody.get -> string?
+Naravel.Mail.MailMessage.MailMessage(string! from, string! to, string! subject, string? textBody, string? htmlBody = null) -> void
+Naravel.Mail.MailMessage.MailMessage(string! from, System.Collections.Generic.IEnumerable<string!>! to, string! subject, string? textBody, string? htmlBody = null, System.Collections.Generic.IEnumerable<string!>? cc = null, System.Collections.Generic.IEnumerable<string!>? bcc = null) -> void
+Naravel.Mail.MailMessage.Subject.get -> string!
+Naravel.Mail.MailMessage.TextBody.get -> string?
+Naravel.Mail.MailMessage.To.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Naravel.Mail.MailOptions
+Naravel.Mail.MailOptions.From.get -> string?
+Naravel.Mail.MailOptions.From.set -> void
+Naravel.Mail.MailOptions.MailOptions() -> void
+Naravel.Mail.MailOptions.Mailers.get -> System.Collections.Generic.Dictionary<string!, Microsoft.Extensions.Configuration.IConfigurationSection!>!
+Naravel.Mail.MailOptions.Mailers.set -> void
+Naravel.Mail.PendingMail
+Naravel.Mail.PendingMail.QueueAsync(Naravel.Mail.Mailable! mailable, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Mail.PendingMail.SendAsync(Naravel.Mail.Mailable! mailable, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Mail.PendingMail.To(string! address) -> Naravel.Mail.PendingMail!
+Naravel.Mail.Testing.MailFake
+Naravel.Mail.Testing.MailFake.AssertNothingQueued() -> void
+Naravel.Mail.Testing.MailFake.AssertNothingSent() -> void
+Naravel.Mail.Testing.MailFake.AssertQueued(System.Func<Naravel.Mail.MailMessage!, bool>? predicate = null) -> Naravel.Mail.MailMessage!
+Naravel.Mail.Testing.MailFake.AssertSent(int expectedCount) -> System.Collections.Generic.IReadOnlyList<Naravel.Mail.MailMessage!>!
+Naravel.Mail.Testing.MailFake.AssertSent(System.Func<Naravel.Mail.MailMessage!, bool>? predicate = null) -> Naravel.Mail.MailMessage!
+Naravel.Mail.Testing.MailFake.DefaultFrom.get -> string?
+Naravel.Mail.Testing.MailFake.DefaultFrom.set -> void
+Naravel.Mail.Testing.MailFake.MailFake() -> void
+Naravel.Mail.Testing.MailFake.QueueAsync(Naravel.Mail.MailMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Mail.Testing.MailFake.Queued.get -> System.Collections.Generic.IReadOnlyList<Naravel.Mail.MailMessage!>!
+Naravel.Mail.Testing.MailFake.Reset() -> void
+Naravel.Mail.Testing.MailFake.SendAsync(Naravel.Mail.MailMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Mail.Testing.MailFake.Sent.get -> System.Collections.Generic.IReadOnlyList<Naravel.Mail.MailMessage!>!
+Naravel.Mail.Testing.MailFake.To(string! address) -> Naravel.Mail.PendingMail!
+Naravel.Mail.Transports.ArrayMailTransport
+Naravel.Mail.Transports.ArrayMailTransport.ArrayMailTransport() -> void
+Naravel.Mail.Transports.ArrayMailTransport.Clear() -> void
+Naravel.Mail.Transports.ArrayMailTransport.SendAsync(Naravel.Mail.MailMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Mail.Transports.ArrayMailTransport.Sent.get -> System.Collections.Generic.IReadOnlyList<Naravel.Mail.MailMessage!>!
+Naravel.Mail.Transports.LogMailTransport
+Naravel.Mail.Transports.LogMailTransport.LogMailTransport(Microsoft.Extensions.Logging.ILogger! logger) -> void
+Naravel.Mail.Transports.LogMailTransport.SendAsync(Naravel.Mail.MailMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+abstract Naravel.Mail.Mailable.Build(Naravel.Mail.MailBuilder! mail) -> Naravel.Mail.MailMessage!
+static Microsoft.Extensions.DependencyInjection.MailServiceCollectionExtensions.AddMailTransport(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! driverName, System.Func<System.IServiceProvider!, Microsoft.Extensions.Configuration.IConfigurationSection!, Naravel.Mail.IMailTransport!>! factory, string! sectionName = "Mail") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Microsoft.Extensions.DependencyInjection.MailServiceCollectionExtensions.AddNaravelMail(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "Mail") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
