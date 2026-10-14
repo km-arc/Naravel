@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Naravel.Cache.Redis;
 using Naravel.Queue.Extensions;
 using Naravel.Queue.Jobs;
 using Naravel.Queue.Testing;
