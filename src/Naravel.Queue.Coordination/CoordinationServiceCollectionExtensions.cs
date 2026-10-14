@@ -27,10 +27,26 @@ public static class CoordinationServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddNaravelRateLimiter(rateLimiterStore);
-        services.TryAddSingleton<IUniqueJobGate, CacheUniqueJobGate>();
+        // The worker takes the gate as a constructor dependency, so a missing Cache registration surfaces while the hosted
+        // services are built, before CoordinationStartupCheck can run. Build the gate here so that failure carries the same message.
+        services.TryAddSingleton<IUniqueJobGate>(provider =>
+        {
+            try
+            {
+                return new CacheUniqueJobGate(provider.GetRequiredService<ICacheLock>(), provider.GetRequiredService<ICacheStore>());
+            }
+            catch (InvalidOperationException exception)
+            {
+                throw new InvalidOperationException(MissingCacheMessage, exception);
+            }
+        });
         services.AddHostedService<CoordinationStartupCheck>();
         return services;
     }
+
+    private const string MissingCacheMessage =
+        "Naravel.Queue.Coordination needs a Cache lock and store. Call services.AddNaravelCache(configuration) " +
+        "(and a provider such as AddNaravelRedisCache for coordination across processes) before starting the host.";
 
     private sealed class CoordinationStartupCheck(IServiceProvider services) : IHostedService
     {
@@ -44,10 +60,7 @@ public static class CoordinationServiceCollectionExtensions
             }
             catch (InvalidOperationException exception)
             {
-                throw new InvalidOperationException(
-                    "Naravel.Queue.Coordination needs a Cache lock and store. Call services.AddNaravelCache(configuration) " +
-                    "(and a provider such as AddNaravelRedisCache for coordination across processes) before starting the host.",
-                    exception);
+                throw new InvalidOperationException(MissingCacheMessage, exception);
             }
 
             return Task.CompletedTask;
