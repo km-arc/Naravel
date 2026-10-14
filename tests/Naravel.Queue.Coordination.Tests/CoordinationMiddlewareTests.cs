@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Naravel.Cache.Redis;
 using Naravel.Queue.Coordination;
 using Naravel.Queue.Extensions;
 using Naravel.Queue.Jobs;
