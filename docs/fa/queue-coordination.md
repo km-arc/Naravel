@@ -1,7 +1,7 @@
 # Naravel.Queue.Coordination (میان‌افزار jobها برای هماهنگی workerها)
 
-وضعیت: `WithoutOverlapping`، `RateLimited` و `ThrottlesExceptions` در دسترس‌اند. `UniqueJob` (رد dispatch تکراری) بخش باقی‌مانده‌ی R08
-است و هنوز در دسترس نیست. سند تصمیم: [PDR-012b](../pdr/fa/PDR-012b-queue-coordination-middleware.md).
+وضعیت: `WithoutOverlapping`، `RateLimited`، `ThrottlesExceptions` و jobهای یکتا (`IUniqueJob`، رد dispatch تکراری) در دسترس‌اند.
+سند تصمیم: [PDR-012b](../pdr/fa/PDR-012b-queue-coordination-middleware.md).
 
 ## شروع سریع
 
@@ -31,7 +31,7 @@ public sealed class SyncInvoiceJob : Job, IHasJobMiddleware
 Cache و rate limiter مبتنی بر Cache. این middlewareها فقط قاعده‌ی نازک سطح job روی آن‌ها هستند. کلید همیشه متنی است که خودتان انتخاب می‌کنید؛ چیزی از
 نام کلاس استخراج نمی‌شود.
 
-## سه middleware
+## سه middleware (و jobهای یکتا)
 
 | middleware | چه می‌کند | وقتی نمی‌تواند job را اجرا کند |
 |---|---|---|
@@ -76,6 +76,66 @@ new ThrottlesExceptions(maxExceptions: 5, window: TimeSpan.FromMinutes(2), backo
 jobهای آن نوع به‌جای سوزاندن attemptهایشان روی سرویسی که از کار افتاده، بدون اجرا برگردانده می‌شوند. هر exception همچنان به سیاست retry عادی rethrow می‌شود،
 موفقیت شمارنده را صفر می‌کند و خاموش‌شدن worker (`OperationCanceledException`) شمرده نمی‌شود. به‌طور پیش‌فرض همه‌ی jobهای یک نوع یک مدار مشترک دارند؛ برای کلید دیگر `key:` بدهید.
 
+## jobهای یکتا (`IUniqueJob`)
+
+`WithoutOverlapping` اجازه می‌دهد job تکراری وارد صف شود و فقط هنگام اجرا نگهش می‌دارد. **job یکتا** سخت‌گیرانه‌تر است: job تکراری اصلاً وارد صف
+نمی‌شود. این معادل `ShouldBeUnique` در Laravel است.
+
+```csharp
+public class BuildReportJob : Job, IUniqueJob
+{
+    public int ReportId { get; set; }
+
+    public string UniqueKey => $"report:{ReportId}";          // «همان job» یعنی چه
+    public TimeSpan UniqueFor => TimeSpan.FromMinutes(10);     // فقط شبکه‌ی ایمنی (پیش‌فرض یک ساعت)
+    // public bool UniqueUntilProcessing => true;              // اختیاری، پایین توضیح داده شده
+
+    public override Task HandleAsync(JobContext context, CancellationToken cancellationToken) { /* ... */ }
+}
+
+var id = await dispatcher.DispatchAsync(new BuildReportJob { ReportId = 7 });
+if (id is null)
+{
+    // job یکسانی در انتظار یا در حال اجراست: چیزی وارد صف نشد
+}
+```
+
+**`DispatchAsync` اکنون `Task<string?>` برمی‌گرداند.** `null` یعنی «به‌عنوان تکراری رد شد». برای jobی که یکتا نیست نتیجه هرگز `null` نیست؛ پس کد موجود
+جز annotation مربوط به nullable بدون تغییر کار می‌کند.
+
+| وضعیت | سرنوشت کلید |
+|---|---|
+| job با موفقیت تمام می‌شود | worker آزادش می‌کند |
+| job شکست می‌خورد و دوباره تلاش می‌شود | **قفل می‌ماند**، چون تلاش مجدد همان job است |
+| job برای همیشه شکست می‌خورد (تلاش‌ها تمام شد) | آزاد می‌شود تا dispatch تازه بتواند دوباره امتحان کند |
+| middleware ردش می‌کند (`Skip()`) | آزاد می‌شود |
+| middleware به صف برش می‌گرداند (`Release(delay)`) | قفل می‌ماند، چون job هنوز منتظر است |
+| `UniqueUntilProcessing => true` | به‌محض **شروع** job آزاد می‌شود تا هنگام اجرا یک job دیگر بتواند وارد صف شود |
+| worker می‌میرد | با پایان `UniqueFor` آزاد می‌شود |
+| خودِ push به صف شکست می‌خورد | فوراً آزاد می‌شود تا قطعی broker کلید را مسدود نکند |
+
+قواعد و محدودیت‌ها:
+
+- **به `AddQueueCoordination()` نیاز دارد.** خودِ `Naravel.Queue` به Cache وابسته نیست، پس قفل در این بسته است. dispatch کردن یک `IUniqueJob` بدون آن
+  **خطا می‌دهد** و پیام خطا `AddQueueCoordination()` را نام می‌برد؛ یکتایی هرگز بی‌صدا نادیده گرفته نمی‌شود.
+- **نه در chain و نه در batch.** حلقه‌ی ردشده chain را متوقف می‌کند و jobِ ردشده batch را برای همیشه ناتمام می‌گذارد؛ پس `Chain(...)` و
+  `BatchAsync(...)` برای `IUniqueJob` خطای `ArgumentException` می‌دهند. آن را جداگانه dispatch کنید.
+- **ذخیره‌گاه Memory = یک پروسه.** با Cache پیش‌فرض (Memory) دو پروسه‌ی worker کلیدهای هم را نمی‌بینند. برای یکتایی میان پروسه‌ها از Redis (یا ذخیره‌گاه
+  مشترک دیگر) استفاده کنید.
+- کلید متنی است که شما انتخاب می‌کنید، نه نام کلاس. نوع job دیگری با همان کلید «همان job» حساب می‌شود.
+- آزادسازی مالک را بررسی می‌کند: workerی که دیر تمام شد و کلیدش منقضی شده و dispatch تازه‌تری آن را گرفته، نمی‌تواند کلید dispatch تازه را آزاد کند.
+- گرفتن کلید و ثبت مالک آن دو نوشتن جدا هستند. کرش بین این دو، کلید را تا پایان `UniqueFor` قفل نگه می‌دارد (نه برای همیشه).
+
+### چرا این‌طور ساخته شده
+
+| انتخاب | دلیل |
+|---|---|
+| dispatch ردشده `null` برمی‌گرداند (تصمیم مالک ۲۰۲۶-۱۰-۱۳) | Laravel هم برای dispatch یکتای ردشده چیزی برنمی‌گرداند؛ استثنا یک اتفاق عادی و مورد انتظار را شبیه خطا می‌کرد و شناسه‌ی ساختگی دربارهٔ jobی که وجود ندارد دروغ می‌گفت. |
+| gate یک interface در `Naravel.Queue` است (`IUniqueJobGate`) و در `Naravel.Queue.Coordination` پیاده می‌شود | کاربرانی که فقط از Queue استفاده می‌کنند نباید Cache را بکشند (قاعده‌ی ۳ در AGENTS.md). هسته فقط می‌داند «از gate بپرس»؛ قفل Cache در adapter می‌ماند. |
+| مالک قفل **شناسه‌ی پیام** است | workerی که کلید را آزاد می‌کند شناسه‌ی پیام را می‌داند، نه توکن قفل را. نگه‌داشتن توکن در envelope صف برای هر جدول Database ستون جدید می‌خواست. adapter به‌جایش `messageId|token` را کنار قفل نگه می‌دارد؛ پس driver و schema تغییر نمی‌کنند. |
+| بدون gate ثبت‌شده خطا می‌دهد | job یکتایی که بی‌صدا تکراری را مجاز می‌کند بدتر از jobی است که در اولین dispatch بلند خطا می‌دهد. |
+| `UniqueFor` پیش‌فرض یک ساعت | پیش‌فرض Laravel «تا پایان job» و بدون حد است که یک worker کرش‌کرده را به کلید برای‌همیشه‌مسدود تبدیل می‌کند. حد TTL پیش‌فرض ایمن است؛ برای jobهای طولانی بالاترش ببرید. |
+
 ## چه چیزی تضمین می‌شود و چه چیزی نه
 
 | ذخیره‌گاه | هماهنگی کجا برقرار است |
@@ -93,3 +153,6 @@ jobهای آن نوع به‌جای سوزاندن attemptهایشان روی س
 
 middlewareها قفل و limiter را از service provider خود job می‌خوانند، پس تست‌ها می‌توانند Cache از نوع Memory یا یک fake ثبت کنند. تست‌های مخزن آن‌ها را از طریق
 worker واقعی اجرا می‌کنند (`tests/Naravel.Queue.Coordination.Tests`) و وقتی `NARAVEL_TEST_REDIS` تنظیم باشد یک تست Redis با دو worker هم اجرا می‌شود.
+
+برای jobهای یکتا، `Naravel.Queue.Testing.QueueFake` رفتار gate را شبیه‌سازی می‌کند: dispatch دوم همان `UniqueKey` مقدار `null` برمی‌گرداند و ثبت نمی‌شود، و چون fake
+هرگز job را اجرا نمی‌کند کلیدها تا `Reset()` قفل می‌مانند. با `AssertNotDispatched<TJob>()` و `AssertDispatchedCount<TJob>(n)` نتیجه را بررسی کنید.

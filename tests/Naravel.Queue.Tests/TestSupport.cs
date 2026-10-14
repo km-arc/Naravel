@@ -257,7 +257,12 @@ public sealed class QueueTestHost : IAsyncDisposable
         foreach (var w in _workers) w.StartAsync(CancellationToken.None).GetAwaiter().GetResult();
     }
 
-    public Task<string> Dispatch(IJob job, Action<DispatchOptions>? configure = null) =>
+    /// <summary>Dispatches and returns the message id; throws when a unique job was rejected (use <see cref="TryDispatch"/> for that).</summary>
+    public async Task<string> Dispatch(IJob job, Action<DispatchOptions>? configure = null) =>
+        await TryDispatch(job, configure) ?? throw new InvalidOperationException("The dispatch was rejected as a duplicate unique job.");
+
+    /// <summary>Dispatches and returns the message id, or null when a unique job was rejected.</summary>
+    public Task<string?> TryDispatch(IJob job, Action<DispatchOptions>? configure = null) =>
         Dispatcher.DispatchAsync(job, o => { o.OnQueue("q"); configure?.Invoke(o); });
 
     public async ValueTask DisposeAsync()

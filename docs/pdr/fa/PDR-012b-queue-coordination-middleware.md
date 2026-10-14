@@ -70,11 +70,20 @@ Debounce (به BACKLOG)، semaphore توزیع‌شده با N مجوز، موت
 
 مالک در ۲۰۲۶-۱۰-۱۳ با این پاسخ‌ها به پرسش‌های باز تأیید کرد:
 
-- **(الف) dispatch رد‌شدهٔ unique مقدار `null` برمی‌گرداند.** `IJobDispatcher.DispatchAsync` به `Task<string?>` تبدیل می‌شود؛ `null` یعنی dispatch به‌دلیل تکراری‌بودن رد شد. این همراه `UniqueJob` پیاده‌سازی می‌شود، نه هنوز.
+- **(الف) dispatch رد‌شدهٔ unique مقدار `null` برمی‌گرداند.** `IJobDispatcher.DispatchAsync` به `Task<string?>` تبدیل می‌شود؛ `null` یعنی dispatch به‌دلیل تکراری‌بودن رد شد. همراه `IUniqueJob` پیاده‌سازی شد (۲۰۲۶-۱۰-۱۴).
 - **(ب) تغییر رفتار short-circuit به‌عنوان breaking پیش از 1.0 پذیرفته شد.** میدل‌ویری که نه `next` را صدا بزند و نه outcome تنظیم کند، job را شکست می‌دهد. تغییر هستهٔ بخش ۲ پیش‌تر ادغام شده (PR #31) و در `CHANGELOG.md` آمده است.
 
 ## سابقهٔ پیاده‌سازی
 
 - ۲۰۲۶-۱۰-۱۳: پروژهٔ `Naravel.Queue.Coordination` با `WithoutOverlapping`، `RateLimited`، `ThrottlesExceptions` و `AddQueueCoordination()`؛ تست‌ها در `tests/Naravel.Queue.Coordination.Tests` (Memory با worker واقعی، و تست دو‌workerهٔ Redis با شرط محیطی)؛ مستندات `docs/*/queue-coordination.md`. تست‌ها به‌صورت محلی **اجرا نشدند** (NOT RUN؛ SDK دات‌نت در دسترس نبود)؛ CI راستی‌آزمایی است.
 - انحراف‌های کوچک از بخش ۳: عمر پیش‌فرض قفل ثابت ۱۵ دقیقه است چون میدل‌ویر timeout job را نمی‌بیند (`ExpireAfter` را بالاتر از طولانی‌ترین اجرا بگذارید)؛ `AddQueueCoordination()` اگر Cache نباشد در شروع خطا می‌دهد، ولی هنوز دربارهٔ ترکیب store حافظه‌ای با اتصال صف غیر‌Memory هشدار نمی‌دهد (مستندات این محدودیت را می‌گویند).
-- هنوز انجام نشده: `UniqueJob` (نیاز به hook در dispatch و بازگشت `string?`)، `AssertNotDispatched` در fake، تگ `outcome` در meter و جدول parity (R08.T03).
+- ۲۰۲۶-۱۰-۱۴: jobهای یکتا. انحراف از بخش ۳ و دلیل هرکدام:
+  - **`IUniqueJob` (یک interface روی خود job) به‌جای middleware به نام `UniqueJob`.** یکتایی باید هنگام dispatch و پیش از ساخته‌شدن پیام تعیین شود، ولی middleware فقط روی worker اجرا می‌شود. job مقدارهای `UniqueKey`، `UniqueFor` (پیش‌فرض ۱ ساعت) و `UniqueUntilProcessing` را اعلام می‌کند و dispatcher آن را اعمال می‌کند.
+  - **`IUniqueJobGate` در `Naravel.Queue` و پیاده‌سازی `CacheUniqueJobGate` در `Naravel.Queue.Coordination`.** Queue را بدون وابستگی به Cache نگه می‌دارد (بخش ۱). `JobDispatcher` گیت را به‌صورت آرگومان اختیاری سازنده می‌گیرد؛ dispatch کردن job یکتا بدون گیت خطا می‌دهد و `AddQueueCoordination()` را نام می‌برد.
+  - **مالک قفل شناسهٔ پیام است.** workerی که کلید را آزاد می‌کند شناسهٔ پیام را می‌داند ولی توکن قفل Cache را نه، و افزودن توکن به `QueuedMessage` برای هر جدول صف Database ستون جدید می‌خواست. گیت `messageId|token` را کنار قفل نگه می‌دارد و هنگام آزادسازی دوباره بررسی می‌کند (fence: workerِ کهنه نمی‌تواند کلید dispatch تازه‌تر را آزاد کند).
+  - **نقاط آزادسازی:** موفقیت، شکست دائمی، `Skip`، و شروع job برای `UniqueUntilProcessing`. retry یا `Release` کلید را نگه می‌دارد؛ push ناموفق فوراً آزادش می‌کند. آزادسازی روی مسیر موفقیت هرگز استثنا نمی‌اندازد (بعد از acknowledgement اجرا می‌شود).
+  - **chain و batch فقط jobهای غیر یکتا می‌پذیرند** (`ArgumentException`): حلقهٔ ردشده chain را متوقف می‌کند و عضو ردشدهٔ batch آن را ناتمام می‌گذارد. این سخت‌گیرانه‌تر از بخش ۳ است که چیزی نگفته بود.
+  - `IJobDispatcher.DispatchAsync` و `QueueFake.DispatchAsync` اکنون `Task<string?>` برمی‌گردانند (تصمیم (الف)); `DispatchChainAsync` و `JobChain.DispatchAsync` همچنان `Task<string>` هستند. `QueueFake` گیت را شبیه‌سازی می‌کند و `AssertNotDispatched` و `AssertDispatchedCount` را دارد.
+  - تست‌ها: `tests/Naravel.Queue.Coordination.Tests/UniqueJobTests.cs` (Memory با worker واقعی: رد و dispatch دوباره، کلیدهای متفاوت، `UntilProcessing`، نگه‌داشتن کلید هنگام retry، آزادشدن پس از شکست دائمی، نبود گیت، chain/batch، fake؛ و تست Redis با دو host و شرط محیطی). مستندات: بخش jobهای یکتا و جدول «چرا این‌طور ساخته شده» در `queue-coordination.md` (EN/FA) و یادداشتی در `queue.md`. به‌صورت محلی **اجرا نشد** (NOT RUN؛ SDK دات‌نت نبود)؛ CI راستی‌آزمایی است.
+- از قبل موجود بود و تکرار نشد: تگ `outcome` در meter (`released`/`skipped`) همراه تغییر هسته در PR #31 آمده بود.
+- هنوز باز (R08.T03): هشدار store حافظه‌ای در `AddQueueCoordination()`، جدول parity و راستی‌آزمایی نهایی.

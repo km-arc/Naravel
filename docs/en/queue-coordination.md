@@ -1,7 +1,7 @@
 # Naravel.Queue.Coordination (job middleware that coordinates workers)
 
-Status: `WithoutOverlapping`, `RateLimited` and `ThrottlesExceptions` are available. `UniqueJob` (reject a duplicate at dispatch) is the
-remaining part of R08 and is not available yet. Decision record: [PDR-012b](../pdr/en/PDR-012b-queue-coordination-middleware.md).
+Status: `WithoutOverlapping`, `RateLimited`, `ThrottlesExceptions` and unique jobs (`IUniqueJob`, reject a duplicate at dispatch) are available.
+Decision record: [PDR-012b](../pdr/en/PDR-012b-queue-coordination-middleware.md).
 
 ## Quickstart
 
@@ -31,7 +31,7 @@ same invoice twice at once" or "stay under the API quota" needs a store that all
 the Cache rate limiter. These middleware are the thin job-level rules on top of them. The key is always text you choose; nothing is derived
 from a class name.
 
-## The three middleware
+## The three middleware (and unique jobs)
 
 | Middleware | What it does | When it cannot run the job |
 |---|---|---|
@@ -79,6 +79,66 @@ jobs of that type are released without running, instead of burning their attempt
 to the normal retry policy, a success resets the counter, and worker shutdown (`OperationCanceledException`) is not counted. By default all jobs of one
 type share a circuit; pass `key:` to choose another.
 
+## Unique jobs (`IUniqueJob`)
+
+`WithoutOverlapping` lets a duplicate into the queue and holds it back at run time. A **unique job** is stricter: the duplicate is never queued.
+This is Laravel's `ShouldBeUnique`.
+
+```csharp
+public class BuildReportJob : Job, IUniqueJob
+{
+    public int ReportId { get; set; }
+
+    public string UniqueKey => $"report:{ReportId}";          // what "the same job" means
+    public TimeSpan UniqueFor => TimeSpan.FromMinutes(10);     // safety net only (default 1 hour)
+    // public bool UniqueUntilProcessing => true;              // optional, see below
+
+    public override Task HandleAsync(JobContext context, CancellationToken cancellationToken) { /* ... */ }
+}
+
+var id = await dispatcher.DispatchAsync(new BuildReportJob { ReportId = 7 });
+if (id is null)
+{
+    // an identical job is already waiting or running: nothing was queued
+}
+```
+
+**`DispatchAsync` now returns `Task<string?>`.** `null` means "rejected as a duplicate". For any job that is not unique the result is
+never `null`, so existing code keeps working apart from the nullable annotation.
+
+| Situation | What happens to the key |
+|---|---|
+| Job finishes successfully | released by the worker |
+| Job fails and will be retried | **stays locked**, the retry is the same job |
+| Job fails permanently (attempts exhausted) | released, so a fresh dispatch can try again |
+| Middleware skips the job (`Skip()`) | released |
+| Middleware releases the job back (`Release(delay)`) | stays locked, the job is still pending |
+| `UniqueUntilProcessing => true` | released as soon as the job **starts**, so one more can queue while it runs |
+| Worker dies | released when `UniqueFor` ends |
+| The push to the queue itself fails | released immediately, so a broker outage does not block the key |
+
+Rules and limits:
+
+- **Needs `AddQueueCoordination()`.** `Naravel.Queue` itself has no Cache dependency, so the lock lives in this package. Dispatching an `IUniqueJob`
+  without it **throws** with a message that names `AddQueueCoordination()`; uniqueness is never silently ignored.
+- **Not in chains or batches.** A rejected link would stall a chain and a rejected job would leave a batch that never completes, so `Chain(...)` and
+  `BatchAsync(...)` throw `ArgumentException` for an `IUniqueJob`. Dispatch it on its own.
+- **Memory store = one process.** With the default Memory cache two worker processes do not see each other's keys. For uniqueness across processes use
+  Redis (or another shared store).
+- The key is text you choose, never a class name. A different job type with the same key is "the same job".
+- Release is owner-checked: a worker that finished late, after the key expired and a newer dispatch took it, cannot free the newer dispatch's key.
+- Acquiring the key and recording its owner are two writes. A crash between them leaves the key locked until `UniqueFor` ends (never forever).
+
+### Why it is built this way
+
+| Choice | Reason |
+|---|---|
+| A rejected dispatch returns `null` (owner decision 2026-10-13) | Laravel returns nothing for a rejected unique dispatch too; an exception would make a normal, expected event look like an error, and a made-up id would lie about a job that does not exist. |
+| The gate is an interface in `Naravel.Queue` (`IUniqueJobGate`), implemented in `Naravel.Queue.Coordination` | Queue-only users must not pull Cache (AGENTS.md rule 3). The core only knows "ask the gate"; the Cache lock stays in the adapter. |
+| The lock owner is the **message id** | The worker that releases the key knows the message id but not the lock token. Storing the token in the queued envelope would need a new column in every Database queue table. The adapter keeps `messageId|token` next to the lock instead, so no driver or schema changes. |
+| Throw when no gate is registered | A unique job that silently allows duplicates is worse than one that fails loudly on the first dispatch. |
+| Default `UniqueFor` of one hour | Laravel's default is "until the job finishes" with no bound, which turns one crashed worker into a permanently blocked key. A TTL bound is the safe default; raise it for long jobs. |
+
 ## What is and is not guaranteed
 
 | Store | Coordination holds |
@@ -96,3 +156,6 @@ type share a circuit; pass `key:` to choose another.
 
 The middleware read the lock and limiter from the job's service provider, so tests can register a Memory Cache or a fake. The repository's tests run them
 through a real worker (`tests/Naravel.Queue.Coordination.Tests`), and a Redis test with two workers runs when `NARAVEL_TEST_REDIS` is set.
+
+For unique jobs, `Naravel.Queue.Testing.QueueFake` mimics the gate: a second dispatch of the same `UniqueKey` returns `null` and is not recorded, and keys stay
+locked until `Reset()` because the fake never runs jobs. Use `AssertNotDispatched<TJob>()` and `AssertDispatchedCount<TJob>(n)` to check the outcome.

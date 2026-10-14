@@ -6,8 +6,11 @@ namespace Naravel.Queue.Dispatch;
 /// <summary>Entry point for pushing jobs onto queues. Equivalent to Laravel's Bus/Queue facade.</summary>
 public interface IJobDispatcher
 {
-    /// <summary>Dispatch a single job. Returns the generated message id.</summary>
-    Task<string> DispatchAsync(IJob job, Action<DispatchOptions>? configure = null, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Dispatch a single job. Returns the generated message id, or <see langword="null"/> when the job is an
+    /// <see cref="IUniqueJob"/> and an identical one is already pending or running (the dispatch was rejected, nothing was queued).
+    /// </summary>
+    Task<string?> DispatchAsync(IJob job, Action<DispatchOptions>? configure = null, CancellationToken cancellationToken = default);
 
     /// <summary>Build a chain of jobs that run one after another, only continuing if the previous one succeeds.</summary>
     JobChain Chain(params IJob[] jobs);

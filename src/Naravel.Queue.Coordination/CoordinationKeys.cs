@@ -7,6 +7,10 @@ internal static class CoordinationKeys
 
     public static string Overlap(string key) => $"{Prefix}overlap:{key}";
 
+    public static string Unique(string key) => $"{Prefix}unique:{key}";
+
+    public static string UniqueOwner(string key) => $"{Prefix}unique:{key}:owner";
+
     public static string Limiter(string limiter) => $"{Prefix}limiter:{limiter}";
 
     public static string ThrottleCount(string key) => $"{Prefix}throttle:{key}:count";

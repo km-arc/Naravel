@@ -226,6 +226,8 @@ public class QueueWorkerService : BackgroundService
             Func<Task> handler = async () =>
             {
                 context.JobExecuted = true;
+                if (job is IUniqueJob { UniqueUntilProcessing: true })
+                    await ReleaseUniqueAsync(job, message);
                 await job.HandleAsync(context, jobToken);
             };
             var middlewares = (job is IHasJobMiddleware own ? own.Middleware(context) : Enumerable.Empty<IJobMiddleware>())
@@ -251,6 +253,7 @@ public class QueueWorkerService : BackgroundService
                 if (context.Outcome == JobOutcome.Skipped)
                 {
                     await driver.AckAsync(message, stoppingToken);
+                    await ReleaseUniqueAsync(job, message);
                     QueueTelemetry.Outcome.Add(1, new KeyValuePair<string, object?>("outcome", "skipped"));
                     if (!string.IsNullOrEmpty(message.BatchId))
                         await _batchRepository.MarkJobCancelledAsync(message.BatchId, stoppingToken);
@@ -264,6 +267,7 @@ public class QueueWorkerService : BackgroundService
             // job instead of silently losing the chain. Jobs must therefore be idempotent (documented in README).
             await ContinueChainAsync(message, context, stoppingToken);
             await driver.AckAsync(message, stoppingToken);
+            await ReleaseUniqueAsync(job, message);
             QueueTelemetry.Processed.Add(1);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -294,6 +298,25 @@ public class QueueWorkerService : BackgroundService
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Naravel.Queue: job {JobId} completed, but post-completion bookkeeping failed.", message.Id);
+        }
+    }
+
+    /// <summary>
+    /// Frees the <see cref="IUniqueJob"/> key of a finished job. Never throws: it runs on the success path after the
+    /// message was acknowledged, where an exception would re-queue a completed job. A failure here only leaves the key
+    /// locked until its TTL, which is logged.
+    /// </summary>
+    private async Task ReleaseUniqueAsync(IJob? job, QueuedMessage message)
+    {
+        if (job is not IUniqueJob unique) return;
+        try
+        {
+            var gate = _rootProvider.GetService<IUniqueJobGate>();
+            if (gate is not null) await gate.ReleaseAsync(unique.UniqueKey, message.Id, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Naravel.Queue: could not release the unique key of job {JobId}; it stays locked until its TTL expires.", message.Id);
         }
     }
 
@@ -359,6 +382,7 @@ public class QueueWorkerService : BackgroundService
                 return;
             }
 
+            await ReleaseUniqueAsync(job, message);
             QueueTelemetry.Failed.Add(1);
             _logger.LogError(ex, "Naravel.Queue: job {JobId} on queue '{Queue}' failed permanently after {Attempts} attempts.",
                 message.Id, message.Queue, message.Attempts);

@@ -77,6 +77,9 @@ var dispatcher = app.Services.GetRequiredService<IJobDispatcher>();
 await dispatcher.DispatchAsync(new SendWelcomeEmailJob("ali@example.com"));
 ```
 
+`DispatchAsync` شناسهٔ پیام را به‌صورت `string?` برمی‌گرداند. فقط وقتی `null` است که job از نوع `IUniqueJob` باشد و job یکسانی از قبل در انتظار یا در حال اجرا باشد
+(dispatch رد شد و چیزی وارد صف نشد). به [queue-coordination](queue-coordination.md) بخش «jobهای یکتا» نگاه کنید.
+
 ## ثبت Job
 
 فرآیند dispatch نوع CLR هر job را در همان process ثبت می‌کند. processای که فقط worker اجرا می‌کند باید همهٔ jobهایی را

@@ -88,16 +88,16 @@ Naravel.Queue.Dispatch.DispatchOptions.WithPriority(int priority) -> Naravel.Que
 Naravel.Queue.Dispatch.IJobDispatcher
 Naravel.Queue.Dispatch.IJobDispatcher.BatchAsync(System.Collections.Generic.IEnumerable<Naravel.Queue.Jobs.IJob!>! jobs, System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure = null, System.Action<Naravel.Queue.Batching.BatchOptions!>? batchConfigure = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Naravel.Queue.Batching.QueueBatch!>!
 Naravel.Queue.Dispatch.IJobDispatcher.Chain(params Naravel.Queue.Jobs.IJob![]! jobs) -> Naravel.Queue.Dispatch.JobChain!
-Naravel.Queue.Dispatch.IJobDispatcher.DispatchAsync(Naravel.Queue.Jobs.IJob! job, System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
+Naravel.Queue.Dispatch.IJobDispatcher.DispatchAsync(Naravel.Queue.Jobs.IJob! job, System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string?>!
 Naravel.Queue.Dispatch.IJobDispatcher.DispatchChainAsync(System.Collections.Generic.IReadOnlyList<Naravel.Queue.Jobs.IJob!>! remainingJobs, System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<string!>!
 Naravel.Queue.Dispatch.JobChain
 Naravel.Queue.Dispatch.JobChain.DispatchAsync(System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
 Naravel.Queue.Dispatch.JobDispatcher
 Naravel.Queue.Dispatch.JobDispatcher.BatchAsync(System.Collections.Generic.IEnumerable<Naravel.Queue.Jobs.IJob!>! jobs, System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure = null, System.Action<Naravel.Queue.Batching.BatchOptions!>? batchConfigure = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Naravel.Queue.Batching.QueueBatch!>!
 Naravel.Queue.Dispatch.JobDispatcher.Chain(params Naravel.Queue.Jobs.IJob![]! jobs) -> Naravel.Queue.Dispatch.JobChain!
-Naravel.Queue.Dispatch.JobDispatcher.DispatchAsync(Naravel.Queue.Jobs.IJob! job, System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
+Naravel.Queue.Dispatch.JobDispatcher.DispatchAsync(Naravel.Queue.Jobs.IJob! job, System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string?>!
 Naravel.Queue.Dispatch.JobDispatcher.DispatchChainAsync(System.Collections.Generic.IReadOnlyList<Naravel.Queue.Jobs.IJob!>! remainingJobs, System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<string!>!
-Naravel.Queue.Dispatch.JobDispatcher.JobDispatcher(Naravel.Queue.QueueManager! manager, Naravel.Queue.Serialization.IJobSerializer! serializer, Naravel.Queue.Serialization.IJobTypeRegistry! jobTypes, Naravel.Queue.Batching.IBatchRepository! batchRepository) -> void
+Naravel.Queue.Dispatch.JobDispatcher.JobDispatcher(Naravel.Queue.QueueManager! manager, Naravel.Queue.Serialization.IJobSerializer! serializer, Naravel.Queue.Serialization.IJobTypeRegistry! jobTypes, Naravel.Queue.Batching.IBatchRepository! batchRepository, Naravel.Queue.Dispatch.IUniqueJobGate? uniqueGate = null) -> void
 Naravel.Queue.Drivers.ConfigurationSectionExtensions
 Naravel.Queue.Drivers.IQueueDriver
 Naravel.Queue.Drivers.IQueueDriver.AckAsync(Naravel.Queue.Drivers.QueuedMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
@@ -232,7 +232,7 @@ Naravel.Queue.Testing.QueueFake.AssertChained<TJob>() -> System.Collections.Gene
 Naravel.Queue.Testing.QueueFake.AssertDispatched<TJob>() -> TJob!
 Naravel.Queue.Testing.QueueFake.BatchAsync(System.Collections.Generic.IEnumerable<Naravel.Queue.Jobs.IJob!>! jobs, System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure = null, System.Action<Naravel.Queue.Batching.BatchOptions!>? batchConfigure = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Naravel.Queue.Batching.QueueBatch!>!
 Naravel.Queue.Testing.QueueFake.Chain(params Naravel.Queue.Jobs.IJob![]! jobs) -> Naravel.Queue.Dispatch.JobChain!
-Naravel.Queue.Testing.QueueFake.DispatchAsync(Naravel.Queue.Jobs.IJob! job, System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
+Naravel.Queue.Testing.QueueFake.DispatchAsync(Naravel.Queue.Jobs.IJob! job, System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string?>!
 Naravel.Queue.Testing.QueueFake.DispatchChainAsync(System.Collections.Generic.IReadOnlyList<Naravel.Queue.Jobs.IJob!>! remainingJobs, System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<string!>!
 Naravel.Queue.Testing.QueueFake.QueueFake() -> void
 Naravel.Queue.Testing.QueueFake.Reset() -> void
@@ -303,3 +303,12 @@ Naravel.Queue.Jobs.JobContext.Release(System.TimeSpan delay) -> void
 Naravel.Queue.Jobs.JobContext.Skip() -> void
 Naravel.Queue.Middleware.IHasJobMiddleware
 Naravel.Queue.Middleware.IHasJobMiddleware.Middleware(Naravel.Queue.Jobs.JobContext! context) -> System.Collections.Generic.IEnumerable<Naravel.Queue.Middleware.IJobMiddleware!>!
+Naravel.Queue.Dispatch.IUniqueJobGate
+Naravel.Queue.Dispatch.IUniqueJobGate.ReleaseAsync(string! key, string! owner, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Naravel.Queue.Dispatch.IUniqueJobGate.TryAcquireAsync(string! key, string! owner, System.TimeSpan ttl, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
+Naravel.Queue.Jobs.IUniqueJob
+Naravel.Queue.Jobs.IUniqueJob.UniqueFor.get -> System.TimeSpan
+Naravel.Queue.Jobs.IUniqueJob.UniqueKey.get -> string!
+Naravel.Queue.Jobs.IUniqueJob.UniqueUntilProcessing.get -> bool
+Naravel.Queue.Testing.QueueFake.AssertDispatchedCount<TJob>(int expected) -> void
+Naravel.Queue.Testing.QueueFake.AssertNotDispatched<TJob>() -> void

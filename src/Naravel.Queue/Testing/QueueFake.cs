@@ -14,16 +14,37 @@ public sealed class QueueFake : IJobDispatcher
     private readonly object _gate = new();
     private readonly List<IJob> _dispatched = new();
     private readonly List<IReadOnlyList<IJob>> _chains = new();
+    private readonly HashSet<string> _uniqueKeys = new(StringComparer.Ordinal);
 
-    public Task<string> DispatchAsync(IJob job, Action<DispatchOptions>? configure = null, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Records the job. For an <see cref="IUniqueJob"/> the fake mimics the real gate: a second dispatch of the same key
+    /// returns <see langword="null"/> and is not recorded; keys stay locked until <see cref="Reset"/> because the fake never runs jobs.
+    /// </summary>
+    public Task<string?> DispatchAsync(IJob job, Action<DispatchOptions>? configure = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         configure?.Invoke(new DispatchOptions());
-        lock (_gate) _dispatched.Add(job);
-        return Task.FromResult(Guid.NewGuid().ToString("N"));
+        lock (_gate)
+        {
+            if (job is IUniqueJob unique && !_uniqueKeys.Add(unique.UniqueKey))
+                return Task.FromResult<string?>(null);
+            _dispatched.Add(job);
+        }
+        return Task.FromResult<string?>(Guid.NewGuid().ToString("N"));
     }
 
-    public JobChain Chain(params IJob[] jobs) => new(this, jobs);
+    public JobChain Chain(params IJob[] jobs)
+    {
+        RejectUniqueJobs(jobs, "a chain");
+        return new(this, jobs);
+    }
+
+    private static void RejectUniqueJobs(IEnumerable<IJob> jobs, string container)
+    {
+        var unique = jobs.OfType<IUniqueJob>().FirstOrDefault();
+        if (unique is not null)
+            throw new ArgumentException($"{unique.GetType().Name} implements IUniqueJob and cannot be part of {container}.", "jobs");
+    }
 
     public Task<string> DispatchChainAsync(
         IReadOnlyList<IJob> remainingJobs,
@@ -33,6 +54,7 @@ public sealed class QueueFake : IJobDispatcher
         cancellationToken.ThrowIfCancellationRequested();
         if (remainingJobs.Count == 0)
             throw new ArgumentException("Chain has no jobs left to dispatch.", nameof(remainingJobs));
+        RejectUniqueJobs(remainingJobs, "a chain");
         configure?.Invoke(new DispatchOptions());
         lock (_gate)
         {
@@ -50,6 +72,7 @@ public sealed class QueueFake : IJobDispatcher
     {
         cancellationToken.ThrowIfCancellationRequested();
         var batchJobs = jobs.ToArray();
+        RejectUniqueJobs(batchJobs, "a batch");
         var options = new BatchOptions();
         batchConfigure?.Invoke(options);
         configure?.Invoke(new DispatchOptions());
@@ -62,6 +85,28 @@ public sealed class QueueFake : IJobDispatcher
         lock (_gate)
             return _dispatched.OfType<TJob>().FirstOrDefault()
                 ?? throw new InvalidOperationException($"No {typeof(TJob).Name} job was dispatched.");
+    }
+
+    /// <summary>Fails when a <typeparamref name="TJob"/> was dispatched (rejected unique duplicates are not recorded, so they pass).</summary>
+    public void AssertNotDispatched<TJob>() where TJob : class, IJob
+    {
+        lock (_gate)
+        {
+            var count = _dispatched.OfType<TJob>().Count();
+            if (count > 0)
+                throw new InvalidOperationException($"Expected no {typeof(TJob).Name} job to be dispatched, but {count} {(count == 1 ? "was" : "were")}.");
+        }
+    }
+
+    /// <summary>Fails unless exactly <paramref name="expected"/> jobs of type <typeparamref name="TJob"/> were dispatched.</summary>
+    public void AssertDispatchedCount<TJob>(int expected) where TJob : class, IJob
+    {
+        lock (_gate)
+        {
+            var count = _dispatched.OfType<TJob>().Count();
+            if (count != expected)
+                throw new InvalidOperationException($"Expected {expected} {typeof(TJob).Name} dispatch(es), but found {count}.");
+        }
     }
 
     public IReadOnlyList<TJob> AssertChained<TJob>() where TJob : class, IJob
@@ -81,6 +126,7 @@ public sealed class QueueFake : IJobDispatcher
         {
             _dispatched.Clear();
             _chains.Clear();
+            _uniqueKeys.Clear();
         }
     }
 }
