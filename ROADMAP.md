@@ -37,7 +37,7 @@ needs the EN+FA PDR.
 | R05 | Http.Middleware + routing completion (legacy 4b) | R04 | GO | DONE (2026-10-06; Release restore/build/test, 233 passed, 7 skipped; routing benchmark and roadmap check passed) |
 | R06 | Events (PDR-011) | R00 | PDR | DONE (2026-10-07; Release restore/build/test, 243 passed, 8 skipped; Events benchmark 137.8 ns/24 B; roadmap check passed) |
 | R07 | Queue completion A: failed jobs, attempts/timeouts, batches, worker controls, RabbitMQ async, metrics, fake (PDR-012) | R01 | PDR | DONE (2026-10-13; all residual tasks R07.T03-T11 merged; CI green on main at 02e27ef on ubuntu/windows/macos plus the services job with Redis, RabbitMQ, Memcached and Kafka; roadmap check passed; no local .NET SDK, so CI is the verification) |
-| R08 | Queue completion B: unique/overlap/rate-limited/throttle middleware (needs Cache) | R04, R07 | PDR | TODO |
+| R08 | Queue completion B: unique/overlap/rate-limited/throttle middleware (needs Cache) | R04, R07 | PDR | DOING |
 | R09 | Mail (PDR-013) | R06, R07 | PDR | TODO |
 | R10 | Notifications (PDR-014) | R07, R09 | PDR | TODO |
 | R11 | Session (PDR-015) | R04, R05 | PDR | TODO |

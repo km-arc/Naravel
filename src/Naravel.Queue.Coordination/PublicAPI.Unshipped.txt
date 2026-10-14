@@ -1,0 +1,27 @@
+#nullable enable
+Microsoft.Extensions.DependencyInjection.CoordinationServiceCollectionExtensions
+Naravel.Queue.Coordination.RateLimited
+Naravel.Queue.Coordination.RateLimited.InvokeAsync(Naravel.Queue.Jobs.JobContext! context, System.Func<System.Threading.Tasks.Task!>! next) -> System.Threading.Tasks.Task!
+Naravel.Queue.Coordination.RateLimited.Limiter.get -> string!
+Naravel.Queue.Coordination.RateLimited.MaxAttempts.get -> long
+Naravel.Queue.Coordination.RateLimited.RateLimited(string! limiter, long maxAttempts, System.TimeSpan window, string! subject = "global") -> void
+Naravel.Queue.Coordination.RateLimited.Subject.get -> string!
+Naravel.Queue.Coordination.RateLimited.Window.get -> System.TimeSpan
+Naravel.Queue.Coordination.ThrottlesExceptions
+Naravel.Queue.Coordination.ThrottlesExceptions.Backoff.get -> System.TimeSpan
+Naravel.Queue.Coordination.ThrottlesExceptions.InvokeAsync(Naravel.Queue.Jobs.JobContext! context, System.Func<System.Threading.Tasks.Task!>! next) -> System.Threading.Tasks.Task!
+Naravel.Queue.Coordination.ThrottlesExceptions.Key.get -> string?
+Naravel.Queue.Coordination.ThrottlesExceptions.MaxExceptions.get -> int
+Naravel.Queue.Coordination.ThrottlesExceptions.ThrottlesExceptions(int maxExceptions, System.TimeSpan window, System.TimeSpan backoff, string? key = null) -> void
+Naravel.Queue.Coordination.ThrottlesExceptions.Window.get -> System.TimeSpan
+Naravel.Queue.Coordination.WithoutOverlapping
+Naravel.Queue.Coordination.WithoutOverlapping.DontRelease() -> Naravel.Queue.Coordination.WithoutOverlapping!
+Naravel.Queue.Coordination.WithoutOverlapping.ExpireAfter(System.TimeSpan ttl) -> Naravel.Queue.Coordination.WithoutOverlapping!
+Naravel.Queue.Coordination.WithoutOverlapping.InvokeAsync(Naravel.Queue.Jobs.JobContext! context, System.Func<System.Threading.Tasks.Task!>! next) -> System.Threading.Tasks.Task!
+Naravel.Queue.Coordination.WithoutOverlapping.Key.get -> string!
+Naravel.Queue.Coordination.WithoutOverlapping.LockTtl.get -> System.TimeSpan
+Naravel.Queue.Coordination.WithoutOverlapping.ReleaseAfter(System.TimeSpan delay) -> Naravel.Queue.Coordination.WithoutOverlapping!
+Naravel.Queue.Coordination.WithoutOverlapping.ReleaseDelay.get -> System.TimeSpan
+Naravel.Queue.Coordination.WithoutOverlapping.ReleasesWhenLocked.get -> bool
+Naravel.Queue.Coordination.WithoutOverlapping.WithoutOverlapping(string! key) -> void
+static Microsoft.Extensions.DependencyInjection.CoordinationServiceCollectionExtensions.AddQueueCoordination(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, string? rateLimiterStore = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

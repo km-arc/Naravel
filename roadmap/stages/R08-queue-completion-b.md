@@ -8,6 +8,6 @@ Out of scope: cache/lock internals (R04); Redis topology (R03).
 Decisions: Memory locks are single-process: never promise cross-process uniqueness from them (docs must say so).
 
 ## Tasks
-- [ ] **R08.T01 — PDR-012b:** per-job middleware contract (`IJobWithMiddleware`), module boundary (adapter project vs reference), semantics of unique/overlap/rate-limited/throttle-exceptions. **Accept:** PDR EN+FA. Drafted 2026-10-13 as `docs/pdr/*/PDR-012b-queue-coordination-middleware.md`; awaiting owner approval (no code before approval).
-- [ ] **R08.T02 — Middleware:** `UniqueJob` (key + lock TTL), `WithoutOverlapping`, `RateLimited` (R04), `ThrottlesExceptions`. Debounce moved to `roadmap/BACKLOG.md` (owner, 2026-10-13). **Accept:** unit tests with Memory lock; **cross-process** uniqueness proven by an env-gated Redis test with two workers.
+- [x] **R08.T01 — PDR-012b:** per-job middleware contract (`IJobWithMiddleware`), module boundary (adapter project vs reference), semantics of unique/overlap/rate-limited/throttle-exceptions. **Accept:** PDR EN+FA. (Approved 2026-10-13.) Drafted 2026-10-13 as `docs/pdr/*/PDR-012b-queue-coordination-middleware.md`; awaiting owner approval (no code before approval).
+- [ ] **R08.T02 — Middleware (partial: `WithoutOverlapping`, `RateLimited`, `ThrottlesExceptions` done; `UniqueJob` pending; debounce moved to BACKLOG):** `UniqueJob` (key + lock TTL), `WithoutOverlapping`, `RateLimited` (R04), `ThrottlesExceptions`. Debounce moved to `roadmap/BACKLOG.md` (owner, 2026-10-13). **Accept:** unit tests with Memory lock; **cross-process** uniqueness proven by an env-gated Redis test with two workers.
 - [ ] **R08.T03 — Validate:** fake support, docs EN/FA, parity/status/changelog, full verification. **Accept:** DoD 5–7.

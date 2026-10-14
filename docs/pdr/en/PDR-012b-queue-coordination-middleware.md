@@ -2,7 +2,7 @@
 
 **Native-first verdict:** .NET has no job-level coordination primitive: `System.Threading.RateLimiting` is in-process, `SemaphoreSlim`/`lock` do not cross processes, and broker acknowledgements say nothing about *which* jobs may run together. Cross-process coordination therefore needs a shared store, which Naravel already has: `ICacheLock` and `IRateLimiter` from PDR-007/007a (R04). Naravel should add only the thin job-level policy on top of them, not a second locking or limiting engine.
 
-Status: **PROPOSED 2026-10-13, awaiting owner approval.** Owner pre-decisions given in conversation on 2026-10-13: the module boundary is a **separate adapter project**, and **debounce is moved to `roadmap/BACKLOG.md`** (out of R08).
+Status: **APPROVED 2026-10-13.** Owner pre-decisions given in conversation on 2026-10-13: the module boundary is a **separate adapter project**, and **debounce is moved to `roadmap/BACKLOG.md`** (out of R08).
 
 ## Context
 
@@ -68,4 +68,13 @@ Regression test first for the core change: a middleware that returns without `ne
 
 ## Approval
 
-Not yet approved. Open questions for the owner: (a) exact return shape of a rejected unique dispatch; (b) whether the behavior change to short-circuiting middleware (section 2) is accepted as pre-1.0 breaking.
+Owner approved on 2026-10-13 with these answers to the open questions:
+
+- **(a) Rejected unique dispatch returns `null`.** `IJobDispatcher.DispatchAsync` becomes `Task<string?>`; `null` means the dispatch was rejected as a duplicate. This is implemented together with `UniqueJob`, not yet.
+- **(b) The short-circuit behavior change is accepted as pre-1.0 breaking.** A middleware that neither calls `next` nor sets an outcome fails the job. The core change (section 2) was already merged (PR #31); it is listed in `CHANGELOG.md`.
+
+## Implementation record
+
+- 2026-10-13: `Naravel.Queue.Coordination` with `WithoutOverlapping`, `RateLimited`, `ThrottlesExceptions` and `AddQueueCoordination()`; tests in `tests/Naravel.Queue.Coordination.Tests` (Memory through a real worker, plus an env-gated Redis test with two workers); EN/FA `docs/*/queue-coordination.md`. Tests were NOT RUN locally (no .NET SDK); CI is the verification.
+- Deviations from section 3, all small: the default lock lifetime is a fixed 15 minutes because middleware cannot see the job's timeout (set `ExpireAfter` above the longest run); `AddQueueCoordination()` fails at startup when Cache is missing but does not yet warn about a Memory store combined with a non-Memory queue connection (the docs state the limit).
+- Not done yet: `UniqueJob` (needs a dispatch hook and the `string?` return), the fake's `AssertNotDispatched`, the `outcome` meter tag, and the parity table (R08.T03).
