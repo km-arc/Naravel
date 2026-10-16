@@ -46,8 +46,16 @@ needs the EN+FA PDR.
 | R14 | Broadcasting (PDR-018) | R06, R07 | PDR | TODO |
 | R15 | Hashing (PDR-019) | - | PDR | TODO |
 | R16 | Pagination (PDR-020) | - | PDR | TODO |
-| R17 | Release hardening + re-audit | R01, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18 | owner approvals | TODO |
+| R17 | Release hardening + re-audit | R01, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19, R20, R21, R22, R23, R24, R25, R26 | owner approvals | TODO |
 | R18 | Encryption facade + encrypted jobs (PDR-021) | R07 | PDR | TODO |
+| R19 | Query builder: Database core, SQLite and basic queries (PDR-022) | R01 | PDR | TODO |
+| R20 | Query builder: MySQL, PostgreSQL and SQL Server (PDR-022) | R19 | PDR | TODO |
+| R21 | Query builder: Where family, joins, grouping and ordering helpers (PDR-022) | R20 | PDR | TODO |
+| R22 | Query builder: Aggregates, existence and streaming (PDR-022) | R21 | PDR | TODO |
+| R23 | Query builder: Insert, update, upsert and delete (PDR-022) | R21 | PDR | TODO |
+| R24 | Query builder: Unions, subqueries, CTEs, locks, raw and debugging (PDR-022) | R21 | PDR | TODO |
+| R25 | Query builder: Transactions and EF Core interop (PDR-022) | R23 | PDR | TODO |
+| R26 | Query builder: Pagination integration (PDR-022) | R22, R16 | PDR | TODO |
 
 R17 lists every stage in release scope; the owner may mark an out-of-scope stage `DECLINED`/`BLOCKED` to release without it.
 R02 was completed before this roadmap existed; its R00 dependency is nominal and does not invalidate it.
@@ -61,7 +69,7 @@ R02 was completed before this roadmap existed; its R00 dependency is nominal and
 - `roadmap/check.py` enforces this: it fails on a hand-typed test count or a repeated stage status outside those places. Put
   `<!-- check:allow-count -->` on a line only when a number is not a test total (for example HTTP status codes).
 
-**Default order:** R09 → R10 → R18 → R03 → R15 → R16 → R11 → R12 → R13 → R14 → R17.
+**Default order:** R09 → R19 → R20 → R21 → R22 → R23 → R24 → R25 → R10 → R18 → R03 → R15 → R16 → R26 → R11 → R12 → R13 → R14 → R17.
 Rationale: correctness and proof first (R00, R01); then the two modules that carry the project's value (Queue, Cache);
 then the most Laravel-feeling features (middleware, events, mail); thin or likely-native stages last.
 Never run two stages that edit the same project in parallel. Parallel-safe: R15, R16, R06 touch no other module.
@@ -89,6 +97,7 @@ and stop. The owner approves the wave in one review; afterwards the stages run w
 - **Wave A:** PDR-007a (R04), PDR-012 (R07); GO for R05.
 - **Wave B:** PDR-011 (R06), PDR-013 (R09), PDR-014 (R10), PDR-021 (R18).
 - **Wave C:** PDR-010 (R03), PDR-019, 020, 015, 016, 017, 018.
+- **Wave D:** PDR-022 (R19-R26, query builder; owner pre-decisions 2026-10-16).
 Every PDR opens with a **native-first verdict** (can plain .NET do this in ≤ 3 lines?) and may conclude `DECLINED`.
 
 ## Definition of done (every stage)
