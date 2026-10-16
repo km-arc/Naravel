@@ -103,11 +103,11 @@ var service = new SignupService(fake);          // IMailer می‌گیرد
 await service.RegisterAsync("ada@example.com");
 
 fake.AssertSent(m => m.To.Contains("ada@example.com") && m.Subject == "Welcome");
-fake.AssertSent(1);
+fake.AssertSentCount(1);
 fake.AssertNothingQueued();
 ```
 
-`MailFake` در `Naravel.Mail.Testing` است و `IMailer` را پیاده می‌کند. پیام‌های `Sent` و `Queued` را ثبت می‌کند، `AssertSent`، `AssertQueued`، `AssertNothingSent`، `AssertNothingQueued` و `Reset` دارد و هنگام شکست assertion `InvalidOperationException` با پیام خوانا می‌دهد. برای بررسی ارسال‌های واقعی `MailManager` از transport با نام `array` استفاده کنید.
+`MailFake` در `Naravel.Mail.Testing` است و `IMailer` را پیاده می‌کند. پیام‌های `Sent` و `Queued` را ثبت می‌کند، `AssertSent`، `AssertSentCount`، `AssertQueued`، `AssertNothingSent`، `AssertNothingQueued` و `Reset` دارد و هنگام شکست assertion `InvalidOperationException` با پیام خوانا می‌دهد. برای بررسی ارسال‌های واقعی `MailManager` از transport با نام `array` استفاده کنید.
 
 ## مرجع پیکربندی
 

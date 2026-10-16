@@ -50,7 +50,7 @@ Naravel.Mail.Testing.MailFake
 Naravel.Mail.Testing.MailFake.AssertNothingQueued() -> void
 Naravel.Mail.Testing.MailFake.AssertNothingSent() -> void
 Naravel.Mail.Testing.MailFake.AssertQueued(System.Func<Naravel.Mail.MailMessage!, bool>? predicate = null) -> Naravel.Mail.MailMessage!
-Naravel.Mail.Testing.MailFake.AssertSent(int expectedCount) -> System.Collections.Generic.IReadOnlyList<Naravel.Mail.MailMessage!>!
+Naravel.Mail.Testing.MailFake.AssertSentCount(int expectedCount) -> System.Collections.Generic.IReadOnlyList<Naravel.Mail.MailMessage!>!
 Naravel.Mail.Testing.MailFake.AssertSent(System.Func<Naravel.Mail.MailMessage!, bool>? predicate = null) -> Naravel.Mail.MailMessage!
 Naravel.Mail.Testing.MailFake.DefaultFrom.get -> string?
 Naravel.Mail.Testing.MailFake.DefaultFrom.set -> void
