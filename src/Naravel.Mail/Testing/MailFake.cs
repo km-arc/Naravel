@@ -55,7 +55,7 @@ public sealed class MailFake : IMailer
     /// <summary>Asserts that exactly <paramref name="expectedCount"/> messages were sent.</summary>
     /// <param name="expectedCount">The expected number of sent messages.</param>
     /// <exception cref="InvalidOperationException">The count differs.</exception>
-    public IReadOnlyList<MailMessage> AssertSent(int expectedCount)
+    public IReadOnlyList<MailMessage> AssertSentCount(int expectedCount)
     {
         var sent = _sent.ToArray();
         return sent.Length == expectedCount

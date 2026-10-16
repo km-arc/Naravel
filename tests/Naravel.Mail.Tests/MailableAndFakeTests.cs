@@ -79,10 +79,10 @@ public class MailableAndFakeTests
         await fake.To("b@example.com").QueueAsync(new WelcomeMail("Bob"));
 
         fake.AssertSent(m => m.To.Contains("a@example.com")).Subject.Should().Be("Welcome");
-        fake.AssertSent(1).Should().HaveCount(1);
+        fake.AssertSentCount(1).Should().HaveCount(1);
         fake.AssertQueued(m => m.To.Contains("b@example.com")).TextBody.Should().Be("Hi Bob");
         ((Action)(() => fake.AssertSent(m => m.To.Contains("b@example.com")))).Should().Throw<InvalidOperationException>();
-        ((Action)(() => fake.AssertSent(2))).Should().Throw<InvalidOperationException>();
+        ((Action)(() => fake.AssertSentCount(2))).Should().Throw<InvalidOperationException>();
         ((Action)fake.AssertNothingSent).Should().Throw<InvalidOperationException>();
         ((Action)fake.AssertNothingQueued).Should().Throw<InvalidOperationException>();
 
