@@ -1,0 +1,14 @@
+# R22 — Query builder: Aggregates, existence and streaming
+
+Parity section: `R22` in [../PARITY-MATRIX.md](../PARITY-MATRIX.md).
+Gate: PDR-022 (EN+FA) approved first.
+Read: PDR-022, the coverage ledger rows for R22, `src/Naravel.Database/**` as left by R21.
+Touch: `src/Naravel.Database/**`, `tests/Naravel.Database*.Tests/**`, docs EN/FA.
+Out of scope: Pagination (R26); writes (R23).
+Decisions: Streaming uses `IAsyncEnumerable<T>` and never loads the full result set; chunking is stable under concurrent inserts only when ordered by a unique column, which the docs state.
+
+## Tasks
+- [ ] **R22.T01 — Aggregates:** `CountAsync`, `MinAsync`, `MaxAsync`, `SumAsync`, `AvgAsync`, `ExistsAsync`, `DoesntExistAsync`. **Accept:** SQL tests on four grammars; execution tests including empty tables (`Sum` of nothing is `null`/0 as documented).
+- [ ] **R22.T02 — Chunking:** `ChunkAsync`, `ChunkByIdAsync`, `ChunkMapAsync`, `EachAsync`, `EachByIdAsync`. **Accept:** tests with exact chunk boundaries, early stop, and rows added during iteration.
+- [ ] **R22.T03 — Lazy and cursor:** `LazyAsync`, `LazyByIdAsync`, `LazyByIdDescAsync`, `CursorAsync` as `IAsyncEnumerable`. **Accept:** memory-bounded test over a large SQLite table; cancellation disposes the reader and connection.
+- [ ] **R22.T04 — Validate:** Benchmark streaming vs buffered, docs EN/FA, parity, changelog, full verification. **Accept:** DoD 5-7.

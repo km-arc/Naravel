@@ -171,6 +171,70 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 - Native baseline: `IDataProtector` / `IDataProtectionProvider`; never implement cryptographic primitives.
 - API reference: [Illuminate Encryption](https://api.laravel.com/docs/13.x/Illuminate/Encryption/Encrypter.html).
 
+## R19 — Query builder: Database core, SQLite and basic queries
+
+- Laravel surface: the Laravel query builder; method ownership is listed in [QUERY-BUILDER-COVERAGE.md](QUERY-BUILDER-COVERAGE.md).
+- Naravel: `Naravel.Database` (PDR-022), own SQL compiler with MySQL, PostgreSQL, SQL Server and SQLite grammars, Dapper execution, EF Core interop.
+- Value: one dynamic, injection-safe query surface across four databases without owning entities or migrations.
+- Native baseline: ADO.NET, EF Core LINQ/`FromSql` and Dapper; the builder only fills the dynamic-composition gap.
+- API reference: [Laravel Query Builder](https://laravel.com/docs/queries).
+
+## R20 — Query builder: MySQL, PostgreSQL and SQL Server
+
+- Laravel surface: the Laravel query builder; method ownership is listed in [QUERY-BUILDER-COVERAGE.md](QUERY-BUILDER-COVERAGE.md).
+- Naravel: `Naravel.Database` (PDR-022), own SQL compiler with MySQL, PostgreSQL, SQL Server and SQLite grammars, Dapper execution, EF Core interop.
+- Value: one dynamic, injection-safe query surface across four databases without owning entities or migrations.
+- Native baseline: ADO.NET, EF Core LINQ/`FromSql` and Dapper; the builder only fills the dynamic-composition gap.
+- API reference: [Laravel Query Builder](https://laravel.com/docs/queries).
+
+## R21 — Query builder: Where family, joins, grouping and ordering helpers
+
+- Laravel surface: the Laravel query builder; method ownership is listed in [QUERY-BUILDER-COVERAGE.md](QUERY-BUILDER-COVERAGE.md).
+- Naravel: `Naravel.Database` (PDR-022), own SQL compiler with MySQL, PostgreSQL, SQL Server and SQLite grammars, Dapper execution, EF Core interop.
+- Value: one dynamic, injection-safe query surface across four databases without owning entities or migrations.
+- Native baseline: ADO.NET, EF Core LINQ/`FromSql` and Dapper; the builder only fills the dynamic-composition gap.
+- API reference: [Laravel Query Builder](https://laravel.com/docs/queries).
+
+## R22 — Query builder: Aggregates, existence and streaming
+
+- Laravel surface: the Laravel query builder; method ownership is listed in [QUERY-BUILDER-COVERAGE.md](QUERY-BUILDER-COVERAGE.md).
+- Naravel: `Naravel.Database` (PDR-022), own SQL compiler with MySQL, PostgreSQL, SQL Server and SQLite grammars, Dapper execution, EF Core interop.
+- Value: one dynamic, injection-safe query surface across four databases without owning entities or migrations.
+- Native baseline: ADO.NET, EF Core LINQ/`FromSql` and Dapper; the builder only fills the dynamic-composition gap.
+- API reference: [Laravel Query Builder](https://laravel.com/docs/queries).
+
+## R23 — Query builder: Insert, update, upsert and delete
+
+- Laravel surface: the Laravel query builder; method ownership is listed in [QUERY-BUILDER-COVERAGE.md](QUERY-BUILDER-COVERAGE.md).
+- Naravel: `Naravel.Database` (PDR-022), own SQL compiler with MySQL, PostgreSQL, SQL Server and SQLite grammars, Dapper execution, EF Core interop.
+- Value: one dynamic, injection-safe query surface across four databases without owning entities or migrations.
+- Native baseline: ADO.NET, EF Core LINQ/`FromSql` and Dapper; the builder only fills the dynamic-composition gap.
+- API reference: [Laravel Query Builder](https://laravel.com/docs/queries).
+
+## R24 — Query builder: Unions, subqueries, CTEs, locks, raw and debugging
+
+- Laravel surface: the Laravel query builder; method ownership is listed in [QUERY-BUILDER-COVERAGE.md](QUERY-BUILDER-COVERAGE.md).
+- Naravel: `Naravel.Database` (PDR-022), own SQL compiler with MySQL, PostgreSQL, SQL Server and SQLite grammars, Dapper execution, EF Core interop.
+- Value: one dynamic, injection-safe query surface across four databases without owning entities or migrations.
+- Native baseline: ADO.NET, EF Core LINQ/`FromSql` and Dapper; the builder only fills the dynamic-composition gap.
+- API reference: [Laravel Query Builder](https://laravel.com/docs/queries).
+
+## R25 — Query builder: Transactions and EF Core interop
+
+- Laravel surface: the Laravel query builder; method ownership is listed in [QUERY-BUILDER-COVERAGE.md](QUERY-BUILDER-COVERAGE.md).
+- Naravel: `Naravel.Database` (PDR-022), own SQL compiler with MySQL, PostgreSQL, SQL Server and SQLite grammars, Dapper execution, EF Core interop.
+- Value: one dynamic, injection-safe query surface across four databases without owning entities or migrations.
+- Native baseline: ADO.NET, EF Core LINQ/`FromSql` and Dapper; the builder only fills the dynamic-composition gap.
+- API reference: [Laravel Query Builder](https://laravel.com/docs/queries).
+
+## R26 — Query builder: Pagination integration
+
+- Laravel surface: the Laravel query builder; method ownership is listed in [QUERY-BUILDER-COVERAGE.md](QUERY-BUILDER-COVERAGE.md).
+- Naravel: `Naravel.Database` (PDR-022), own SQL compiler with MySQL, PostgreSQL, SQL Server and SQLite grammars, Dapper execution, EF Core interop.
+- Value: one dynamic, injection-safe query surface across four databases without owning entities or migrations.
+- Native baseline: ADO.NET, EF Core LINQ/`FromSql` and Dapper; the builder only fills the dynamic-composition gap.
+- API reference: [Laravel Query Builder](https://laravel.com/docs/queries).
+
 ## Coverage — all Laravel 13 `Illuminate\*` namespaces (REVIEW-01)
 
 Disposition only; each real adoption still needs its PDR. `Native` = .NET already solves it, nothing to build.
@@ -187,7 +251,8 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 | Container | Native (`Microsoft.Extensions.DependencyInjection`) | PDR-002 |
 | Contracts | Per-module interfaces | - |
 | Cookie | Native (ASP.NET Core) | - |
-| Database (Eloquent, migrations) | Native (EF Core); out of scope | BACKLOG |
+| Database: query builder | Adapted (own compiler, Dapper, EF interop; PDR-022) | R19-R26 |
+| Database: Eloquent, migrations | Native (EF Core); out of scope | BACKLOG |
 | Encryption | Thin facade over Data Protection (OD-03) | R18 |
 | Events | Adapt | R06 |
 | Filesystem | Done | R02 |
