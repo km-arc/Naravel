@@ -48,14 +48,14 @@ needs the EN+FA PDR.
 | R16 | Pagination (PDR-020) | - | PDR | TODO |
 | R17 | Release hardening + re-audit | R01, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19, R20, R21, R22, R23, R24, R25, R26 | owner approvals | TODO |
 | R18 | Encryption facade + encrypted jobs (PDR-021) | R07 | PDR | TODO |
-| R19 | Query builder: Database core, SQLite and basic queries (PDR-022) | R01 | PDR | BLOCKED (awaiting PDR approval) |
-| R20 | Query builder: MySQL, PostgreSQL and SQL Server (PDR-022) | R19 | PDR | BLOCKED (awaiting PDR approval) |
-| R21 | Query builder: Where family, joins, grouping and ordering helpers (PDR-022) | R20 | PDR | BLOCKED (awaiting PDR approval) |
-| R22 | Query builder: Aggregates, existence and streaming (PDR-022) | R21 | PDR | BLOCKED (awaiting PDR approval) |
-| R23 | Query builder: Insert, update, upsert and delete (PDR-022) | R21 | PDR | BLOCKED (awaiting PDR approval) |
-| R24 | Query builder: Unions, subqueries, CTEs, locks, raw and debugging (PDR-022) | R21 | PDR | BLOCKED (awaiting PDR approval) |
-| R25 | Query builder: Transactions and EF Core interop (PDR-022) | R23 | PDR | BLOCKED (awaiting PDR approval) |
-| R26 | Query builder: Pagination integration (PDR-022) | R22, R16 | PDR | BLOCKED (awaiting PDR approval) |
+| R19 | Query builder: Database core, SQLite and basic queries (PDR-022) | R01 | PDR | TODO |
+| R20 | Query builder: MySQL, PostgreSQL and SQL Server (PDR-022) | R19 | PDR | TODO |
+| R21 | Query builder: Where family, joins, grouping and ordering helpers (PDR-022) | R20 | PDR | TODO |
+| R22 | Query builder: Aggregates, existence and streaming (PDR-022) | R21 | PDR | TODO |
+| R23 | Query builder: Insert, update, upsert and delete (PDR-022) | R21 | PDR | TODO |
+| R24 | Query builder: Unions, subqueries, CTEs, locks, raw and debugging (PDR-022) | R21 | PDR | TODO |
+| R25 | Query builder: Transactions and EF Core interop (PDR-022) | R23 | PDR | TODO |
+| R26 | Query builder: Pagination integration (PDR-022) | R22, R16 | PDR | TODO |
 
 R17 lists every stage in release scope; the owner may mark an out-of-scope stage `DECLINED`/`BLOCKED` to release without it.
 R02 was completed before this roadmap existed; its R00 dependency is nominal and does not invalidate it.

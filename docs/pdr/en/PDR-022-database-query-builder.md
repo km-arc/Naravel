@@ -2,7 +2,7 @@
 
 **Native-first verdict:** .NET already has typed queries (LINQ with EF Core), a universal connection API (ADO.NET `DbConnection`) and a fast mapper (Dapper). What it lacks is a **dynamic, string-composed query builder** with Laravel's surface (`Table("users").Where("age", ">", 18).OrderBy("name")`) that compiles the same call chain to MySQL, PostgreSQL, SQL Server and SQLite. LINQ cannot compose column names at run time without expression trees, and raw SQL strings are error-prone and unsafe. Naravel therefore builds **only the SQL compiler and a thin executor**, and keeps EF Core for entities, change tracking and migrations.
 
-Status: **PROPOSED 2026-10-16, awaiting owner approval.** No code before approval. Owner pre-decisions given in conversation on 2026-10-16: own compiler (not SqlKata), the packages listed below approved in principle, shared connection and transaction with EF Core, delivery after R09 in separate testable stages.
+Status: **Approved 2026-10-16.** Owner pre-decisions given in conversation on 2026-10-16: own compiler (not SqlKata), the packages listed below approved in principle, shared connection and transaction with EF Core, delivery after R09 in separate testable stages.
 
 ## Context
 
@@ -93,4 +93,4 @@ Per stage: regression tests first; compile tests for every new method on all fou
 
 ## Approval
 
-Not yet approved. Open questions for the owner: (a) is Dapper in `Naravel.Database` core acceptable, or should it move to a separate package? (b) are the stage boundaries R19 to R26 acceptable? (c) should the first release cover only SQLite plus one server, with the third server later, if CI time becomes a concern?
+The owner approved on 2026-10-16: (a) Dapper stays in `Naravel.Database` core (the proposed option); (b) the stage boundaries R19 to R26 are accepted; (c) the owner asked for the best option, and the decision is **all four databases from the first release**. The three server containers start in parallel in the existing `services` job; if that job's duration becomes a problem, the database contract tests move to their own CI job (a separate job started from the same workflow) instead of dropping a dialect. Packages (Dapper, MySqlConnector, Microsoft.Data.SqlClient, Npgsql, Microsoft.Data.Sqlite) are approved; exact versions are verified from NuGet metadata at R19.T02 and R20.T01.
