@@ -82,7 +82,7 @@ public sealed class SmtpMailTransportTests
         var raw = System.Text.Encoding.UTF8.GetString(buffer.ToArray());
 
         raw.Should().NotContain("\r\nBcc:");
-        mime.Bcc.Should().BeEmpty();
+        mime.Bcc.Count.Should().Be(0);
     }
 
     [Theory]

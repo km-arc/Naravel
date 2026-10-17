@@ -6,6 +6,7 @@ using Naravel.Mail;
 using Naravel.Mail.Queue;
 using Naravel.Mail.Transports;
 using Naravel.Queue.Extensions;
+using Naravel.Queue.Memory;
 
 namespace Naravel.Mail.Queue.Tests;
 
