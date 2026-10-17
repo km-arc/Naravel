@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Naravel.Mail.Smtp</PackageId>
+    <Description>Optional SMTP transport for Naravel.Mail, built on MailKit.</Description>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Naravel.Mail\Naravel.Mail.csproj" />
+    <PackageReference Include="MailKit" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Naravel.Mail.Smtp.Tests" />
+  </ItemGroup>
+</Project>

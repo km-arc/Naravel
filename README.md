@@ -101,7 +101,7 @@ See [docs/en/events.md](docs/en/events.md) and [docs/fa/events.md](docs/fa/event
 
 ### Naravel.Mail
 
-Typed mail without a network dependency in the core package: a `Mailable` class describes the message, a named transport (`log` by default, `array` for tests, `smtp` via an optional package in a later task) delivers it, and `MailFake` makes it testable. A transport failure is reported to the caller and never retried silently.
+Typed mail without a network dependency in the core package: a `Mailable` class describes the message, a named transport (`log` by default, `array` for tests, `smtp` via the optional `Naravel.Mail.Smtp` package) delivers it, and `MailFake` makes it testable. A transport failure is reported to the caller and never retried silently.
 
 ```csharp
 builder.Services.AddNaravelMail(builder.Configuration);   // Mail:Default defaults to "log"
@@ -173,6 +173,7 @@ Register the core package and only the providers your configured stores use. The
 | `Naravel.Events.Queue` (adapter) | `builder.Services.AddNaravelEventsQueue();` |
 | `Naravel.Mail` | `builder.Services.AddNaravelMail(configuration);` |
 | `Naravel.Mail.Queue` | `builder.Services.AddNaravelMailQueue();` |
+| `Naravel.Mail.Smtp` | `builder.Services.AddNaravelMailSmtp(configuration);` |
 
 Queue registrations are extension methods in `Naravel.Queue.Extensions`. The Queue configuration uses `NaravelQueue:Stores`; Cache and Filesystem use `Cache:Stores` and `Filesystem:Stores` by default. Each supports a custom section name.
 

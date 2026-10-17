@@ -1,0 +1,24 @@
+#nullable enable
+Microsoft.Extensions.DependencyInjection.SmtpServiceCollectionExtensions
+Naravel.Mail.Smtp.SmtpMailOptions
+Naravel.Mail.Smtp.SmtpMailOptions.Host.get -> string!
+Naravel.Mail.Smtp.SmtpMailOptions.Host.set -> void
+Naravel.Mail.Smtp.SmtpMailOptions.Password.get -> string?
+Naravel.Mail.Smtp.SmtpMailOptions.Password.set -> void
+Naravel.Mail.Smtp.SmtpMailOptions.Port.get -> int
+Naravel.Mail.Smtp.SmtpMailOptions.Port.set -> void
+Naravel.Mail.Smtp.SmtpMailOptions.Security.get -> Naravel.Mail.Smtp.SmtpSecurity
+Naravel.Mail.Smtp.SmtpMailOptions.Security.set -> void
+Naravel.Mail.Smtp.SmtpMailOptions.SmtpMailOptions() -> void
+Naravel.Mail.Smtp.SmtpMailOptions.Timeout.get -> System.TimeSpan
+Naravel.Mail.Smtp.SmtpMailOptions.Timeout.set -> void
+Naravel.Mail.Smtp.SmtpMailOptions.Username.get -> string?
+Naravel.Mail.Smtp.SmtpMailOptions.Username.set -> void
+Naravel.Mail.Smtp.SmtpMailTransport
+Naravel.Mail.Smtp.SmtpMailTransport.SendAsync(Naravel.Mail.MailMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Mail.Smtp.SmtpMailTransport.SmtpMailTransport(Naravel.Mail.Smtp.SmtpMailOptions! options) -> void
+Naravel.Mail.Smtp.SmtpSecurity
+Naravel.Mail.Smtp.SmtpSecurity.None = 2 -> Naravel.Mail.Smtp.SmtpSecurity
+Naravel.Mail.Smtp.SmtpSecurity.SslOnConnect = 1 -> Naravel.Mail.Smtp.SmtpSecurity
+Naravel.Mail.Smtp.SmtpSecurity.StartTls = 0 -> Naravel.Mail.Smtp.SmtpSecurity
+static Microsoft.Extensions.DependencyInjection.SmtpServiceCollectionExtensions.AddNaravelMailSmtp(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "Mail") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
