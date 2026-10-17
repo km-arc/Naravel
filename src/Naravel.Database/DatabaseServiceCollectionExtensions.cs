@@ -9,7 +9,7 @@ namespace Microsoft.Extensions.DependencyInjection;
 public static class DatabaseServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers <see cref="DatabaseManager"/>, the default <see cref="IDatabaseConnection"/> and the pooled <see cref="IConnectionScope"/>.
+    /// Registers <see cref="DatabaseManager"/>, the pooled <see cref="IConnectionScope"/> and <see cref="IDatabase"/> (the entry point for <c>Table(...)</c> and raw SQL).
     /// Configure <c>Database:Default</c> and <c>Database:Connections:&lt;name&gt;:Driver</c>, then add a driver package such as
     /// <c>AddNaravelSqliteDatabase</c>.
     /// </summary>
@@ -25,6 +25,10 @@ public static class DatabaseServiceCollectionExtensions
 
         services.AddNaravelManager<DatabaseManager, IDatabaseConnection, DatabaseOptions>(configuration.GetSection(sectionName));
         services.TryAddSingleton<IConnectionScope, PooledConnectionScope>();
+        services.TryAddSingleton<IDatabase>(provider => new DatabaseService(
+            provider.GetRequiredService<DatabaseManager>(),
+            provider.GetRequiredService<IConnectionScope>(),
+            null));
         return services;
     }
 
