@@ -40,7 +40,7 @@ internal sealed class DatabaseExecutor(IConnectionScope scope, string? connectio
         await using var command = CreateCommand(lease, sql, bindings);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
 
-        var parser = reader.GetRowParser<T>();
+        var parser = Parser<T>(reader);
         var rows = new List<T>();
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) rows.Add(parser(reader));
         return rows;
@@ -53,7 +53,7 @@ internal sealed class DatabaseExecutor(IConnectionScope scope, string? connectio
         await using var command = CreateCommand(lease, sql, bindings);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
 
-        var parser = reader.GetRowParser<T>();
+        var parser = Parser<T>(reader);
         return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? parser(reader) : default!;
     }
 
@@ -95,6 +95,17 @@ internal sealed class DatabaseExecutor(IConnectionScope scope, string? connectio
         }
 
         return (text.ToString(), values);
+    }
+
+    /// <summary>
+    /// Builds Dapper's row mapper for <typeparamref name="T"/>. The non-generic <c>GetRowParser(Type)</c> is used on purpose: the generic
+    /// <c>GetRowParser&lt;T&gt;(DbDataReader)</c> casts its delegate to <c>Func&lt;DbDataReader, T&gt;</c> and throws <see cref="InvalidCastException"/>
+    /// for simple types such as <see cref="string"/>.
+    /// </summary>
+    private static Func<DbDataReader, T> Parser<T>(DbDataReader reader)
+    {
+        var parse = reader.GetRowParser(typeof(T));
+        return row => parse(row) is { } value ? (T)value : default!;
     }
 
     private static DbCommand CreateCommand(IConnectionLease lease, string sql, IReadOnlyList<object?> bindings)
