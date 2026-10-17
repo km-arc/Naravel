@@ -10,7 +10,7 @@ namespace Naravel.Database;
 /// <b>at the call</b>, not when the query runs. Instances are not thread-safe.</para>
 /// <para><b>Not ported on purpose:</b> <c>where($column, $operator)</c> with an operator guessed from the value type, and magic <c>whereColumnName</c> methods.</para>
 /// </remarks>
-public sealed class Query
+public sealed partial class Query
 {
     private readonly List<SelectItem> _columns = new();
     private readonly List<WhereNode> _wheres = new();
@@ -252,7 +252,7 @@ public sealed class Query
     /// <summary>Copies the query so it can be changed without touching the original. Laravel: <c>clone</c>.</summary>
     public Query Clone()
     {
-        var copy = new Query(Grammar) { _table = _table, _distinct = _distinct, _limit = _limit, _offset = _offset };
+        var copy = new Query(Grammar) { _table = _table, _distinct = _distinct, _limit = _limit, _offset = _offset, Runner = Runner };
         copy._columns.AddRange(_columns);
         copy._wheres.AddRange(_wheres);
         copy._orders.AddRange(_orders);

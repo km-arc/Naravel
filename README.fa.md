@@ -120,6 +120,20 @@ await mailer.To(user.Email).QueueAsync(new WelcomeMail(user), cancellationToken)
 
 جزئیات: [docs/fa/mail.md](docs/fa/mail.md) و [docs/en/mail.md](docs/en/mail.md).
 
+### Naravel.Database
+
+query builder به سبک Laravel با اتصال‌های نام‌دار و SQL با پارامتر، برای SQLite، MySQL، PostgreSQL و SQL Server (Dapper ردیف‌ها را map می‌کند؛ EF Core همچنان ابزار entity و migration است). **امروز:** اتصال‌ها، درایور SQLite، builder برای select/where/order/limit که برای هر چهار دیالکت کامپایل می‌شود، و اجرا روی SQLite. درایورهای MySQL، PostgreSQL و SQL Server، join، aggregate، نوشتن و تراکنش در مرحله‌های بعدی می‌آیند (فایل [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md) را ببینید).
+
+```csharp
+builder.Services.AddNaravelDatabase(builder.Configuration);
+builder.Services.AddNaravelSqliteDatabase(builder.Configuration);   // Database:Connections:main = { Driver: sqlite, Path: app.db }
+
+var adults = await db.Table("users").Where("active", true).Where("age", ">=", 18).OrderBy("name").GetAsync(cancellationToken);
+var ada    = await db.Table("users").Where("email", email).FirstAsync<UserRow>(cancellationToken);   // email پارامتر می‌شود، هرگز به متن SQL نمی‌چسبد
+```
+
+مقدارها همیشه پارامتر می‌شوند، شناسه‌ها اعتبارسنجی می‌شوند و SQL خام فقط در متدهای `*Raw` وجود دارد. [docs/fa/database.md](docs/fa/database.md) و [docs/en/database.md](docs/en/database.md) را ببینید.
+
 ### Naravel.Filesystem
 
 دیسک‌های نام‌دار برای ذخیره‌سازی local و S3/S3-compatible. درایور local مسیرهای بیرون از ریشهٔ تنظیم‌شده را رد می‌کند. Naravel برای فایل‌ها endpoint عمومی HTTP نمی‌سازد؛ ارائه یا کنترل دسترسی را جداگانه با ASP.NET Core انجام دهید.
@@ -174,6 +188,8 @@ aliasهای آمادهٔ route middleware عبارت‌اند از `throttle` (�
 | `Naravel.Mail` | `builder.Services.AddNaravelMail(configuration);` |
 | `Naravel.Mail.Queue` | `builder.Services.AddNaravelMailQueue();` |
 | `Naravel.Mail.Smtp` | `builder.Services.AddNaravelMailSmtp(configuration);` |
+| `Naravel.Database` | `builder.Services.AddNaravelDatabase(configuration);` |
+| `Naravel.Database.Sqlite` | `builder.Services.AddNaravelSqliteDatabase(configuration);` |
 
 extension methodهای Queue در `Naravel.Queue.Extensions` قرار دارند. بخش تنظیمات Queue به‌طور پیش‌فرض `NaravelQueue:Stores`، Cache بخش `Cache:Stores` و Filesystem بخش `Filesystem:Stores` است؛ برای هرکدام می‌توان نام بخش دیگری تعیین کرد.
 

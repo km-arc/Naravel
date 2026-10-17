@@ -120,6 +120,20 @@ await mailer.To(user.Email).QueueAsync(new WelcomeMail(user), cancellationToken)
 
 See [docs/en/mail.md](docs/en/mail.md) and [docs/fa/mail.md](docs/fa/mail.md).
 
+### Naravel.Database
+
+A Laravel-style query builder with named connections and parameter-bound SQL on SQLite, MySQL, PostgreSQL and SQL Server (Dapper maps rows; EF Core stays the tool for entities and migrations). **Today:** connections, the SQLite driver, the builder for select/where/order/limit that compiles for all four dialects, and execution on SQLite. MySQL, PostgreSQL and SQL Server drivers, joins, aggregates, writes and transactions follow in later stages (see [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md)).
+
+```csharp
+builder.Services.AddNaravelDatabase(builder.Configuration);
+builder.Services.AddNaravelSqliteDatabase(builder.Configuration);   // Database:Connections:main = { Driver: sqlite, Path: app.db }
+
+var adults = await db.Table("users").Where("active", true).Where("age", ">=", 18).OrderBy("name").GetAsync(cancellationToken);
+var ada    = await db.Table("users").Where("email", email).FirstAsync<UserRow>(cancellationToken);   // email is bound, never concatenated
+```
+
+Values are always bound as parameters, identifiers are validated, and raw SQL exists only in `*Raw` methods. See [docs/en/database.md](docs/en/database.md) and [docs/fa/database.md](docs/fa/database.md).
+
 ### Naravel.Filesystem
 
 Named local and S3/S3-compatible storage disks. The local driver rejects paths outside its configured root. Naravel does not create a public HTTP endpoint; serve or authorize stored files through ASP.NET Core separately.
@@ -174,6 +188,8 @@ Register the core package and only the providers your configured stores use. The
 | `Naravel.Mail` | `builder.Services.AddNaravelMail(configuration);` |
 | `Naravel.Mail.Queue` | `builder.Services.AddNaravelMailQueue();` |
 | `Naravel.Mail.Smtp` | `builder.Services.AddNaravelMailSmtp(configuration);` |
+| `Naravel.Database` | `builder.Services.AddNaravelDatabase(configuration);` |
+| `Naravel.Database.Sqlite` | `builder.Services.AddNaravelSqliteDatabase(configuration);` |
 
 Queue registrations are extension methods in `Naravel.Queue.Extensions`. The Queue configuration uses `NaravelQueue:Stores`; Cache and Filesystem use `Cache:Stores` and `Filesystem:Stores` by default. Each supports a custom section name.
 

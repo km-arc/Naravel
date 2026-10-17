@@ -4,7 +4,7 @@
 
 تصمیم‌ها: [PDR-022](../pdr/fa/PDR-022-database-query-builder.md). نسخهٔ انگلیسی: [docs/en/database.md](../en/database.md).
 
-> **آنچه امروز وجود دارد.** اتصال‌ها، manager، درایور SQLite، درز اتصال و query builder که برای هر چهار دیالکت SQL را **کامپایل** می‌کند (`ToSql`، `ToRawSql`، `GetBindings`). اجرای کوئری (`GetAsync`، `FirstAsync` و ...) در task بعدیِ همین مرحله می‌آید؛ join، گروه‌بندی و خانوادهٔ where گسترده بعد از آن. برنامهٔ متد‌به‌متد در [roadmap/QUERY-BUILDER-COVERAGE.md](../../roadmap/QUERY-BUILDER-COVERAGE.md) است. هیچ چیزِ دیگری ادعا نمی‌شود.
+> **آنچه امروز وجود دارد.** اتصال‌ها، manager، درایور SQLite، درز اتصال و query builder که برای هر چهار دیالکت SQL را **کامپایل** می‌کند (`ToSql`، `ToRawSql`، `GetBindings`)، و **اجرا** روی SQLite (`GetAsync`، `FirstAsync`، `SoleAsync`، `ValueAsync`، `FindAsync`، `PluckAsync` و SQL خام از طریق `IDatabase`). telemetry و fake تست در task بعدی می‌آید؛ join، گروه‌بندی و خانوادهٔ where گسترده بعد از آن. برنامهٔ متد‌به‌متد در [roadmap/QUERY-BUILDER-COVERAGE.md](../../roadmap/QUERY-BUILDER-COVERAGE.md) است. هیچ چیزِ دیگری ادعا نمی‌شود.
 
 ## شروع سریع
 
@@ -25,6 +25,47 @@ builder.Services.AddNaravelSqliteDatabase(builder.Configuration);   // ترتی�
 - `DatabaseManager.Extend(name, factory)` در زمان اجرا اتصال اضافه می‌کند؛ تغییر `Database:Connections:<name>` در پیکربندی فقط همان اتصال را بازسازی می‌کند و کلیدهای نامرتبط اثری ندارند.
 - `IConnectionScope.AcquireAsync(name)` یک `IConnectionLease` (با `Connection`، `Transaction` و `OwnsConnection`) می‌دهد که همهٔ کوئری‌ها از آن عبور می‌کنند. پس از اتمام، lease را Dispose کنید.
 - دیتابیس‌های `:memory:` تا زمان اجرای برنامه دادهٔ خود را نگه می‌دارند و دو نام اتصال هرگز یکی را به اشتراک نمی‌گذارند.
+
+## اجرای کوئری
+
+```csharp
+public class UserService(IDatabase db)
+{
+    public Task<IReadOnlyList<IReadOnlyDictionary<string, object?>>> ActiveAsync(CancellationToken ct) =>
+        db.Table("users").Where("active", true).OrderBy("name").GetAsync(ct);
+
+    public Task<UserRow?> ByEmailAsync(string email, CancellationToken ct) =>
+        db.Table("users").Where("email", email).FirstAsync<UserRow?>(ct);
+}
+```
+
+`IDatabase` را `AddNaravelDatabase` برای اتصال پیش‌فرض ثبت می‌کند؛ `db.Connection("reports")` نمونه‌ای متصل به نام دیگر می‌دهد. `db.Table(...)` یک `Query` برمی‌گرداند که از پیش متصل است. کوئریِ ساخته‌شده با `Query.For(dialect)` فقط SQL کامپایل می‌کند و اگر اجرایش کنید `InvalidOperationException` روشنی می‌دهد.
+
+| متد | خروجی | Laravel |
+|---|---|---|
+| `GetAsync()` / `GetAsync<T>()` | همهٔ ردیف‌ها، به‌صورت dictionary یا `T` | `get` |
+| `FirstAsync()` / `FirstAsync<T>()` | اولین ردیف، یا `null` / مقدار پیش‌فرض | `first` |
+| `SoleAsync()` / `SoleAsync<T>()` | دقیقاً یک ردیف؛ برای هیچ‌کدام `RecordsNotFoundException` و برای بیش از یکی `MultipleRecordsFoundException` | `sole` |
+| `ValueAsync<T>(column)` | یک ستون از اولین ردیف، یا مقدار پیش‌فرض | `value` |
+| `FindAsync(id, keyColumn = "id")` / `FindAsync<T>(...)` | ردیف با آن کلید، یا `null` / مقدار پیش‌فرض | `find` |
+| `PluckAsync<T>(column)` | یک ستون از همهٔ ردیف‌ها | `pluck` (هنوز بدون آرگومان کلید) |
+
+SQL خام از طریق `IDatabase` و با placeholder `?` اجرا می‌شود (هر `?` یک پارامتر bound می‌شود؛ برای علامت سؤال واقعی `??` بنویسید؛ تعداد نادرست مقدارها پیش از اجرا `ArgumentException` می‌دهد):
+
+```csharp
+var rows  = await db.SelectAsync("select * from users where votes > ?", [100], ct);        // Laravel: DB::select
+var count = await db.ScalarAsync<long>("select count(*) from users", cancellationToken: ct); // DB::scalar
+await db.StatementAsync("update users set votes = ? where id = ?", [0, 7], ct);             // DB::statement
+var rowsChanged = await db.AffectingStatementAsync("delete from users where votes = ?", [0], ct); // DB::affectingStatement
+await db.UnpreparedAsync("create table t (id integer primary key)", ct);                    // DB::unprepared (بدون placeholder)
+```
+
+نکته‌هایی که باید بدانید:
+- **دو راه برای خواندن ردیف‌ها.** بدون آرگومان نوع، ردیف‌ها مستقیم از `DbDataReader` در dictionaryهای بدون حساسیت به حروف خوانده می‌شوند (سریع، سازگار با trim و AOT؛ مقدارها نوع خام provider را نگه می‌دارند، مثلاً SQLite عددهای صحیح را `long` و تاریخ‌ها را متن برمی‌گرداند). با `<T>` خود Dapper ردیف را map می‌کند که **با trim و AOT سازگار نیست**. Naravel هیچ type handler سراسریِ Dapper ثبت نمی‌کند؛ Dapper نسخهٔ 2.1.86 به بعد `DateOnly` و `TimeOnly` را روی .NET 8 و 10 خودش map می‌کند.
+- **نوع پارامترها.** `bool`، `decimal`، `Guid`، `DateTime`، `DateTimeOffset`، `DateOnly`، `TimeOnly` و `byte[]` با `DbType` صریح bind می‌شوند؛ enum به عدد صحیح زیرینش تبدیل می‌شود؛ `null` به‌صورت `DBNull` bind می‌شود.
+- **اتصال و تراکنش.** هر فراخوانی از `IConnectionScope` یک lease می‌گیرد، `command.Transaction` را از آن تنظیم می‌کند و آن را dispose می‌کند. scope پیش‌فرض برای هر فراخوانی یک اتصال pool‌شده باز و بسته می‌کند؛ scope‌ای که اتصالِ دارای تراکنش قرض می‌دهد (با R25 می‌آید) join می‌شود و هرگز بسته یا commit نمی‌شود. هر دو رفتار همین امروز با تست ثابت شده‌اند.
+- `FirstAsync`، `SoleAsync`، `ValueAsync` و `FindAsync` روی یک clone کار می‌کنند و `limit` خودشان را اضافه می‌کنند، پس کوئری اصلی تغییر نمی‌کند.
+- `SoleAsync` حداکثر دو ردیف می‌گیرد. در SQL Server، `limit` به‌صورت `top (n)` نوشته می‌شود، پس این متدها نیازی به `OrderBy` ندارند.
 
 ## query builder
 
@@ -60,7 +101,7 @@ query.GetBindings(); // [true, 18, true]
 
 **چرا `Raw` فعلاً پسوند متد است، نه نوع.** هر راه فرار خام یک متد `*Raw` است. نوع *مقدار* خام (مثل `DB::raw` داخل `update` در Laravel) فقط برای نوشتن لازم است و با آن می‌آید.
 
-## چگونه کار می‌کند و چرا
+## چگونه درز اتصال و درایورها کار می‌کنند
 
 **درز اتصال (PDR-022 A1).** کوئری‌ها هرگز خودشان اتصال باز نمی‌کنند؛ از `IConnectionScope` یک lease می‌گیرند. امروز scope یک pool ساده است (برای هر lease یک اتصال pool‌شدهٔ تازه، بدون تراکنش، با Dispose بسته می‌شود). تراکنش‌ها (scope محیطی و اشتراک با EF Core) بعداً با ثبت یک scope دیگر اضافه می‌شوند، **بدون تغییر هیچ امضایی**. دلیل ساختن اول همین است: سازنده‌ای که خودش اتصال باز کند، بعداً بدون breaking change نمی‌تواند به یک تراکنش بپیوندد.
 
@@ -72,5 +113,6 @@ query.GetBindings(); // [true, 18, true]
 
 ## عمداً پورت نشده
 
-- هدایت `DB::__call` به اتصال: به‌جای آن scope (و از task اجرا به بعد `IDatabase`) را inject کنید.
+- هدایت `DB::__call` به اتصال: به‌جای آن `IDatabase` (یا scope) را inject کنید.
+- `DB::select` که شیء `stdClass` برمی‌گرداند: ردیف‌ها dictionary یا نوع map‌شده با Dapper هستند. قلاب‌های `pretend()` و `listen()` در task بعدی به‌شکل `IQueryListener` می‌آیند.
 - اتصال‌های جداشدهٔ خواندن/نوشتن، `purge()` و `reconnect()`: اتصال‌ها را provider در pool نگه می‌دارد و با تغییر پیکربندی بازسازی می‌شوند.

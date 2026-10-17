@@ -73,3 +73,27 @@ Naravel.Database.Query.WhereNot(string! column, object? value) -> Naravel.Databa
 Naravel.Database.Query.WhereNot(string! column, string! op, object? value) -> Naravel.Database.Query!
 Naravel.Database.Query.WhereNotIn(string! column, System.Collections.IEnumerable! values) -> Naravel.Database.Query!
 Naravel.Database.Query.WhereRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
+Naravel.Database.IDatabase
+Naravel.Database.IDatabase.AffectingStatementAsync(string! sql, System.Collections.Generic.IEnumerable<object?>? bindings = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<int>!
+Naravel.Database.IDatabase.Connection(string? name) -> Naravel.Database.IDatabase!
+Naravel.Database.IDatabase.ConnectionName.get -> string?
+Naravel.Database.IDatabase.ScalarAsync<T>(string! sql, System.Collections.Generic.IEnumerable<object?>? bindings = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+Naravel.Database.IDatabase.SelectAsync(string! sql, System.Collections.Generic.IEnumerable<object?>? bindings = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyDictionary<string!, object?>!>!>!
+Naravel.Database.IDatabase.SelectAsync<T>(string! sql, System.Collections.Generic.IEnumerable<object?>? bindings = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<T>!>!
+Naravel.Database.IDatabase.StatementAsync(string! sql, System.Collections.Generic.IEnumerable<object?>? bindings = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Database.IDatabase.Table(string! table) -> Naravel.Database.Query!
+Naravel.Database.IDatabase.UnpreparedAsync(string! sql, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Database.MultipleRecordsFoundException
+Naravel.Database.MultipleRecordsFoundException.MultipleRecordsFoundException(string! message) -> void
+Naravel.Database.RecordsNotFoundException
+Naravel.Database.RecordsNotFoundException.RecordsNotFoundException(string! message) -> void
+Naravel.Database.Query.FindAsync(object! id, string! keyColumn = "id", System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyDictionary<string!, object?>?>!
+Naravel.Database.Query.FindAsync<T>(object! id, string! keyColumn = "id", System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+Naravel.Database.Query.FirstAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyDictionary<string!, object?>?>!
+Naravel.Database.Query.FirstAsync<T>(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+Naravel.Database.Query.GetAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyDictionary<string!, object?>!>!>!
+Naravel.Database.Query.GetAsync<T>(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<T>!>!
+Naravel.Database.Query.PluckAsync<T>(string! column, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<T>!>!
+Naravel.Database.Query.SoleAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyDictionary<string!, object?>!>!
+Naravel.Database.Query.SoleAsync<T>(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+Naravel.Database.Query.ValueAsync<T>(string! column, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
