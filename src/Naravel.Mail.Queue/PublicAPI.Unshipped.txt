@@ -1,0 +1,28 @@
+#nullable enable
+Microsoft.Extensions.DependencyInjection.MailQueueServiceCollectionExtensions
+Naravel.Mail.Queue.MailQueueOptions
+Naravel.Mail.Queue.MailQueueOptions.Connection.get -> string?
+Naravel.Mail.Queue.MailQueueOptions.Connection.set -> void
+Naravel.Mail.Queue.MailQueueOptions.MailQueueOptions() -> void
+Naravel.Mail.Queue.MailQueueOptions.Queue.get -> string?
+Naravel.Mail.Queue.MailQueueOptions.Queue.set -> void
+Naravel.Mail.Queue.SendQueuedMailJob
+Naravel.Mail.Queue.SendQueuedMailJob.Bcc.get -> System.Collections.Generic.List<string!>!
+Naravel.Mail.Queue.SendQueuedMailJob.Bcc.set -> void
+Naravel.Mail.Queue.SendQueuedMailJob.Cc.get -> System.Collections.Generic.List<string!>!
+Naravel.Mail.Queue.SendQueuedMailJob.Cc.set -> void
+Naravel.Mail.Queue.SendQueuedMailJob.From.get -> string!
+Naravel.Mail.Queue.SendQueuedMailJob.From.set -> void
+Naravel.Mail.Queue.SendQueuedMailJob.HtmlBody.get -> string?
+Naravel.Mail.Queue.SendQueuedMailJob.HtmlBody.set -> void
+Naravel.Mail.Queue.SendQueuedMailJob.SendQueuedMailJob() -> void
+Naravel.Mail.Queue.SendQueuedMailJob.Subject.get -> string!
+Naravel.Mail.Queue.SendQueuedMailJob.Subject.set -> void
+Naravel.Mail.Queue.SendQueuedMailJob.TextBody.get -> string?
+Naravel.Mail.Queue.SendQueuedMailJob.TextBody.set -> void
+Naravel.Mail.Queue.SendQueuedMailJob.To.get -> System.Collections.Generic.List<string!>!
+Naravel.Mail.Queue.SendQueuedMailJob.To.set -> void
+Naravel.Mail.Queue.SendQueuedMailJob.Transport.get -> string?
+Naravel.Mail.Queue.SendQueuedMailJob.Transport.set -> void
+override Naravel.Mail.Queue.SendQueuedMailJob.HandleAsync(Naravel.Queue.Jobs.JobContext! context, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+static Microsoft.Extensions.DependencyInjection.MailQueueServiceCollectionExtensions.AddNaravelMailQueue(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Naravel.Mail.Queue.MailQueueOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

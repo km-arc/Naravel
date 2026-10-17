@@ -113,6 +113,9 @@ public class WelcomeMail(User user) : Mailable
 }
 
 await mailer.To(user.Email).SendAsync(new WelcomeMail(user), cancellationToken);
+
+// optional Naravel.Mail.Queue: services.AddNaravelMailQueue(); then
+await mailer.To(user.Email).QueueAsync(new WelcomeMail(user), cancellationToken);   // stores message data only, at-least-once
 ```
 
 See [docs/en/mail.md](docs/en/mail.md) and [docs/fa/mail.md](docs/fa/mail.md).
@@ -169,6 +172,7 @@ Register the core package and only the providers your configured stores use. The
 | `Naravel.Queue.Kafka` | `builder.Services.AddKafkaDriver(configuration);` |
 | `Naravel.Events.Queue` (adapter) | `builder.Services.AddNaravelEventsQueue();` |
 | `Naravel.Mail` | `builder.Services.AddNaravelMail(configuration);` |
+| `Naravel.Mail.Queue` | `builder.Services.AddNaravelMailQueue();` |
 
 Queue registrations are extension methods in `Naravel.Queue.Extensions`. The Queue configuration uses `NaravelQueue:Stores`; Cache and Filesystem use `Cache:Stores` and `Filesystem:Stores` by default. Each supports a custom section name.
 

@@ -113,6 +113,9 @@ public class WelcomeMail(User user) : Mailable
 }
 
 await mailer.To(user.Email).SendAsync(new WelcomeMail(user), cancellationToken);
+
+// اختیاری Naravel.Mail.Queue: services.AddNaravelMailQueue(); سپس
+await mailer.To(user.Email).QueueAsync(new WelcomeMail(user), cancellationToken);   // فقط دادهٔ پیام ذخیره می‌شود، at-least-once
 ```
 
 جزئیات: [docs/fa/mail.md](docs/fa/mail.md) و [docs/en/mail.md](docs/en/mail.md).
@@ -169,6 +172,7 @@ aliasهای آمادهٔ route middleware عبارت‌اند از `throttle` (�
 | `Naravel.Queue.Kafka` | `builder.Services.AddKafkaDriver(configuration);` |
 | `Naravel.Events.Queue` (adapter) | `builder.Services.AddNaravelEventsQueue();` |
 | `Naravel.Mail` | `builder.Services.AddNaravelMail(configuration);` |
+| `Naravel.Mail.Queue` | `builder.Services.AddNaravelMailQueue();` |
 
 extension methodهای Queue در `Naravel.Queue.Extensions` قرار دارند. بخش تنظیمات Queue به‌طور پیش‌فرض `NaravelQueue:Stores`، Cache بخش `Cache:Stores` و Filesystem بخش `Filesystem:Stores` است؛ برای هرکدام می‌توان نام بخش دیگری تعیین کرد.
 
