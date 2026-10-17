@@ -18,7 +18,7 @@ Stage template: [roadmap/STAGE-TEMPLATE.md](roadmap/STAGE-TEMPLATE.md).
 
 ## NEXT
 ```text
-NEXT: R09
+NEXT: R19
 ```
 
 ## Stages
@@ -38,7 +38,7 @@ needs the EN+FA PDR.
 | R06 | Events (PDR-011) | R00 | PDR | DONE (2026-10-07; Release restore/build/test, 243 passed, 8 skipped; Events benchmark 137.8 ns/24 B; roadmap check passed) |
 | R07 | Queue completion A: failed jobs, attempts/timeouts, batches, worker controls, RabbitMQ async, metrics, fake (PDR-012) | R01 | PDR | DONE (2026-10-13; all residual tasks R07.T03-T11 merged; CI green on main at 02e27ef on ubuntu/windows/macos plus the services job with Redis, RabbitMQ, Memcached and Kafka; roadmap check passed; no local .NET SDK, so CI is the verification) |
 | R08 | Queue completion B: unique/overlap/rate-limited/throttle middleware (needs Cache) | R04, R07 | PDR | DONE (2026-10-14; PDR-012b approved; tasks T01-T03 merged; CI green on main at 3822d78 on ubuntu/windows/macos plus the services job; roadmap check passed; no local .NET SDK, so CI is the verification; the sample from the original T03 scope was skipped, see PDR-012b) |
-| R09 | Mail (PDR-013) | R06, R07 | PDR | TODO |
+| R09 | Mail (PDR-013) | R06, R07 | PDR | DONE (2026-10-17; PDR-013 and PDR-013a approved; tasks T01-T04 merged; CI green on main at 545ca02 on ubuntu/windows/macos plus the services job; roadmap check passed; no local .NET SDK, so CI is the verification; no benchmark added because mail sending is I/O-bound, not a hot path; attachments deferred, see BACKLOG) |
 | R10 | Notifications (PDR-014) | R07, R09 | PDR | TODO |
 | R11 | Session (PDR-015) | R04, R05 | PDR | TODO |
 | R12 | Auth-lite route middleware (legacy 4c, PDR-016) | R05, R11 | PDR | TODO |
@@ -69,7 +69,7 @@ R02 was completed before this roadmap existed; its R00 dependency is nominal and
 - `roadmap/check.py` enforces this: it fails on a hand-typed test count or a repeated stage status outside those places. Put
   `<!-- check:allow-count -->` on a line only when a number is not a test total (for example HTTP status codes).
 
-**Default order:** R09 → R19 → R20 → R21 → R22 → R23 → R24 → R25 → R10 → R18 → R03 → R15 → R16 → R26 → R11 → R12 → R13 → R14 → R17.
+**Default order:** R19 → R20 → R21 → R22 → R23 → R24 → R25 → R10 → R18 → R03 → R15 → R16 → R26 → R11 → R12 → R13 → R14 → R17.
 Rationale: correctness and proof first (R00, R01); then the two modules that carry the project's value (Queue, Cache);
 then the most Laravel-feeling features (middleware, events, mail); thin or likely-native stages last.
 Never run two stages that edit the same project in parallel. Parallel-safe: R15, R16, R06 touch no other module.
