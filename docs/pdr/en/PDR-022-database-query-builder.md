@@ -65,6 +65,8 @@ Every stage must add its methods to **all four** grammars (or document the `NotS
 
 ### 5. CI
 
+> Refined by amendment A6 below: the server containers run in a separate parallel `database` job, not inside `services`.
+
 The `services` job gains MySQL, PostgreSQL and SQL Server service containers (OD-01: no Testcontainers; Linux job only). SQLite and all compile tests run in the three-OS `fast` job. SQL Server needs `ACCEPT_EULA` and a strong password and a health check; versions are chosen at R20.T02 from currently supported images.
 
 ### 6. EF Core relationship (R25)
@@ -74,6 +76,66 @@ The `services` job gains MySQL, PostgreSQL and SQL Server service containers (OD
 ### 7. Observability and fake (S3)
 
 `Meter` and `ActivitySource` named `Naravel.Database` with counters for queries, failures and a duration histogram; tags are the connection name and operation kind only, never SQL text or values. `DatabaseFake` (namespace `Naravel.Database.Testing`) records compiled queries and returns canned results for tests that do not need a database. `DB::listen` becomes `IQueryListener` plus an opt-in in-memory query log.
+
+## Amendment 2026-10-17 (owner request, architecture review)
+
+An architecture review of this PDR found six risks. The owner asked for them to be written into the design before R19 starts. They change **how** stages are built, not the approved scope. Each item names the stage that must prove it.
+
+### A1. Connection and transaction seam in R19 (risk: late breaking change)
+
+R25 adds transactions and EF Core interop, but if R19 builds the executor around "open a connection, run, close", R25 would have to change public signatures. R19 therefore defines the seam now and implements only the simple half:
+
+- The executor never opens a connection itself. It asks an `IConnectionScope` for a **lease**: `IConnectionLease { DbConnection Connection; DbTransaction? Transaction; bool OwnsConnection }`.
+- R19 supplies one scope: it leases a fresh pooled connection, `Transaction` is `null`, `OwnsConnection` is true, and disposing the lease closes the connection.
+- R25 supplies two more scopes without touching `Query` or any execution signature: the ambient-transaction scope (all queries in a `TransactionAsync` callback share one lease) and the EF Core scope (borrowed connection and transaction, `OwnsConnection` false, never closed or committed by us).
+- Every command the executor creates sets `command.Transaction` from the lease. A borrowed lease is never disposed.
+- **Proof in R19.T05:** a test double scope shows the executor sets `command.Transaction` and does not close a connection it does not own. `IConnectionScope` and `IConnectionLease` are in PublicAPI from R19.
+
+### A2. Dapper facts and limits (risk: global state, AOT, provider types)
+
+Dapper stays in `Naravel.Database` (owner decision, unchanged). The design contains its known limits instead of hiding them:
+
+- **Global state.** Dapper's `SqlMapper` type handlers and default type map are process-wide. Naravel never registers a global handler on its own. If a type needs one (checked against the pinned version at R19.T02, for example `DateOnly` and `TimeOnly`), it is offered as an opt-in `DatabaseOptions.RegisterDapperTypeHandlers`, documented as global.
+- **Trim and AOT.** Dapper emits IL at run time, so `GetAsync<T>()` is **not** AOT or trim safe, and the package is not marked `IsAotCompatible`. The dictionary path `GetAsync()` does not use Dapper: it reads the `DbDataReader` directly, which is faster and trim safe. This keeps the "no reflection on hot paths" rule (S2) honest.
+- **Parameter types.** Values are bound as `DbParameter` with an explicit `DbType` for the types that differ between providers (`bool`, `decimal`, `Guid`, `DateTime`, `DateTimeOffset`, `DateOnly`, `TimeOnly`, `byte[]`, enums). Dapper is used for materializing rows, not for guessing parameter types.
+- **Proof in R20.T04:** a type round-trip test (write then read: null, bool, long, decimal, Guid, `DateTime` kinds, `DateTimeOffset`, `DateOnly`, `TimeOnly`, `byte[]`) on SQLite and on each server, asserting identical values.
+
+### A3. Identifier and operator grammar, frozen in R19 (risk: security rule relaxed later)
+
+The "conservative pattern" is now exact, so R21 cannot loosen it to fit joins or JSON:
+
+- **Segment:** `^[\p{L}_][\p{L}\p{N}_$]*$`, at most 128 characters. Unicode letters are allowed, so Persian column names work.
+- **Accepted forms:** `col`, `table.col`, `schema.table.col` (at most three segments); `*` and `table.*` only in a select list; `source as alias` or `source AS alias` where the alias is one segment; a JSON column path `col->key->sub` or `col->list[0]`, whose path segments match `^[\p{L}\p{N}_]+(\[\d+\])?$`.
+- **JSON paths are bound as parameters** where the dialect allows it (`JSON_EXTRACT(col, ?)`, `JSON_VALUE(col, @p)`, `json_extract(col, ?)`, an array parameter for PostgreSQL `#>`), so a path never becomes an injection point.
+- **Operators** come from a per-method allow-list (`=`, `<`, `>`, `<=`, `>=`, `<>`, `!=`, `like`, `not like` and the dialect-specific ones) and are never concatenated from caller text.
+- **Quoting** per dialect doubles the closing quote character (`"`, backtick, `]`).
+- Anything else throws `ArgumentException` **at the call**, not when the query runs. Hostile-input tables are written in R19.T04 for every dialect. A later stage may add new callers of the grammar, but **relaxing it needs a PDR amendment**.
+
+### A4. Parameter limits (risk: failure only in production)
+
+Each grammar exposes `MaxParameters`: SQL Server 2100 (use 2098), SQLite 32766, MySQL 65535, PostgreSQL 65535 (values are confirmed against the pinned drivers at R20.T01).
+
+- `WhereIn` and `WhereNotIn` above the limit are **split** into `(col IN (...) OR col IN (...))` and `(col NOT IN (...) AND col NOT IN (...))`. This keeps the meaning; the split is shown in `ToSql()`.
+- Any other statement above the limit throws `InvalidOperationException` naming the dialect, the limit and the count. R23 batch inserts split into several statements inside one transaction (own or ambient), so a batch stays atomic.
+- **Proof in R19.T04:** grammar tests with `limit - 1`, `limit` and `limit + 1` values per dialect (pure strings, no database), plus a SQLite execution test with 40,000 values.
+
+### A5. R16 before R26 (risk: ordering)
+
+R26 needs the R16 pagination types. The **Default order** in `ROADMAP.md` already places R16 before R26 and R26 lists R16 as a dependency. R26 must not be started early even if its other dependencies are finished.
+
+### A6. CI that is both tested and fast (risk: job length)
+
+The goal is to cover all four dialects without making every push slow. Four measures:
+
+1. **Tier 1, every push and PR, three operating systems (`fast` job):** all grammar compile tests, injection tests, `MaxParameters` tests, SQLite execution, Fake and telemetry tests. Compile tests are the bulk and they are plain string comparisons from `[Theory]` data, so they cost milliseconds and need no I/O.
+2. **Tier 2, a new `database` job, Linux only, one matrix leg per server (`mysql`, `postgres`, `sqlserver`):** each leg has its own service container and runs only that dialect's contract suite (xUnit trait `Dialect`). The legs run in parallel, so the wall time is the slowest leg, not the sum, and the existing `services` job does not get longer. This refines section 5, which started the three containers inside `services`.
+3. **Fast containers and fast tests:**
+   - PostgreSQL uses an alpine image with `fsync=off`, `synchronous_commit=off` and `full_page_writes=off`; MySQL runs without the binary log and with relaxed flush settings; both keep their data on `tmpfs` (`options: --tmpfs ...`). SQL Server cannot be tuned much, so its leg is the one that sets the wall time.
+   - Each dialect has **one shared xUnit collection fixture**: schema created once under a run-unique prefix and a small fixed data set seeded once. Read tests (select, where, joins, aggregates) share it with no per-test DDL. Write tests (R23) run **inside a transaction that is rolled back**, so they are isolated without re-creating anything. Tests that need DDL use uniquely named temporary tables. Test classes use separate tables so xUnit can run them in parallel.
+   - The NuGet package cache is cached by `actions/cache`, keyed on `Directory.Packages.props`.
+4. **Path filter plus a safety net:** on a PR, Tier 2 runs only when the PR touches `src/Naravel.Database*`, `tests/Naravel.Database*`, `Directory.Packages.props` or the workflow; on every push to `main` and on a nightly schedule it always runs. A final `ci-ok` job (`if: always()`) treats a skipped Tier 2 as success and any failure as failure, so branch protection requires only `ci-ok` and a path-filtered job can never block a merge by being absent.
+
+**Budget and escalation:** R20.T02 measures the real duration. If a leg takes more than five minutes, the contract suite is sharded by trait inside that leg. A dialect is **never dropped** to save time (owner decision). `scripts/test-local.sh` gains a `--db` option that starts the three servers from the root `docker-compose.yml` so Tier 2 can be run locally.
 
 ## Out of scope
 
@@ -92,5 +154,7 @@ Eloquent models and relationships, the schema builder, migrations (use EF Core),
 Per stage: regression tests first; compile tests for every new method on all four grammars (expected SQL and bindings as strings); SQLite execution tests; env-gated contract tests per server; injection tests (hostile identifiers rejected, hostile values only ever parameters); cancellation tests; Fake and telemetry tests; EN/FA docs; PublicAPI entries; benchmark of compile-and-execute against hand-written Dapper in R19 and R22; `roadmap/check.py`. Anything not run is reported as NOT RUN.
 
 ## Approval
+
+Amendment of 2026-10-17 (A1 to A6) was written at the owner's request after an architecture review; it keeps every approved decision and adds the constraints above. Its open items are decided by the owner at the stage that implements them.
 
 The owner approved on 2026-10-16: (a) Dapper stays in `Naravel.Database` core (the proposed option); (b) the stage boundaries R19 to R26 are accepted; (c) the owner asked for the best option, and the decision is **all four databases from the first release**. The three server containers start in parallel in the existing `services` job; if that job's duration becomes a problem, the database contract tests move to their own CI job (a separate job started from the same workflow) instead of dropping a dialect. Packages (Dapper, MySqlConnector, Microsoft.Data.SqlClient, Npgsql, Microsoft.Data.Sqlite) are approved; exact versions are verified from NuGet metadata at R19.T02 and R20.T01.
