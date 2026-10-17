@@ -109,7 +109,7 @@ Behavior you can rely on:
 - Each send opens its own connection, authenticates, sends and disconnects (no pooling), so concurrent sends are safe.
 - A server rejection (for example `550` for an unknown recipient) or a network failure is thrown to the caller as the MailKit exception. Nothing is retried inside the transport. Queued mail is retried by the queue job (`MaxAttempts`, backoff), which means a send whose outcome was unclear can be delivered twice.
 - `Bcc` recipients are used for delivery only and never appear in headers. Header values are encoded by MimeKit, so a subject containing line breaks cannot inject a header.
-- The package depends on MailKit (MIT, pinned to 4.18.1; 4.16.0 fixed CVE-2026-41319). Core `Naravel.Mail` does not.
+- The package depends on MailKit (MIT, pinned to 4.18.1; 4.16.0 fixed CVE-2026-41319) and raises its transitive `System.Security.Cryptography.Pkcs` to 10.0.13 (fix for CVE-2026-70162 and CVE-2026-84008). Core `Naravel.Mail` does not.
 
 `log` and `array` also exist under those exact names without any configuration. `IMailer` (injected) uses the default transport and resolves it on every send, so changing `Mail:Default` at runtime takes effect without re-injecting. To use another transport explicitly:
 

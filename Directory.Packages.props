@@ -27,6 +27,10 @@
     <PackageVersion Include="MessagePack" Version="3.1.9" />
     <!-- MailKit: optional SMTP transport (Naravel.Mail.Smtp only; MIT). 4.16.0 fixed CVE-2026-41319 (STARTTLS response injection); never pin below it. -->
     <PackageVersion Include="MailKit" Version="4.18.1" />
+    <!-- MimeKit (via MailKit) pulls System.Security.Cryptography.Pkcs 10.0.0, which has two advisories (CVE-2026-70162 and
+         CVE-2026-84008, denial of service) fixed in 10.0.13. Naravel.Mail.Smtp references it directly to raise the transitive
+         version. Remove the pin once MimeKit's own minimum is at least 10.0.13. -->
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageVersion Include="RabbitMQ.Client" Version="7.2.2" />
     <PackageVersion Include="Confluent.Kafka" Version="2.15.1" />
