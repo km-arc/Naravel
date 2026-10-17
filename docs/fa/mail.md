@@ -1,6 +1,6 @@
 # ایمیل (Mail)
 
-`Naravel.Mail` یک قرارداد تایپ‌شده برای ایمیل است: کلاس `Mailable` پیام را توصیف می‌کند، یک *transport* نام‌دار آن را تحویل می‌دهد و یک fake آن را قابل تست می‌کند. بستهٔ هسته **هیچ وابستگی شبکه‌ای ندارد**؛ SMTP در بستهٔ اختیاری `Naravel.Mail.Smtp` و ارسال صف‌بندی‌شده در adapter اختیاری `Naravel.Mail.Queue` است (هر دو همراه R09.T03 می‌آیند؛ این صفحه مشخص می‌کند چه چیزی همین امروز موجود است).
+`Naravel.Mail` یک قرارداد تایپ‌شده برای ایمیل است: کلاس `Mailable` پیام را توصیف می‌کند، یک *transport* نام‌دار آن را تحویل می‌دهد و یک fake آن را قابل تست می‌کند. بستهٔ هسته **هیچ وابستگی شبکه‌ای ندارد**؛ SMTP در بستهٔ اختیاری `Naravel.Mail.Smtp` و ارسال صف‌بندی‌شده در adapter اختیاری `Naravel.Mail.Queue` است (adapter صف همین حالا موجود است؛ SMTP در گام بعدی R09.T03 می‌آید؛ این صفحه مشخص می‌کند چه چیزی همین امروز موجود است).
 
 تصمیم‌ها: [PDR-013](../pdr/fa/PDR-013-mail.md) و [PDR-013a](../pdr/fa/PDR-013a-mail-mailable-and-transports.md). نسخهٔ انگلیسی: [docs/en/mail.md](../en/mail.md).
 
@@ -90,9 +90,29 @@ mailManager.Extend("custom", sp => new MyTransport());
 
 transport متد `IMailTransport.SendAsync(MailMessage, CancellationToken)` را پیاده می‌کند: فقط وقتی پیام پذیرفته شد عادی برگردد و در غیر این صورت استثنا بدهد. Naravel شکست transport را هرگز قورت نمی‌دهد و ارسال را هرگز خودکار تکرار نمی‌کند، چون تکرار پس از شکست مبهم ممکن است دو بار تحویل بدهد.
 
-### ارسال صف‌بندی‌شده (R09.T03، هنوز موجود نیست)
+### ارسال صف‌بندی‌شده (`Naravel.Mail.Queue`)
 
 `mailer.To(user.Email).QueueAsync(new WelcomeMail(user))` mailable را می‌سازد و **دادهٔ پیام** را به seam با نام `IMailQueue` می‌دهد که `Naravel.Mail.Queue` پیاده می‌کند. تا وقتی آن بسته ثبت نشده، `QueueAsync` یک `InvalidOperationException` می‌دهد که می‌گوید چه چیزی نصب شود. خود شیء mailable هرگز serialize نمی‌شود، پس هیچ نام نوع CLR یا delegate در دادهٔ صف ذخیره نمی‌شود.
+
+```csharp
+builder.Services.AddQueue(builder.Configuration).AddRedisDriver(builder.Configuration); // هر driver صف
+builder.Services.AddNaravelMail(builder.Configuration);
+builder.Services.AddNaravelMailQueue(options =>        // تعیین محل اختیاری است
+{
+    options.Connection = "redis";                       // پیش‌فرض: connection پیش‌فرض ماژول صف
+    options.Queue = "emails";                           // پیش‌فرض: "default"
+});
+// فقط در پردازش worker:
+builder.Services.AddQueueWorker(options => { options.Connection = "redis"; options.Queues = ["emails"]; });
+```
+
+نحوهٔ کار:
+
+- `AddNaravelMailQueue()` پیاده‌سازی `IMailQueue` و `SendQueuedMailJob` را با alias پایدار `naravel.mail.send` ثبت می‌کند. صف و worker را ثبت نمی‌کند؛ آن‌ها را مثل هر job دیگر خودتان اضافه می‌کنید.
+- payload ذخیره‌شده دادهٔ ساده است: `From`، `To`، `Cc`، `Bcc`، `Subject`، `TextBody`، `HtmlBody` و نام transport (`null` یعنی پیش‌فرض). worker یک `MailMessage` می‌سازد (همهٔ آدرس‌ها دوباره اعتبارسنجی می‌شوند) و با `MailManager.Mailer(transport)` می‌فرستد.
+- transport در زمان enqueue با نام انتخاب می‌شود: `manager.Mailer("smtp").To(a).QueueAsync(...)` مقدار `smtp` را ذخیره می‌کند و worker همان نام را به کار می‌برد، حتی اگر `Mail:Default` در این فاصله عوض شده باشد.
+- **تحویل at-least-once است.** اگر worker بعد از پذیرش پیام توسط transport و پیش از تأیید job متوقف شود، پیام دوباره تحویل می‌شود. ارسال‌های ناموفق با `MaxAttempts` و backoff استاندارد job دوباره تلاش می‌شوند. Naravel ایمیل تکراری را حذف نمی‌کند؛ اگر تکرار برایتان مضر است، در کد خودتان محافظت اضافه کنید.
+- پیوست هنوز بخشی از payload نیست (PDR-013a را ببینید)؛ یک PDR بعدی نحوهٔ ارجاع به فایل را تعیین می‌کند.
 
 ### تست
 

@@ -1,6 +1,6 @@
 # Mail
 
-`Naravel.Mail` is a typed mail contract: a `Mailable` class describes a message, a named *transport* delivers it, and a fake makes it testable. The core package has **no network dependency**; SMTP lives in the optional `Naravel.Mail.Smtp` package and queued sending in the optional `Naravel.Mail.Queue` adapter (both arrive with R09.T03; this page marks what is available today).
+`Naravel.Mail` is a typed mail contract: a `Mailable` class describes a message, a named *transport* delivers it, and a fake makes it testable. The core package has **no network dependency**; SMTP lives in the optional `Naravel.Mail.Smtp` package and queued sending in the optional `Naravel.Mail.Queue` adapter (the queue adapter is available now; SMTP arrives with the next R09.T03 step; this page marks what is available today).
 
 Decisions: [PDR-013](../pdr/en/PDR-013-mail.md) and [PDR-013a](../pdr/en/PDR-013a-mail-mailable-and-transports.md). Persian version: [docs/fa/mail.md](../fa/mail.md).
 
@@ -90,9 +90,30 @@ mailManager.Extend("custom", sp => new MyTransport());
 
 A transport implements `IMailTransport.SendAsync(MailMessage, CancellationToken)`: return normally only when the message was accepted, throw otherwise. Naravel never swallows a transport failure and never retries a send for you, because a retry after an ambiguous failure can deliver twice.
 
-### Queued sending (R09.T03, not yet available)
+### Queued sending (`Naravel.Mail.Queue`)
 
 `mailer.To(user.Email).QueueAsync(new WelcomeMail(user))` builds the mailable and passes the resulting **message data** to the `IMailQueue` seam implemented by `Naravel.Mail.Queue`. Until that package is registered, `QueueAsync` throws `InvalidOperationException` that says what to install. The mailable object itself is never serialized, so no CLR type name or delegate is ever stored in queue data.
+
+```csharp
+builder.Services.AddQueue(builder.Configuration).AddRedisDriver(builder.Configuration); // any queue driver
+builder.Services.AddNaravelMail(builder.Configuration);
+builder.Services.AddNaravelMailQueue(options =>        // placement is optional
+{
+    options.Connection = "redis";                       // default: the queue module's default connection
+    options.Queue = "emails";                           // default: "default"
+});
+// worker process only:
+builder.Services.AddQueueWorker(options => { options.Connection = "redis"; options.Queues = ["emails"]; });
+```
+
+How it works:
+
+- `AddNaravelMailQueue()` registers `IMailQueue` and the `SendQueuedMailJob` under the stable alias `naravel.mail.send`. It does not register a queue or a worker; you add those as for any job.
+- The stored payload is plain data: `From`, `To`, `Cc`, `Bcc`, `Subject`, `TextBody`, `HtmlBody` and the transport name (`null` = default). The worker rebuilds a `MailMessage` (every address is validated again) and sends it through `MailManager.Mailer(transport)`.
+- The transport is chosen by name at enqueue time: `manager.Mailer("smtp").To(a).QueueAsync(...)` stores `smtp`, and the worker uses the same name even if `Mail:Default` changed meanwhile.
+- **Delivery is at-least-once.** A worker that stops after the transport accepted the message but before the job is acknowledged causes a second delivery. Failed sends are retried with the standard job `MaxAttempts` and backoff. Naravel does not de-duplicate mail; use `IUniqueJob`-style protection in your own code when a duplicate would hurt.
+- Attachments are not part of the payload yet (see PDR-013a); a future PDR will decide how files are referenced.
+
 
 ### Testing
 
