@@ -4,7 +4,7 @@
 
 Decisions: [PDR-022](../pdr/en/PDR-022-database-query-builder.md). Persian version: [docs/fa/database.md](../fa/database.md).
 
-> **What exists today.** Only the foundation is in place: connections, the manager, the SQLite driver and the connection seam. The fluent `Query` builder (`Table("users").Where(...).GetAsync()`) arrives in the next tasks of the same stage; the method-by-method plan is in [roadmap/QUERY-BUILDER-COVERAGE.md](../../roadmap/QUERY-BUILDER-COVERAGE.md). Nothing here pretends otherwise.
+> **What exists today.** Connections, the manager, the SQLite driver, the connection seam, and the query builder that **compiles** SQL for all four dialects (`ToSql`, `ToRawSql`, `GetBindings`). Running the query (`GetAsync`, `FirstAsync`, ...) arrives in the next task of the same stage; joins, grouping and the extended where family follow. The method-by-method plan is in [roadmap/QUERY-BUILDER-COVERAGE.md](../../roadmap/QUERY-BUILDER-COVERAGE.md). Nothing here pretends otherwise.
 
 ## Quickstart
 
@@ -25,6 +25,40 @@ A connection takes either `Path` (a file, or `:memory:`) or a full `ConnectionSt
 - `DatabaseManager.Extend(name, factory)` adds a connection at run time; changing `Database:Connections:<name>` in configuration rebuilds only that connection; unrelated keys change nothing.
 - `IConnectionScope.AcquireAsync(name)` returns an `IConnectionLease` (`Connection`, `Transaction`, `OwnsConnection`) that every query goes through. Dispose the lease when done.
 - `:memory:` databases keep their data while the application runs, and two connection names never share one.
+
+## The query builder
+
+```csharp
+var query = Query.For(DatabaseDialect.Postgres)
+    .Table("users")
+    .Select("id", "name")
+    .Where("active", true)
+    .Where(g => g.Where("age", ">=", 18).OrWhere("vip", true))
+    .OrderByDesc("created_at")
+    .Limit(10).Offset(20);
+
+query.ToSql();       // select "id", "name" from "users" where "active" = @p0 and ("age" >= @p1 or "vip" = @p2) order by "created_at" desc limit 10 offset 20
+query.GetBindings(); // [true, 18, true]
+```
+
+Available now: `Table`, `Select`, `AddSelect`, `SelectRaw`, `Distinct`, `Where`/`OrWhere`/`WhereNot`/`OrWhereNot` (column and value, with an operator, an array of pairs, or a closure group), `WhereRaw`/`OrWhereRaw`, `WhereIn`/`WhereNotIn` and their `or` forms, `OrderBy`/`OrderByDesc`/`OrderByRaw`, `Limit`/`Take`, `Offset`/`Skip`, `Clone`, `Compile`, `ToSql`, `ToRawSql`, `GetBindings`.
+
+**Safety rules, enforced at the call:**
+- Values are **always** parameters (`@p0`, `@p1`, ...), on every dialect. Nothing a caller passes as a value can become SQL. `ToRawSql()` writes values in for logging only; never execute it.
+- Identifiers (tables, columns, aliases) must match `[letter or _][letter, digit, _ or $]*`, at most 128 characters, in the forms `col`, `table.col`, `schema.table.col`, `*`, `table.*` and `source as alias`. Persian names work. Anything else throws `ArgumentException` immediately. The grammar is frozen by PDR-022 A3; loosening it needs a PDR amendment.
+- Operators come from an allow-list. An operator another dialect has (for example `ilike` on SQLite) throws `NotSupportedException` instead of generating wrong SQL.
+- SQL text is only possible through the `*Raw` methods (`?` is a bound parameter, `??` a literal question mark), so unsafe code is easy to grep for.
+- Each statement is checked against the dialect's parameter limit (SQL Server 2098, SQLite 32766, MySQL and PostgreSQL 65535). Over the limit throws `InvalidOperationException` with the dialect, limit and count.
+
+**Dialect differences handled for you:** quoting (`"x"`, `` `x` ``, `[x]`), `limit`/`offset` versus SQL Server `top (n)` and `offset ... fetch` (SQL Server requires `OrderBy` when `Offset` is used and says so), and offset without limit (`limit -1` on SQLite, a maximum `limit` on MySQL).
+
+## How it works and why
+
+**Why one `@pN` marker style everywhere.** SQLite, MySQL, PostgreSQL and SQL Server drivers all accept named parameters, and Dapper binds by name, so one style keeps every grammar identical and every test a plain string comparison. A positional `?` style would need a different marker per driver.
+
+**Why a large `IN` list is not split.** The obvious fix (several `IN` groups joined by `OR`) does not reduce the parameter count, so the statement would still fail. The builder throws a clear error instead; a one-parameter strategy is proposed in PDR-022 A7.
+
+**Why `Raw` is a method suffix, not a type, for now.** Every raw escape hatch is a `*Raw` method. A raw *value* type (Laravel's `DB::raw` inside `update`) is only needed for writes and arrives with them.
 
 ## How it works and why
 

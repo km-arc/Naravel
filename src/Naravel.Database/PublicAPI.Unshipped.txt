@@ -1,10 +1,15 @@
 #nullable enable
 Microsoft.Extensions.DependencyInjection.DatabaseServiceCollectionExtensions
+static Microsoft.Extensions.DependencyInjection.DatabaseServiceCollectionExtensions.AddDatabaseConnection(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! driverName, System.Func<System.IServiceProvider!, string!, Microsoft.Extensions.Configuration.IConfigurationSection!, Naravel.Database.IDatabaseConnection!>! factory, string! sectionName = "Database") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Microsoft.Extensions.DependencyInjection.DatabaseServiceCollectionExtensions.AddNaravelDatabase(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "Database") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+Naravel.Database.CompiledQuery
+Naravel.Database.CompiledQuery.Bindings.get -> System.Collections.Generic.IReadOnlyList<object?>!
+Naravel.Database.CompiledQuery.Sql.get -> string!
 Naravel.Database.DatabaseDialect
 Naravel.Database.DatabaseDialect.MySql = 1 -> Naravel.Database.DatabaseDialect
 Naravel.Database.DatabaseDialect.Postgres = 2 -> Naravel.Database.DatabaseDialect
-Naravel.Database.DatabaseDialect.Sqlite = 0 -> Naravel.Database.DatabaseDialect
 Naravel.Database.DatabaseDialect.SqlServer = 3 -> Naravel.Database.DatabaseDialect
+Naravel.Database.DatabaseDialect.Sqlite = 0 -> Naravel.Database.DatabaseDialect
 Naravel.Database.DatabaseManager
 Naravel.Database.DatabaseManager.Connection(string? name = null) -> Naravel.Database.IDatabaseConnection!
 Naravel.Database.DatabaseManager.DatabaseManager(System.IServiceProvider! provider, Naravel.Foundation.IDriverRegistry<Naravel.Database.IDatabaseConnection!>! registry, Microsoft.Extensions.Options.IOptionsMonitor<Naravel.Database.DatabaseOptions!>! options) -> void
@@ -12,6 +17,11 @@ Naravel.Database.DatabaseOptions
 Naravel.Database.DatabaseOptions.Connections.get -> System.Collections.Generic.Dictionary<string!, Microsoft.Extensions.Configuration.IConfigurationSection!>!
 Naravel.Database.DatabaseOptions.Connections.set -> void
 Naravel.Database.DatabaseOptions.DatabaseOptions() -> void
+Naravel.Database.Grammar
+Naravel.Database.Grammar.Dialect.get -> Naravel.Database.DatabaseDialect
+static Naravel.Database.Grammar.For(Naravel.Database.DatabaseDialect dialect) -> Naravel.Database.Grammar!
+Naravel.Database.Grammar.MaxParameters.get -> int
+Naravel.Database.Grammar.Wrap(string! identifier) -> string!
 Naravel.Database.IConnectionLease
 Naravel.Database.IConnectionLease.Connection.get -> System.Data.Common.DbConnection!
 Naravel.Database.IConnectionLease.OwnsConnection.get -> bool
@@ -22,5 +32,44 @@ Naravel.Database.IDatabaseConnection
 Naravel.Database.IDatabaseConnection.Dialect.get -> Naravel.Database.DatabaseDialect
 Naravel.Database.IDatabaseConnection.Name.get -> string!
 Naravel.Database.IDatabaseConnection.OpenConnectionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Data.Common.DbConnection!>
-static Microsoft.Extensions.DependencyInjection.DatabaseServiceCollectionExtensions.AddDatabaseConnection(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! driverName, System.Func<System.IServiceProvider!, string!, Microsoft.Extensions.Configuration.IConfigurationSection!, Naravel.Database.IDatabaseConnection!>! factory, string! sectionName = "Database") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
-static Microsoft.Extensions.DependencyInjection.DatabaseServiceCollectionExtensions.AddNaravelDatabase(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "Database") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+Naravel.Database.Query
+Naravel.Database.Query.AddSelect(params string![]! columns) -> Naravel.Database.Query!
+Naravel.Database.Query.Clone() -> Naravel.Database.Query!
+Naravel.Database.Query.Compile() -> Naravel.Database.CompiledQuery!
+Naravel.Database.Query.Distinct() -> Naravel.Database.Query!
+static Naravel.Database.Query.For(Naravel.Database.DatabaseDialect dialect) -> Naravel.Database.Query!
+Naravel.Database.Query.GetBindings() -> System.Collections.Generic.IReadOnlyList<object?>!
+Naravel.Database.Query.Grammar.get -> Naravel.Database.Grammar!
+Naravel.Database.Query.Limit(int count) -> Naravel.Database.Query!
+Naravel.Database.Query.Offset(int count) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhere(System.Action<Naravel.Database.Query!>! group) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhere(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, object?>>! conditions) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhere(string! column, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhere(string! column, string! op, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereIn(string! column, System.Collections.IEnumerable! values) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNot(System.Action<Naravel.Database.Query!>! group) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNot(string! column, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNot(string! column, string! op, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNotIn(string! column, System.Collections.IEnumerable! values) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
+Naravel.Database.Query.OrderBy(string! column, string! direction = "asc") -> Naravel.Database.Query!
+Naravel.Database.Query.OrderByDesc(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.OrderByRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
+Naravel.Database.Query.Query(Naravel.Database.Grammar! grammar) -> void
+Naravel.Database.Query.Select(params string![]! columns) -> Naravel.Database.Query!
+Naravel.Database.Query.SelectRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
+Naravel.Database.Query.Skip(int count) -> Naravel.Database.Query!
+Naravel.Database.Query.Table(string! table) -> Naravel.Database.Query!
+Naravel.Database.Query.Take(int count) -> Naravel.Database.Query!
+Naravel.Database.Query.ToRawSql() -> string!
+Naravel.Database.Query.ToSql() -> string!
+Naravel.Database.Query.Where(System.Action<Naravel.Database.Query!>! group) -> Naravel.Database.Query!
+Naravel.Database.Query.Where(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, object?>>! conditions) -> Naravel.Database.Query!
+Naravel.Database.Query.Where(string! column, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.Where(string! column, string! op, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereIn(string! column, System.Collections.IEnumerable! values) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNot(System.Action<Naravel.Database.Query!>! group) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNot(string! column, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNot(string! column, string! op, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNotIn(string! column, System.Collections.IEnumerable! values) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
