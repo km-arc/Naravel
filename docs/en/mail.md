@@ -1,6 +1,6 @@
 # Mail
 
-`Naravel.Mail` is a typed mail contract: a `Mailable` class describes a message, a named *transport* delivers it, and a fake makes it testable. The core package has **no network dependency**; SMTP lives in the optional `Naravel.Mail.Smtp` package and queued sending in the optional `Naravel.Mail.Queue` adapter (the queue adapter is available now; SMTP arrives with the next R09.T03 step; this page marks what is available today).
+`Naravel.Mail` is a typed mail contract: a `Mailable` class describes a message, a named *transport* delivers it, and a fake makes it testable. The core package has **no network dependency**; SMTP lives in the optional `Naravel.Mail.Smtp` package and queued sending in the optional `Naravel.Mail.Queue` adapter (both are available now).
 
 Decisions: [PDR-013](../pdr/en/PDR-013-mail.md) and [PDR-013a](../pdr/en/PDR-013a-mail-mailable-and-transports.md). Persian version: [docs/fa/mail.md](../fa/mail.md).
 
@@ -74,7 +74,42 @@ Pick a transport by name in configuration. Names under `Mail:Mailers` select a `
 |---|---|---|
 | `log` | Writes sender, recipients and subject to `ILogger`; delivers nothing. The body is not logged. Recipients are visible in logs, so do not use it where logs are shared. | `Naravel.Mail` |
 | `array` | Keeps every sent message in memory (`ArrayMailTransport.Sent`) for tests and local runs. | `Naravel.Mail` |
-| `smtp` | Sends through MailKit. | `Naravel.Mail.Smtp` (R09.T03, not yet available) |
+| `smtp` | Sends through MailKit over TLS. | `Naravel.Mail.Smtp` |
+
+### SMTP (`Naravel.Mail.Smtp`)
+
+```csharp
+builder.Services.AddNaravelMail(builder.Configuration);
+builder.Services.AddNaravelMailSmtp(builder.Configuration);   // after AddNaravelMail
+```
+
+```json
+{
+  "Mail": {
+    "Default": "relay",
+    "From": "app@example.com",
+    "Mailers": {
+      "relay": { "Driver": "smtp", "Host": "smtp.example.com", "Port": 587, "Security": "StartTls", "Username": "app", "Timeout": 30 }
+    }
+  }
+}
+```
+
+| Key | Meaning | Default |
+|---|---|---|
+| `Host` | SMTP server. **Required**; a missing value fails with a message naming the key. | none |
+| `Port` | Server port. | `587` |
+| `Security` | `StartTls` (TLS required, port 587), `SslOnConnect` (implicit TLS, port 465) or `None` (clear text, local test servers only). | `StartTls` |
+| `Username` / `Password` | Credentials. Without `Username` no authentication is attempted. Put the password in user secrets or `Mail__Mailers__relay__Password`, never in a committed file. | none |
+| `Timeout` | Seconds for each network operation. | `30` |
+
+Behavior you can rely on:
+
+- TLS is **required by default**. Naravel never falls back to clear text silently; you must write `"Security": "None"`.
+- Each send opens its own connection, authenticates, sends and disconnects (no pooling), so concurrent sends are safe.
+- A server rejection (for example `550` for an unknown recipient) or a network failure is thrown to the caller as the MailKit exception. Nothing is retried inside the transport. Queued mail is retried by the queue job (`MaxAttempts`, backoff), which means a send whose outcome was unclear can be delivered twice.
+- `Bcc` recipients are used for delivery only and never appear in headers. Header values are encoded by MimeKit, so a subject containing line breaks cannot inject a header.
+- The package depends on MailKit (MIT, pinned to 4.18.1; 4.16.0 fixed CVE-2026-41319). Core `Naravel.Mail` does not.
 
 `log` and `array` also exist under those exact names without any configuration. `IMailer` (injected) uses the default transport and resolves it on every send, so changing `Mail:Default` at runtime takes effect without re-injecting. To use another transport explicitly:
 

@@ -173,6 +173,7 @@ aliasهای آمادهٔ route middleware عبارت‌اند از `throttle` (�
 | `Naravel.Events.Queue` (adapter) | `builder.Services.AddNaravelEventsQueue();` |
 | `Naravel.Mail` | `builder.Services.AddNaravelMail(configuration);` |
 | `Naravel.Mail.Queue` | `builder.Services.AddNaravelMailQueue();` |
+| `Naravel.Mail.Smtp` | `builder.Services.AddNaravelMailSmtp(configuration);` |
 
 extension methodهای Queue در `Naravel.Queue.Extensions` قرار دارند. بخش تنظیمات Queue به‌طور پیش‌فرض `NaravelQueue:Stores`، Cache بخش `Cache:Stores` و Filesystem بخش `Filesystem:Stores` است؛ برای هرکدام می‌توان نام بخش دیگری تعیین کرد.
 

@@ -25,6 +25,8 @@
          (CHANGELOG, package audit). Do not bump or remove it without running the env-gated
          MemcachedSerializerRoundTripTests (NARAVEL_TEST_MEMCACHED; part of the CI services job). -->
     <PackageVersion Include="MessagePack" Version="3.1.9" />
+    <!-- MailKit: optional SMTP transport (Naravel.Mail.Smtp only; MIT). 4.16.0 fixed CVE-2026-41319 (STARTTLS response injection); never pin below it. -->
+    <PackageVersion Include="MailKit" Version="4.18.1" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageVersion Include="RabbitMQ.Client" Version="7.2.2" />
     <PackageVersion Include="Confluent.Kafka" Version="2.15.1" />
