@@ -4,7 +4,7 @@
 
 تصمیم‌ها: [PDR-022](../pdr/fa/PDR-022-database-query-builder.md). نسخهٔ انگلیسی: [docs/en/database.md](../en/database.md).
 
-> **آنچه امروز وجود دارد.** فقط پایه آماده است: اتصال‌ها، manager، درایور SQLite و درز اتصال (connection seam). سازندهٔ روان `Query` (مثل `Table("users").Where(...).GetAsync()`) در taskهای بعدیِ همین مرحله می‌آید؛ برنامهٔ متد‌به‌متد در [roadmap/QUERY-BUILDER-COVERAGE.md](../../roadmap/QUERY-BUILDER-COVERAGE.md) است. هیچ چیزِ دیگری ادعا نمی‌شود.
+> **آنچه امروز وجود دارد.** اتصال‌ها، manager، درایور SQLite، درز اتصال و query builder که برای هر چهار دیالکت SQL را **کامپایل** می‌کند (`ToSql`، `ToRawSql`، `GetBindings`). اجرای کوئری (`GetAsync`، `FirstAsync` و ...) در task بعدیِ همین مرحله می‌آید؛ join، گروه‌بندی و خانوادهٔ where گسترده بعد از آن. برنامهٔ متد‌به‌متد در [roadmap/QUERY-BUILDER-COVERAGE.md](../../roadmap/QUERY-BUILDER-COVERAGE.md) است. هیچ چیزِ دیگری ادعا نمی‌شود.
 
 ## شروع سریع
 
@@ -25,6 +25,40 @@ builder.Services.AddNaravelSqliteDatabase(builder.Configuration);   // ترتی�
 - `DatabaseManager.Extend(name, factory)` در زمان اجرا اتصال اضافه می‌کند؛ تغییر `Database:Connections:<name>` در پیکربندی فقط همان اتصال را بازسازی می‌کند و کلیدهای نامرتبط اثری ندارند.
 - `IConnectionScope.AcquireAsync(name)` یک `IConnectionLease` (با `Connection`، `Transaction` و `OwnsConnection`) می‌دهد که همهٔ کوئری‌ها از آن عبور می‌کنند. پس از اتمام، lease را Dispose کنید.
 - دیتابیس‌های `:memory:` تا زمان اجرای برنامه دادهٔ خود را نگه می‌دارند و دو نام اتصال هرگز یکی را به اشتراک نمی‌گذارند.
+
+## query builder
+
+```csharp
+var query = Query.For(DatabaseDialect.Postgres)
+    .Table("users")
+    .Select("id", "name")
+    .Where("active", true)
+    .Where(g => g.Where("age", ">=", 18).OrWhere("vip", true))
+    .OrderByDesc("created_at")
+    .Limit(10).Offset(20);
+
+query.ToSql();       // select "id", "name" from "users" where "active" = @p0 and ("age" >= @p1 or "vip" = @p2) order by "created_at" desc limit 10 offset 20
+query.GetBindings(); // [true, 18, true]
+```
+
+موجود امروز: `Table`، `Select`، `AddSelect`، `SelectRaw`، `Distinct`، `Where`/`OrWhere`/`WhereNot`/`OrWhereNot` (ستون و مقدار، با عملگر، آرایهٔ جفت‌ها یا گروه closure)، `WhereRaw`/`OrWhereRaw`، `WhereIn`/`WhereNotIn` و شکل‌های `or` آن‌ها، `OrderBy`/`OrderByDesc`/`OrderByRaw`، `Limit`/`Take`، `Offset`/`Skip`، `Clone`، `Compile`، `ToSql`، `ToRawSql`، `GetBindings`.
+
+**قواعد ایمنی، در لحظهٔ فراخوانی اعمال می‌شوند:**
+- مقدارها **همیشه** پارامتر هستند (`@p0`، `@p1`، ...) روی هر دیالکت. هیچ چیزی که به‌عنوان مقدار داده شود نمی‌تواند SQL شود. `ToRawSql()` مقدارها را فقط برای لاگ داخل متن می‌گذارد؛ هرگز اجرایش نکنید.
+- شناسه‌ها (جدول، ستون، alias) باید با `[حرف یا _][حرف، رقم، _ یا $]*` بخوانند، حداکثر ۱۲۸ نویسه، در شکل‌های `col`، `table.col`، `schema.table.col`، `*`، `table.*` و `source as alias`. نام فارسی کار می‌کند. هر چیز دیگر فوراً `ArgumentException` می‌دهد. این گرامر با PDR-022 الف۳ قفل شده؛ شل‌کردنش اصلاحیهٔ PDR می‌خواهد.
+- عملگرها از یک فهرست مجاز می‌آیند. عملگری که دیالکت دیگری دارد (مثلاً `ilike` روی SQLite) به‌جای تولید SQL غلط `NotSupportedException` می‌دهد.
+- متن SQL فقط از متدهای `*Raw` ممکن است (`?` یک پارامتر bind‌شده و `??` یک علامت سؤال لفظی است)، پس کد ناامن به‌راحتی جستجو می‌شود.
+- هر دستور با حد پارامتر دیالکت سنجیده می‌شود (SQL Server ‏۲۰۹۸، SQLite ‏۳۲۷۶۶، MySQL و PostgreSQL ‏۶۵۵۳۵). عبور از حد `InvalidOperationException` با نام دیالکت، حد و تعداد می‌دهد.
+
+**تفاوت‌های دیالکت که خودکار مدیریت می‌شوند:** quoting (`"x"` و `` `x` `` و `[x]`)، `limit`/`offset` در برابر `top (n)` و `offset ... fetch` در SQL Server (وقتی `Offset` هست، SQL Server `OrderBy` می‌خواهد و خطا همین را می‌گوید)، و offset بدون limit (`limit -1` در SQLite و یک limit بیشینه در MySQL).
+
+## چگونه کار می‌کند و چرا
+
+**چرا همه‌جا یک سبک `@pN`.** درایورهای SQLite، MySQL، PostgreSQL و SQL Server همه پارامتر نام‌دار می‌پذیرند و Dapper با نام bind می‌کند؛ پس یک سبک، هر چهار grammar را یکسان و هر تست را مقایسهٔ ساده‌ی رشته نگه می‌دارد. سبک `?` موقعیتی برای هر درایور نشانگر جدا می‌خواست.
+
+**چرا فهرست بزرگ `IN` شکسته نمی‌شود.** راه‌حل بدیهی (چند گروه `IN` با `OR`) تعداد پارامتر را کم نمی‌کند، پس دستور باز هم شکست می‌خورد. builder به‌جای آن خطای روشن می‌دهد؛ راهبرد تک‌پارامتری در PDR-022 الف۷ پیشنهاد شده است.
+
+**چرا `Raw` فعلاً پسوند متد است، نه نوع.** هر راه فرار خام یک متد `*Raw` است. نوع *مقدار* خام (مثل `DB::raw` داخل `update` در Laravel) فقط برای نوشتن لازم است و با آن می‌آید.
 
 ## چگونه کار می‌کند و چرا
 

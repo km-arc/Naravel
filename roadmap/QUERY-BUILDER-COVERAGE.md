@@ -13,7 +13,8 @@ suffix on anything that executes. A method that is deliberately not ported says 
 | Basic where | `where` (column/operator/value, array form, closure group), `orWhere`, `whereNot`, `orWhereNot` | R19 |
 | Ordering, limit | `orderBy`, `orderByDesc`, `limit`/`take`, `offset`/`skip` | R19 |
 | Dialects | MySQL, PostgreSQL, SQL Server grammars and drivers | R20 |
-| Additional where | `whereIn`, `whereNotIn`, `whereBetween`, `whereNotBetween`, `whereBetweenColumns`, `whereNull`, `whereNotNull`, `whereColumn`, `orWhere*` of each | R21 |
+| In lists | `whereIn`, `whereNotIn`, `orWhereIn`, `orWhereNotIn` (moved here from the next group because the A4 parameter-limit proof needs them; see PDR-022 A7) | R19 |
+| Additional where | `whereBetween`, `whereNotBetween`, `whereBetweenColumns`, `whereNull`, `whereNotNull`, `whereColumn`, `orWhere*` of each | R21 |
 | Date where | `whereDate`, `whereMonth`, `whereDay`, `whereYear`, `whereTime` | R21 |
 | Multi-column where | `whereAny`, `whereAll`, `whereNone` | R21 |
 | Pattern / full text | `whereLike`, `whereNotLike`, `whereFullText` | R21 |

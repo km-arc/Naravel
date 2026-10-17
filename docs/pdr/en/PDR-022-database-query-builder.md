@@ -137,6 +137,14 @@ The goal is to cover all four dialects without making every push slow. Four meas
 
 **Budget and escalation:** R20.T02 measures the real duration. If a leg takes more than five minutes, the contract suite is sharded by trait inside that leg. A dialect is **never dropped** to save time (owner decision). `scripts/test-local.sh` gains a `--db` option that starts the three servers from the root `docker-compose.yml` so Tier 2 can be run locally.
 
+### A7. Correction to A4: splitting a large `IN` list does not help (found while implementing R19.T04)
+
+A4 said an `IN` list above the limit is split into `(col IN (...) OR col IN (...))`. Implementing it showed this is wrong: the limit is on **parameters per statement**, and the split keeps every value as a parameter, so the statement is exactly as large and still fails. The split only changes the SQL text, not the count. The implemented behaviour is therefore:
+
+- **R19.T04 (done):** any statement above `MaxParameters` throws `InvalidOperationException` that names the dialect, the limit and the count. `WhereIn`/`WhereNotIn` do **not** split. The boundary tests (limit - 1, limit, limit + 1) assert this.
+- **Proposed for R20/R21, needs owner approval:** above a threshold, bind the whole list as **one** parameter instead of one per value: PostgreSQL `col = ANY(@p)` with an array parameter, SQL Server `col IN (SELECT value FROM OPENJSON(@p))`, SQLite `col IN (SELECT value FROM json_each(@p))`, MySQL 8 `col IN (SELECT v FROM JSON_TABLE(@p, '$[*]' COLUMNS (v ...)))`. The values stay bound (no injection risk) and the 40,000-value SQLite test from A4 becomes meaningful. Cost: JSON value typing per dialect and a minimum server version for MySQL; each needs its own round-trip test.
+- A4's other rule is unchanged and correct: R23 batch inserts are split into several statements inside one transaction.
+
 ## Out of scope
 
 Eloquent models and relationships, the schema builder, migrations (use EF Core), seeders, a connection pool of our own, query result caching, and the PHP debug helpers `dd`/`dump` (use `ToSql`, `ToRawSql` and the query log).
