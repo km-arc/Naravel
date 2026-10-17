@@ -48,7 +48,7 @@ needs the EN+FA PDR.
 | R16 | Pagination (PDR-020) | - | PDR | TODO |
 | R17 | Release hardening + re-audit | R01, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19, R20, R21, R22, R23, R24, R25, R26 | owner approvals | TODO |
 | R18 | Encryption facade + encrypted jobs (PDR-021) | R07 | PDR | TODO |
-| R19 | Query builder: Database core, SQLite and basic queries (PDR-022) | R01 | PDR | TODO |
+| R19 | Query builder: Database core, SQLite and basic queries (PDR-022) | R01 | PDR | DOING |
 | R20 | Query builder: MySQL, PostgreSQL and SQL Server (PDR-022) | R19 | PDR | TODO |
 | R21 | Query builder: Where family, joins, grouping and ordering helpers (PDR-022) | R20 | PDR | TODO |
 | R22 | Query builder: Aggregates, existence and streaming (PDR-022) | R21 | PDR | TODO |
