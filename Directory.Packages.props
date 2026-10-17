@@ -18,6 +18,11 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
     <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.13" />
+    <!-- Dapper: row materialization for Naravel.Database (PDR-022; Apache-2.0). 2.1.89 was the highest stable release on NuGet on 2026-10-17. -->
+    <PackageVersion Include="Dapper" Version="2.1.89" />
+    <!-- Microsoft.Data.Sqlite: Naravel.Database.Sqlite (PDR-022; MIT). 10.0.13 was the highest stable 10.0.x on 2026-10-17. It brings SQLitePCLRaw.lib.e_sqlite3 2.1.11
+         (CVE-2025-6965), so Naravel.Database.Sqlite references lib.e_sqlite3 2.1.13 directly, as the Queue.Providers tests already do. -->
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.13" />
     <PackageVersion Include="StackExchange.Redis" Version="2.13.17" />
     <PackageVersion Include="EnyimMemcachedCore" Version="3.5.1" />
     <!-- MessagePack is not used by Naravel source. Naravel.Cache.Memcached references it directly to pin the version that

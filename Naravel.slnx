@@ -8,6 +8,8 @@
     <Project Path="src/Naravel.Mail/Naravel.Mail.csproj" />
     <Project Path="src/Naravel.Mail.Queue/Naravel.Mail.Queue.csproj" />
     <Project Path="src/Naravel.Mail.Smtp/Naravel.Mail.Smtp.csproj" />
+    <Project Path="src/Naravel.Database/Naravel.Database.csproj" />
+    <Project Path="src/Naravel.Database.Sqlite/Naravel.Database.Sqlite.csproj" />
     <Project Path="src/Naravel.Foundation/Naravel.Foundation.csproj" />
     <Project Path="src/Naravel.Routing/Naravel.Routing.csproj" />
     <Project Path="src/Naravel.Queue/Naravel.Queue.csproj" />
@@ -32,6 +34,7 @@
     <Project Path="tests/Naravel.Mail.Tests/Naravel.Mail.Tests.csproj" />
     <Project Path="tests/Naravel.Mail.Queue.Tests/Naravel.Mail.Queue.Tests.csproj" />
     <Project Path="tests/Naravel.Mail.Smtp.Tests/Naravel.Mail.Smtp.Tests.csproj" />
+    <Project Path="tests/Naravel.Database.Tests/Naravel.Database.Tests.csproj" />
     <Project Path="tests/Naravel.Queue.Tests/Naravel.Queue.Tests.csproj" />
     <Project Path="tests/Naravel.Queue.Providers.Tests/Naravel.Queue.Providers.Tests.csproj" />
     <Project Path="tests/Naravel.Queue.Coordination.Tests/Naravel.Queue.Coordination.Tests.csproj" />

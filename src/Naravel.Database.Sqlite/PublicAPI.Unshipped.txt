@@ -1,0 +1,10 @@
+#nullable enable
+Microsoft.Extensions.DependencyInjection.SqliteServiceCollectionExtensions
+Naravel.Database.Sqlite.SqliteDatabaseConnection
+Naravel.Database.Sqlite.SqliteDatabaseConnection.Dialect.get -> Naravel.Database.DatabaseDialect
+Naravel.Database.Sqlite.SqliteDatabaseConnection.Dispose() -> void
+Naravel.Database.Sqlite.SqliteDatabaseConnection.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Naravel.Database.Sqlite.SqliteDatabaseConnection.Name.get -> string!
+Naravel.Database.Sqlite.SqliteDatabaseConnection.OpenConnectionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Data.Common.DbConnection!>
+Naravel.Database.Sqlite.SqliteDatabaseConnection.SqliteDatabaseConnection(string! name, string! connectionString) -> void
+static Microsoft.Extensions.DependencyInjection.SqliteServiceCollectionExtensions.AddNaravelSqliteDatabase(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "Database") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

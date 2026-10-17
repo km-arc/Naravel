@@ -1,0 +1,26 @@
+#nullable enable
+Microsoft.Extensions.DependencyInjection.DatabaseServiceCollectionExtensions
+Naravel.Database.DatabaseDialect
+Naravel.Database.DatabaseDialect.MySql = 1 -> Naravel.Database.DatabaseDialect
+Naravel.Database.DatabaseDialect.Postgres = 2 -> Naravel.Database.DatabaseDialect
+Naravel.Database.DatabaseDialect.Sqlite = 0 -> Naravel.Database.DatabaseDialect
+Naravel.Database.DatabaseDialect.SqlServer = 3 -> Naravel.Database.DatabaseDialect
+Naravel.Database.DatabaseManager
+Naravel.Database.DatabaseManager.Connection(string? name = null) -> Naravel.Database.IDatabaseConnection!
+Naravel.Database.DatabaseManager.DatabaseManager(System.IServiceProvider! provider, Naravel.Foundation.IDriverRegistry<Naravel.Database.IDatabaseConnection!>! registry, Microsoft.Extensions.Options.IOptionsMonitor<Naravel.Database.DatabaseOptions!>! options) -> void
+Naravel.Database.DatabaseOptions
+Naravel.Database.DatabaseOptions.Connections.get -> System.Collections.Generic.Dictionary<string!, Microsoft.Extensions.Configuration.IConfigurationSection!>!
+Naravel.Database.DatabaseOptions.Connections.set -> void
+Naravel.Database.DatabaseOptions.DatabaseOptions() -> void
+Naravel.Database.IConnectionLease
+Naravel.Database.IConnectionLease.Connection.get -> System.Data.Common.DbConnection!
+Naravel.Database.IConnectionLease.OwnsConnection.get -> bool
+Naravel.Database.IConnectionLease.Transaction.get -> System.Data.Common.DbTransaction?
+Naravel.Database.IConnectionScope
+Naravel.Database.IConnectionScope.AcquireAsync(string? connectionName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Naravel.Database.IConnectionLease!>
+Naravel.Database.IDatabaseConnection
+Naravel.Database.IDatabaseConnection.Dialect.get -> Naravel.Database.DatabaseDialect
+Naravel.Database.IDatabaseConnection.Name.get -> string!
+Naravel.Database.IDatabaseConnection.OpenConnectionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Data.Common.DbConnection!>
+static Microsoft.Extensions.DependencyInjection.DatabaseServiceCollectionExtensions.AddDatabaseConnection(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! driverName, System.Func<System.IServiceProvider!, string!, Microsoft.Extensions.Configuration.IConfigurationSection!, Naravel.Database.IDatabaseConnection!>! factory, string! sectionName = "Database") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Microsoft.Extensions.DependencyInjection.DatabaseServiceCollectionExtensions.AddNaravelDatabase(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "Database") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
