@@ -9,6 +9,6 @@ Decisions: Neither side commits or rolls back a transaction it did not start. EF
 
 ## Tasks
 - [ ] **R25.T01 — Transactions:** `TransactionAsync(callback)` with commit/rollback, `BeginTransactionAsync`, `CommitAsync`, `RollBackAsync`, savepoints for nesting, optional deadlock retry count. **Accept:** SQLite tests for commit, rollback on exception, nested savepoint, cancellation; server tests env-gated including a forced deadlock retry on SQL Server and PostgreSQL.
-- [ ] **R25.T02 — Ambient transaction:** Queries inside a transaction callback automatically use it. **Accept:** test proving two builders in one callback share the connection and roll back together.
+- [ ] **R25.T02 — Ambient transaction:** Queries inside a transaction callback automatically use it. **Accept:** test proving two builders in one callback share the connection and roll back together. PDR-022 A1: implement it as another `IConnectionScope` (no change to `Query` or execution signatures).
 - [ ] **R25.T03 — EF Core adapter:** `db.Using(dbContext)` / `dbContext.Query("table")` borrow `Database.GetDbConnection()` and the current `IDbContextTransaction`. **Accept:** SQLite test where an EF write and a builder write commit or roll back together; a test that the adapter never commits a transaction it did not begin.
 - [ ] **R25.T04 — Validate:** Docs EN/FA, parity, changelog, full verification. **Accept:** DoD 5-7.
