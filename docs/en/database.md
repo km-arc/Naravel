@@ -4,7 +4,7 @@
 
 Decisions: [PDR-022](../pdr/en/PDR-022-database-query-builder.md). Persian version: [docs/fa/database.md](../fa/database.md).
 
-> **What exists today.** Connections, the manager, the SQLite driver, the connection seam, the query builder that **compiles** SQL for all four dialects (`ToSql`, `ToRawSql`, `GetBindings`), and execution. **Running** it on SQLite (`GetAsync`, `FirstAsync`, `SoleAsync`, `ValueAsync`, `FindAsync`, `PluckAsync` and raw SQL through `IDatabase`) works too; observability (meter, activity, `IQueryListener`, opt-in query log) and the test fake `DatabaseFake` work too. Joins, grouping and the extended where family follow. The method-by-method plan is in [roadmap/QUERY-BUILDER-COVERAGE.md](../../roadmap/QUERY-BUILDER-COVERAGE.md). Nothing here pretends otherwise.
+> **What exists today.** Connections, the manager, the SQLite, MySQL, PostgreSQL and SQL Server drivers, the connection seam, the query builder that **compiles** SQL for all four dialects (`ToSql`, `ToRawSql`, `GetBindings`), and execution. **Running** it (`GetAsync`, `FirstAsync`, `SoleAsync`, `ValueAsync`, `FindAsync`, `PluckAsync` and raw SQL through `IDatabase`) works on all four databases, proven by one shared contract suite in CI; observability (meter, activity, `IQueryListener`, opt-in query log) and the test fake `DatabaseFake` work too. Joins, grouping and the extended where family follow. The method-by-method plan is in [roadmap/QUERY-BUILDER-COVERAGE.md](../../roadmap/QUERY-BUILDER-COVERAGE.md). Nothing here pretends otherwise.
 
 ## Quickstart
 
@@ -151,7 +151,54 @@ Available now: `Table`, `Select`, `AddSelect`, `SelectRaw`, `Distinct`, `Where`/
 
 Install only the packages you use, register each after `AddNaravelDatabase`, and name connections freely: one application can use several databases at once (`db.Table("t", "reports")`). Keep passwords out of source: set `Database__Connections__main__ConnectionString` in the environment. Connection pooling is the provider's; a disposed lease returns its connection to the pool.
 
-**Status:** these drivers are written and unit-tested for registration, reload and `Extend`. Running real queries against each server is proven by the shared contract suite of the next task and by the CI `database` job, which do not exist yet, so treat MySQL, PostgreSQL and SQL Server execution as **not yet verified** until then. Known per-server facts: SQL Server allows 2100 parameters per statement (the grammar stops at 2098) and requires `OrderBy` with `Offset`; PostgreSQL has `ilike` and regex operators, MySQL has `<=>`, `regexp` and `rlike`, and using one on another dialect throws `NotSupportedException`.
+### Connection strings
+
+| Driver | Example | Notes |
+|---|---|---|
+| `sqlite` | `Path` = `app.db` or `:memory:` | A file path, not a connection string. `:memory:` becomes a shared in-memory database that lives as long as the driver. |
+| `mysql` | `Server=localhost;Port=3306;Database=app;User ID=app;Password=...` | MySqlConnector. With MySQL 8 and no TLS add `AllowPublicKeyRetrieval=true` (local and CI only). |
+| `pgsql` | `Host=localhost;Port=5432;Database=app;Username=app;Password=...` | Npgsql. |
+| `sqlserver` | `Server=localhost,1433;Database=app;User Id=app;Password=...;TrustServerCertificate=true` | Microsoft.Data.SqlClient. `TrustServerCertificate=true` is for a local or test server with a self-signed certificate; do not use it against production. |
+
+### Dialect matrix
+
+The same builder call compiles differently per database. Everything below is proven by the contract suite on all four.
+
+| | SQLite | MySQL | PostgreSQL | SQL Server |
+|---|---|---|---|---|
+| Identifier quotes | `"name"` | `` `name` `` | `"name"` | `[name]` |
+| Parameter marker | `@p0` | `@p0` | `@p0` | `@p0` |
+| `Limit(n)` | `limit n` | `limit n` | `limit n` | `top (n)`, or `fetch next n rows only` with `Offset` |
+| `Offset` without `Limit` | `limit -1 offset n` | `limit 18446744073709551615 offset n` | `offset n` | `offset n rows`, needs `OrderBy` |
+| Booleans in `ToRawSql` | `1` / `0` | `1` / `0` | `true` / `false` | `1` / `0` |
+| Most parameters per statement | 32766 | 65535 | 65535 | 2098 (limit 2100) |
+| Extra operators | none | `<=>`, `regexp`, `rlike` and their `not` forms | `ilike`, `~`, `~*`, `!~`, `!~*`, `similar to` and `not` forms | none |
+
+An operator that exists on one dialect only throws `NotSupportedException` on the others instead of generating SQL that fails at run time. `Offset` on SQL Server without `OrderBy` throws `InvalidOperationException`, because `OFFSET ... FETCH` requires `ORDER BY`.
+
+### Types
+
+Parameters are bound with a value and, where providers disagree, an explicit type. Single values read back (`ValueAsync<T>`, `ScalarAsync<T>`, `PluckAsync<T>`, `GetAsync<T>` for a simple `T`) are converted by Naravel, so the same call gives the same CLR value on every database:
+
+| CLR type | Notes |
+|---|---|
+| `bool` | Read back from `bit`, `tinyint(1)`, `boolean` and SQLite integers. |
+| `int`, `long`, `double`, `decimal`, `string` | Widths are converted, so `ScalarAsync<long>("select count(*) ...")` works on every database. |
+| `Guid` | `char(36)` on MySQL, `uuid` on PostgreSQL, `uniqueidentifier` on SQL Server, text on SQLite. |
+| `DateTime` | Bound as `datetime2` on SQL Server. PostgreSQL `timestamp` needs a non-UTC kind, `timestamptz` needs UTC. |
+| `DateTimeOffset` | **Not available on MySQL** (no such column type; store a UTC `DateTime`). PostgreSQL accepts only offset 0. A `DateTime` read from a timezone-aware column is taken as UTC. |
+| `DateOnly`, `TimeOnly` | Native on every server; text on SQLite. |
+| `byte[]` | `blob`, `varbinary`, `bytea`. |
+| enums | Written as the underlying integer; read back with `ValueAsync<MyEnum>` or as the integer. |
+| `null` | Written as `NULL` and read back as `null` (the default for value types in `ValueAsync<T>`). |
+
+Mapping to your own classes (`GetAsync<MyRow>()`) uses Dapper.
+
+### Running the database tests
+
+CI runs the contract suite in a separate `database` job: one parallel leg per server (a throwaway container with test-only tuning), each running only its own `Dialect` trait. It always runs on `main`, on version tags and nightly, and on a pull request only when database code, tests, shared test code, package versions, the compose file or the workflow changed. A leg fails if its tests were skipped, so a missing connection string cannot pass silently. The first run measured about 45 seconds per leg, far under the five-minute budget in PDR-022 A6.
+
+Locally, `scripts/test-local.sh --db` (or `test-local.ps1 -Db`) starts the same three servers from `docker-compose.yml` (SQL Server needs about 2 GB of RAM) and exports `NARAVEL_TEST_MYSQL`, `NARAVEL_TEST_POSTGRES` and `NARAVEL_TEST_SQLSERVER`. Without those variables the server tests are skipped, which means **not run**, and only SQLite is checked. To run one dialect: `scripts/test-local.sh --db -- --filter "Dialect=Postgres"`.
 
 ## Not ported on purpose
 
