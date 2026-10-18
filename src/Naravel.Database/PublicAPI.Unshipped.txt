@@ -97,3 +97,44 @@ Naravel.Database.Query.PluckAsync<T>(string! column, System.Threading.Cancellati
 Naravel.Database.Query.SoleAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyDictionary<string!, object?>!>!
 Naravel.Database.Query.SoleAsync<T>(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
 Naravel.Database.Query.ValueAsync<T>(string! column, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+Naravel.Database.IQueryListener
+Naravel.Database.IQueryListener.OnQueryExecuted(Naravel.Database.QueryExecuted! query) -> void
+Naravel.Database.QueryExecuted
+Naravel.Database.QueryExecuted.Bindings.get -> System.Collections.Generic.IReadOnlyList<object?>!
+Naravel.Database.QueryExecuted.ConnectionName.get -> string!
+Naravel.Database.QueryExecuted.Duration.get -> System.TimeSpan
+Naravel.Database.QueryExecuted.Exception.get -> System.Exception?
+Naravel.Database.QueryExecuted.Operation.get -> Naravel.Database.QueryOperation
+Naravel.Database.QueryExecuted.QueryExecuted(string! connectionName, Naravel.Database.QueryOperation operation, string! sql, System.Collections.Generic.IReadOnlyList<object?>! bindings, System.TimeSpan duration, System.Exception? exception = null) -> void
+Naravel.Database.QueryExecuted.Sql.get -> string!
+Naravel.Database.QueryLog
+Naravel.Database.QueryLog.Clear() -> void
+Naravel.Database.QueryLog.Enabled.get -> bool
+Naravel.Database.QueryLog.Enabled.set -> void
+Naravel.Database.QueryLog.Entries.get -> System.Collections.Generic.IReadOnlyList<Naravel.Database.QueryExecuted!>!
+Naravel.Database.QueryLog.OnQueryExecuted(Naravel.Database.QueryExecuted! query) -> void
+Naravel.Database.QueryLog.QueryLog(int maxEntries = 1000) -> void
+Naravel.Database.QueryOperation
+Naravel.Database.QueryOperation.Scalar = 1 -> Naravel.Database.QueryOperation
+Naravel.Database.QueryOperation.Select = 0 -> Naravel.Database.QueryOperation
+Naravel.Database.QueryOperation.Statement = 2 -> Naravel.Database.QueryOperation
+Naravel.Database.Testing.DatabaseFake
+Naravel.Database.Testing.DatabaseFake.AffectingStatementAsync(string! sql, System.Collections.Generic.IEnumerable<object?>? bindings = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<int>!
+Naravel.Database.Testing.DatabaseFake.AssertExecuted(System.Func<Naravel.Database.QueryExecuted!, bool>? predicate = null) -> Naravel.Database.QueryExecuted!
+Naravel.Database.Testing.DatabaseFake.AssertExecutedCount(int expectedCount) -> System.Collections.Generic.IReadOnlyList<Naravel.Database.QueryExecuted!>!
+Naravel.Database.Testing.DatabaseFake.AssertNothingExecuted() -> void
+Naravel.Database.Testing.DatabaseFake.Connection(string? name) -> Naravel.Database.IDatabase!
+Naravel.Database.Testing.DatabaseFake.ConnectionName.get -> string?
+Naravel.Database.Testing.DatabaseFake.DatabaseFake(Naravel.Database.DatabaseDialect dialect = Naravel.Database.DatabaseDialect.Sqlite) -> void
+Naravel.Database.Testing.DatabaseFake.Executed.get -> System.Collections.Generic.IReadOnlyList<Naravel.Database.QueryExecuted!>!
+Naravel.Database.Testing.DatabaseFake.ReturnAffected(int count, string? sqlContains = null) -> Naravel.Database.Testing.DatabaseFake!
+Naravel.Database.Testing.DatabaseFake.ReturnObjects<T>(System.Collections.Generic.IEnumerable<T>! rows, string? sqlContains = null) -> Naravel.Database.Testing.DatabaseFake!
+Naravel.Database.Testing.DatabaseFake.ReturnRows(System.Collections.Generic.IEnumerable<System.Collections.Generic.IReadOnlyDictionary<string!, object?>!>! rows, string? sqlContains = null) -> Naravel.Database.Testing.DatabaseFake!
+Naravel.Database.Testing.DatabaseFake.ReturnScalar(object? value, string? sqlContains = null) -> Naravel.Database.Testing.DatabaseFake!
+Naravel.Database.Testing.DatabaseFake.ScalarAsync<T>(string! sql, System.Collections.Generic.IEnumerable<object?>? bindings = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+Naravel.Database.Testing.DatabaseFake.SelectAsync(string! sql, System.Collections.Generic.IEnumerable<object?>? bindings = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyDictionary<string!, object?>!>!>!
+Naravel.Database.Testing.DatabaseFake.SelectAsync<T>(string! sql, System.Collections.Generic.IEnumerable<object?>? bindings = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<T>!>!
+Naravel.Database.Testing.DatabaseFake.StatementAsync(string! sql, System.Collections.Generic.IEnumerable<object?>? bindings = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Database.Testing.DatabaseFake.Table(string! table) -> Naravel.Database.Query!
+Naravel.Database.Testing.DatabaseFake.UnpreparedAsync(string! sql, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+static Microsoft.Extensions.DependencyInjection.DatabaseServiceCollectionExtensions.AddNaravelDatabaseQueryLog(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, int maxEntries = 1000) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

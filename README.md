@@ -122,7 +122,7 @@ See [docs/en/mail.md](docs/en/mail.md) and [docs/fa/mail.md](docs/fa/mail.md).
 
 ### Naravel.Database
 
-A Laravel-style query builder with named connections and parameter-bound SQL on SQLite, MySQL, PostgreSQL and SQL Server (Dapper maps rows; EF Core stays the tool for entities and migrations). **Today:** connections, the SQLite driver, the builder for select/where/order/limit that compiles for all four dialects, and execution on SQLite. MySQL, PostgreSQL and SQL Server drivers, joins, aggregates, writes and transactions follow in later stages (see [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md)).
+A Laravel-style query builder with named connections and parameter-bound SQL on SQLite, MySQL, PostgreSQL and SQL Server (Dapper maps rows; EF Core stays the tool for entities and migrations). **Today:** connections, the SQLite driver, the builder for select/where/order/limit that compiles for all four dialects, execution on SQLite, and observability (a `Naravel.Database` meter and activity with no SQL in tags, `IQueryListener`, an opt-in query log) with a `DatabaseFake` for tests. MySQL, PostgreSQL and SQL Server drivers, joins, aggregates, writes and transactions follow in later stages (see [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md)).
 
 ```csharp
 builder.Services.AddNaravelDatabase(builder.Configuration);
