@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Naravel.Database.Postgres</PackageId>
+    <Description>PostgreSQL driver for Naravel.Database, built on Npgsql.</Description>
+    <PackageTags>database;query-builder;postgres;postgresql;laravel;naravel</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Naravel.Database\Naravel.Database.csproj" />
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Naravel.Database.Tests" />
+  </ItemGroup>
+</Project>

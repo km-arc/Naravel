@@ -15,6 +15,12 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Naravel.Database\Naravel.Database.csproj" />
     <ProjectReference Include="..\..\src\Naravel.Database.Sqlite\Naravel.Database.Sqlite.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Database.MySql\Naravel.Database.MySql.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Database.Postgres\Naravel.Database.Postgres.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Database.SqlServer\Naravel.Database.SqlServer.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\Shared\ServiceFactAttribute.cs" Link="ServiceFactAttribute.cs" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

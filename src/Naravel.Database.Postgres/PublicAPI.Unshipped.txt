@@ -1,0 +1,10 @@
+#nullable enable
+Microsoft.Extensions.DependencyInjection.PostgresServiceCollectionExtensions
+Naravel.Database.Postgres.PostgresDatabaseConnection
+Naravel.Database.Postgres.PostgresDatabaseConnection.PostgresDatabaseConnection(string! name, string! connectionString) -> void
+Naravel.Database.Postgres.PostgresDatabaseConnection.Dialect.get -> Naravel.Database.DatabaseDialect
+Naravel.Database.Postgres.PostgresDatabaseConnection.Name.get -> string!
+Naravel.Database.Postgres.PostgresDatabaseConnection.OpenConnectionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Data.Common.DbConnection!>
+Naravel.Database.Postgres.PostgresDatabaseConnection.Dispose() -> void
+Naravel.Database.Postgres.PostgresDatabaseConnection.DisposeAsync() -> System.Threading.Tasks.ValueTask
+static Microsoft.Extensions.DependencyInjection.PostgresServiceCollectionExtensions.AddNaravelPostgresDatabase(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "Database") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

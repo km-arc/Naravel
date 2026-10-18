@@ -134,6 +134,25 @@ query.GetBindings(); // [true, 18, true]
 
 **امنیت بستهٔ درایور.** `Microsoft.Data.Sqlite` بستهٔ `SQLitePCLRaw.lib.e_sqlite3` نسخهٔ 2.1.11 را می‌آورد که advisory با شناسهٔ CVE-2025-6965 دارد. مخزن نسخهٔ اصلاح‌شدهٔ 2.1.13 را مستقیم pin می‌کند، چون build هشدارها را خطا حساب می‌کند.
 
+## درایورهای سرور
+
+| بسته | مقدار `Driver` | provider | ثبت |
+|---|---|---|---|
+| `Naravel.Database.Sqlite` | `sqlite` | Microsoft.Data.Sqlite | `AddNaravelSqliteDatabase` |
+| `Naravel.Database.MySql` | `mysql` | MySqlConnector | `AddNaravelMySqlDatabase` |
+| `Naravel.Database.Postgres` | `pgsql` | Npgsql | `AddNaravelPostgresDatabase` |
+| `Naravel.Database.SqlServer` | `sqlserver` | Microsoft.Data.SqlClient | `AddNaravelSqlServerDatabase` |
+
+```json
+{ "Database": { "Default": "main", "Connections": {
+  "main": { "Driver": "pgsql", "ConnectionString": "Host=localhost;Database=app;Username=app;Password=..." },
+  "reports": { "Driver": "mysql", "ConnectionString": "Server=localhost;Database=reports;User ID=app;Password=..." } } } }
+```
+
+فقط بسته‌هایی را نصب کنید که استفاده می‌کنید، هر کدام را بعد از `AddNaravelDatabase` ثبت کنید و نام اتصال‌ها را آزادانه بگذارید: یک برنامه می‌تواند هم‌زمان چند دیتابیس داشته باشد (`db.Table("t", "reports")`). رمز را بیرون از کد نگه دارید: متغیر محیطی `Database__Connections__main__ConnectionString` را بگذارید. pooling کار provider است و lease که Dispose شود اتصال را به pool برمی‌گرداند.
+
+**وضعیت:** این درایورها نوشته شده‌اند و ثبت، reload و `Extend` آن‌ها تست واحد دارد. اجرای کوئری واقعی روی هر سرور را مجموعهٔ contract مشترکِ task بعدی و job پایگاه‌دادهٔ CI اثبات می‌کنند که هنوز وجود ندارند؛ پس اجرای MySQL، PostgreSQL و SQL Server را تا آن زمان **هنوز راستی‌آزمایی‌نشده** بدانید. واقعیت‌های هر سرور: SQL Server هر دستور را تا ۲۱۰۰ پارامتر می‌پذیرد (grammar روی ۲۰۹۸ می‌ایستد) و با `Offset` به `OrderBy` نیاز دارد؛ PostgreSQL عملگرهای `ilike` و regex دارد، MySQL عملگرهای `<=>` و `regexp` و `rlike`، و استفادهٔ هر کدام روی دیالکت دیگر `NotSupportedException` می‌دهد.
+
 ## عمداً پورت نشده
 
 - هدایت `DB::__call` به اتصال: به‌جای آن `IDatabase` (یا scope) را inject کنید.

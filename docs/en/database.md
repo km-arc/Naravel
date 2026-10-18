@@ -134,6 +134,25 @@ Available now: `Table`, `Select`, `AddSelect`, `SelectRaw`, `Distinct`, `Where`/
 
 **Security of the driver package.** `Microsoft.Data.Sqlite` brings `SQLitePCLRaw.lib.e_sqlite3` 2.1.11, which has advisory CVE-2025-6965. The repository pins the patched 2.1.13 directly, because the build treats warnings as errors.
 
+## Server drivers
+
+| Package | `Driver` value | Provider | Registration |
+|---|---|---|---|
+| `Naravel.Database.Sqlite` | `sqlite` | Microsoft.Data.Sqlite | `AddNaravelSqliteDatabase` |
+| `Naravel.Database.MySql` | `mysql` | MySqlConnector | `AddNaravelMySqlDatabase` |
+| `Naravel.Database.Postgres` | `pgsql` | Npgsql | `AddNaravelPostgresDatabase` |
+| `Naravel.Database.SqlServer` | `sqlserver` | Microsoft.Data.SqlClient | `AddNaravelSqlServerDatabase` |
+
+```json
+{ "Database": { "Default": "main", "Connections": {
+  "main": { "Driver": "pgsql", "ConnectionString": "Host=localhost;Database=app;Username=app;Password=..." },
+  "reports": { "Driver": "mysql", "ConnectionString": "Server=localhost;Database=reports;User ID=app;Password=..." } } } }
+```
+
+Install only the packages you use, register each after `AddNaravelDatabase`, and name connections freely: one application can use several databases at once (`db.Table("t", "reports")`). Keep passwords out of source: set `Database__Connections__main__ConnectionString` in the environment. Connection pooling is the provider's; a disposed lease returns its connection to the pool.
+
+**Status:** these drivers are written and unit-tested for registration, reload and `Extend`. Running real queries against each server is proven by the shared contract suite of the next task and by the CI `database` job, which do not exist yet, so treat MySQL, PostgreSQL and SQL Server execution as **not yet verified** until then. Known per-server facts: SQL Server allows 2100 parameters per statement (the grammar stops at 2098) and requires `OrderBy` with `Offset`; PostgreSQL has `ilike` and regex operators, MySQL has `<=>`, `regexp` and `rlike`, and using one on another dialect throws `NotSupportedException`.
+
 ## Not ported on purpose
 
 - `DB::__call` forwarding to the connection: inject `IDatabase` (or the scope) instead.

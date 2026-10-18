@@ -1,0 +1,8 @@
+#nullable enable
+Microsoft.Extensions.DependencyInjection.MySqlServiceCollectionExtensions
+Naravel.Database.MySql.MySqlDatabaseConnection
+Naravel.Database.MySql.MySqlDatabaseConnection.MySqlDatabaseConnection(string! name, string! connectionString) -> void
+Naravel.Database.MySql.MySqlDatabaseConnection.Dialect.get -> Naravel.Database.DatabaseDialect
+Naravel.Database.MySql.MySqlDatabaseConnection.Name.get -> string!
+Naravel.Database.MySql.MySqlDatabaseConnection.OpenConnectionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Data.Common.DbConnection!>
+static Microsoft.Extensions.DependencyInjection.MySqlServiceCollectionExtensions.AddNaravelMySqlDatabase(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "Database") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

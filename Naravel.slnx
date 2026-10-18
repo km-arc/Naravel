@@ -10,6 +10,9 @@
     <Project Path="src/Naravel.Mail.Smtp/Naravel.Mail.Smtp.csproj" />
     <Project Path="src/Naravel.Database/Naravel.Database.csproj" />
     <Project Path="src/Naravel.Database.Sqlite/Naravel.Database.Sqlite.csproj" />
+    <Project Path="src/Naravel.Database.MySql/Naravel.Database.MySql.csproj" />
+    <Project Path="src/Naravel.Database.Postgres/Naravel.Database.Postgres.csproj" />
+    <Project Path="src/Naravel.Database.SqlServer/Naravel.Database.SqlServer.csproj" />
     <Project Path="src/Naravel.Foundation/Naravel.Foundation.csproj" />
     <Project Path="src/Naravel.Routing/Naravel.Routing.csproj" />
     <Project Path="src/Naravel.Queue/Naravel.Queue.csproj" />
