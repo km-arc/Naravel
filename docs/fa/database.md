@@ -26,6 +26,10 @@ builder.Services.AddNaravelSqliteDatabase(builder.Configuration);   // ترتی�
 - `IConnectionScope.AcquireAsync(name)` یک `IConnectionLease` (با `Connection`، `Transaction` و `OwnsConnection`) می‌دهد که همهٔ کوئری‌ها از آن عبور می‌کنند. پس از اتمام، lease را Dispose کنید.
 - دیتابیس‌های `:memory:` تا زمان اجرای برنامه دادهٔ خود را نگه می‌دارند و دو نام اتصال هرگز یکی را به اشتراک نمی‌گذارند.
 
+## امتحان کنید
+
+`samples/Naravel.Sample` یک دموی اجرایی در `/database` روی SQLite درون‌حافظه دارد: شرط‌هایی که برای هر پارامتر درخواست اضافه می‌شوند، مقدارهای bind‌شده کنار SQL، ردشدن نام ستون نامعتبر در لحظهٔ فراخوانی، `WhereYear`، `FindAsync` و لاگ کوئری. [README نمونه](../../samples/Naravel.Sample/README.md) را ببینید.
+
 ## اجرای کوئری
 
 ```csharp

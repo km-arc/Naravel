@@ -122,7 +122,7 @@ See [docs/en/mail.md](docs/en/mail.md) and [docs/fa/mail.md](docs/fa/mail.md).
 
 ### Naravel.Database
 
-A Laravel-style query builder with named connections and parameter-bound SQL on SQLite, MySQL, PostgreSQL and SQL Server (Dapper maps rows; EF Core stays the tool for entities and migrations). **Today:** connections, the SQLite, MySQL, PostgreSQL and SQL Server drivers, the builder for select/where/order/limit that compiles for all four dialects and runs on all four (one shared contract suite in CI), and observability (a `Naravel.Database` meter and activity with no SQL in tags, `IQueryListener`, an opt-in query log) with a `DatabaseFake` for tests. Joins, aggregates, writes and transactions follow in later stages (see [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md)).
+A Laravel-style query builder with named connections and parameter-bound SQL on SQLite, MySQL, PostgreSQL and SQL Server (Dapper maps rows; EF Core stays the tool for entities and migrations). **Today:** connections, the SQLite, MySQL, PostgreSQL and SQL Server drivers, the builder (select, the where family so far: value, null, between, column, date-part and any/all/none conditions, order, limit) that compiles for all four dialects and runs on all four (one shared contract suite in CI), and observability (a `Naravel.Database` meter and activity with no SQL in tags, `IQueryListener`, an opt-in query log) with a `DatabaseFake` for tests. Joins, aggregates, writes and transactions follow in later stages (see [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md)).
 
 ```csharp
 builder.Services.AddNaravelDatabase(builder.Configuration);
@@ -209,6 +209,7 @@ dotnet run --project samples/Naravel.Sample/Naravel.Sample.csproj
 | `/queue` | Queue dispatch, delay, priority, retry/backoff, chains and batches (file-backed by default) |
 | `/events` | `OrderPlaced` dispatch: DI listeners, stop propagation, a `Listen` callback, and a queued listener |
 | `/routing/` | Route groups, constraints, resources, model binding and route middleware |
+| `/database` | The query builder on in-memory SQLite: conditions added per request parameter, bound values, a rejected column name, `WhereYear`, `FindAsync` and the query log |
 
 See [samples/Naravel.Sample/README.md](samples/Naravel.Sample/README.md) for provider switching and demo headers.
 

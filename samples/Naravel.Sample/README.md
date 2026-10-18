@@ -1,6 +1,6 @@
 # Naravel Sample
 
-The sample combines a queue demo, an events demo, and an executable showcase of `Naravel.Routing`.
+The sample combines a queue demo, an events demo, a database (query builder) demo, and an executable showcase of `Naravel.Routing`.
 
 Run it with:
 
@@ -28,6 +28,16 @@ The page calls `POST /events/orders?total=120&email=ali@example.com`, `GET /even
 ```sh
 NaravelQueue__Default=redis NaravelQueue__SampleConnection=redis dotnet run --project samples/Naravel.Sample/Naravel.Sample.csproj
 ```
+
+The database demo at `/database` uses an in-memory SQLite database (`Database:Connections:main` in `config/appsettings.json`), so nothing is installed and no file is written. The `people` table is created on first use with five rows; `POST /database/seed` recreates it. `GET /database/people` builds one query from the query string and returns the SQL with its `@p` markers, the bound values and the rows:
+
+- `?minVotes=20&active=true` adds `Where` conditions only for the parameters that are present.
+- `?bornYear=2024` uses `WhereYear`, which is `strftime` on SQLite and `extract`, `year()` or `datepart` on the other engines.
+- `?name=x' or '1'='1` returns no rows: the text is a bound value, never SQL.
+- `?orderBy=id; drop table people` returns `400`: a column name that is not a plain identifier is rejected when `OrderBy` is called, before any SQL exists.
+- `GET /database/people/3` uses `FindAsync`; `GET /database/log` shows the queries recorded by the opt-in `QueryLog` (it keeps bound values, so use it in development only).
+
+To run the same demo on another server, change the connection to `{ "Driver": "mysql" | "pgsql" | "sqlserver", "ConnectionString": "..." }` and register the matching `AddNaravel...Database` call in `config/DatabaseSampleConfig.cs`; the demo's SQL text is the builder's, but the `create table` statement in `app/Data/PeopleSeeder.cs` is SQLite syntax and needs the server's column types. See `docs/en/database.md`.
 
 Protected examples accept the request header `X-Sample-Key: naravel-demo`. The role example additionally expects `X-Sample-Role: admin`. The domain-scoped examples require the host `tenant.example.test`.
 
