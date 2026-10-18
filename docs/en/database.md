@@ -107,6 +107,18 @@ query.GetBindings(); // [true, 18, true]
 
 Available now: `Table`, `Select`, `AddSelect`, `SelectRaw`, `Distinct`, `Where`/`OrWhere`/`WhereNot`/`OrWhereNot` (column and value, with an operator, an array of pairs, or a closure group), `WhereRaw`/`OrWhereRaw`, `WhereIn`/`WhereNotIn`, `WhereBetween`/`WhereNotBetween`, `WhereBetweenColumns`/`WhereNotBetweenColumns`, `WhereNull`/`WhereNotNull`, `WhereColumn` (each with an `or` form; bounds are bound parameters and must not be null, because `between null` never matches), `OrderBy`/`OrderByDesc`/`OrderByRaw`, `Limit`/`Take`, `Offset`/`Skip`, `Clone`, `Compile`, `ToSql`, `ToRawSql`, `GetBindings`.
 
+**Date parts and multi-column where.** `WhereDate`, `WhereMonth`, `WhereDay`, `WhereYear`, `WhereTime` (each with an operator form and an `or` form) compare one part of a date or time column. The four engines have no common function for this, so each grammar writes its own; the value is always a parameter:
+
+| Method | SQLite | MySQL | PostgreSQL | SQL Server |
+|---|---|---|---|---|
+| `WhereDate` | `date(c)` | `date(c)` | `cast(c as date)` | `cast(c as date)` |
+| `WhereMonth` / `Day` / `Year` | `cast(strftime('%m', c) as integer)` (`%d`, `%Y`) | `month(c)` / `day(c)` / `year(c)` | `extract(month from c)` | `datepart(month, c)` |
+| `WhereTime` | `strftime('%H:%M:%S', c)` | `time(c)` | `cast(c as time)` | `cast(c as time)` |
+
+Why the value is converted at the call: a `DateTime`, `DateTimeOffset` or `yyyy-MM-dd` string given to `WhereDate` becomes a `DateOnly`, and `WhereTime` takes a `TimeOnly`, `TimeSpan` (inside one day), `DateTime` or `HH:mm[:ss]` string, so every provider receives a native date or time parameter and PostgreSQL never has to compare a date with text. Month, day and year are integers and are range-checked (1-12, 1-31, 1-9999). Only `= < > <= >= <> !=` are accepted. On SQLite, dates are compared as the ISO text the provider writes, so a column that holds another text format will not match.
+
+`WhereAny`, `WhereAll` and `WhereNone` take a list of columns, an optional operator and one value. Each column gets its own parameter (the same value repeated), so the parameter limit counts them. Any is `(a = @p0 or b = @p1)`, all joins with `and`, and none is `not (a = @p0 or b = @p1)`. An empty column list is an error at the call.
+
 **Safety rules, enforced at the call:**
 - Values are **always** parameters (`@p0`, `@p1`, ...), on every dialect. Nothing a caller passes as a value can become SQL. `ToRawSql()` writes values in for logging only; never execute it.
 - Identifiers (tables, columns, aliases) must match `[letter or _][letter, digit, _ or $]*`, at most 128 characters, in the forms `col`, `table.col`, `schema.table.col`, `*`, `table.*` and `source as alias`. Persian names work. Anything else throws `ArgumentException` immediately. The grammar is frozen by PDR-022 A3; loosening it needs a PDR amendment.

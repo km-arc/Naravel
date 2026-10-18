@@ -9,7 +9,7 @@ Decisions: Every method is added to all four grammars and to the contract suite 
 
 ## Tasks
 - [x] **R21.T01 — Value and null where:** `WhereIn`, `WhereNotIn`, `WhereBetween`, `WhereNotBetween`, `WhereBetweenColumns`, `WhereNull`, `WhereNotNull`, `WhereColumn` and every `OrWhere` form. **Accept:** SQL and bindings tests on four grammars; empty `WhereIn` list produces a false condition, not invalid SQL. Build and tests NOT RUN locally (no .NET SDK); CI is the check.
-- [ ] **R21.T02 — Date and multi-column where:** `WhereDate`, `WhereMonth`, `WhereDay`, `WhereYear`, `WhereTime`, `WhereAny`, `WhereAll`, `WhereNone`. **Accept:** tests per dialect (`strftime`, `EXTRACT`, `DATEPART`/`YEAR()` differences).
+- [x] **R21.T02 — Date and multi-column where:** `WhereDate`, `WhereMonth`, `WhereDay`, `WhereYear`, `WhereTime`, `WhereAny`, `WhereAll`, `WhereNone`. **Accept:** tests per dialect (`strftime`, `EXTRACT`, `DATEPART`/`YEAR()` differences). Build and tests NOT RUN locally (no .NET SDK); CI is the check.
 - [ ] **R21.T03 — Pattern, full text and JSON:** `WhereLike`, `WhereNotLike`, `WhereFullText`, `WhereJsonContains`, `WhereJsonDoesntContain`, `WhereJsonContainsKey`, `WhereJsonLength`, JSON path columns. **Accept:** per-dialect SQL tests; `WhereFullText` on SQLite throws `NotSupportedException`; execution on the servers env-gated.
 - [ ] **R21.T04 — Grouping, exists and conditionals:** Nested closures, `WhereExists`, `WhereNotExists`, subquery where, `When`, `Unless`. **Accept:** tests including deep nesting and binding order.
 - [ ] **R21.T05 — Joins:** `Join`, `LeftJoin`, `RightJoin`, `CrossJoin`, advanced join clauses (`On`, `OrOn`, `Where` inside a join). **Accept:** tests per dialect; `RIGHT JOIN` on SQLite documented per the engine version in use.

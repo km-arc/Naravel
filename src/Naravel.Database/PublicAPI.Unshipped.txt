@@ -67,11 +67,23 @@ Naravel.Database.Query.OrWhere(System.Action<Naravel.Database.Query!>! group) ->
 Naravel.Database.Query.OrWhere(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, object?>>! conditions) -> Naravel.Database.Query!
 Naravel.Database.Query.OrWhere(string! column, object? value) -> Naravel.Database.Query!
 Naravel.Database.Query.OrWhere(string! column, string! op, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereAll(System.Collections.Generic.IEnumerable<string!>! columns, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereAll(System.Collections.Generic.IEnumerable<string!>! columns, string! op, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereAny(System.Collections.Generic.IEnumerable<string!>! columns, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereAny(System.Collections.Generic.IEnumerable<string!>! columns, string! op, object? value) -> Naravel.Database.Query!
 Naravel.Database.Query.OrWhereBetween(string! column, object? low, object? high) -> Naravel.Database.Query!
 Naravel.Database.Query.OrWhereBetweenColumns(string! column, string! lowColumn, string! highColumn) -> Naravel.Database.Query!
 Naravel.Database.Query.OrWhereColumn(string! first, string! op, string! second) -> Naravel.Database.Query!
 Naravel.Database.Query.OrWhereColumn(string! first, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereDate(string! column, object! value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereDate(string! column, string! op, object! value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereDay(string! column, int value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereDay(string! column, string! op, int value) -> Naravel.Database.Query!
 Naravel.Database.Query.OrWhereIn(string! column, System.Collections.IEnumerable! values) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereMonth(string! column, int value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereMonth(string! column, string! op, int value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNone(System.Collections.Generic.IEnumerable<string!>! columns, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNone(System.Collections.Generic.IEnumerable<string!>! columns, string! op, object? value) -> Naravel.Database.Query!
 Naravel.Database.Query.OrWhereNot(System.Action<Naravel.Database.Query!>! group) -> Naravel.Database.Query!
 Naravel.Database.Query.OrWhereNot(string! column, object? value) -> Naravel.Database.Query!
 Naravel.Database.Query.OrWhereNot(string! column, string! op, object? value) -> Naravel.Database.Query!
@@ -81,6 +93,10 @@ Naravel.Database.Query.OrWhereNotIn(string! column, System.Collections.IEnumerab
 Naravel.Database.Query.OrWhereNotNull(string! column) -> Naravel.Database.Query!
 Naravel.Database.Query.OrWhereNull(string! column) -> Naravel.Database.Query!
 Naravel.Database.Query.OrWhereRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereTime(string! column, object! value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereTime(string! column, string! op, object! value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereYear(string! column, int value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereYear(string! column, string! op, int value) -> Naravel.Database.Query!
 Naravel.Database.Query.OrderBy(string! column, string! direction = "asc") -> Naravel.Database.Query!
 Naravel.Database.Query.OrderByDesc(string! column) -> Naravel.Database.Query!
 Naravel.Database.Query.OrderByRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
@@ -100,11 +116,23 @@ Naravel.Database.Query.Where(System.Action<Naravel.Database.Query!>! group) -> N
 Naravel.Database.Query.Where(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, object?>>! conditions) -> Naravel.Database.Query!
 Naravel.Database.Query.Where(string! column, object? value) -> Naravel.Database.Query!
 Naravel.Database.Query.Where(string! column, string! op, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereAll(System.Collections.Generic.IEnumerable<string!>! columns, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereAll(System.Collections.Generic.IEnumerable<string!>! columns, string! op, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereAny(System.Collections.Generic.IEnumerable<string!>! columns, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereAny(System.Collections.Generic.IEnumerable<string!>! columns, string! op, object? value) -> Naravel.Database.Query!
 Naravel.Database.Query.WhereBetween(string! column, object? low, object? high) -> Naravel.Database.Query!
 Naravel.Database.Query.WhereBetweenColumns(string! column, string! lowColumn, string! highColumn) -> Naravel.Database.Query!
 Naravel.Database.Query.WhereColumn(string! first, string! op, string! second) -> Naravel.Database.Query!
 Naravel.Database.Query.WhereColumn(string! first, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereDate(string! column, object! value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereDate(string! column, string! op, object! value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereDay(string! column, int value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereDay(string! column, string! op, int value) -> Naravel.Database.Query!
 Naravel.Database.Query.WhereIn(string! column, System.Collections.IEnumerable! values) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereMonth(string! column, int value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereMonth(string! column, string! op, int value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNone(System.Collections.Generic.IEnumerable<string!>! columns, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNone(System.Collections.Generic.IEnumerable<string!>! columns, string! op, object? value) -> Naravel.Database.Query!
 Naravel.Database.Query.WhereNot(System.Action<Naravel.Database.Query!>! group) -> Naravel.Database.Query!
 Naravel.Database.Query.WhereNot(string! column, object? value) -> Naravel.Database.Query!
 Naravel.Database.Query.WhereNot(string! column, string! op, object? value) -> Naravel.Database.Query!
@@ -114,6 +142,10 @@ Naravel.Database.Query.WhereNotIn(string! column, System.Collections.IEnumerable
 Naravel.Database.Query.WhereNotNull(string! column) -> Naravel.Database.Query!
 Naravel.Database.Query.WhereNull(string! column) -> Naravel.Database.Query!
 Naravel.Database.Query.WhereRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereTime(string! column, object! value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereTime(string! column, string! op, object! value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereYear(string! column, int value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereYear(string! column, string! op, int value) -> Naravel.Database.Query!
 Naravel.Database.QueryExecuted
 Naravel.Database.QueryExecuted.Bindings.get -> System.Collections.Generic.IReadOnlyList<object?>!
 Naravel.Database.QueryExecuted.ConnectionName.get -> string!

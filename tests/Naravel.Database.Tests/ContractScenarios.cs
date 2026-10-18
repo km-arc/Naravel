@@ -62,6 +62,28 @@ internal static class ContractScenarios
             (await NamesAsync(c.Db.Table(c.People).WhereColumn("votes", "id").OrderBy("id"))).Should().Equal("Dennis");
             (await NamesAsync(c.Db.Table(c.People).WhereNull("note").OrWhereColumn("votes", "<", "id").OrderBy("id"))).Should().Equal("Grace", "Margaret");
         }),
+        new("where_date_parts", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.People).WhereDate("born", new DateOnly(2024, 2, 20)).OrderBy("id"))).Should().Equal("Grace");
+            (await NamesAsync(c.Db.Table(c.People).WhereDate("born", ">=", "2024-01-01").OrderBy("id"))).Should().Equal("Ada", "Grace", "Margaret");
+            (await NamesAsync(c.Db.Table(c.People).WhereYear("born", 2024).OrderBy("id"))).Should().Equal("Ada", "Grace", "Margaret");
+            (await NamesAsync(c.Db.Table(c.People).WhereMonth("born", 2).OrderBy("id"))).Should().Equal("Grace", "Margaret");
+            (await NamesAsync(c.Db.Table(c.People).WhereDay("born", 15).OrderBy("id"))).Should().Equal("Ada", "Linus");
+            (await NamesAsync(c.Db.Table(c.People).WhereYear("born", 2022).OrWhereMonth("born", 2).OrderBy("id"))).Should().Equal("Grace", "Margaret", "Dennis");
+        }),
+        new("where_time_part", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.People).WhereTime("born", ">", new TimeOnly(12, 0, 0)).OrderBy("id"))).Should().Equal("Linus", "Dennis");
+            (await NamesAsync(c.Db.Table(c.People).WhereTime("born", new TimeOnly(12, 0, 0)).OrderBy("id"))).Should().Equal("Grace");
+            (await NamesAsync(c.Db.Table(c.People).WhereTime("born", "<", "09:00").OrderBy("id"))).Should().Equal("Ada", "Margaret");
+        }),
+        new("where_any_all_none", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.People).WhereAny(["votes", "id"], 20).OrderBy("id"))).Should().Equal("Grace", "Linus");
+            (await NamesAsync(c.Db.Table(c.People).WhereAny(["votes", "id"], 3).OrderBy("id"))).Should().Equal("Linus");
+            (await NamesAsync(c.Db.Table(c.People).WhereAll(["votes", "id"], ">", 4).OrderBy("id"))).Should().Equal("Dennis");
+            (await NamesAsync(c.Db.Table(c.People).WhereNone(["votes", "id"], ">", 20).OrderBy("id"))).Should().Equal("Ada", "Grace", "Linus", "Dennis");
+            (await NamesAsync(c.Db.Table(c.People).Where("id", 1).OrWhereAll(["votes", "id"], ">", 4).OrderBy("id"))).Should().Equal("Ada", "Dennis");
         new("where_or_variants_of_the_new_where_methods", async c =>
         {
             (await NamesAsync(c.Db.Table(c.People).Where("id", 5).OrWhereBetween("votes", 30, 30).OrderBy("id"))).Should().Equal("Margaret", "Dennis");
@@ -124,7 +146,7 @@ internal static class ContractScenarios
         new("raw_statements_report_affected_rows", async c =>
         {
             // Works on its own row so a failure here can never change the seed data the other scenarios read.
-            await c.Db.StatementAsync($"insert into {c.People} (id, name, votes, active) values (?, ?, ?, ?)", [100, "Temp", 1, true]);
+            await c.Db.StatementAsync($"insert into {c.People} (id, name, votes, active, born) values (?, ?, ?, ?, ?)", [100, "Temp", 1, true, new DateTime(2000, 1, 1, 0, 0, 0)]);
             (await c.Db.AffectingStatementAsync($"update {c.People} set votes = votes + ? where id = ?", [1, 100])).Should().Be(1);
             (await c.Db.Table(c.People).Where("id", 100).ValueAsync<long>("votes")).Should().Be(2);
             (await c.Db.AffectingStatementAsync($"delete from {c.People} where id = ?", [100])).Should().Be(1);

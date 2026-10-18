@@ -130,6 +130,103 @@ public class QueryCompileTests
         ((Action)(() => query.WhereNull("a as b"))).Should().Throw<ArgumentException>();
     }
 
+    private static Dictionary<DatabaseDialect, string> PerDialect(string sqlite, string mysql, string postgres, string sqlServer) => new()
+    {
+        [DatabaseDialect.Sqlite] = sqlite,
+        [DatabaseDialect.MySql] = mysql,
+        [DatabaseDialect.Postgres] = postgres,
+        [DatabaseDialect.SqlServer] = sqlServer,
+    };
+
+    [Fact]
+    public void Date_part_where_methods_use_each_engines_own_functions()
+    {
+        var day = new DateOnly(2024, 2, 29);
+        var time = new TimeOnly(8, 30, 15);
+        Verify(
+        [
+            new("whereDate", q => Users(q).WhereDate("created_at", day), "", [day], PerDialect(
+                "select * from «users» where date(«created_at») = @p0",
+                "select * from «users» where date(«created_at») = @p0",
+                "select * from «users» where cast(«created_at» as date) = @p0",
+                "select * from «users» where cast(«created_at» as date) = @p0")),
+            new("whereDate operator, DateTime and string normalise to DateOnly", q => Users(q).WhereDate("c", ">=", new DateTime(2024, 2, 29, 23, 59, 59)).OrWhereDate("c", "<", "2020-01-01"),
+                "", [day, new DateOnly(2020, 1, 1)], PerDialect(
+                "select * from «users» where date(«c») >= @p0 or date(«c») < @p1",
+                "select * from «users» where date(«c») >= @p0 or date(«c») < @p1",
+                "select * from «users» where cast(«c» as date) >= @p0 or cast(«c» as date) < @p1",
+                "select * from «users» where cast(«c» as date) >= @p0 or cast(«c» as date) < @p1")),
+            new("whereMonth", q => Users(q).WhereMonth("c", 2), "", [2], PerDialect(
+                "select * from «users» where cast(strftime('%m', «c») as integer) = @p0",
+                "select * from «users» where month(«c») = @p0",
+                "select * from «users» where extract(month from «c») = @p0",
+                "select * from «users» where datepart(month, «c») = @p0")),
+            new("whereDay", q => Users(q).WhereDay("c", "<=", 15), "", [15], PerDialect(
+                "select * from «users» where cast(strftime('%d', «c») as integer) <= @p0",
+                "select * from «users» where day(«c») <= @p0",
+                "select * from «users» where extract(day from «c») <= @p0",
+                "select * from «users» where datepart(day, «c») <= @p0")),
+            new("whereYear", q => Users(q).Where("a", 1).OrWhereYear("c", 2024), "", [1, 2024], PerDialect(
+                "select * from «users» where «a» = @p0 or cast(strftime('%Y', «c») as integer) = @p1",
+                "select * from «users» where «a» = @p0 or year(«c») = @p1",
+                "select * from «users» where «a» = @p0 or extract(year from «c») = @p1",
+                "select * from «users» where «a» = @p0 or datepart(year, «c») = @p1")),
+            new("whereTime", q => Users(q).WhereTime("c", ">", time), "", [time], PerDialect(
+                "select * from «users» where strftime('%H:%M:%S', «c») > @p0",
+                "select * from «users» where time(«c») > @p0",
+                "select * from «users» where cast(«c» as time) > @p0",
+                "select * from «users» where cast(«c» as time) > @p0")),
+            new("whereTime string", q => Users(q).WhereTime("c", "08:30:15"), "", [time], PerDialect(
+                "select * from «users» where strftime('%H:%M:%S', «c») = @p0",
+                "select * from «users» where time(«c») = @p0",
+                "select * from «users» where cast(«c» as time) = @p0",
+                "select * from «users» where cast(«c» as time) = @p0")),
+        ]);
+    }
+
+    [Fact]
+    public void Date_part_where_rejects_bad_input_at_the_call()
+    {
+        var query = Query.For(DatabaseDialect.Sqlite).Table("users");
+        ((Action)(() => query.WhereMonth("c", 13))).Should().Throw<ArgumentOutOfRangeException>();
+        ((Action)(() => query.WhereMonth("c", 0))).Should().Throw<ArgumentOutOfRangeException>();
+        ((Action)(() => query.WhereDay("c", 32))).Should().Throw<ArgumentOutOfRangeException>();
+        ((Action)(() => query.WhereYear("c", 0))).Should().Throw<ArgumentOutOfRangeException>();
+        ((Action)(() => query.WhereDate("c", "29/02/2024"))).Should().Throw<ArgumentException>();
+        ((Action)(() => query.WhereDate("c", 20240229))).Should().Throw<ArgumentException>();
+        ((Action)(() => query.WhereTime("c", TimeSpan.FromDays(2)))).Should().Throw<ArgumentException>();
+        ((Action)(() => query.WhereDate("c", "like", "2024-01-01"))).Should().Throw<ArgumentException>();
+        ((Action)(() => query.WhereDate("c; drop", "2024-01-01"))).Should().Throw<ArgumentException>();
+        ((Action)(() => query.WhereDate("c", null!))).Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void Any_all_and_none_where_group_one_condition_per_column()
+    {
+        Verify(
+        [
+            new("whereAny", q => Users(q).WhereAny(["a", "b", "c"], "x%"), "select * from «users» where («a» = @p0 or «b» = @p1 or «c» = @p2)", ["x%", "x%", "x%"]),
+            new("whereAny operator", q => Users(q).WhereAny(["a", "b"], "like", "x%"), "select * from «users» where («a» like @p0 or «b» like @p1)", ["x%", "x%"]),
+            new("whereAll", q => Users(q).WhereAll(["a", "b"], ">", 1), "select * from «users» where («a» > @p0 and «b» > @p1)", [1, 1]),
+            new("whereNone", q => Users(q).WhereNone(["a", "b"], 1), "select * from «users» where not («a» = @p0 or «b» = @p1)", [1, 1]),
+            new("orWhereAny", q => Users(q).Where("z", 0).OrWhereAny(["a", "b"], 1), "select * from «users» where «z» = @p0 or («a» = @p1 or «b» = @p2)", [0, 1, 1]),
+            new("orWhereAll", q => Users(q).Where("z", 0).OrWhereAll(["a", "b"], 1), "select * from «users» where «z» = @p0 or («a» = @p1 and «b» = @p2)", [0, 1, 1]),
+            new("orWhereNone", q => Users(q).Where("z", 0).OrWhereNone(["a", "b"], "<", 1), "select * from «users» where «z» = @p0 or not («a» < @p1 or «b» < @p2)", [0, 1, 1]),
+            new("whereAny null value", q => Users(q).WhereAny(["a", "b"], null), "select * from «users» where («a» is null or «b» is null)", []),
+            new("whereAny one column", q => Users(q).WhereAny(["a"], 1), "select * from «users» where («a» = @p0)", [1]),
+        ]);
+    }
+
+    [Fact]
+    public void Any_all_and_none_reject_bad_input_at_the_call()
+    {
+        var query = Query.For(DatabaseDialect.Sqlite).Table("users");
+        ((Action)(() => query.WhereAny([], 1))).Should().Throw<ArgumentException>();
+        ((Action)(() => query.WhereAll(["a", "b; drop"], 1))).Should().Throw<ArgumentException>();
+        ((Action)(() => query.WhereNone(["a"], "; drop", 1))).Should().Throw<ArgumentException>();
+        ((Action)(() => query.WhereAny(null!, 1))).Should().Throw<ArgumentNullException>();
+    }
+
     [Fact]
     public void Column_pairs_binding_order_and_groups_for_the_new_where_methods()
     {

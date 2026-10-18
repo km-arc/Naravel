@@ -91,25 +91,25 @@ internal static class ContractSchema
             _ => ("integer", "numeric", "text", "text", "text", "text", "text", "blob", "real", "text")
         };
 
-        yield return $"create table {context.People} (id integer not null primary key, name {stringType} not null, votes integer not null, active {boolType} not null, note {stringType} null)";
+        yield return $"create table {context.People} (id integer not null primary key, name {stringType} not null, votes integer not null, active {boolType} not null, note {stringType} null, born {dateTimeType} not null)";
         yield return $"create table {context.Types} (id integer not null primary key, c_bool {boolType} null, c_decimal {decimalType} null, c_guid {guidType} null, c_datetime {dateTimeType} null, " +
                      $"c_offset {offsetType} null, c_date {dateType} null, c_time {timeType} null, c_bytes {bytesType} null, c_long bigint null, c_double {doubleType} null, c_string {stringType} null, c_enum integer null)";
     }
 
     public static async Task SeedAsync(ContractContext context)
     {
-        (int Id, string Name, int Votes, bool Active, string? Note)[] people =
+        (int Id, string Name, int Votes, bool Active, string? Note, DateTime Born)[] people =
         [
-            (1, "Ada", 10, true, "pioneer"),
-            (2, "Grace", 20, true, null),
-            (3, "Linus", 20, false, "kernel"),
-            (4, "Margaret", 30, true, null),
-            (5, "Dennis", 5, false, "c")
+            (1, "Ada", 10, true, "pioneer", new DateTime(2024, 1, 15, 8, 30, 0)),
+            (2, "Grace", 20, true, null, new DateTime(2024, 2, 20, 12, 0, 0)),
+            (3, "Linus", 20, false, "kernel", new DateTime(2023, 1, 15, 23, 59, 59)),
+            (4, "Margaret", 30, true, null, new DateTime(2024, 2, 29, 0, 0, 0)),
+            (5, "Dennis", 5, false, "c", new DateTime(2022, 12, 31, 17, 45, 30))
         ];
         foreach (var person in people)
         {
-            await context.Db.StatementAsync($"insert into {context.People} (id, name, votes, active, note) values (?, ?, ?, ?, ?)",
-                [person.Id, person.Name, person.Votes, person.Active, person.Note]);
+            await context.Db.StatementAsync($"insert into {context.People} (id, name, votes, active, note, born) values (?, ?, ?, ?, ?, ?)",
+                [person.Id, person.Name, person.Votes, person.Active, person.Note, person.Born]);
         }
     }
 }

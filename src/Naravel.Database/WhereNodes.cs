@@ -75,6 +75,26 @@ internal sealed class ColumnWhere(ParsedIdentifier first, string op, ParsedIdent
     public ParsedIdentifier Second { get; } = second;
 }
 
+internal enum DatePartKind
+{
+    Date,
+    Month,
+    Day,
+    Year,
+    Time,
+}
+
+internal sealed class DateWhere(DatePartKind kind, ParsedIdentifier column, string op, object value, bool or) : WhereNode(or, false)
+{
+    public DatePartKind Kind { get; } = kind;
+
+    public ParsedIdentifier Column { get; } = column;
+
+    public string Operator { get; } = op;
+
+    public object Value { get; } = value;
+}
+
 internal sealed class SelectItem(ParsedIdentifier? identifier, string? rawSql, object?[] bindings)
 {
     public ParsedIdentifier? Identifier { get; } = identifier;

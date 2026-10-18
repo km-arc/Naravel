@@ -54,6 +54,9 @@ public abstract class Grammar
     /// <exception cref="ArgumentException">The identifier does not match the grammar.</exception>
     public string Wrap(string identifier) => Wrap(IdentifierGrammar.Parse(identifier, nameof(identifier)));
 
+    /// <summary>The SQL that extracts one part of a date/time column; the engines have no common function for it (PDR-022).</summary>
+    internal abstract string DatePart(DatePartKind kind, string column);
+
     internal virtual IReadOnlyCollection<string> ExtraOperators => Array.Empty<string>();
 
     internal virtual string? OffsetOnlyLimit => null;
@@ -232,6 +235,9 @@ public abstract class Grammar
                 case ColumnWhere columnWhere:
                     sql.Append(Wrap(columnWhere.First)).Append(' ').Append(columnWhere.Operator).Append(' ').Append(Wrap(columnWhere.Second));
                     break;
+                case DateWhere dateWhere:
+                    sql.Append(DatePart(dateWhere.Kind, Wrap(dateWhere.Column))).Append(' ').Append(dateWhere.Operator).Append(' ').Append(context.Add(dateWhere.Value));
+                    break;
                 default:
                     throw new InvalidOperationException("Unknown where clause.");
             }
@@ -312,6 +318,15 @@ public abstract class Grammar
 
 internal sealed class SqliteGrammar() : Grammar(DatabaseDialect.Sqlite, 32766, '"', '"')
 {
+    internal override string DatePart(DatePartKind kind, string column) => kind switch
+    {
+        DatePartKind.Date => $"date({column})",
+        DatePartKind.Month => $"cast(strftime('%m', {column}) as integer)",
+        DatePartKind.Day => $"cast(strftime('%d', {column}) as integer)",
+        DatePartKind.Year => $"cast(strftime('%Y', {column}) as integer)",
+        _ => $"strftime('%H:%M:%S', {column})",
+    };
+
     private static readonly string[] Extra = ["glob", "not glob"];
 
     internal override IReadOnlyCollection<string> ExtraOperators => Extra;
@@ -321,6 +336,15 @@ internal sealed class SqliteGrammar() : Grammar(DatabaseDialect.Sqlite, 32766, '
 
 internal sealed class MySqlGrammar() : Grammar(DatabaseDialect.MySql, 65535, '`', '`')
 {
+    internal override string DatePart(DatePartKind kind, string column) => kind switch
+    {
+        DatePartKind.Date => $"date({column})",
+        DatePartKind.Month => $"month({column})",
+        DatePartKind.Day => $"day({column})",
+        DatePartKind.Year => $"year({column})",
+        _ => $"time({column})",
+    };
+
     private static readonly string[] Extra = ["rlike", "not rlike", "regexp", "not regexp", "<=>"];
 
     internal override IReadOnlyCollection<string> ExtraOperators => Extra;
@@ -333,6 +357,15 @@ internal sealed class MySqlGrammar() : Grammar(DatabaseDialect.MySql, 65535, '`'
 
 internal sealed class PostgresGrammar() : Grammar(DatabaseDialect.Postgres, 65535, '"', '"')
 {
+    internal override string DatePart(DatePartKind kind, string column) => kind switch
+    {
+        DatePartKind.Date => $"cast({column} as date)",
+        DatePartKind.Month => $"extract(month from {column})",
+        DatePartKind.Day => $"extract(day from {column})",
+        DatePartKind.Year => $"extract(year from {column})",
+        _ => $"cast({column} as time)",
+    };
+
     private static readonly string[] Extra = ["ilike", "not ilike", "~", "~*", "!~", "!~*", "similar to", "not similar to"];
 
     internal override IReadOnlyCollection<string> ExtraOperators => Extra;
@@ -344,6 +377,15 @@ internal sealed class PostgresGrammar() : Grammar(DatabaseDialect.Postgres, 6553
 
 internal sealed class SqlServerGrammar() : Grammar(DatabaseDialect.SqlServer, 2098, '[', ']')
 {
+    internal override string DatePart(DatePartKind kind, string column) => kind switch
+    {
+        DatePartKind.Date => $"cast({column} as date)",
+        DatePartKind.Month => $"datepart(month, {column})",
+        DatePartKind.Day => $"datepart(day, {column})",
+        DatePartKind.Year => $"datepart(year, {column})",
+        _ => $"cast({column} as time)",
+    };
+
     internal override string FormatString(string value) => "N'" + value.Replace("'", "''", StringComparison.Ordinal) + "'";
 
     internal override string FormatBinary(byte[] value) => "0x" + Convert.ToHexString(value);
