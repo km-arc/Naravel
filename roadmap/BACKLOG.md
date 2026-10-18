@@ -20,4 +20,3 @@ Do not implement these in an active stage unless its owner-approved scope explic
 | Queue job debounce (Laravel-style "only the latest dispatch runs") | Moved out of R08 by owner on 2026-10-13 | Needs a durable "latest dispatch" record per key; revisit after PDR-012b middleware ships. |
 | Mail attachments and inline images | Deferred from R09 (PDR-013a); owner kept the previous priority on 2026-10-14 | Needs PDR-013b: how files are referenced in the queue payload (path, storage disk and name, never raw bytes), size limits, and MailKit `BodyBuilder` mapping. |
 | Mail template rendering (`IMailRenderer` implementations) | Not built (PDR-013 leaves the engine to the app) | Document Razor/Scriban options; revisit after R17. |
-| Scheduled CI run (weekly `schedule:` in `ci.yml`) | Proposed 2026-10-17 after two advisories turned `main` red without a commit (D-38, D-40) | Needs owner decision; a weekly run would surface new NuGet advisories before the next PR. |
