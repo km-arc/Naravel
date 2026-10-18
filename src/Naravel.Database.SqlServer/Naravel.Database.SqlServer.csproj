@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Naravel.Database.SqlServer</PackageId>
+    <Description>SQL Server driver for Naravel.Database, built on Microsoft.Data.SqlClient.</Description>
+    <PackageTags>database;query-builder;sqlserver;laravel;naravel</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Naravel.Database\Naravel.Database.csproj" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <!-- SqlClient asks for Pkcs 9.0.18 on its net9.0 assets; the central version pins the patched 10.0.13 (see Directory.Packages.props). -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Naravel.Database.Tests" />
+  </ItemGroup>
+</Project>

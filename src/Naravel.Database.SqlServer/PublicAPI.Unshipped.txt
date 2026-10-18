@@ -1,0 +1,8 @@
+#nullable enable
+Microsoft.Extensions.DependencyInjection.SqlServerServiceCollectionExtensions
+Naravel.Database.SqlServer.SqlServerDatabaseConnection
+Naravel.Database.SqlServer.SqlServerDatabaseConnection.SqlServerDatabaseConnection(string! name, string! connectionString) -> void
+Naravel.Database.SqlServer.SqlServerDatabaseConnection.Dialect.get -> Naravel.Database.DatabaseDialect
+Naravel.Database.SqlServer.SqlServerDatabaseConnection.Name.get -> string!
+Naravel.Database.SqlServer.SqlServerDatabaseConnection.OpenConnectionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Data.Common.DbConnection!>
+static Microsoft.Extensions.DependencyInjection.SqlServerServiceCollectionExtensions.AddNaravelSqlServerDatabase(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "Database") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
