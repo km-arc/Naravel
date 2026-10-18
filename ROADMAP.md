@@ -45,7 +45,7 @@ needs the EN+FA PDR.
 | R13 | Console + Scheduling (PDR-017) | R04, R05, R07 | PDR | TODO |
 | R14 | Broadcasting (PDR-018) | R06, R07 | PDR | TODO |
 | R15 | Hashing (PDR-019) | - | PDR | BLOCKED (awaiting PDR approval: PDR-019 EN+FA written, proposes no package) |
-| R16 | Pagination (PDR-020) | - | PDR | TODO |
+| R16 | Pagination (PDR-020) | - | PDR | BLOCKED (awaiting PDR approval: PDR-020 EN+FA written with five owner questions) |
 | R17 | Release hardening + re-audit | R01, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19, R20, R21, R22, R23, R24, R25, R26 | owner approvals | TODO |
 | R18 | Encryption facade + encrypted jobs (PDR-021) | R07 | PDR | TODO |
 | R19 | Query builder: Database core, SQLite and basic queries (PDR-022) | R01 | PDR | DONE (2026-10-18; PDR-022 and amendment A1-A7 approved; tasks T01-T07 merged; CI green on main at d077e38 on ubuntu/windows/macos plus the services job; roadmap check passed; no local .NET SDK, so CI is the verification; benchmark added in T07; see AUDIT D-43 to D-45) |
