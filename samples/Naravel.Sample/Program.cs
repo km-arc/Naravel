@@ -9,6 +9,7 @@ builder.Services.AddControllers();
 QueueSampleConfig.Configure(builder.Services, builder.Configuration);
 EventsSampleConfig.Configure(builder.Services);
 RoutingSampleConfig.Configure(builder.Services);
+DatabaseSampleConfig.Configure(builder.Services, builder.Configuration);
 
 var app = builder.Build();
 

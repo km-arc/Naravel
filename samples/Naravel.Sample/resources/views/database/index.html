@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Naravel Database Sample</title>
+    <style>
+        body { font-family: Georgia, serif; background: #f4f7fb; color: #1f2937; margin: 0; padding: 2rem; }
+        main { max-width: 900px; margin: 0 auto; background: white; border-radius: 8px; padding: 2rem; }
+        h1 { margin-top: 0; }
+        ul { line-height: 1.8; }
+        button { background: #0f172a; color: white; border: 0; border-radius: 6px; padding: 0.7rem 1.1rem; cursor: pointer; margin: 0 0.4rem 0.4rem 0; }
+        button.secondary { background: #475569; }
+        pre { background: #0f172a; color: #e2e8f0; padding: 1rem; border-radius: 6px; min-height: 6rem; overflow-x: auto; }
+        code { background: #e2e8f0; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Naravel Database Sample</h1>
+        <p>A <code>people</code> table in an in-memory SQLite database, read through the Naravel query builder. Each button builds a different query; the answer shows the SQL (with <code>@p</code> markers), the bound values and the rows.</p>
+        <ul>
+            <li>Conditions are added only when a parameter is present, and every value is a bound parameter</li>
+            <li>A hostile value (<code>x' or '1'='1</code>) is just text to match, never SQL</li>
+            <li>A column name from the caller (<code>orderBy</code>) is validated: a bad one is rejected before any SQL exists</li>
+            <li><code>born</code> is filtered with <code>WhereYear</code>, which becomes <code>strftime</code> on SQLite and <code>extract</code>, <code>year()</code> or <code>datepart</code> elsewhere</li>
+        </ul>
+        <p>
+            <button id="all">All, by votes desc</button>
+            <button id="votes">Votes &gt;= 20 and active</button>
+            <button id="year">Born in 2024</button>
+            <button id="search">Name contains "a"</button>
+            <button id="inject">Hostile name</button>
+            <button id="badorder">Bad orderBy</button>
+            <button id="one">Find id 3</button>
+            <button id="log" class="secondary">Query log</button>
+            <button id="seed" class="secondary">Reseed</button>
+        </p>
+        <pre id="output">Pick a query.</pre>
+    </main>
+    <script>
+        const output = document.getElementById('output');
+        const run = async (url, options) => {
+            const response = await fetch(url, options);
+            const text = await response.text();
+            output.textContent = response.status + ' ' + url + '\n\n' + (text ? JSON.stringify(JSON.parse(text), null, 2) : '(empty)');
+        };
+        const bind = (id, url, options) => { document.getElementById(id).onclick = () => run(url, options); };
+        bind('all', '/database/people?orderBy=votes&desc=true');
+        bind('votes', '/database/people?minVotes=20&active=true');
+        bind('year', '/database/people?bornYear=2024');
+        bind('search', '/database/people?name=a');
+        bind('inject', '/database/people?name=' + encodeURIComponent("x' or '1'='1"));
+        bind('badorder', '/database/people?orderBy=' + encodeURIComponent('id; drop table people'));
+        bind('one', '/database/people/3');
+        bind('log', '/database/log');
+        bind('seed', '/database/seed', { method: 'POST' });
+    </script>
+</body>
+</html>

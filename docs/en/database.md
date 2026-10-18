@@ -26,6 +26,10 @@ A connection takes either `Path` (a file, or `:memory:`) or a full `ConnectionSt
 - `IConnectionScope.AcquireAsync(name)` returns an `IConnectionLease` (`Connection`, `Transaction`, `OwnsConnection`) that every query goes through. Dispose the lease when done.
 - `:memory:` databases keep their data while the application runs, and two connection names never share one.
 
+## Try it
+
+`samples/Naravel.Sample` has a runnable demo at `/database` on in-memory SQLite: conditions added per request parameter, bound values shown next to the SQL, a column name rejected at the call, `WhereYear`, `FindAsync` and the query log. See [the sample README](../../samples/Naravel.Sample/README.md).
+
 ## Running queries
 
 ```csharp
