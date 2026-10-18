@@ -6,10 +6,20 @@ on:
     tags: [ 'v*.*.*' ]
   pull_request:
     branches: [ main ]
+  schedule:
+    # Nightly safety net (PDR-022 A6): the whole workflow runs on main, so a new NuGet advisory or a dialect broken by a
+    # change that the PR path filter skipped shows up the next morning instead of in somebody's PR.
+    - cron: '17 1 * * *'
   workflow_dispatch:
 
 permissions:
   contents: read
+
+# A new push to a pull request cancels the older run of the same PR. Runs on main, tags and the schedule are never cancelled
+# (a cancelled tag run would block publishing).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   fast:
@@ -289,9 +299,240 @@ jobs:
       - name: Audit vulnerable packages
         run: dotnet list Naravel.slnx package --vulnerable --include-transitive
 
+  changes:
+    name: Detect database changes
+    runs-on: ubuntu-latest
+    outputs:
+      database: ${{ steps.filter.outputs.database }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decide whether the database job must run
+        id: filter
+        shell: bash
+        run: |
+          # Pushes to main, tags, the nightly schedule and manual runs always run the database job. A pull request runs it
+          # only when it touches the database code, its tests, shared test code, package versions, or this pipeline.
+          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+            echo "database=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed="$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")"
+          echo "$changed"
+          if grep -Eq '^(src/Naravel\.Database|tests/Naravel\.Database|src/Naravel\.Foundation/|tests/Shared/|Directory\.(Packages|Build)\.props|docker-compose\.yml|\.github/workflows/)' <<< "$changed"; then
+            echo "database=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "database=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  database:
+    name: Database (${{ matrix.db }})
+    needs: changes
+    if: needs.changes.outputs.database == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - db: mysql
+            trait: MySql
+            env_name: NARAVEL_TEST_MYSQL
+            conn: 'Server=127.0.0.1;Port=3306;Database=naravel;User ID=root;Password=naravel;AllowPublicKeyRetrieval=true'
+          - db: postgres
+            trait: Postgres
+            env_name: NARAVEL_TEST_POSTGRES
+            conn: 'Host=127.0.0.1;Port=5432;Database=naravel;Username=postgres;Password=naravel'
+          - db: sqlserver
+            trait: SqlServer
+            env_name: NARAVEL_TEST_SQLSERVER
+            conn: 'Server=127.0.0.1,1433;Database=master;User Id=sa;Password=Naravel_Passw0rd!;TrustServerCertificate=true;Encrypt=false'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # The container starts first, in the background, so it initialises while .NET is restored and built.
+      - name: Start the ${{ matrix.db }} container
+        shell: bash
+        run: |
+          echo "STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
+          case "${{ matrix.db }}" in
+            mysql)
+              # tmpfs data and relaxed flushing: this is a throwaway test database.
+              docker run -d --name naravel-db -p 3306:3306 --tmpfs /var/lib/mysql:rw \
+                -e MYSQL_ROOT_PASSWORD=naravel -e MYSQL_DATABASE=naravel \
+                mysql:8.4 --skip-log-bin --innodb-flush-log-at-trx-commit=2
+              ;;
+            postgres)
+              docker run -d --name naravel-db -p 5432:5432 --tmpfs /var/lib/postgresql/data:rw \
+                -e POSTGRES_PASSWORD=naravel -e POSTGRES_DB=naravel \
+                postgres:17-alpine -c fsync=off -c synchronous_commit=off -c full_page_writes=off
+              ;;
+            sqlserver)
+              # SQL Server cannot be tuned much; this leg sets the wall time of the job.
+              docker run -d --name naravel-db -p 1433:1433 \
+                -e ACCEPT_EULA=Y -e 'MSSQL_SA_PASSWORD=Naravel_Passw0rd!' -e MSSQL_PID=Developer \
+                mcr.microsoft.com/mssql/server:2022-latest
+              ;;
+          esac
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! dotnet restore tests/Naravel.Database.Tests/Naravel.Database.Tests.csproj 2>&1 | tee restore.log; then
+            grep -E "error|NU[0-9]{4}" restore.log | sort -u | head -15 | while IFS= read -r line; do
+              echo "::error title=restore::${line:0:900}"
+            done
+            exit 1
+          fi
+
+      - name: Build
+        run: dotnet build tests/Naravel.Database.Tests/Naravel.Database.Tests.csproj -c Release --no-restore
+
+      - name: Wait for the ${{ matrix.db }} server
+        shell: bash
+        run: |
+          ready() {
+            case "${{ matrix.db }}" in
+              mysql) docker exec naravel-db mysqladmin ping -h 127.0.0.1 -uroot -pnaravel --silent >/dev/null 2>&1 ;;
+              postgres) docker exec naravel-db pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1 ;;
+              sqlserver) docker logs naravel-db 2>&1 | grep -q "SQL Server is now ready for client connections" ;;
+            esac
+          }
+          for attempt in $(seq 1 90); do
+            if ready; then
+              echo "Server ready after about $(( $(date +%s) - STARTED_AT )) s since the container started."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error title=database container::${{ matrix.db }} did not become ready within 180 s"
+          docker logs naravel-db 2>&1 | tail -40
+          exit 1
+
+      - name: Contract tests (${{ matrix.db }})
+        shell: bash
+        env:
+          CONNECTION: ${{ matrix.conn }}
+        run: |
+          export "${{ matrix.env_name }}=$CONNECTION"
+          dotnet test tests/Naravel.Database.Tests/Naravel.Database.Tests.csproj -c Release --no-build --no-restore \
+            --filter "Dialect=${{ matrix.trait }}" \
+            --logger "trx;LogFileName=Database-${{ matrix.db }}.trx" \
+            --results-directory "TestResults/Database/${{ matrix.db }}"
+
+      # A skipped test is reported as success by dotnet test, so a missing connection string would otherwise pass silently.
+      - name: Require that the ${{ matrix.db }} tests really ran
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          passed = 0
+          skipped = 0
+          for result in Path("TestResults/Database/${{ matrix.db }}").rglob("*.trx"):
+              root = ET.parse(result).getroot()
+              counters = next((n for n in root.iter() if n.tag.endswith("Counters")), None)
+              if counters is not None:
+                  passed += int(counters.attrib.get("passed", "0"))
+                  skipped += int(counters.attrib.get("notExecuted", "0")) + int(counters.attrib.get("notRunnable", "0"))
+          print(f"passed={passed} skipped={skipped}")
+          if passed < 1 or skipped:
+              print(f"::error title=NOT RUN::the ${{ matrix.db }} tests were skipped or none matched the Dialect trait (passed={passed}, skipped={skipped})")
+              raise SystemExit(1)
+          PY
+
+      - name: Annotate failed tests
+        if: failure()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          def esc(text):
+              return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+          shown = 0
+          for result in sorted(Path("TestResults/Database").rglob("*.trx")):
+              root = ET.parse(result).getroot()
+              for node in root.iter():
+                  if not node.tag.endswith("UnitTestResult") or node.attrib.get("outcome") != "Failed":
+                      continue
+                  message = next((n.text or "" for n in node.iter() if n.tag.endswith("Message")), "")
+                  stack = next((n.text or "" for n in node.iter() if n.tag.endswith("StackTrace")), "")
+                  frames = "\n".join(stack.strip().splitlines()[:6])
+                  print(f"::error title=Failed test (${{ matrix.db }}): {esc(node.attrib.get('testName', '?'))}::{esc((message.strip() + chr(10) + frames)[:1500])}")
+                  shown += 1
+                  if shown >= 10:
+                      raise SystemExit(0)
+          PY
+          docker logs naravel-db 2>&1 | tail -30 || true
+
+      - name: Job timing
+        if: always()
+        shell: bash
+        run: |
+          echo "Database (${{ matrix.db }}): $(( $(date +%s) - STARTED_AT )) s from container start to here (PDR-022 A6 budget: 300 s, then shard by trait)." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-tests-${{ matrix.db }}
+          path: TestResults/Database/**/*.trx
+          if-no-files-found: warn
+
+  # The one check branch protection needs. A database job skipped by the path filter counts as success; any failure,
+  # cancellation or missing result fails it, so a filtered job can never block a merge by being absent.
+  ci-ok:
+    name: ci-ok
+    if: always()
+    needs: [fast, services, changes, database]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check every required job
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+
+          needs = json.loads(os.environ["NEEDS"])
+          bad = []
+          for name, info in needs.items():
+              result = info["result"]
+              allowed = {"success", "skipped"} if name == "database" else {"success"}
+              print(f"{name}: {result}")
+              if result not in allowed:
+                  bad.append(f"{name} ({result})")
+          if needs["database"]["result"] == "skipped" and needs["changes"]["result"] == "success":
+              print("database job skipped by the path filter (no database changes)")
+          if bad:
+              print("::error title=ci-ok::not successful: " + ", ".join(bad))
+              raise SystemExit(1)
+          PY
+
   publish:
     name: Publish to NuGet
-    needs: [fast, services]
+    needs: [fast, services, database]
     # Publish only from version tags (v*). Never from main, PRs or manual runs.
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest

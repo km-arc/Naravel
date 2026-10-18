@@ -54,3 +54,56 @@ services:
       interval: 10s
       timeout: 10s
       retries: 15
+
+  # Database servers for the Naravel.Database contract tests (PDR-022 A6). They live in the "db" profile so the default
+  # `docker compose up` stays light (SQL Server needs about 2 GB of RAM); start them with `scripts/test-local.sh --db`.
+  # Same images and test-only tuning as the `database` job in .github/workflows/ci.yml.
+  mysql:
+    profiles: ["db"]
+    image: mysql:8.4
+    command: ["--skip-log-bin", "--innodb-flush-log-at-trx-commit=2"]
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: naravel
+      MYSQL_DATABASE: naravel
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -pnaravel --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  postgres:
+    profiles: ["db"]
+    image: postgres:17-alpine
+    command: ["-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off"]
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: naravel
+      POSTGRES_DB: naravel
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  sqlserver:
+    profiles: ["db"]
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    ports:
+      - "1433:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Naravel_Passw0rd!"
+      MSSQL_PID: Developer
+    healthcheck:
+      test: ["CMD-SHELL", "(/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'select 1' || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'select 1') >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 20s

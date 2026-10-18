@@ -33,6 +33,8 @@ before pushing:
 scripts/test-local.sh                                   # services + all tests
 scripts/test-local.sh --down                            # ...then stop the services
 scripts/test-local.sh --no-services                     # fast loop, provider tests skipped
+scripts/test-local.sh --db                              # also MySQL, PostgreSQL, SQL Server (about 2 GB RAM)
+scripts/test-local.sh --db -- --filter "Dialect=Postgres"   # one database dialect only
 scripts/test-local.sh -- --filter "FullyQualifiedName~Redis"
 ```
 
