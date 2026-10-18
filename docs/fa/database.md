@@ -105,7 +105,9 @@ query.ToSql();       // select "id", "name" from "users" where "active" = @p0 an
 query.GetBindings(); // [true, 18, true]
 ```
 
-موجود امروز: `Table`، `Select`، `AddSelect`، `SelectRaw`، `Distinct`، `Where`/`OrWhere`/`WhereNot`/`OrWhereNot` (ستون و مقدار، با عملگر، آرایهٔ جفت‌ها یا گروه closure)، `WhereRaw`/`OrWhereRaw`، `WhereIn`/`WhereNotIn` و شکل‌های `or` آن‌ها، `OrderBy`/`OrderByDesc`/`OrderByRaw`، `Limit`/`Take`، `Offset`/`Skip`، `Clone`، `Compile`، `ToSql`، `ToRawSql`، `GetBindings`.
+موجود امروز: `Table`، `Select`، `AddSelect`، `SelectRaw`، `Distinct`، `Where`/`OrWhere`/`WhereNot`/`OrWhereNot` (ستون و مقدار، با عملگر، آرایهٔ جفت‌ها یا گروه closure)، `WhereRaw`/`OrWhereRaw`، `WhereIn`/`WhereNotIn`، `WhereBetween`/`WhereNotBetween`، `WhereBetweenColumns`/`WhereNotBetweenColumns`، `WhereNull`/`WhereNotNull` و `WhereColumn` (دو ستون، با عملگر، یا آرایهٔ جفت‌ها) که هر کدام شکل `or` هم دارند، `OrderBy`/`OrderByDesc`/`OrderByRaw`، `Limit`/`Take`، `Offset`/`Skip`، `Clone`، `Compile`، `ToSql`، `ToRawSql`، `GetBindings`.
+
+`WhereBetween` دو مقدار bind‌شده می‌گیرد و `null` را رد می‌کند (مقایسه با NULL هرگز منطبق نمی‌شود)؛ `WhereBetweenColumns` و `WhereColumn` ستون‌های همان ردیف را مقایسه می‌کنند و پارامتری نمی‌نویسند، و `WhereIn` با فهرست خالی شرط نادرست `0 = 1` است (`WhereNotIn` با فهرست خالی `1 = 1`)، هرگز SQL نامعتبر نیست.
 
 **قواعد ایمنی، در لحظهٔ فراخوانی اعمال می‌شوند:**
 - مقدارها **همیشه** پارامتر هستند (`@p0`، `@p1`، ...) روی هر دیالکت. هیچ چیزی که به‌عنوان مقدار داده شود نمی‌تواند SQL شود. `ToRawSql()` مقدارها را فقط برای لاگ داخل متن می‌گذارد؛ هرگز اجرایش نکنید.

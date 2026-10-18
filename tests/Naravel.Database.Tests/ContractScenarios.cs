@@ -46,6 +46,34 @@ internal static class ContractScenarios
             (await NamesAsync(c.Db.Table(c.People).WhereIn("id", new[] { 1, 3, 5 }).OrderBy("id"))).Should().Equal("Ada", "Linus", "Dennis");
             (await NamesAsync(c.Db.Table(c.People).WhereNotIn("id", new[] { 1, 3, 5 }).OrderBy("id"))).Should().Equal("Grace", "Margaret");
         }),
+        new("where_between_and_not_between", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.People).WhereBetween("votes", 10, 20).OrderBy("id"))).Should().Equal("Ada", "Grace", "Linus");
+            (await NamesAsync(c.Db.Table(c.People).WhereNotBetween("votes", 10, 20).OrderBy("id"))).Should().Equal("Margaret", "Dennis");
+            (await NamesAsync(c.Db.Table(c.People).Where("id", 5).OrWhereBetween("votes", 30, 30).OrderBy("id"))).Should().Equal("Margaret", "Dennis");
+            (await NamesAsync(c.Db.Table(c.People).Where("id", 1).OrWhereNotBetween("votes", 5, 29).OrderBy("id"))).Should().Equal("Ada", "Margaret");
+        }),
+        new("where_null_and_not_null", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.People).WhereNull("note").OrderBy("id"))).Should().Equal("Grace", "Margaret");
+            (await NamesAsync(c.Db.Table(c.People).WhereNotNull("note").OrderBy("id"))).Should().Equal("Ada", "Linus", "Dennis");
+            (await NamesAsync(c.Db.Table(c.People).Where("id", 1).OrWhereNull("note").OrderBy("id"))).Should().Equal("Ada", "Grace", "Margaret");
+            (await NamesAsync(c.Db.Table(c.People).Where("id", 2).OrWhereNotNull("note").OrderBy("id"))).Should().Equal("Ada", "Grace", "Linus", "Dennis");
+        }),
+        new("where_column_and_between_columns", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.People).WhereColumn("votes", ">", "id").OrderBy("id"))).Should().Equal("Ada", "Grace", "Linus", "Margaret");
+            (await NamesAsync(c.Db.Table(c.People).WhereColumn("id", "votes").OrderBy("id"))).Should().Equal("Dennis");
+            (await NamesAsync(c.Db.Table(c.People).WhereColumn(new Dictionary<string, string> { ["id"] = "votes" }).OrderBy("id"))).Should().Equal("Dennis");
+            (await NamesAsync(c.Db.Table(c.People).Where("id", 1).OrWhereColumn("id", "votes").OrderBy("id"))).Should().Equal("Ada", "Dennis");
+            (await NamesAsync(c.Db.Table(c.People).WhereBetweenColumns("id", "votes", "votes").OrderBy("id"))).Should().Equal("Dennis");
+            (await NamesAsync(c.Db.Table(c.People).WhereNotBetweenColumns("id", "votes", "votes").OrderBy("id"))).Should().Equal("Ada", "Grace", "Linus", "Margaret");
+        }),
+        new("where_in_with_an_empty_list", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.People).WhereIn("id", Array.Empty<int>()))).Should().BeEmpty();
+            (await NamesAsync(c.Db.Table(c.People).WhereNotIn("id", Array.Empty<int>()).OrderBy("id"))).Should().Equal("Ada", "Grace", "Linus", "Margaret", "Dennis");
+        }),
         new("where_raw_null_check", async c =>
             (await NamesAsync(c.Db.Table(c.People).WhereRaw("note is null").OrderBy("id"))).Should().Equal("Grace", "Margaret")),
         new("order_desc_limit_offset", async c =>

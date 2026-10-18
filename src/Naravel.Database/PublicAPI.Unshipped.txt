@@ -138,3 +138,21 @@ Naravel.Database.Testing.DatabaseFake.StatementAsync(string! sql, System.Collect
 Naravel.Database.Testing.DatabaseFake.Table(string! table) -> Naravel.Database.Query!
 Naravel.Database.Testing.DatabaseFake.UnpreparedAsync(string! sql, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 static Microsoft.Extensions.DependencyInjection.DatabaseServiceCollectionExtensions.AddNaravelDatabaseQueryLog(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, int maxEntries = 1000) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+Naravel.Database.Query.WhereBetween(string! column, object! low, object! high) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNotBetween(string! column, object! low, object! high) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereBetweenColumns(string! column, string! lowColumn, string! highColumn) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNotBetweenColumns(string! column, string! lowColumn, string! highColumn) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNull(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNotNull(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereColumn(string! first, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereColumn(string! first, string! op, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereColumn(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! pairs) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereBetween(string! column, object! low, object! high) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNotBetween(string! column, object! low, object! high) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereBetweenColumns(string! column, string! lowColumn, string! highColumn) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNotBetweenColumns(string! column, string! lowColumn, string! highColumn) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNull(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNotNull(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereColumn(string! first, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereColumn(string! first, string! op, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereColumn(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! pairs) -> Naravel.Database.Query!

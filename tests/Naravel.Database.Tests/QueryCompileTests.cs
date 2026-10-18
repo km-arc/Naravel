@@ -96,6 +96,70 @@ public class QueryCompileTests
     }
 
     [Fact]
+    public void Between_null_and_column_where_methods()
+    {
+        Verify(
+        [
+            new("whereBetween", q => Users(q).WhereBetween("age", 18, 65), "select * from «users» where «age» between @p0 and @p1", [18, 65]),
+            new("orWhereBetween", q => Users(q).Where("a", 1).OrWhereBetween("age", 18, 65), "select * from «users» where «a» = @p0 or «age» between @p1 and @p2", [1, 18, 65]),
+            new("whereNotBetween", q => Users(q).WhereNotBetween("age", 18, 65), "select * from «users» where «age» not between @p0 and @p1", [18, 65]),
+            new("orWhereNotBetween", q => Users(q).Where("a", 1).OrWhereNotBetween("age", 1, 2), "select * from «users» where «a» = @p0 or «age» not between @p1 and @p2", [1, 1, 2]),
+            new("whereBetween keeps binding order", q => Users(q).Where("a", 1).WhereBetween("b", 2, 3).Where("c", 4), "select * from «users» where «a» = @p0 and «b» between @p1 and @p2 and «c» = @p3", [1, 2, 3, 4]),
+            new("whereBetween dates", q => Users(q).WhereBetween("created", new DateTime(2026, 1, 1), new DateTime(2026, 12, 31)), "select * from «users» where «created» between @p0 and @p1", [new DateTime(2026, 1, 1), new DateTime(2026, 12, 31)]),
+            new("whereBetweenColumns", q => Users(q).WhereBetweenColumns("age", "min_age", "max_age"), "select * from «users» where «age» between «min_age» and «max_age»", []),
+            new("orWhereBetweenColumns", q => Users(q).Where("a", 1).OrWhereBetweenColumns("age", "lo", "hi"), "select * from «users» where «a» = @p0 or «age» between «lo» and «hi»", [1]),
+            new("whereNotBetweenColumns", q => Users(q).WhereNotBetweenColumns("age", "lo", "hi"), "select * from «users» where «age» not between «lo» and «hi»", []),
+            new("orWhereNotBetweenColumns", q => Users(q).Where("a", 1).OrWhereNotBetweenColumns("age", "lo", "hi"), "select * from «users» where «a» = @p0 or «age» not between «lo» and «hi»", [1]),
+            new("whereBetweenColumns qualified", q => Users(q).WhereBetweenColumns("users.age", "limits.lo", "limits.hi"), "select * from «users» where «users».«age» between «limits».«lo» and «limits».«hi»", []),
+            new("whereNull", q => Users(q).WhereNull("deleted_at"), "select * from «users» where «deleted_at» is null", []),
+            new("orWhereNull", q => Users(q).Where("a", 1).OrWhereNull("b"), "select * from «users» where «a» = @p0 or «b» is null", [1]),
+            new("whereNotNull", q => Users(q).WhereNotNull("email"), "select * from «users» where «email» is not null", []),
+            new("orWhereNotNull", q => Users(q).Where("a", 1).OrWhereNotNull("b"), "select * from «users» where «a» = @p0 or «b» is not null", [1]),
+            new("whereColumn", q => Users(q).WhereColumn("first_name", "last_name"), "select * from «users» where «first_name» = «last_name»", []),
+            new("whereColumn operator", q => Users(q).WhereColumn("updated_at", ">", "created_at"), "select * from «users» where «updated_at» > «created_at»", []),
+            new("whereColumn operator is normalised", q => Users(q).WhereColumn("a", "  NOT   LIKE ", "b"), "select * from «users» where «a» not like «b»", []),
+            new("whereColumn array form", q => Users(q).WhereColumn(new Dictionary<string, string> { ["a"] = "b", ["c"] = "d" }), "select * from «users» where («a» = «b» and «c» = «d»)", []),
+            new("whereColumn empty array adds nothing", q => Users(q).WhereColumn(new Dictionary<string, string>()), "select * from «users»", []),
+            new("orWhereColumn", q => Users(q).Where("a", 1).OrWhereColumn("b", "c"), "select * from «users» where «a» = @p0 or «b» = «c»", [1]),
+            new("orWhereColumn operator", q => Users(q).Where("a", 1).OrWhereColumn("b", "<", "c"), "select * from «users» where «a» = @p0 or «b» < «c»", [1]),
+            new("orWhereColumn array form", q => Users(q).Where("a", 1).OrWhereColumn(new Dictionary<string, string> { ["b"] = "c", ["d"] = "e" }), "select * from «users» where «a» = @p0 or («b» = «c» and «d» = «e»)", [1]),
+            new("whereColumn qualified", q => Users(q).WhereColumn("users.team_id", "teams.id"), "select * from «users» where «users».«team_id» = «teams».«id»", []),
+            new("new where kinds inside a group", q => Users(q).Where(g => g.WhereNull("a").OrWhereBetween("b", 1, 2).OrWhereColumn("c", "d")), "select * from «users» where («a» is null or «b» between @p0 and @p1 or «c» = «d»)", [1, 2]),
+            new("new where kinds negated by whereNot closure", q => Users(q).WhereNot(g => g.WhereNull("a").WhereColumn("b", "c")), "select * from «users» where not («a» is null and «b» = «c»)", []),
+        ]);
+    }
+
+    [Fact]
+    public void Between_null_and_column_where_methods_validate_their_input()
+    {
+        var query = Query.For(DatabaseDialect.Sqlite).Table("users");
+
+        var nullLow = () => query.WhereBetween("age", null!, 5);
+        var nullHigh = () => query.WhereBetween("age", 5, null!);
+        var badColumn = () => query.WhereNull("a; drop table users");
+        var badBetween = () => query.WhereBetweenColumns("age", "lo", "hi) or (1=1");
+        var badOperator = () => query.WhereColumn("a", "; drop", "b");
+        var star = () => query.WhereNotNull("*");
+
+        nullLow.Should().Throw<ArgumentNullException>();
+        nullHigh.Should().Throw<ArgumentNullException>();
+        badColumn.Should().Throw<ArgumentException>();
+        badBetween.Should().Throw<ArgumentException>();
+        badOperator.Should().Throw<ArgumentException>();
+        star.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void Between_where_counts_both_bounds_against_the_parameter_limit()
+    {
+        var query = Query.For(DatabaseDialect.SqlServer).Table("users").WhereIn("id", Enumerable.Range(1, 2097).Cast<object>()).WhereBetween("age", 1, 2);
+
+        var act = () => query.Compile();
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*2098*");
+    }
+
+    [Fact]
     public void Ordering_limit_and_offset_methods()
     {
         var limitOffsetStandard = "select * from «users» order by «id» asc limit 10 offset 5";
