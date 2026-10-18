@@ -95,10 +95,10 @@ internal static class ContractScenarios
         }),
         new("raw_statements_report_affected_rows", async c =>
         {
-            (await c.Db.AffectingStatementAsync($"update {c.People} set votes = votes + ? where id = ?", [1, 1])).Should().Be(1);
-            (await c.Db.Table(c.People).Where("id", 1).ValueAsync<long>("votes")).Should().Be(11);
-            await c.Db.StatementAsync($"update {c.People} set votes = votes - ? where id = ?", [1, 1]);
+            // Works on its own row so a failure here can never change the seed data the other scenarios read.
             await c.Db.StatementAsync($"insert into {c.People} (id, name, votes, active) values (?, ?, ?, ?)", [100, "Temp", 1, true]);
+            (await c.Db.AffectingStatementAsync($"update {c.People} set votes = votes + ? where id = ?", [1, 100])).Should().Be(1);
+            (await c.Db.Table(c.People).Where("id", 100).ValueAsync<long>("votes")).Should().Be(2);
             (await c.Db.AffectingStatementAsync($"delete from {c.People} where id = ?", [100])).Should().Be(1);
             (await c.Db.AffectingStatementAsync($"delete from {c.People} where id = ?", [100])).Should().Be(0);
         }),
