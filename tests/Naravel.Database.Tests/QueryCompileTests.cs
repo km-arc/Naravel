@@ -96,6 +96,41 @@ public class QueryCompileTests
     }
 
     [Fact]
+    public void Between_null_and_column_where_methods()
+    {
+        Verify(
+        [
+            new("whereBetween", q => Users(q).WhereBetween("votes", 1, 9), "select * from «users» where «votes» between @p0 and @p1", [1, 9]),
+            new("whereNotBetween", q => Users(q).WhereNotBetween("votes", 1, 9), "select * from «users» where «votes» not between @p0 and @p1", [1, 9]),
+            new("orWhereBetween", q => Users(q).Where("a", 1).OrWhereBetween("votes", 1, 9), "select * from «users» where «a» = @p0 or «votes» between @p1 and @p2", [1, 1, 9]),
+            new("orWhereNotBetween", q => Users(q).Where("a", 1).OrWhereNotBetween("votes", 1, 9), "select * from «users» where «a» = @p0 or «votes» not between @p1 and @p2", [1, 1, 9]),
+            new("whereBetweenColumns", q => Users(q).WhereBetweenColumns("v", "lo", "hi"), "select * from «users» where «v» between «lo» and «hi»", []),
+            new("whereNotBetweenColumns", q => Users(q).WhereNotBetweenColumns("v", "lo", "hi"), "select * from «users» where «v» not between «lo» and «hi»", []),
+            new("orWhereBetweenColumns", q => Users(q).Where("a", 1).OrWhereBetweenColumns("v", "lo", "hi"), "select * from «users» where «a» = @p0 or «v» between «lo» and «hi»", [1]),
+            new("orWhereNotBetweenColumns", q => Users(q).Where("a", 1).OrWhereNotBetweenColumns("v", "lo", "hi"), "select * from «users» where «a» = @p0 or «v» not between «lo» and «hi»", [1]),
+            new("whereNull", q => Users(q).WhereNull("note"), "select * from «users» where «note» is null", []),
+            new("whereNotNull", q => Users(q).WhereNotNull("note"), "select * from «users» where «note» is not null", []),
+            new("orWhereNull", q => Users(q).Where("a", 1).OrWhereNull("note"), "select * from «users» where «a» = @p0 or «note» is null", [1]),
+            new("orWhereNotNull", q => Users(q).Where("a", 1).OrWhereNotNull("note"), "select * from «users» where «a» = @p0 or «note» is not null", [1]),
+            new("whereColumn equals", q => Users(q).WhereColumn("a", "b"), "select * from «users» where «a» = «b»", []),
+            new("whereColumn operator", q => Users(q).WhereColumn("u.a", "<>", "o.b"), "select * from «users» where «u».«a» <> «o».«b»", []),
+            new("orWhereColumn", q => Users(q).Where("x", 1).OrWhereColumn("a", ">", "b"), "select * from «users» where «x» = @p0 or «a» > «b»", [1]),
+            new("orWhereColumn equals", q => Users(q).Where("x", 1).OrWhereColumn("a", "b"), "select * from «users» where «x» = @p0 or «a» = «b»", [1]),
+        ]);
+    }
+
+    [Fact]
+    public void Between_and_column_where_reject_bad_input_at_the_call()
+    {
+        var query = Query.For(DatabaseDialect.Sqlite).Table("users");
+        ((Action)(() => query.WhereBetween("votes", null, 1))).Should().Throw<ArgumentNullException>();
+        ((Action)(() => query.WhereBetween("votes", 1, null))).Should().Throw<ArgumentNullException>();
+        ((Action)(() => query.WhereBetweenColumns("v", "lo; drop", "hi"))).Should().Throw<ArgumentException>();
+        ((Action)(() => query.WhereColumn("a", "; drop", "b"))).Should().Throw<ArgumentException>();
+        ((Action)(() => query.WhereNull("a as b"))).Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
     public void Ordering_limit_and_offset_methods()
     {
         var limitOffsetStandard = "select * from «users» order by «id» asc limit 10 offset 5";

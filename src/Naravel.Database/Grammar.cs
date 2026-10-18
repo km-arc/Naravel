@@ -221,6 +221,17 @@ public abstract class Grammar
                 case InWhere inWhere:
                     AppendIn(sql, inWhere, context);
                     break;
+                case BetweenWhere between:
+                    sql.Append(Wrap(between.Column)).Append(between.Negate ? " not between " : " between ")
+                        .Append(context.Add(between.Low)).Append(" and ").Append(context.Add(between.High));
+                    break;
+                case ColumnBetweenWhere columnBetween:
+                    sql.Append(Wrap(columnBetween.Column)).Append(columnBetween.Negate ? " not between " : " between ")
+                        .Append(Wrap(columnBetween.LowColumn)).Append(" and ").Append(Wrap(columnBetween.HighColumn));
+                    break;
+                case ColumnWhere columnWhere:
+                    sql.Append(Wrap(columnWhere.First)).Append(' ').Append(columnWhere.Operator).Append(' ').Append(Wrap(columnWhere.Second));
+                    break;
                 default:
                     throw new InvalidOperationException("Unknown where clause.");
             }
