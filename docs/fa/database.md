@@ -107,6 +107,18 @@ query.GetBindings(); // [true, 18, true]
 
 موجود امروز: `Table`، `Select`، `AddSelect`، `SelectRaw`، `Distinct`، `Where`/`OrWhere`/`WhereNot`/`OrWhereNot` (ستون و مقدار، با عملگر، آرایهٔ جفت‌ها یا گروه closure)، `WhereRaw`/`OrWhereRaw`، `WhereIn`/`WhereNotIn`، `WhereBetween`/`WhereNotBetween`، `WhereBetweenColumns`/`WhereNotBetweenColumns`، `WhereNull`/`WhereNotNull`، `WhereColumn` (هرکدام با شکل `or`؛ کران‌ها پارامتر هستند و نباید null باشند چون `between null` هرگز تطبیق نمی‌دهد)، `OrderBy`/`OrderByDesc`/`OrderByRaw`، `Limit`/`Take`، `Offset`/`Skip`، `Clone`، `Compile`، `ToSql`، `ToRawSql`، `GetBindings`.
 
+**بخش‌های تاریخ و شرط چندستونی.** `WhereDate`، `WhereMonth`، `WhereDay`، `WhereYear` و `WhereTime` (هرکدام با شکل عملگر و شکل `or`) یک بخش از ستون تاریخ یا زمان را مقایسه می‌کنند. این چهار موتور تابع مشترکی برای این کار ندارند، پس هر گرامر تابع خودش را می‌نویسد؛ مقدار همیشه پارامتر است:
+
+| متد | SQLite | MySQL | PostgreSQL | SQL Server |
+|---|---|---|---|---|
+| `WhereDate` | `date(c)` | `date(c)` | `cast(c as date)` | `cast(c as date)` |
+| `WhereMonth` / `Day` / `Year` | `cast(strftime('%m', c) as integer)` (و `%d`، `%Y`) | `month(c)` / `day(c)` / `year(c)` | `extract(month from c)` | `datepart(month, c)` |
+| `WhereTime` | `strftime('%H:%M:%S', c)` | `time(c)` | `cast(c as time)` | `cast(c as time)` |
+
+دلیل تبدیل مقدار در لحظهٔ فراخوانی: `DateTime`، `DateTimeOffset` یا رشتهٔ `yyyy-MM-dd` در `WhereDate` به `DateOnly` تبدیل می‌شود و `WhereTime` یکی از `TimeOnly`، `TimeSpan` (داخل یک روز)، `DateTime` یا رشتهٔ `HH:mm[:ss]` را می‌گیرد؛ پس هر provider پارامتر بومی تاریخ یا زمان می‌گیرد و PostgreSQL هرگز مجبور نمی‌شود تاریخ را با متن مقایسه کند. ماه، روز و سال عدد صحیح‌اند و بازه‌شان بررسی می‌شود (۱ تا ۱۲، ۱ تا ۳۱، ۱ تا ۹۹۹۹). فقط `= < > <= >= <> !=` پذیرفته می‌شود. روی SQLite تاریخ‌ها به‌صورت متن ISO که provider می‌نویسد مقایسه می‌شوند؛ ستونی با قالب متنی دیگر تطبیق نخواهد داد.
+
+`WhereAny`، `WhereAll` و `WhereNone` فهرستی از ستون‌ها، یک عملگر اختیاری و یک مقدار می‌گیرند. هر ستون پارامتر خودش را دارد (همان مقدار تکرار می‌شود)، پس سقف پارامتر آن‌ها را هم می‌شمارد. Any به شکل `(a = @p0 or b = @p1)` است، all با `and` وصل می‌کند و none به شکل `not (a = @p0 or b = @p1)` است. فهرست خالی در لحظهٔ فراخوانی خطا می‌دهد.
+
 **قواعد ایمنی، در لحظهٔ فراخوانی اعمال می‌شوند:**
 - مقدارها **همیشه** پارامتر هستند (`@p0`، `@p1`، ...) روی هر دیالکت. هیچ چیزی که به‌عنوان مقدار داده شود نمی‌تواند SQL شود. `ToRawSql()` مقدارها را فقط برای لاگ داخل متن می‌گذارد؛ هرگز اجرایش نکنید.
 - شناسه‌ها (جدول، ستون، alias) باید با `[حرف یا _][حرف، رقم، _ یا $]*` بخوانند، حداکثر ۱۲۸ نویسه، در شکل‌های `col`، `table.col`، `schema.table.col`، `*`، `table.*` و `source as alias`. نام فارسی کار می‌کند. هر چیز دیگر فوراً `ArgumentException` می‌دهد. این گرامر با PDR-022 الف۳ قفل شده؛ شل‌کردنش اصلاحیهٔ PDR می‌خواهد.

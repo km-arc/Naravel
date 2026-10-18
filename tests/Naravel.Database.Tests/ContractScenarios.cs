@@ -62,6 +62,29 @@ internal static class ContractScenarios
             (await NamesAsync(c.Db.Table(c.People).WhereColumn("votes", "id").OrderBy("id"))).Should().Equal("Dennis");
             (await NamesAsync(c.Db.Table(c.People).WhereNull("note").OrWhereColumn("votes", "<", "id").OrderBy("id"))).Should().Equal("Grace", "Margaret");
         }),
+        new("where_date_parts", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.People).WhereDate("born", new DateOnly(2024, 2, 20)).OrderBy("id"))).Should().Equal("Grace");
+            (await NamesAsync(c.Db.Table(c.People).WhereDate("born", ">=", "2024-01-01").OrderBy("id"))).Should().Equal("Ada", "Grace", "Margaret");
+            (await NamesAsync(c.Db.Table(c.People).WhereYear("born", 2024).OrderBy("id"))).Should().Equal("Ada", "Grace", "Margaret");
+            (await NamesAsync(c.Db.Table(c.People).WhereMonth("born", 2).OrderBy("id"))).Should().Equal("Grace", "Margaret");
+            (await NamesAsync(c.Db.Table(c.People).WhereDay("born", 15).OrderBy("id"))).Should().Equal("Ada", "Linus");
+            (await NamesAsync(c.Db.Table(c.People).WhereYear("born", 2022).OrWhereMonth("born", 2).OrderBy("id"))).Should().Equal("Grace", "Margaret", "Dennis");
+        }),
+        new("where_time_part", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.People).WhereTime("born", ">", new TimeOnly(12, 0, 0)).OrderBy("id"))).Should().Equal("Linus", "Dennis");
+            (await NamesAsync(c.Db.Table(c.People).WhereTime("born", new TimeOnly(12, 0, 0)).OrderBy("id"))).Should().Equal("Grace");
+            (await NamesAsync(c.Db.Table(c.People).WhereTime("born", "<", "09:00").OrderBy("id"))).Should().Equal("Ada", "Margaret");
+        }),
+        new("where_any_all_none", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.People).WhereAny(["votes", "id"], 20).OrderBy("id"))).Should().Equal("Grace", "Linus");
+            (await NamesAsync(c.Db.Table(c.People).WhereAny(["votes", "id"], 3).OrderBy("id"))).Should().Equal("Linus");
+            (await NamesAsync(c.Db.Table(c.People).WhereAll(["votes", "id"], ">", 4).OrderBy("id"))).Should().Equal("Dennis");
+            (await NamesAsync(c.Db.Table(c.People).WhereNone(["votes", "id"], ">", 20).OrderBy("id"))).Should().Equal("Ada", "Grace", "Linus", "Dennis");
+            (await NamesAsync(c.Db.Table(c.People).Where("id", 1).OrWhereAll(["votes", "id"], ">", 4).OrderBy("id"))).Should().Equal("Ada", "Dennis");
+        }),
         new("order_desc_limit_offset", async c =>
         {
             (await NamesAsync(c.Db.Table(c.People).OrderBy("id").Limit(2).Offset(1))).Should().Equal("Grace", "Linus");
