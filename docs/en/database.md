@@ -4,7 +4,7 @@
 
 Decisions: [PDR-022](../pdr/en/PDR-022-database-query-builder.md). Persian version: [docs/fa/database.md](../fa/database.md).
 
-> **What exists today.** Connections, the manager, the SQLite driver, the connection seam, the query builder that **compiles** SQL for all four dialects (`ToSql`, `ToRawSql`, `GetBindings`), and execution. **Running** it on SQLite (`GetAsync`, `FirstAsync`, `SoleAsync`, `ValueAsync`, `FindAsync`, `PluckAsync` and raw SQL through `IDatabase`) works too; telemetry and the test fake arrive in the next task. Joins, grouping and the extended where family follow. The method-by-method plan is in [roadmap/QUERY-BUILDER-COVERAGE.md](../../roadmap/QUERY-BUILDER-COVERAGE.md). Nothing here pretends otherwise.
+> **What exists today.** Connections, the manager, the SQLite driver, the connection seam, the query builder that **compiles** SQL for all four dialects (`ToSql`, `ToRawSql`, `GetBindings`), and execution. **Running** it on SQLite (`GetAsync`, `FirstAsync`, `SoleAsync`, `ValueAsync`, `FindAsync`, `PluckAsync` and raw SQL through `IDatabase`) works too; observability (meter, activity, `IQueryListener`, opt-in query log) and the test fake `DatabaseFake` work too. Joins, grouping and the extended where family follow. The method-by-method plan is in [roadmap/QUERY-BUILDER-COVERAGE.md](../../roadmap/QUERY-BUILDER-COVERAGE.md). Nothing here pretends otherwise.
 
 ## Quickstart
 
@@ -67,6 +67,29 @@ Things to know:
 - `FirstAsync`, `SoleAsync`, `ValueAsync` and `FindAsync` work on a clone and add their own `limit`, so the original query is unchanged.
 - `SoleAsync` fetches at most two rows. On SQL Server `limit` is written as `top (n)`, so no `OrderBy` is needed for these methods.
 
+## Observability and testing
+
+**Telemetry.** Every command is counted and timed. The meter and the activity source are both named `Naravel.Database`: counters `naravel.database.queries` and `naravel.database.failures`, histogram `naravel.database.query.duration` (ms), and one activity `naravel.database.query` per command. Tags are the **connection name and the operation kind** (`select`, `scalar`, `statement`) only. SQL text and values never go into telemetry, so it is safe to ship to a shared collector.
+
+```csharp
+builder.Services.AddOpenTelemetry().WithMetrics(m => m.AddMeter("Naravel.Database")).WithTracing(t => t.AddSource("Naravel.Database"));
+```
+
+**Listeners (`DB::listen`).** Implement `IQueryListener` and register it in DI; it receives a `QueryExecuted` (connection, operation, SQL with `@p0` markers, bindings, duration, exception) after every command, including failed ones. Listeners run on the calling thread, so keep them fast. An exception thrown by a listener is swallowed, so a broken logger can never fail a query. Listeners are resolved once, when `IDatabase` is first resolved.
+
+**Query log (`enableQueryLog`).** Opt in with `services.AddNaravelDatabaseQueryLog()` and inject `QueryLog`: `Entries`, `Clear()`, `Enabled`. It keeps the last 1000 entries (configurable) and holds bound values, so use it in development and tests, not production.
+
+**`DatabaseFake`.** For tests that do not need a database, inject `new DatabaseFake()` where `IDatabase` is expected. `Table(...)` compiles real SQL for the dialect you pass (SQLite by default), so you can assert on the SQL and the bindings:
+
+```csharp
+var fake = new DatabaseFake().ReturnRows([new Dictionary<string, object?> { ["id"] = 1 }], sqlContains: "from \"users\"");
+var service = new UserService(fake);
+await service.ActiveUsersAsync();
+fake.AssertExecuted(q => q.Sql.Contains("votes") && (int)q.Bindings[0]! == 10);
+```
+
+Set results with `ReturnRows`, `ReturnObjects<T>` (for `GetAsync<T>`), `ReturnScalar` and `ReturnAffected`; the latest matching set-up wins, and anything not set up returns no rows, the default value or 0 affected rows. Assert with `AssertExecuted`, `AssertExecutedCount` and `AssertNothingExecuted`. The fake does not execute SQL, so behaviour that depends on a real engine needs a SQLite or server test.
+
 ## The query builder
 
 ```csharp
@@ -114,5 +137,5 @@ Available now: `Table`, `Select`, `AddSelect`, `SelectRaw`, `Distinct`, `Where`/
 ## Not ported on purpose
 
 - `DB::__call` forwarding to the connection: inject `IDatabase` (or the scope) instead.
-- `DB::select` returning `stdClass` objects: rows are dictionaries or Dapper-mapped types. `pretend()` and `listen()` hooks arrive as `IQueryListener` in the next task.
+- `DB::select` returning `stdClass` objects: rows are dictionaries or Dapper-mapped types. `pretend()` is replaced by `DatabaseFake`, and `listen()` by `IQueryListener`.
 - Reading and writing split connections, `purge()` and `reconnect()`: connections are pooled by the provider and rebuilt on configuration change.

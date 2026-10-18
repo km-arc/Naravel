@@ -122,7 +122,7 @@ await mailer.To(user.Email).QueueAsync(new WelcomeMail(user), cancellationToken)
 
 ### Naravel.Database
 
-query builder به سبک Laravel با اتصال‌های نام‌دار و SQL با پارامتر، برای SQLite، MySQL، PostgreSQL و SQL Server (Dapper ردیف‌ها را map می‌کند؛ EF Core همچنان ابزار entity و migration است). **امروز:** اتصال‌ها، درایور SQLite، builder برای select/where/order/limit که برای هر چهار دیالکت کامپایل می‌شود، و اجرا روی SQLite. درایورهای MySQL، PostgreSQL و SQL Server، join، aggregate، نوشتن و تراکنش در مرحله‌های بعدی می‌آیند (فایل [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md) را ببینید).
+query builder به سبک Laravel با اتصال‌های نام‌دار و SQL با پارامتر، برای SQLite، MySQL، PostgreSQL و SQL Server (Dapper ردیف‌ها را map می‌کند؛ EF Core همچنان ابزار entity و migration است). **امروز:** اتصال‌ها، درایور SQLite، builder برای select/where/order/limit که برای هر چهار دیالکت کامپایل می‌شود، اجرا روی SQLite، و مشاهده‌پذیری (meter و activity با نام `Naravel.Database` بدون SQL در tagها، `IQueryListener`، query log اختیاری) به‌همراه `DatabaseFake` برای تست. درایورهای MySQL، PostgreSQL و SQL Server، join، aggregate، نوشتن و تراکنش در مرحله‌های بعدی می‌آیند (فایل [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md) را ببینید).
 
 ```csharp
 builder.Services.AddNaravelDatabase(builder.Configuration);

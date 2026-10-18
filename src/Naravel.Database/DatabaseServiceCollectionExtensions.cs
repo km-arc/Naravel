@@ -28,7 +28,25 @@ public static class DatabaseServiceCollectionExtensions
         services.TryAddSingleton<IDatabase>(provider => new DatabaseService(
             provider.GetRequiredService<DatabaseManager>(),
             provider.GetRequiredService<IConnectionScope>(),
-            null));
+            null,
+            new QueryObserver(provider.GetServices<IQueryListener>())));
+        return services;
+    }
+
+    /// <summary>
+    /// Adds the opt-in <see cref="QueryLog"/>: a bounded, in-memory record of executed queries, also registered as an <see cref="IQueryListener"/>.
+    /// It keeps bound values, so use it in development and tests.
+    /// </summary>
+    /// <remarks><b>Laravel equivalent:</b> <c>DB::enableQueryLog()</c>.</remarks>
+    /// <param name="services">The service collection.</param>
+    /// <param name="maxEntries">The most entries kept, 1000 by default.</param>
+    public static IServiceCollection AddNaravelDatabaseQueryLog(this IServiceCollection services, int maxEntries = 1000)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxEntries, 1);
+        var log = new QueryLog(maxEntries);
+        services.TryAddSingleton(log);
+        services.AddSingleton<IQueryListener>(provider => provider.GetRequiredService<QueryLog>());
         return services;
     }
 

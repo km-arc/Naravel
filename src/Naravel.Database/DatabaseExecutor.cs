@@ -10,9 +10,16 @@ namespace Naravel.Database;
 /// <c>command.Transaction</c> from it and disposes it, which closes the connection only when the lease owns it (PDR-022 A1).
 /// Plain rows are read straight from the <see cref="DbDataReader"/>; Dapper only maps rows to a type (PDR-022 A2).
 /// </summary>
-internal sealed class DatabaseExecutor(IConnectionScope scope, string? connectionName)
+internal sealed class DatabaseExecutor(IConnectionScope scope, string? connectionName, DatabaseManager? manager = null, QueryObserver? observer = null) : IQueryRunner
 {
-    public async Task<IReadOnlyList<IReadOnlyDictionary<string, object?>>> RowsAsync(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken)
+    private readonly QueryObserver _observer = observer ?? QueryObserver.None;
+
+    private string ResolvedName => connectionName ?? manager?.DefaultDriverName ?? "default";
+
+    public Task<IReadOnlyList<IReadOnlyDictionary<string, object?>>> RowsAsync(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken) =>
+        _observer.ObserveAsync(ResolvedName, QueryOperation.Select, sql, bindings, () => RowsCoreAsync(sql, bindings, cancellationToken));
+
+    private async Task<IReadOnlyList<IReadOnlyDictionary<string, object?>>> RowsCoreAsync(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         await using var lease = await scope.AcquireAsync(connectionName, cancellationToken).ConfigureAwait(false);
@@ -33,7 +40,10 @@ internal sealed class DatabaseExecutor(IConnectionScope scope, string? connectio
         return rows;
     }
 
-    public async Task<IReadOnlyList<T>> RowsAsync<T>(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<T>> RowsAsync<T>(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken) =>
+        _observer.ObserveAsync(ResolvedName, QueryOperation.Select, sql, bindings, () => RowsCoreAsync<T>(sql, bindings, cancellationToken));
+
+    private async Task<IReadOnlyList<T>> RowsCoreAsync<T>(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         await using var lease = await scope.AcquireAsync(connectionName, cancellationToken).ConfigureAwait(false);
@@ -46,7 +56,10 @@ internal sealed class DatabaseExecutor(IConnectionScope scope, string? connectio
         return rows;
     }
 
-    public async Task<T> FirstValueAsync<T>(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken)
+    public Task<T> FirstValueAsync<T>(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken) =>
+        _observer.ObserveAsync(ResolvedName, QueryOperation.Scalar, sql, bindings, () => FirstValueCoreAsync<T>(sql, bindings, cancellationToken));
+
+    private async Task<T> FirstValueCoreAsync<T>(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         await using var lease = await scope.AcquireAsync(connectionName, cancellationToken).ConfigureAwait(false);
@@ -57,7 +70,10 @@ internal sealed class DatabaseExecutor(IConnectionScope scope, string? connectio
         return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? parser(reader) : default!;
     }
 
-    public async Task<int> NonQueryAsync(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken)
+    public Task<int> NonQueryAsync(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken) =>
+        _observer.ObserveAsync(ResolvedName, QueryOperation.Statement, sql, bindings, () => NonQueryCoreAsync(sql, bindings, cancellationToken));
+
+    private async Task<int> NonQueryCoreAsync(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         await using var lease = await scope.AcquireAsync(connectionName, cancellationToken).ConfigureAwait(false);

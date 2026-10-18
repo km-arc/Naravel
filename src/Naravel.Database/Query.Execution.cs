@@ -3,7 +3,7 @@ namespace Naravel.Database;
 #pragma warning disable RS0026, RS0027 // The generic overloads intentionally mirror the non-generic ones, as in Laravel.
 public sealed partial class Query
 {
-    internal DatabaseExecutor? Runner { get; set; }
+    internal IQueryRunner? Runner { get; set; }
 
     /// <summary>Runs the query and returns every row as a case-insensitive dictionary. Laravel: <c>get</c>.</summary>
     /// <param name="cancellationToken">Cancels the command.</param>
@@ -101,7 +101,7 @@ public sealed partial class Query
     public async Task<IReadOnlyList<T>> PluckAsync<T>(string column, CancellationToken cancellationToken = default) =>
         await Clone().Select(column).GetAsync<T>(cancellationToken).ConfigureAwait(false);
 
-    private DatabaseExecutor Connected() =>
+    private IQueryRunner Connected() =>
         Runner ?? throw new InvalidOperationException("This query is not connected to a database. Start it with IDatabase.Table(...) instead of Query.For(...), which only compiles SQL.");
 
     private static void CheckSole(int count)

@@ -1,12 +1,12 @@
 namespace Naravel.Database;
 
-internal sealed class DatabaseService(DatabaseManager manager, IConnectionScope scope, string? connectionName) : IDatabase
+internal sealed class DatabaseService(DatabaseManager manager, IConnectionScope scope, string? connectionName, QueryObserver observer) : IDatabase
 {
-    private readonly DatabaseExecutor _executor = new(scope, connectionName);
+    private readonly DatabaseExecutor _executor = new(scope, connectionName, manager, observer);
 
     public string? ConnectionName => connectionName;
 
-    public IDatabase Connection(string? name) => new DatabaseService(manager, scope, name);
+    public IDatabase Connection(string? name) => new DatabaseService(manager, scope, name, observer);
 
     public Query Table(string table)
     {

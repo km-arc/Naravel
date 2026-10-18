@@ -4,7 +4,7 @@
 
 تصمیم‌ها: [PDR-022](../pdr/fa/PDR-022-database-query-builder.md). نسخهٔ انگلیسی: [docs/en/database.md](../en/database.md).
 
-> **آنچه امروز وجود دارد.** اتصال‌ها، manager، درایور SQLite، درز اتصال و query builder که برای هر چهار دیالکت SQL را **کامپایل** می‌کند (`ToSql`، `ToRawSql`، `GetBindings`)، و **اجرا** روی SQLite (`GetAsync`، `FirstAsync`، `SoleAsync`، `ValueAsync`، `FindAsync`، `PluckAsync` و SQL خام از طریق `IDatabase`). telemetry و fake تست در task بعدی می‌آید؛ join، گروه‌بندی و خانوادهٔ where گسترده بعد از آن. برنامهٔ متد‌به‌متد در [roadmap/QUERY-BUILDER-COVERAGE.md](../../roadmap/QUERY-BUILDER-COVERAGE.md) است. هیچ چیزِ دیگری ادعا نمی‌شود.
+> **آنچه امروز وجود دارد.** اتصال‌ها، manager، درایور SQLite، درز اتصال و query builder که برای هر چهار دیالکت SQL را **کامپایل** می‌کند (`ToSql`، `ToRawSql`، `GetBindings`)، و **اجرا** روی SQLite (`GetAsync`، `FirstAsync`، `SoleAsync`، `ValueAsync`، `FindAsync`، `PluckAsync` و SQL خام از طریق `IDatabase`). قابلیت مشاهده (meter، activity، `IQueryListener`، query log اختیاری) و fake تست یعنی `DatabaseFake` هم کار می‌کنند؛ join، گروه‌بندی و خانوادهٔ where گسترده بعد از آن. برنامهٔ متد‌به‌متد در [roadmap/QUERY-BUILDER-COVERAGE.md](../../roadmap/QUERY-BUILDER-COVERAGE.md) است. هیچ چیزِ دیگری ادعا نمی‌شود.
 
 ## شروع سریع
 
@@ -67,6 +67,29 @@ await db.UnpreparedAsync("create table t (id integer primary key)", ct);        
 - `FirstAsync`، `SoleAsync`، `ValueAsync` و `FindAsync` روی یک clone کار می‌کنند و `limit` خودشان را اضافه می‌کنند، پس کوئری اصلی تغییر نمی‌کند.
 - `SoleAsync` حداکثر دو ردیف می‌گیرد. در SQL Server، `limit` به‌صورت `top (n)` نوشته می‌شود، پس این متدها نیازی به `OrderBy` ندارند.
 
+## مشاهده‌پذیری و تست
+
+**Telemetry.** هر دستور شمرده و زمان‌گیری می‌شود. meter و activity source هر دو `Naravel.Database` نام دارند: شمارنده‌های `naravel.database.queries` و `naravel.database.failures`، هیستوگرام `naravel.database.query.duration` (میلی‌ثانیه) و یک activity با نام `naravel.database.query` برای هر دستور. tagها فقط **نام اتصال و نوع عملیات** (`select`، `scalar`، `statement`) هستند. متن SQL و مقادیر هرگز وارد telemetry نمی‌شوند، پس ارسال آن به collector مشترک امن است.
+
+```csharp
+builder.Services.AddOpenTelemetry().WithMetrics(m => m.AddMeter("Naravel.Database")).WithTracing(t => t.AddSource("Naravel.Database"));
+```
+
+**Listenerها (`DB::listen`).** `IQueryListener` را پیاده‌سازی و در DI ثبت کنید؛ بعد از هر دستور (حتی ناموفق) یک `QueryExecuted` (اتصال، عملیات، SQL با نشانگرهای `@p0`، مقادیر، مدت، استثنا) می‌گیرد. listenerها روی thread فراخوان اجرا می‌شوند، پس سریع بنویسیدشان. استثنای یک listener بلعیده می‌شود تا logger خراب هرگز کوئری را شکست ندهد. listenerها یک بار، هنگام اولین resolve شدن `IDatabase`، گرفته می‌شوند.
+
+**Query log (`enableQueryLog`).** با `services.AddNaravelDatabaseQueryLog()` فعالش کنید و `QueryLog` را تزریق کنید: `Entries`، `Clear()`، `Enabled`. آخرین ۱۰۰۰ مورد را نگه می‌دارد (قابل تنظیم) و مقادیر bind‌شده را هم دارد؛ پس در توسعه و تست استفاده کنید، نه production.
+
+**`DatabaseFake`.** برای تست‌هایی که پایگاه داده نمی‌خواهند، `new DatabaseFake()` را جای `IDatabase` تزریق کنید. `Table(...)` برای دیالکتی که می‌دهید (پیش‌فرض SQLite) SQL واقعی کامپایل می‌کند، پس می‌توانید روی SQL و مقادیر assert کنید:
+
+```csharp
+var fake = new DatabaseFake().ReturnRows([new Dictionary<string, object?> { ["id"] = 1 }], sqlContains: "from \"users\"");
+var service = new UserService(fake);
+await service.ActiveUsersAsync();
+fake.AssertExecuted(q => q.Sql.Contains("votes") && (int)q.Bindings[0]! == 10);
+```
+
+نتیجه‌ها را با `ReturnRows`، `ReturnObjects<T>` (برای `GetAsync<T>`)، `ReturnScalar` و `ReturnAffected` تنظیم کنید؛ آخرین تنظیمِ منطبق برنده است و هر چه تنظیم نشده باشد ردیف خالی، مقدار پیش‌فرض یا ۰ ردیف تأثیرپذیرفته برمی‌گرداند. با `AssertExecuted`، `AssertExecutedCount` و `AssertNothingExecuted` بررسی کنید. fake، SQL را اجرا نمی‌کند؛ رفتاری که به موتور واقعی وابسته است تست SQLite یا سرور می‌خواهد.
+
 ## query builder
 
 ```csharp
@@ -114,5 +137,5 @@ query.GetBindings(); // [true, 18, true]
 ## عمداً پورت نشده
 
 - هدایت `DB::__call` به اتصال: به‌جای آن `IDatabase` (یا scope) را inject کنید.
-- `DB::select` که شیء `stdClass` برمی‌گرداند: ردیف‌ها dictionary یا نوع map‌شده با Dapper هستند. قلاب‌های `pretend()` و `listen()` در task بعدی به‌شکل `IQueryListener` می‌آیند.
+- `DB::select` که شیء `stdClass` برمی‌گرداند: ردیف‌ها dictionary یا نوع map‌شده با Dapper هستند. `pretend()` با `DatabaseFake` و `listen()` با `IQueryListener` جایگزین شده است.
 - اتصال‌های جداشدهٔ خواندن/نوشتن، `purge()` و `reconnect()`: اتصال‌ها را provider در pool نگه می‌دارد و با تغییر پیکربندی بازسازی می‌شوند.
