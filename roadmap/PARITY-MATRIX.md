@@ -257,7 +257,7 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 | Events | Adapt | R06 |
 | Filesystem | Done | R02 |
 | Foundation | Manager done; Application/Kernel = Native | PDR-002 |
-| Hashing | Likely Native (`IPasswordHasher`); PDR may DECLINE | R15 |
+| Hashing | Native (`IPasswordHasher`); PDR-019 approved with no package | R15 |
 | Http (request/response) | Native ASP.NET Core; **HTTP client**: Native `HttpClientFactory` | - |
 | Image | Unassessed | BACKLOG |
 | JsonSchema | Native (`System.Text.Json.Schema`) | - |
