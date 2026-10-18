@@ -50,8 +50,15 @@ internal sealed class DatabaseExecutor(IConnectionScope scope, string? connectio
         await using var command = CreateCommand(lease, sql, bindings);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
 
-        var parser = Parser<T>(reader);
         var rows = new List<T>();
+        if (ValueConverter.IsSimple(typeof(T)))
+        {
+            // One value per row: the first column, converted by us (Dapper would return the raw provider value).
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) rows.Add(ValueConverter.Convert<T>(reader.GetValue(0)));
+            return rows;
+        }
+
+        var parser = Parser<T>(reader);
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) rows.Add(parser(reader));
         return rows;
     }
@@ -65,6 +72,11 @@ internal sealed class DatabaseExecutor(IConnectionScope scope, string? connectio
         await using var lease = await scope.AcquireAsync(connectionName, cancellationToken).ConfigureAwait(false);
         await using var command = CreateCommand(lease, sql, bindings);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+
+        if (ValueConverter.IsSimple(typeof(T)))
+        {
+            return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? ValueConverter.Convert<T>(reader.GetValue(0)) : default!;
+        }
 
         var parser = Parser<T>(reader);
         return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? parser(reader) : default!;
@@ -124,16 +136,17 @@ internal sealed class DatabaseExecutor(IConnectionScope scope, string? connectio
         return row => parse(row) is { } value ? (T)value : default!;
     }
 
-    private static DbCommand CreateCommand(IConnectionLease lease, string sql, IReadOnlyList<object?> bindings)
+    private DbCommand CreateCommand(IConnectionLease lease, string sql, IReadOnlyList<object?> bindings)
     {
         var command = lease.Connection.CreateCommand();
         command.CommandText = sql;
         command.Transaction = lease.Transaction;
+        var dialect = manager?.Connection(connectionName).Dialect;
         for (var i = 0; i < bindings.Count; i++)
         {
             var parameter = command.CreateParameter();
             parameter.ParameterName = "@p" + i.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            Assign(parameter, bindings[i]);
+            Assign(parameter, bindings[i], dialect);
             command.Parameters.Add(parameter);
         }
 
@@ -141,7 +154,7 @@ internal sealed class DatabaseExecutor(IConnectionScope scope, string? connectio
     }
 
     /// <summary>Sets the value and, for the types that providers disagree about, an explicit <see cref="DbType"/> (PDR-022 A2).</summary>
-    private static void Assign(DbParameter parameter, object? value)
+    private static void Assign(DbParameter parameter, object? value, DatabaseDialect? dialect)
     {
         switch (value)
         {
@@ -157,10 +170,12 @@ internal sealed class DatabaseExecutor(IConnectionScope scope, string? connectio
             case Guid:
                 parameter.DbType = DbType.Guid;
                 break;
-            case DateTime:
-                parameter.DbType = DbType.DateTime;
+            // Only SQL Server needs help: its default for DateTime is the old low-precision `datetime`. Npgsql treats DbType.DateTime as
+            // `timestamptz` and then rejects an unspecified-kind value, so the other providers infer the type from the CLR value.
+            case DateTime when dialect == DatabaseDialect.SqlServer:
+                parameter.DbType = DbType.DateTime2;
                 break;
-            case DateTimeOffset:
+            case DateTimeOffset when dialect == DatabaseDialect.SqlServer:
                 parameter.DbType = DbType.DateTimeOffset;
                 break;
             case DateOnly:
