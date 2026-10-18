@@ -280,6 +280,14 @@ public sealed partial class Query
     /// <param name="second">The second column.</param>
     public Query OrWhereColumn(string first, string op, string second) => AddColumn(first, op, second, or: true);
 
+    /// <summary>Adds a group of <c>left = right</c> column comparisons joined by <c>and</c>, in parentheses. Laravel: <c>whereColumn([...])</c>.</summary>
+    /// <param name="pairs">Left and right column names.</param>
+    public Query WhereColumn(IEnumerable<KeyValuePair<string, string>> pairs) => AddColumnPairs(pairs, or: false);
+
+    /// <summary>Like <c>WhereColumn(pairs)</c> but joined with <c>or</c>. Laravel: <c>orWhereColumn([...])</c>.</summary>
+    /// <param name="pairs">Left and right column names.</param>
+    public Query OrWhereColumn(IEnumerable<KeyValuePair<string, string>> pairs) => AddColumnPairs(pairs, or: true);
+
     /// <summary>Adds an <c>order by</c> term. Laravel: <c>orderBy</c>.</summary>
     /// <param name="column">The column.</param>
     /// <param name="direction"><c>asc</c> or <c>desc</c>, in any letter case.</param>
@@ -444,6 +452,15 @@ public sealed partial class Query
         var left = Column(first, nameof(first));
         var normalized = Grammar.NormalizeOperator(op, nameof(op));
         _wheres.Add(new ColumnWhere(left, normalized, Column(second, nameof(second)), or));
+        return this;
+    }
+
+    private Query AddColumnPairs(IEnumerable<KeyValuePair<string, string>> pairs, bool or)
+    {
+        ArgumentNullException.ThrowIfNull(pairs);
+        var inner = new Query(Grammar);
+        foreach (var pair in pairs) inner.AddColumn(pair.Key, "=", pair.Value, or: false);
+        if (inner._wheres.Count > 0) _wheres.Add(new NestedWhere(inner._wheres.ToArray(), or, false));
         return this;
     }
 

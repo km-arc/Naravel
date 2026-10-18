@@ -84,6 +84,19 @@ internal static class ContractScenarios
             (await NamesAsync(c.Db.Table(c.People).WhereAll(["votes", "id"], ">", 4).OrderBy("id"))).Should().Equal("Dennis");
             (await NamesAsync(c.Db.Table(c.People).WhereNone(["votes", "id"], ">", 20).OrderBy("id"))).Should().Equal("Ada", "Grace", "Linus", "Dennis");
             (await NamesAsync(c.Db.Table(c.People).Where("id", 1).OrWhereAll(["votes", "id"], ">", 4).OrderBy("id"))).Should().Equal("Ada", "Dennis");
+        new("where_or_variants_of_the_new_where_methods", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.People).Where("id", 5).OrWhereBetween("votes", 30, 30).OrderBy("id"))).Should().Equal("Margaret", "Dennis");
+            (await NamesAsync(c.Db.Table(c.People).Where("id", 1).OrWhereNotBetween("votes", 5, 29).OrderBy("id"))).Should().Equal("Ada", "Margaret");
+            (await NamesAsync(c.Db.Table(c.People).Where("id", 1).OrWhereNull("note").OrderBy("id"))).Should().Equal("Ada", "Grace", "Margaret");
+            (await NamesAsync(c.Db.Table(c.People).Where("id", 2).OrWhereNotNull("note").OrderBy("id"))).Should().Equal("Ada", "Grace", "Linus", "Dennis");
+            (await NamesAsync(c.Db.Table(c.People).Where("id", 1).OrWhereColumn("id", "votes").OrderBy("id"))).Should().Equal("Ada", "Dennis");
+            (await NamesAsync(c.Db.Table(c.People).WhereColumn(new Dictionary<string, string> { ["id"] = "votes" }).OrderBy("id"))).Should().Equal("Dennis");
+        }),
+        new("where_in_with_an_empty_list", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.People).WhereIn("id", Array.Empty<int>()))).Should().BeEmpty();
+            (await NamesAsync(c.Db.Table(c.People).WhereNotIn("id", Array.Empty<int>()).OrderBy("id"))).Should().Equal("Ada", "Grace", "Linus", "Margaret", "Dennis");
         }),
         new("order_desc_limit_offset", async c =>
         {
@@ -133,7 +146,7 @@ internal static class ContractScenarios
         new("raw_statements_report_affected_rows", async c =>
         {
             // Works on its own row so a failure here can never change the seed data the other scenarios read.
-            await c.Db.StatementAsync($"insert into {c.People} (id, name, votes, active) values (?, ?, ?, ?)", [100, "Temp", 1, true]);
+            await c.Db.StatementAsync($"insert into {c.People} (id, name, votes, active, born) values (?, ?, ?, ?, ?)", [100, "Temp", 1, true, new DateTime(2000, 1, 1, 0, 0, 0)]);
             (await c.Db.AffectingStatementAsync($"update {c.People} set votes = votes + ? where id = ?", [1, 100])).Should().Be(1);
             (await c.Db.Table(c.People).Where("id", 100).ValueAsync<long>("votes")).Should().Be(2);
             (await c.Db.AffectingStatementAsync($"delete from {c.People} where id = ?", [100])).Should().Be(1);

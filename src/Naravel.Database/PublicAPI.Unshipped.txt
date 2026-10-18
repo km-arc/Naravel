@@ -186,3 +186,5 @@ Naravel.Database.Testing.DatabaseFake.SelectAsync<T>(string! sql, System.Collect
 Naravel.Database.Testing.DatabaseFake.StatementAsync(string! sql, System.Collections.Generic.IEnumerable<object?>? bindings = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Naravel.Database.Testing.DatabaseFake.Table(string! table) -> Naravel.Database.Query!
 Naravel.Database.Testing.DatabaseFake.UnpreparedAsync(string! sql, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Database.Query.WhereColumn(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! pairs) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereColumn(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! pairs) -> Naravel.Database.Query!
