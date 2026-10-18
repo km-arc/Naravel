@@ -406,7 +406,10 @@ public class WorkerTests
     [Fact]
     public async Task MaxRuntime_stops_new_work_but_allows_the_active_job_to_finish()
     {
-        await using var host = new QueueTestHost(configureWorker: options => options.MaxRuntime = TimeSpan.FromMilliseconds(100));
+        // MaxRuntime counts from worker start. It must be long enough that a slow runner still picks the first job up before it
+        // expires (a 100 ms limit made the macOS run time out waiting for the job to start), and the test then waits it out.
+        var maxRuntime = TimeSpan.FromSeconds(1.5);
+        await using var host = new QueueTestHost(configureWorker: options => options.MaxRuntime = maxRuntime);
         var gate = new BatchGate();
         var activeId = NewId();
         var queuedId = NewId();
@@ -416,9 +419,9 @@ public class WorkerTests
             await host.Dispatch(new BlockingBatchJob { RunId = activeId });
             await gate.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
             await host.Dispatch(new RecordingJob { RunId = queuedId });
-            await Task.Delay(150);
+            await Task.Delay(maxRuntime + TimeSpan.FromMilliseconds(300));
             gate.Continue.TrySetResult(true);
-            await Task.Delay(100);
+            await Task.Delay(200);
             Recorder.Count(queuedId, "run").Should().Be(0);
         }
         finally
