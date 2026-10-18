@@ -225,9 +225,9 @@ public abstract class Grammar
                     sql.Append(Wrap(between.Column)).Append(between.Negate ? " not between " : " between ")
                         .Append(context.Add(between.Low)).Append(" and ").Append(context.Add(between.High));
                     break;
-                case BetweenColumnsWhere betweenColumns:
-                    sql.Append(Wrap(betweenColumns.Column)).Append(betweenColumns.Negate ? " not between " : " between ")
-                        .Append(Wrap(betweenColumns.Low)).Append(" and ").Append(Wrap(betweenColumns.High));
+                case ColumnBetweenWhere columnBetween:
+                    sql.Append(Wrap(columnBetween.Column)).Append(columnBetween.Negate ? " not between " : " between ")
+                        .Append(Wrap(columnBetween.LowColumn)).Append(" and ").Append(Wrap(columnBetween.HighColumn));
                     break;
                 case ColumnWhere columnWhere:
                     sql.Append(Wrap(columnWhere.First)).Append(' ').Append(columnWhere.Operator).Append(' ').Append(Wrap(columnWhere.Second));

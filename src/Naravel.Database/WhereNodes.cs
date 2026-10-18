@@ -55,13 +55,13 @@ internal sealed class BetweenWhere(ParsedIdentifier column, object? low, object?
     public bool Negate { get; } = negate;
 }
 
-internal sealed class BetweenColumnsWhere(ParsedIdentifier column, ParsedIdentifier low, ParsedIdentifier high, bool negate, bool or) : WhereNode(or, false)
+internal sealed class ColumnBetweenWhere(ParsedIdentifier column, ParsedIdentifier lowColumn, ParsedIdentifier highColumn, bool negate, bool or) : WhereNode(or, false)
 {
     public ParsedIdentifier Column { get; } = column;
 
-    public ParsedIdentifier Low { get; } = low;
+    public ParsedIdentifier LowColumn { get; } = lowColumn;
 
-    public ParsedIdentifier High { get; } = high;
+    public ParsedIdentifier HighColumn { get; } = highColumn;
 
     public bool Negate { get; } = negate;
 }

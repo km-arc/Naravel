@@ -2,6 +2,7 @@
 Microsoft.Extensions.DependencyInjection.DatabaseServiceCollectionExtensions
 static Microsoft.Extensions.DependencyInjection.DatabaseServiceCollectionExtensions.AddDatabaseConnection(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! driverName, System.Func<System.IServiceProvider!, string!, Microsoft.Extensions.Configuration.IConfigurationSection!, Naravel.Database.IDatabaseConnection!>! factory, string! sectionName = "Database") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static Microsoft.Extensions.DependencyInjection.DatabaseServiceCollectionExtensions.AddNaravelDatabase(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "Database") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Microsoft.Extensions.DependencyInjection.DatabaseServiceCollectionExtensions.AddNaravelDatabaseQueryLog(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, int maxEntries = 1000) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 Naravel.Database.CompiledQuery
 Naravel.Database.CompiledQuery.Bindings.get -> System.Collections.Generic.IReadOnlyList<object?>!
 Naravel.Database.CompiledQuery.Sql.get -> string!
@@ -28,51 +29,6 @@ Naravel.Database.IConnectionLease.OwnsConnection.get -> bool
 Naravel.Database.IConnectionLease.Transaction.get -> System.Data.Common.DbTransaction?
 Naravel.Database.IConnectionScope
 Naravel.Database.IConnectionScope.AcquireAsync(string? connectionName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Naravel.Database.IConnectionLease!>
-Naravel.Database.IDatabaseConnection
-Naravel.Database.IDatabaseConnection.Dialect.get -> Naravel.Database.DatabaseDialect
-Naravel.Database.IDatabaseConnection.Name.get -> string!
-Naravel.Database.IDatabaseConnection.OpenConnectionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Data.Common.DbConnection!>
-Naravel.Database.Query
-Naravel.Database.Query.AddSelect(params string![]! columns) -> Naravel.Database.Query!
-Naravel.Database.Query.Clone() -> Naravel.Database.Query!
-Naravel.Database.Query.Compile() -> Naravel.Database.CompiledQuery!
-Naravel.Database.Query.Distinct() -> Naravel.Database.Query!
-static Naravel.Database.Query.For(Naravel.Database.DatabaseDialect dialect) -> Naravel.Database.Query!
-Naravel.Database.Query.GetBindings() -> System.Collections.Generic.IReadOnlyList<object?>!
-Naravel.Database.Query.Grammar.get -> Naravel.Database.Grammar!
-Naravel.Database.Query.Limit(int count) -> Naravel.Database.Query!
-Naravel.Database.Query.Offset(int count) -> Naravel.Database.Query!
-Naravel.Database.Query.OrWhere(System.Action<Naravel.Database.Query!>! group) -> Naravel.Database.Query!
-Naravel.Database.Query.OrWhere(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, object?>>! conditions) -> Naravel.Database.Query!
-Naravel.Database.Query.OrWhere(string! column, object? value) -> Naravel.Database.Query!
-Naravel.Database.Query.OrWhere(string! column, string! op, object? value) -> Naravel.Database.Query!
-Naravel.Database.Query.OrWhereIn(string! column, System.Collections.IEnumerable! values) -> Naravel.Database.Query!
-Naravel.Database.Query.OrWhereNot(System.Action<Naravel.Database.Query!>! group) -> Naravel.Database.Query!
-Naravel.Database.Query.OrWhereNot(string! column, object? value) -> Naravel.Database.Query!
-Naravel.Database.Query.OrWhereNot(string! column, string! op, object? value) -> Naravel.Database.Query!
-Naravel.Database.Query.OrWhereNotIn(string! column, System.Collections.IEnumerable! values) -> Naravel.Database.Query!
-Naravel.Database.Query.OrWhereRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
-Naravel.Database.Query.OrderBy(string! column, string! direction = "asc") -> Naravel.Database.Query!
-Naravel.Database.Query.OrderByDesc(string! column) -> Naravel.Database.Query!
-Naravel.Database.Query.OrderByRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
-Naravel.Database.Query.Query(Naravel.Database.Grammar! grammar) -> void
-Naravel.Database.Query.Select(params string![]! columns) -> Naravel.Database.Query!
-Naravel.Database.Query.SelectRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
-Naravel.Database.Query.Skip(int count) -> Naravel.Database.Query!
-Naravel.Database.Query.Table(string! table) -> Naravel.Database.Query!
-Naravel.Database.Query.Take(int count) -> Naravel.Database.Query!
-Naravel.Database.Query.ToRawSql() -> string!
-Naravel.Database.Query.ToSql() -> string!
-Naravel.Database.Query.Where(System.Action<Naravel.Database.Query!>! group) -> Naravel.Database.Query!
-Naravel.Database.Query.Where(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, object?>>! conditions) -> Naravel.Database.Query!
-Naravel.Database.Query.Where(string! column, object? value) -> Naravel.Database.Query!
-Naravel.Database.Query.Where(string! column, string! op, object? value) -> Naravel.Database.Query!
-Naravel.Database.Query.WhereIn(string! column, System.Collections.IEnumerable! values) -> Naravel.Database.Query!
-Naravel.Database.Query.WhereNot(System.Action<Naravel.Database.Query!>! group) -> Naravel.Database.Query!
-Naravel.Database.Query.WhereNot(string! column, object? value) -> Naravel.Database.Query!
-Naravel.Database.Query.WhereNot(string! column, string! op, object? value) -> Naravel.Database.Query!
-Naravel.Database.Query.WhereNotIn(string! column, System.Collections.IEnumerable! values) -> Naravel.Database.Query!
-Naravel.Database.Query.WhereRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
 Naravel.Database.IDatabase
 Naravel.Database.IDatabase.AffectingStatementAsync(string! sql, System.Collections.Generic.IEnumerable<object?>? bindings = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<int>!
 Naravel.Database.IDatabase.Connection(string? name) -> Naravel.Database.IDatabase!
@@ -83,22 +39,81 @@ Naravel.Database.IDatabase.SelectAsync<T>(string! sql, System.Collections.Generi
 Naravel.Database.IDatabase.StatementAsync(string! sql, System.Collections.Generic.IEnumerable<object?>? bindings = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Naravel.Database.IDatabase.Table(string! table) -> Naravel.Database.Query!
 Naravel.Database.IDatabase.UnpreparedAsync(string! sql, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Database.IDatabaseConnection
+Naravel.Database.IDatabaseConnection.Dialect.get -> Naravel.Database.DatabaseDialect
+Naravel.Database.IDatabaseConnection.Name.get -> string!
+Naravel.Database.IDatabaseConnection.OpenConnectionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Data.Common.DbConnection!>
+Naravel.Database.IQueryListener
+Naravel.Database.IQueryListener.OnQueryExecuted(Naravel.Database.QueryExecuted! query) -> void
 Naravel.Database.MultipleRecordsFoundException
 Naravel.Database.MultipleRecordsFoundException.MultipleRecordsFoundException(string! message) -> void
-Naravel.Database.RecordsNotFoundException
-Naravel.Database.RecordsNotFoundException.RecordsNotFoundException(string! message) -> void
+Naravel.Database.Query
+Naravel.Database.Query.AddSelect(params string![]! columns) -> Naravel.Database.Query!
+Naravel.Database.Query.Clone() -> Naravel.Database.Query!
+Naravel.Database.Query.Compile() -> Naravel.Database.CompiledQuery!
+Naravel.Database.Query.Distinct() -> Naravel.Database.Query!
 Naravel.Database.Query.FindAsync(object! id, string! keyColumn = "id", System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyDictionary<string!, object?>?>!
 Naravel.Database.Query.FindAsync<T>(object! id, string! keyColumn = "id", System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
 Naravel.Database.Query.FirstAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyDictionary<string!, object?>?>!
 Naravel.Database.Query.FirstAsync<T>(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+static Naravel.Database.Query.For(Naravel.Database.DatabaseDialect dialect) -> Naravel.Database.Query!
 Naravel.Database.Query.GetAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyDictionary<string!, object?>!>!>!
 Naravel.Database.Query.GetAsync<T>(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<T>!>!
+Naravel.Database.Query.GetBindings() -> System.Collections.Generic.IReadOnlyList<object?>!
+Naravel.Database.Query.Grammar.get -> Naravel.Database.Grammar!
+Naravel.Database.Query.Limit(int count) -> Naravel.Database.Query!
+Naravel.Database.Query.Offset(int count) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhere(System.Action<Naravel.Database.Query!>! group) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhere(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, object?>>! conditions) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhere(string! column, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhere(string! column, string! op, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereBetween(string! column, object? low, object? high) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereBetweenColumns(string! column, string! lowColumn, string! highColumn) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereColumn(string! first, string! op, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereColumn(string! first, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereIn(string! column, System.Collections.IEnumerable! values) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNot(System.Action<Naravel.Database.Query!>! group) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNot(string! column, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNot(string! column, string! op, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNotBetween(string! column, object? low, object? high) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNotBetweenColumns(string! column, string! lowColumn, string! highColumn) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNotIn(string! column, System.Collections.IEnumerable! values) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNotNull(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNull(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
+Naravel.Database.Query.OrderBy(string! column, string! direction = "asc") -> Naravel.Database.Query!
+Naravel.Database.Query.OrderByDesc(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.OrderByRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
 Naravel.Database.Query.PluckAsync<T>(string! column, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<T>!>!
+Naravel.Database.Query.Query(Naravel.Database.Grammar! grammar) -> void
+Naravel.Database.Query.Select(params string![]! columns) -> Naravel.Database.Query!
+Naravel.Database.Query.SelectRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
+Naravel.Database.Query.Skip(int count) -> Naravel.Database.Query!
 Naravel.Database.Query.SoleAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyDictionary<string!, object?>!>!
 Naravel.Database.Query.SoleAsync<T>(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+Naravel.Database.Query.Table(string! table) -> Naravel.Database.Query!
+Naravel.Database.Query.Take(int count) -> Naravel.Database.Query!
+Naravel.Database.Query.ToRawSql() -> string!
+Naravel.Database.Query.ToSql() -> string!
 Naravel.Database.Query.ValueAsync<T>(string! column, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
-Naravel.Database.IQueryListener
-Naravel.Database.IQueryListener.OnQueryExecuted(Naravel.Database.QueryExecuted! query) -> void
+Naravel.Database.Query.Where(System.Action<Naravel.Database.Query!>! group) -> Naravel.Database.Query!
+Naravel.Database.Query.Where(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, object?>>! conditions) -> Naravel.Database.Query!
+Naravel.Database.Query.Where(string! column, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.Where(string! column, string! op, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereBetween(string! column, object? low, object? high) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereBetweenColumns(string! column, string! lowColumn, string! highColumn) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereColumn(string! first, string! op, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereColumn(string! first, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereIn(string! column, System.Collections.IEnumerable! values) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNot(System.Action<Naravel.Database.Query!>! group) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNot(string! column, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNot(string! column, string! op, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNotBetween(string! column, object? low, object? high) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNotBetweenColumns(string! column, string! lowColumn, string! highColumn) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNotIn(string! column, System.Collections.IEnumerable! values) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNotNull(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNull(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
 Naravel.Database.QueryExecuted
 Naravel.Database.QueryExecuted.Bindings.get -> System.Collections.Generic.IReadOnlyList<object?>!
 Naravel.Database.QueryExecuted.ConnectionName.get -> string!
@@ -118,6 +133,8 @@ Naravel.Database.QueryOperation
 Naravel.Database.QueryOperation.Scalar = 1 -> Naravel.Database.QueryOperation
 Naravel.Database.QueryOperation.Select = 0 -> Naravel.Database.QueryOperation
 Naravel.Database.QueryOperation.Statement = 2 -> Naravel.Database.QueryOperation
+Naravel.Database.RecordsNotFoundException
+Naravel.Database.RecordsNotFoundException.RecordsNotFoundException(string! message) -> void
 Naravel.Database.Testing.DatabaseFake
 Naravel.Database.Testing.DatabaseFake.AffectingStatementAsync(string! sql, System.Collections.Generic.IEnumerable<object?>? bindings = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<int>!
 Naravel.Database.Testing.DatabaseFake.AssertExecuted(System.Func<Naravel.Database.QueryExecuted!, bool>? predicate = null) -> Naravel.Database.QueryExecuted!
@@ -137,22 +154,5 @@ Naravel.Database.Testing.DatabaseFake.SelectAsync<T>(string! sql, System.Collect
 Naravel.Database.Testing.DatabaseFake.StatementAsync(string! sql, System.Collections.Generic.IEnumerable<object?>? bindings = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Naravel.Database.Testing.DatabaseFake.Table(string! table) -> Naravel.Database.Query!
 Naravel.Database.Testing.DatabaseFake.UnpreparedAsync(string! sql, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
-static Microsoft.Extensions.DependencyInjection.DatabaseServiceCollectionExtensions.AddNaravelDatabaseQueryLog(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, int maxEntries = 1000) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
-Naravel.Database.Query.WhereBetween(string! column, object! low, object! high) -> Naravel.Database.Query!
-Naravel.Database.Query.WhereNotBetween(string! column, object! low, object! high) -> Naravel.Database.Query!
-Naravel.Database.Query.WhereBetweenColumns(string! column, string! lowColumn, string! highColumn) -> Naravel.Database.Query!
-Naravel.Database.Query.WhereNotBetweenColumns(string! column, string! lowColumn, string! highColumn) -> Naravel.Database.Query!
-Naravel.Database.Query.WhereNull(string! column) -> Naravel.Database.Query!
-Naravel.Database.Query.WhereNotNull(string! column) -> Naravel.Database.Query!
-Naravel.Database.Query.WhereColumn(string! first, string! second) -> Naravel.Database.Query!
-Naravel.Database.Query.WhereColumn(string! first, string! op, string! second) -> Naravel.Database.Query!
 Naravel.Database.Query.WhereColumn(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! pairs) -> Naravel.Database.Query!
-Naravel.Database.Query.OrWhereBetween(string! column, object! low, object! high) -> Naravel.Database.Query!
-Naravel.Database.Query.OrWhereNotBetween(string! column, object! low, object! high) -> Naravel.Database.Query!
-Naravel.Database.Query.OrWhereBetweenColumns(string! column, string! lowColumn, string! highColumn) -> Naravel.Database.Query!
-Naravel.Database.Query.OrWhereNotBetweenColumns(string! column, string! lowColumn, string! highColumn) -> Naravel.Database.Query!
-Naravel.Database.Query.OrWhereNull(string! column) -> Naravel.Database.Query!
-Naravel.Database.Query.OrWhereNotNull(string! column) -> Naravel.Database.Query!
-Naravel.Database.Query.OrWhereColumn(string! first, string! second) -> Naravel.Database.Query!
-Naravel.Database.Query.OrWhereColumn(string! first, string! op, string! second) -> Naravel.Database.Query!
 Naravel.Database.Query.OrWhereColumn(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! pairs) -> Naravel.Database.Query!

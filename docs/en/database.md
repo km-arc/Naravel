@@ -105,9 +105,7 @@ query.ToSql();       // select "id", "name" from "users" where "active" = @p0 an
 query.GetBindings(); // [true, 18, true]
 ```
 
-Available now: `Table`, `Select`, `AddSelect`, `SelectRaw`, `Distinct`, `Where`/`OrWhere`/`WhereNot`/`OrWhereNot` (column and value, with an operator, an array of pairs, or a closure group), `WhereRaw`/`OrWhereRaw`, `WhereIn`/`WhereNotIn`, `WhereBetween`/`WhereNotBetween`, `WhereBetweenColumns`/`WhereNotBetweenColumns`, `WhereNull`/`WhereNotNull` and `WhereColumn` (two columns, with an operator, or an array of pairs), each with its `or` form, `OrderBy`/`OrderByDesc`/`OrderByRaw`, `Limit`/`Take`, `Offset`/`Skip`, `Clone`, `Compile`, `ToSql`, `ToRawSql`, `GetBindings`.
-
-`WhereBetween` takes two bound values and rejects `null` (a comparison with NULL never matches); `WhereBetweenColumns` and `WhereColumn` compare columns of the same row and write no parameters, and `WhereIn` with an empty list is the false condition `0 = 1` (`WhereNotIn` with an empty list is `1 = 1`), never invalid SQL.
+Available now: `Table`, `Select`, `AddSelect`, `SelectRaw`, `Distinct`, `Where`/`OrWhere`/`WhereNot`/`OrWhereNot` (column and value, with an operator, an array of pairs, or a closure group), `WhereRaw`/`OrWhereRaw`, `WhereIn`/`WhereNotIn`, `WhereBetween`/`WhereNotBetween`, `WhereBetweenColumns`/`WhereNotBetweenColumns`, `WhereNull`/`WhereNotNull`, `WhereColumn` (each with an `or` form; bounds are bound parameters and must not be null, because `between null` never matches), `OrderBy`/`OrderByDesc`/`OrderByRaw`, `Limit`/`Take`, `Offset`/`Skip`, `Clone`, `Compile`, `ToSql`, `ToRawSql`, `GetBindings`.
 
 **Safety rules, enforced at the call:**
 - Values are **always** parameters (`@p0`, `@p1`, ...), on every dialect. Nothing a caller passes as a value can become SQL. `ToRawSql()` writes values in for logging only; never execute it.
