@@ -113,7 +113,7 @@ public class ServerDriverTests
         register(services, configuration);
         await using var provider = services.BuildServiceProvider();
 
-        var value = await provider.GetRequiredService<IDatabase>().ScalarAsync("select 1");
+        var value = await provider.GetRequiredService<IDatabase>().ScalarAsync<object>("select 1");
 
         Convert.ToInt64(value, System.Globalization.CultureInfo.InvariantCulture).Should().Be(1);
     }
