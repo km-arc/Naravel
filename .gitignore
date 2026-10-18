@@ -4,6 +4,7 @@ obj/
 out/
 *.user
 *.suo
+.lh/
 .vs/
 .vscode/
 .idea/
