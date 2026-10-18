@@ -4,7 +4,7 @@
 
 تصمیم‌ها: [PDR-022](../pdr/fa/PDR-022-database-query-builder.md). نسخهٔ انگلیسی: [docs/en/database.md](../en/database.md).
 
-> **آنچه امروز وجود دارد.** اتصال‌ها، manager، درایور SQLite، درز اتصال و query builder که برای هر چهار دیالکت SQL را **کامپایل** می‌کند (`ToSql`، `ToRawSql`، `GetBindings`)، و **اجرا** روی SQLite (`GetAsync`، `FirstAsync`، `SoleAsync`، `ValueAsync`، `FindAsync`، `PluckAsync` و SQL خام از طریق `IDatabase`). قابلیت مشاهده (meter، activity، `IQueryListener`، query log اختیاری) و fake تست یعنی `DatabaseFake` هم کار می‌کنند؛ join، گروه‌بندی و خانوادهٔ where گسترده بعد از آن. برنامهٔ متد‌به‌متد در [roadmap/QUERY-BUILDER-COVERAGE.md](../../roadmap/QUERY-BUILDER-COVERAGE.md) است. هیچ چیزِ دیگری ادعا نمی‌شود.
+> **آنچه امروز وجود دارد.** اتصال‌ها، manager، درایورهای SQLite، MySQL، PostgreSQL و SQL Server، درز اتصال و query builder که برای هر چهار دیالکت SQL را **کامپایل** می‌کند (`ToSql`، `ToRawSql`، `GetBindings`)، و **اجرا** روی هر چهار پایگاه داده، اثبات‌شده با یک suite قرارداد مشترک در CI (`GetAsync`، `FirstAsync`، `SoleAsync`، `ValueAsync`، `FindAsync`، `PluckAsync` و SQL خام از طریق `IDatabase`). قابلیت مشاهده (meter، activity، `IQueryListener`، query log اختیاری) و fake تست یعنی `DatabaseFake` هم کار می‌کنند؛ join، گروه‌بندی و خانوادهٔ where گسترده بعد از آن. برنامهٔ متد‌به‌متد در [roadmap/QUERY-BUILDER-COVERAGE.md](../../roadmap/QUERY-BUILDER-COVERAGE.md) است. هیچ چیزِ دیگری ادعا نمی‌شود.
 
 ## شروع سریع
 
@@ -151,7 +151,54 @@ query.GetBindings(); // [true, 18, true]
 
 فقط بسته‌هایی را نصب کنید که استفاده می‌کنید، هر کدام را بعد از `AddNaravelDatabase` ثبت کنید و نام اتصال‌ها را آزادانه بگذارید: یک برنامه می‌تواند هم‌زمان چند دیتابیس داشته باشد (`db.Table("t", "reports")`). رمز را بیرون از کد نگه دارید: متغیر محیطی `Database__Connections__main__ConnectionString` را بگذارید. pooling کار provider است و lease که Dispose شود اتصال را به pool برمی‌گرداند.
 
-**وضعیت:** این درایورها نوشته شده‌اند و ثبت، reload و `Extend` آن‌ها تست واحد دارد. اجرای کوئری واقعی روی هر سرور را مجموعهٔ contract مشترکِ task بعدی و job پایگاه‌دادهٔ CI اثبات می‌کنند که هنوز وجود ندارند؛ پس اجرای MySQL، PostgreSQL و SQL Server را تا آن زمان **هنوز راستی‌آزمایی‌نشده** بدانید. واقعیت‌های هر سرور: SQL Server هر دستور را تا ۲۱۰۰ پارامتر می‌پذیرد (grammar روی ۲۰۹۸ می‌ایستد) و با `Offset` به `OrderBy` نیاز دارد؛ PostgreSQL عملگرهای `ilike` و regex دارد، MySQL عملگرهای `<=>` و `regexp` و `rlike`، و استفادهٔ هر کدام روی دیالکت دیگر `NotSupportedException` می‌دهد.
+### رشتهٔ اتصال
+
+| درایور | نمونه | نکته |
+|---|---|---|
+| `sqlite` | `Path` = `app.db` یا `:memory:` | مسیر فایل است، نه رشتهٔ اتصال. `:memory:` به یک پایگاه داده درون‌حافظهٔ مشترک تبدیل می‌شود که تا زنده بودن درایور می‌ماند. |
+| `mysql` | `Server=localhost;Port=3306;Database=app;User ID=app;Password=...` | MySqlConnector. روی MySQL 8 بدون TLS مقدار `AllowPublicKeyRetrieval=true` را اضافه کنید (فقط محلی و CI). |
+| `pgsql` | `Host=localhost;Port=5432;Database=app;Username=app;Password=...` | Npgsql. |
+| `sqlserver` | `Server=localhost,1433;Database=app;User Id=app;Password=...;TrustServerCertificate=true` | Microsoft.Data.SqlClient. `TrustServerCertificate=true` برای سرور محلی یا تست با گواهی خودامضاست؛ روی production استفاده نکنید. |
+
+### ماتریس dialect
+
+یک فراخوانی یکسان builder روی هر پایگاه داده متفاوت کامپایل می‌شود. هر چه پایین آمده با suite قرارداد روی هر چهار پایگاه داده اثبات شده است.
+
+| | SQLite | MySQL | PostgreSQL | SQL Server |
+|---|---|---|---|---|
+| نقل‌قول شناسه | `"name"` | `` `name` `` | `"name"` | `[name]` |
+| نشانگر پارامتر | `@p0` | `@p0` | `@p0` | `@p0` |
+| `Limit(n)` | `limit n` | `limit n` | `limit n` | `top (n)`، یا با `Offset` به‌شکل `fetch next n rows only` |
+| `Offset` بدون `Limit` | `limit -1 offset n` | `limit 18446744073709551615 offset n` | `offset n` | `offset n rows`، نیاز به `OrderBy` |
+| بولین در `ToRawSql` | `1` / `0` | `1` / `0` | `true` / `false` | `1` / `0` |
+| بیشترین پارامتر در هر دستور | 32766 | 65535 | 65535 | 2098 (حد واقعی 2100) |
+| عملگرهای اضافه | ندارد | `<=>`، `regexp`، `rlike` و شکل‌های `not` | `ilike`، `~`، `~*`، `!~`، `!~*`، `similar to` و شکل‌های `not` | ندارد |
+
+عملگری که فقط در یک dialect هست روی بقیه `NotSupportedException` می‌دهد، نه SQLی که در زمان اجرا خطا بدهد. `Offset` روی SQL Server بدون `OrderBy` یک `InvalidOperationException` می‌دهد، چون `OFFSET ... FETCH` به `ORDER BY` نیاز دارد.
+
+### نوع‌ها
+
+پارامترها با مقدار و، جایی که providerها اختلاف دارند، با نوع صریح bind می‌شوند. مقدارهای تکیِ خوانده‌شده (`ValueAsync<T>`، `ScalarAsync<T>`، `PluckAsync<T>` و `GetAsync<T>` برای `T` ساده) را خود Naravel تبدیل می‌کند، پس یک فراخوانی روی هر پایگاه داده همان مقدار CLR را می‌دهد:
+
+| نوع CLR | نکته |
+|---|---|
+| `bool` | از `bit`، `tinyint(1)`، `boolean` و عدد صحیح SQLite خوانده می‌شود. |
+| `int`، `long`، `double`، `decimal`، `string` | پهنای عدد تبدیل می‌شود، پس `ScalarAsync<long>("select count(*) ...")` روی همه کار می‌کند. |
+| `Guid` | `char(36)` در MySQL، `uuid` در PostgreSQL، `uniqueidentifier` در SQL Server، متن در SQLite. |
+| `DateTime` | در SQL Server به‌شکل `datetime2` bind می‌شود. `timestamp` در PostgreSQL نوع غیر UTC می‌خواهد و `timestamptz` نوع UTC. |
+| `DateTimeOffset` | **در MySQL موجود نیست** (چنین نوع ستونی ندارد؛ `DateTime` با UTC ذخیره کنید). PostgreSQL فقط offset صفر می‌پذیرد. `DateTime` خوانده‌شده از ستون آگاه از منطقهٔ زمانی UTC فرض می‌شود. |
+| `DateOnly`، `TimeOnly` | روی هر سرور بومی‌اند؛ در SQLite متن. |
+| `byte[]` | `blob`، `varbinary`، `bytea`. |
+| enum | به‌شکل عدد پایه نوشته می‌شود؛ با `ValueAsync<MyEnum>` یا به‌شکل عدد خوانده می‌شود. |
+| `null` | به‌شکل `NULL` نوشته و به‌شکل `null` خوانده می‌شود (برای نوع مقداری در `ValueAsync<T>` مقدار پیش‌فرض). |
+
+نگاشت به کلاس خودتان (`GetAsync<MyRow>()`) با Dapper انجام می‌شود.
+
+### اجرای تست‌های پایگاه داده
+
+CI، suite قرارداد را در job جدای `database` اجرا می‌کند: برای هر سرور یک leg موازی (کانتینر موقت با تنظیمات مخصوص تست) که فقط trait `Dialect` خودش را اجرا می‌کند. روی `main`، تگ‌های نسخه و اجرای شبانه همیشه اجرا می‌شود، و روی pull request فقط وقتی کد پایگاه داده، تست‌ها، کد مشترک تست، نسخهٔ بسته‌ها، فایل compose یا workflow تغییر کرده باشد. اگر تست‌های یک leg skip شوند آن leg شکست می‌خورد، پس نبودن رشتهٔ اتصال بی‌صدا رد نمی‌شود. اولین اجرا حدود ۴۵ ثانیه برای هر leg اندازه گرفت، خیلی کمتر از بودجهٔ پنج‌دقیقه‌ای PDR-022 A6.
+
+محلی، `scripts/test-local.sh --db` (یا `test-local.ps1 -Db`) همان سه سرور را از `docker-compose.yml` بالا می‌آورد (SQL Server حدود ۲ گیگابایت RAM می‌خواهد) و `NARAVEL_TEST_MYSQL`، `NARAVEL_TEST_POSTGRES` و `NARAVEL_TEST_SQLSERVER` را تنظیم می‌کند. بدون این متغیرها تست‌های سرور skip می‌شوند، یعنی **اجرا نشده‌اند**، و فقط SQLite بررسی می‌شود. برای یک dialect: `scripts/test-local.sh --db -- --filter "Dialect=Postgres"`.
 
 ## عمداً پورت نشده
 

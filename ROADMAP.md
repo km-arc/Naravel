@@ -18,7 +18,7 @@ Stage template: [roadmap/STAGE-TEMPLATE.md](roadmap/STAGE-TEMPLATE.md).
 
 ## NEXT
 ```text
-NEXT: R20
+NEXT: R21
 ```
 
 ## Stages
@@ -49,7 +49,7 @@ needs the EN+FA PDR.
 | R17 | Release hardening + re-audit | R01, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19, R20, R21, R22, R23, R24, R25, R26 | owner approvals | TODO |
 | R18 | Encryption facade + encrypted jobs (PDR-021) | R07 | PDR | TODO |
 | R19 | Query builder: Database core, SQLite and basic queries (PDR-022) | R01 | PDR | DONE (2026-10-18; PDR-022 and amendment A1-A7 approved; tasks T01-T07 merged; CI green on main at d077e38 on ubuntu/windows/macos plus the services job; roadmap check passed; no local .NET SDK, so CI is the verification; benchmark added in T07; see AUDIT D-43 to D-45) |
-| R20 | Query builder: MySQL, PostgreSQL and SQL Server (PDR-022) | R19 | PDR | TODO |
+| R20 | Query builder: MySQL, PostgreSQL and SQL Server (PDR-022) | R19 | PDR | DONE (2026-10-18; tasks T01-T05 merged; CI green on main at 5863a41: three-OS `fast`, `services`, the three parallel `database` legs (about 45 s each) and `ci-ok`; the shared contract suite runs on SQLite, MySQL 8.4, PostgreSQL 17 and SQL Server 2022; roadmap check passed; no local .NET SDK or database servers, so CI is the verification; see AUDIT D-46 to D-49) |
 | R21 | Query builder: Where family, joins, grouping and ordering helpers (PDR-022) | R20 | PDR | TODO |
 | R22 | Query builder: Aggregates, existence and streaming (PDR-022) | R21 | PDR | TODO |
 | R23 | Query builder: Insert, update, upsert and delete (PDR-022) | R21 | PDR | TODO |
@@ -69,7 +69,7 @@ R02 was completed before this roadmap existed; its R00 dependency is nominal and
 - `roadmap/check.py` enforces this: it fails on a hand-typed test count or a repeated stage status outside those places. Put
   `<!-- check:allow-count -->` on a line only when a number is not a test total (for example HTTP status codes).
 
-**Default order:** R20 → R21 → R22 → R23 → R24 → R25 → R10 → R18 → R03 → R15 → R16 → R26 → R11 → R12 → R13 → R14 → R17.
+**Default order:** R21 → R22 → R23 → R24 → R25 → R10 → R18 → R03 → R15 → R16 → R26 → R11 → R12 → R13 → R14 → R17.
 Rationale: correctness and proof first (R00, R01); then the two modules that carry the project's value (Queue, Cache);
 then the most Laravel-feeling features (middleware, events, mail); thin or likely-native stages last.
 Never run two stages that edit the same project in parallel. Parallel-safe: R15, R16, R06 touch no other module.
