@@ -13,5 +13,7 @@
     <ProjectReference Include="..\..\src\Naravel.Cache\Naravel.Cache.csproj" />
     <ProjectReference Include="..\..\src\Naravel.Events\Naravel.Events.csproj" />
     <ProjectReference Include="..\..\src\Naravel.Routing\Naravel.Routing.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Database\Naravel.Database.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Database.Sqlite\Naravel.Database.Sqlite.csproj" />
   </ItemGroup>
 </Project>

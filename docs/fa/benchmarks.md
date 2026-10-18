@@ -26,3 +26,11 @@ source generation توزیع چندقله‌ای گزارش کرد؛ پیش از
 ```sh
 dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*EventDispatchBenchmarks*' --job short --warmupCount 1 --iterationCount 3 --launchCount 1
 ```
+
+اجرای بنچمارک Database:
+
+```sh
+dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*DatabaseBenchmarks*' --job short --warmupCount 1 --iterationCount 3 --launchCount 1
+```
+
+`DatabaseBenchmarks` (PDR-022 S2) ساخت و کامپایل یک کوئری را با یک رشتهٔ ثابت مقایسه می‌کند (`CompileBuilder` در برابر baseline با نام `CompileFloor`، بدون I/O) و همان کوئری را روی SQLite در حافظه از طریق builder (`BuilderRows`، `BuilderTyped`)، Dapper دست‌نویس (`HandWrittenDapper`) و ADO.NET خام (`HandWrittenAdo`) اجرا می‌کند؛ هر کدام در هر فراخوانی یک اتصال باز می‌کنند. **هنوز عددی ثبت نشده:** بنچمارک اجرا نشده است (محیط نوشتن SDK دات‌نت ندارد). نخستین baseline را بعد از اجرا روی CI یا ماشین توسعه‌دهنده همین‌جا ثبت کنید و سربار builder را اگر در برابر رفت‌وبرگشت SQLite بزرگ بود، پیش از R20 یک نقص بدانید.
