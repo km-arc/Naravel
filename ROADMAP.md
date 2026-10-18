@@ -44,7 +44,7 @@ needs the EN+FA PDR.
 | R12 | Auth-lite route middleware (legacy 4c, PDR-016) | R05, R11 | PDR | TODO |
 | R13 | Console + Scheduling (PDR-017) | R04, R05, R07 | PDR | TODO |
 | R14 | Broadcasting (PDR-018) | R06, R07 | PDR | TODO |
-| R15 | Hashing (PDR-019) | - | PDR | TODO |
+| R15 | Hashing (PDR-019) | - | PDR | BLOCKED (awaiting PDR approval: PDR-019 EN+FA written, proposes no package) |
 | R16 | Pagination (PDR-020) | - | PDR | TODO |
 | R17 | Release hardening + re-audit | R01, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19, R20, R21, R22, R23, R24, R25, R26 | owner approvals | TODO |
 | R18 | Encryption facade + encrypted jobs (PDR-021) | R07 | PDR | TODO |
