@@ -105,7 +105,7 @@ query.ToSql();       // select "id", "name" from "users" where "active" = @p0 an
 query.GetBindings(); // [true, 18, true]
 ```
 
-موجود امروز: `Table`، `Select`، `AddSelect`، `SelectRaw`، `Distinct`، `Where`/`OrWhere`/`WhereNot`/`OrWhereNot` (ستون و مقدار، با عملگر، آرایهٔ جفت‌ها یا گروه closure)، `WhereRaw`/`OrWhereRaw`، `WhereIn`/`WhereNotIn` و شکل‌های `or` آن‌ها، `OrderBy`/`OrderByDesc`/`OrderByRaw`، `Limit`/`Take`، `Offset`/`Skip`، `Clone`، `Compile`، `ToSql`، `ToRawSql`، `GetBindings`.
+موجود امروز: `Table`، `Select`، `AddSelect`، `SelectRaw`، `Distinct`، `Where`/`OrWhere`/`WhereNot`/`OrWhereNot` (ستون و مقدار، با عملگر، آرایهٔ جفت‌ها یا گروه closure)، `WhereRaw`/`OrWhereRaw`، `WhereIn`/`WhereNotIn`، `WhereBetween`/`WhereNotBetween`، `WhereBetweenColumns`/`WhereNotBetweenColumns`، `WhereNull`/`WhereNotNull`، `WhereColumn` (هرکدام با شکل `or`؛ کران‌ها پارامتر هستند و نباید null باشند چون `between null` هرگز تطبیق نمی‌دهد)، `OrderBy`/`OrderByDesc`/`OrderByRaw`، `Limit`/`Take`، `Offset`/`Skip`، `Clone`، `Compile`، `ToSql`، `ToRawSql`، `GetBindings`.
 
 **قواعد ایمنی، در لحظهٔ فراخوانی اعمال می‌شوند:**
 - مقدارها **همیشه** پارامتر هستند (`@p0`، `@p1`، ...) روی هر دیالکت. هیچ چیزی که به‌عنوان مقدار داده شود نمی‌تواند SQL شود. `ToRawSql()` مقدارها را فقط برای لاگ داخل متن می‌گذارد؛ هرگز اجرایش نکنید.

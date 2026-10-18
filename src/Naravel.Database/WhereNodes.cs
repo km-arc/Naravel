@@ -44,6 +44,37 @@ internal sealed class InWhere(ParsedIdentifier column, object?[] values, bool ne
     public bool Negate { get; } = negate;
 }
 
+internal sealed class BetweenWhere(ParsedIdentifier column, object? low, object? high, bool negate, bool or) : WhereNode(or, false)
+{
+    public ParsedIdentifier Column { get; } = column;
+
+    public object? Low { get; } = low;
+
+    public object? High { get; } = high;
+
+    public bool Negate { get; } = negate;
+}
+
+internal sealed class ColumnBetweenWhere(ParsedIdentifier column, ParsedIdentifier lowColumn, ParsedIdentifier highColumn, bool negate, bool or) : WhereNode(or, false)
+{
+    public ParsedIdentifier Column { get; } = column;
+
+    public ParsedIdentifier LowColumn { get; } = lowColumn;
+
+    public ParsedIdentifier HighColumn { get; } = highColumn;
+
+    public bool Negate { get; } = negate;
+}
+
+internal sealed class ColumnWhere(ParsedIdentifier first, string op, ParsedIdentifier second, bool or) : WhereNode(or, false)
+{
+    public ParsedIdentifier First { get; } = first;
+
+    public string Operator { get; } = op;
+
+    public ParsedIdentifier Second { get; } = second;
+}
+
 internal sealed class SelectItem(ParsedIdentifier? identifier, string? rawSql, object?[] bindings)
 {
     public ParsedIdentifier? Identifier { get; } = identifier;
