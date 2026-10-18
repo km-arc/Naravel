@@ -131,6 +131,33 @@ public class QueryCompileTests
     }
 
     [Fact]
+    public void Column_pairs_binding_order_and_groups_for_the_new_where_methods()
+    {
+        Verify(
+        [
+            new("whereColumn array form", q => Users(q).WhereColumn(new Dictionary<string, string> { ["a"] = "b", ["c"] = "d" }), "select * from «users» where («a» = «b» and «c» = «d»)", []),
+            new("whereColumn empty array adds nothing", q => Users(q).WhereColumn(new Dictionary<string, string>()), "select * from «users»", []),
+            new("orWhereColumn array form", q => Users(q).Where("a", 1).OrWhereColumn(new Dictionary<string, string> { ["b"] = "c", ["d"] = "e" }), "select * from «users» where «a» = @p0 or («b» = «c» and «d» = «e»)", [1]),
+            new("whereBetween keeps binding order", q => Users(q).Where("a", 1).WhereBetween("b", 2, 3).Where("c", 4), "select * from «users» where «a» = @p0 and «b» between @p1 and @p2 and «c» = @p3", [1, 2, 3, 4]),
+            new("whereBetweenColumns qualified", q => Users(q).WhereBetweenColumns("users.age", "limits.lo", "limits.hi"), "select * from «users» where «users».«age» between «limits».«lo» and «limits».«hi»", []),
+            new("whereBetween dates", q => Users(q).WhereBetween("created", new DateTime(2026, 1, 1), new DateTime(2026, 12, 31)), "select * from «users» where «created» between @p0 and @p1", [new DateTime(2026, 1, 1), new DateTime(2026, 12, 31)]),
+            new("new where kinds inside a group", q => Users(q).Where(g => g.WhereNull("a").OrWhereBetween("b", 1, 2).OrWhereColumn("c", "d")), "select * from «users» where («a» is null or «b» between @p0 and @p1 or «c» = «d»)", [1, 2]),
+            new("new where kinds negated by a whereNot closure", q => Users(q).WhereNot(g => g.WhereNull("a").WhereColumn("b", "c")), "select * from «users» where not («a» is null and «b» = «c»)", []),
+            new("whereColumn operator is normalised", q => Users(q).WhereColumn("a", "  NOT   LIKE ", "b"), "select * from «users» where «a» not like «b»", []),
+        ]);
+    }
+
+    [Fact]
+    public void Between_where_counts_both_bounds_against_the_parameter_limit()
+    {
+        var query = Query.For(DatabaseDialect.SqlServer).Table("users").WhereIn("id", Enumerable.Range(1, 2097).Cast<object>()).WhereBetween("age", 1, 2);
+
+        var act = () => query.Compile();
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*2098*");
+    }
+
+    [Fact]
     public void Ordering_limit_and_offset_methods()
     {
         var limitOffsetStandard = "select * from «users» order by «id» asc limit 10 offset 5";

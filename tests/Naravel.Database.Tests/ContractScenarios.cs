@@ -62,6 +62,20 @@ internal static class ContractScenarios
             (await NamesAsync(c.Db.Table(c.People).WhereColumn("votes", "id").OrderBy("id"))).Should().Equal("Dennis");
             (await NamesAsync(c.Db.Table(c.People).WhereNull("note").OrWhereColumn("votes", "<", "id").OrderBy("id"))).Should().Equal("Grace", "Margaret");
         }),
+        new("where_or_variants_of_the_new_where_methods", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.People).Where("id", 5).OrWhereBetween("votes", 30, 30).OrderBy("id"))).Should().Equal("Margaret", "Dennis");
+            (await NamesAsync(c.Db.Table(c.People).Where("id", 1).OrWhereNotBetween("votes", 5, 29).OrderBy("id"))).Should().Equal("Ada", "Margaret");
+            (await NamesAsync(c.Db.Table(c.People).Where("id", 1).OrWhereNull("note").OrderBy("id"))).Should().Equal("Ada", "Grace", "Margaret");
+            (await NamesAsync(c.Db.Table(c.People).Where("id", 2).OrWhereNotNull("note").OrderBy("id"))).Should().Equal("Ada", "Grace", "Linus", "Dennis");
+            (await NamesAsync(c.Db.Table(c.People).Where("id", 1).OrWhereColumn("id", "votes").OrderBy("id"))).Should().Equal("Ada", "Dennis");
+            (await NamesAsync(c.Db.Table(c.People).WhereColumn(new Dictionary<string, string> { ["id"] = "votes" }).OrderBy("id"))).Should().Equal("Dennis");
+        }),
+        new("where_in_with_an_empty_list", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.People).WhereIn("id", Array.Empty<int>()))).Should().BeEmpty();
+            (await NamesAsync(c.Db.Table(c.People).WhereNotIn("id", Array.Empty<int>()).OrderBy("id"))).Should().Equal("Ada", "Grace", "Linus", "Margaret", "Dennis");
+        }),
         new("order_desc_limit_offset", async c =>
         {
             (await NamesAsync(c.Db.Table(c.People).OrderBy("id").Limit(2).Offset(1))).Should().Equal("Grace", "Linus");
