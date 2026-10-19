@@ -284,6 +284,47 @@ internal static class ContractScenarios
             row["c_decimal"].Should().BeNull();
             row["c_guid"].Should().BeNull();
         })
+        new("aggregate_count", async c =>
+        {
+            (await c.Db.Table(c.People).CountAsync()).Should().Be(5);
+            (await c.Db.Table(c.People).Where("votes", 20).CountAsync()).Should().Be(2);
+            (await c.Db.Table(c.People).CountAsync("note")).Should().Be(3, "count(column) skips nulls");
+            (await c.Db.Table(c.People).Where("votes", ">", 100).CountAsync()).Should().Be(0);
+            (await c.Db.Table(c.People).OrderBy("id").CountAsync()).Should().Be(5, "ordering is dropped");
+            (await c.Db.Table(c.People).Distinct().CountAsync("votes")).Should().Be(4);
+            (await c.Db.Table(c.People).Select("votes").Distinct().CountAsync()).Should().Be(4);
+            (await c.Db.Table(c.People).Select("votes").GroupBy("votes").CountAsync()).Should().Be(4);
+            (await c.Db.Table(c.People).Select("votes").GroupBy("votes").Having("votes", ">", 5).CountAsync()).Should().Be(3);
+            (await c.Db.Table(c.People).OrderBy("id").Limit(2).CountAsync()).Should().Be(2);
+        }),
+        new("aggregate_min_max_sum_avg", async c =>
+        {
+            (await c.Db.Table(c.People).MinAsync<long>("votes")).Should().Be(5);
+            (await c.Db.Table(c.People).MaxAsync<long>("votes")).Should().Be(30);
+            (await c.Db.Table(c.People).SumAsync("votes")).Should().Be(85m);
+            (await c.Db.Table(c.People).AvgAsync("votes")).Should().Be(17d);
+            (await c.Db.Table(c.People).Where("active", true).AvgAsync("votes")).Should().Be(20d);
+            (await c.Db.Table(c.People).Where("votes", 20).SumAsync("votes")).Should().Be(40m);
+        }),
+        new("aggregate_over_nothing", async c =>
+        {
+            var none = c.Db.Table(c.People).Where("votes", ">", 100);
+            (await none.Clone().SumAsync("votes")).Should().Be(0m, "the sum of nothing is 0, as in Laravel");
+            (await none.Clone().AvgAsync("votes")).Should().BeNull();
+            (await none.Clone().MinAsync<long?>("votes")).Should().BeNull();
+            (await none.Clone().MaxAsync<long?>("votes")).Should().BeNull();
+            (await none.Clone().CountAsync()).Should().Be(0);
+        }),
+        new("aggregate_exists", async c =>
+        {
+            (await c.Db.Table(c.People).ExistsAsync()).Should().BeTrue();
+            (await c.Db.Table(c.People).Where("votes", 20).ExistsAsync()).Should().BeTrue();
+            (await c.Db.Table(c.People).Where("votes", ">", 100).ExistsAsync()).Should().BeFalse();
+            (await c.Db.Table(c.People).Where("votes", ">", 100).DoesntExistAsync()).Should().BeTrue();
+            (await c.Db.Table(c.People).Where("votes", 20).DoesntExistAsync()).Should().BeFalse();
+            (await c.Db.Table(c.People).Select("name").OrderBy("name").Distinct().ExistsAsync()).Should().BeTrue("columns, ordering and distinct do not matter");
+            (await c.Db.Table(c.People).GroupBy("votes").Having("votes", ">", 25).ExistsAsync()).Should().BeTrue();
+        }),
     ];
 
     public static IEnumerable<object[]> Names(DatabaseDialect dialect) =>

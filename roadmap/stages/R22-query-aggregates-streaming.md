@@ -8,7 +8,7 @@ Out of scope: Pagination (R26); writes (R23).
 Decisions: Streaming uses `IAsyncEnumerable<T>` and never loads the full result set; chunking is stable under concurrent inserts only when ordered by a unique column, which the docs state.
 
 ## Tasks
-- [ ] **R22.T01 — Aggregates:** `CountAsync`, `MinAsync`, `MaxAsync`, `SumAsync`, `AvgAsync`, `ExistsAsync`, `DoesntExistAsync`. **Accept:** SQL tests on four grammars; execution tests including empty tables (`Sum` of nothing is `null`/0 as documented).
+- [x] **R22.T01 — Aggregates:** `CountAsync`, `MinAsync`, `MaxAsync`, `SumAsync`, `AvgAsync`, `ExistsAsync`, `DoesntExistAsync`. **Accept:** SQL tests on four grammars; execution tests including empty tables (`Sum` of nothing is `null`/0 as documented). Added with compile tests, four contract scenarios (including the empty table: `Sum` is 0, `Avg`/`Min`/`Max` are null) and EN/FA docs; build and tests NOT RUN locally (no .NET SDK); CI is the check. The R22 row in `ROADMAP.md` stays `TODO` until R21.T07 closes R21 (R22 depends on R21), then flips to `DOING`.
 - [ ] **R22.T02 — Chunking:** `ChunkAsync`, `ChunkByIdAsync`, `ChunkMapAsync`, `EachAsync`, `EachByIdAsync`. **Accept:** tests with exact chunk boundaries, early stop, and rows added during iteration.
 - [ ] **R22.T03 — Lazy and cursor:** `LazyAsync`, `LazyByIdAsync`, `LazyByIdDescAsync`, `CursorAsync` as `IAsyncEnumerable`. **Accept:** memory-bounded test over a large SQLite table; cancellation disposes the reader and connection.
 - [ ] **R22.T04 — Validate:** Benchmark streaming vs buffered, docs EN/FA, parity, changelog, full verification. **Accept:** DoD 5-7.
