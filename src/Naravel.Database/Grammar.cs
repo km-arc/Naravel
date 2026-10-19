@@ -57,12 +57,27 @@ public abstract class Grammar
     /// <summary>The SQL that extracts one part of a date/time column; the engines have no common function for it (PDR-022).</summary>
     internal abstract string DatePart(DatePartKind kind, string column);
 
+    /// <summary>The SQL that extracts a JSON path from a column as a comparable value. The path is a bound parameter; <paramref name="hint"/> is the value it is compared with.</summary>
+    internal abstract string JsonExtract(string column, IReadOnlyList<string> path, CompileContext context, object? hint);
+
+    /// <summary>The SQL for a pattern comparison; the pattern is already bound as <paramref name="parameter"/>.</summary>
+    internal abstract string Like(string column, string parameter, bool caseSensitive, bool negate);
+
+    internal abstract string FullText(IReadOnlyList<string> columns, string parameter, FullTextMode mode);
+
+    internal abstract string JsonContains(string column, IReadOnlyList<string>? path, object value, CompileContext context);
+
+    internal abstract string JsonContainsKey(string column, IReadOnlyList<string> path, CompileContext context);
+
+    internal abstract string JsonLength(string column, IReadOnlyList<string>? path, string op, int value, CompileContext context);
+
     internal virtual IReadOnlyCollection<string> ExtraOperators => Array.Empty<string>();
 
     internal virtual string? OffsetOnlyLimit => null;
 
     internal string Wrap(ParsedIdentifier identifier)
     {
+        if (identifier.JsonPath is not null) throw new NotSupportedException("JSON column paths ('col->key') are supported in where clauses only.");
         var sql = new StringBuilder();
         for (var i = 0; i < identifier.Segments.Count; i++)
         {
@@ -74,6 +89,30 @@ public abstract class Grammar
         if (identifier.Alias is not null) sql.Append(" as ").Append(Quote(identifier.Alias));
         return sql.ToString();
     }
+
+    /// <summary>The column as a SQL operand: the quoted name, or the dialect's JSON extraction when the identifier has a path.</summary>
+    internal string Col(ParsedIdentifier identifier, CompileContext context, object? hint = null) =>
+        identifier.JsonPath is null
+            ? Wrap(identifier)
+            : JsonExtract(Wrap(new ParsedIdentifier(identifier.Segments, false, null)), identifier.JsonPath, context, hint);
+
+    private string Base(ParsedIdentifier identifier) => Wrap(new ParsedIdentifier(identifier.Segments, false, null));
+
+    internal static string JsonText(object value) => System.Text.Json.JsonSerializer.Serialize(value);
+
+    /// <summary>A scalar as text for engines whose JSON search compares text (SQL Server) and as a native value for SQLite.</summary>
+    internal static bool IsJsonScalar(object value) => value is string or bool or sbyte or byte or short or ushort or int or uint or long or ulong or float or double or decimal;
+
+    internal NotSupportedException NotSupported(string what) => new($"{what} is not supported by the {Dialect} dialect.");
+
+    private static bool IsNumber(object? value) => value is sbyte or byte or short or ushort or int or uint or long or ulong or float or double or decimal;
+
+    internal static string? PostgresCast(object? hint) => hint switch
+    {
+        bool => "boolean",
+        _ when IsNumber(hint) => "numeric",
+        _ => null,
+    };
 
     internal string NormalizeOperator(string op, string parameterName)
     {
@@ -206,10 +245,10 @@ public abstract class Grammar
             switch (node)
             {
                 case BasicWhere basic:
-                    sql.Append(Wrap(basic.Column)).Append(' ').Append(basic.Operator).Append(' ').Append(context.Add(basic.Value));
+                    sql.Append(Col(basic.Column, context, basic.Value)).Append(' ').Append(basic.Operator).Append(' ').Append(context.Add(basic.Value));
                     break;
                 case NullWhere nullWhere:
-                    sql.Append(Wrap(nullWhere.Column)).Append(nullWhere.IsNull ? " is null" : " is not null");
+                    sql.Append(Col(nullWhere.Column, context)).Append(nullWhere.IsNull ? " is null" : " is not null");
                     break;
                 case NestedWhere nested:
                     sql.Append('(');
@@ -225,18 +264,41 @@ public abstract class Grammar
                     AppendIn(sql, inWhere, context);
                     break;
                 case BetweenWhere between:
-                    sql.Append(Wrap(between.Column)).Append(between.Negate ? " not between " : " between ")
+                    sql.Append(Col(between.Column, context, between.Low)).Append(between.Negate ? " not between " : " between ")
                         .Append(context.Add(between.Low)).Append(" and ").Append(context.Add(between.High));
                     break;
                 case ColumnBetweenWhere columnBetween:
-                    sql.Append(Wrap(columnBetween.Column)).Append(columnBetween.Negate ? " not between " : " between ")
-                        .Append(Wrap(columnBetween.LowColumn)).Append(" and ").Append(Wrap(columnBetween.HighColumn));
+                    sql.Append(Col(columnBetween.Column, context)).Append(columnBetween.Negate ? " not between " : " between ")
+                        .Append(Col(columnBetween.LowColumn, context)).Append(" and ").Append(Col(columnBetween.HighColumn, context));
                     break;
                 case ColumnWhere columnWhere:
-                    sql.Append(Wrap(columnWhere.First)).Append(' ').Append(columnWhere.Operator).Append(' ').Append(Wrap(columnWhere.Second));
+                    sql.Append(Col(columnWhere.First, context)).Append(' ').Append(columnWhere.Operator).Append(' ').Append(Col(columnWhere.Second, context));
                     break;
                 case DateWhere dateWhere:
                     sql.Append(DatePart(dateWhere.Kind, Wrap(dateWhere.Column))).Append(' ').Append(dateWhere.Operator).Append(' ').Append(context.Add(dateWhere.Value));
+                    break;
+                case LikeWhere like:
+                {
+                    var column = Col(like.Column, context, like.Pattern);
+                    sql.Append(Like(column, context.Add(like.Pattern), like.CaseSensitive, like.Negate));
+                    break;
+                }
+
+                case FullTextWhere fullText:
+                {
+                    var columns = fullText.Columns.Select(column => Wrap(column)).ToArray();
+                    sql.Append(FullText(columns, context.Add(fullText.Value), fullText.Mode));
+                    break;
+                }
+
+                case JsonContainsWhere contains:
+                    sql.Append(JsonContains(Base(contains.Column), contains.Column.JsonPath, contains.Value, context));
+                    break;
+                case JsonKeyWhere key:
+                    sql.Append(JsonContainsKey(Base(key.Column), key.Column.JsonPath!, context));
+                    break;
+                case JsonLengthWhere length:
+                    sql.Append(JsonLength(Base(length.Column), length.Column.JsonPath, length.Operator, length.Value, context));
                     break;
                 default:
                     throw new InvalidOperationException("Unknown where clause.");
@@ -252,7 +314,7 @@ public abstract class Grammar
             return;
         }
 
-        sql.Append(Wrap(node.Column)).Append(node.Negate ? " not in (" : " in (");
+        sql.Append(Col(node.Column, context, node.Values[0])).Append(node.Negate ? " not in (" : " in (");
         for (var i = 0; i < node.Values.Length; i++)
         {
             if (i > 0) sql.Append(", ");
@@ -296,7 +358,7 @@ public abstract class Grammar
         }
     }
 
-    private sealed class CompileContext
+    internal sealed class CompileContext
     {
         public List<object?> Bindings { get; } = new();
 
@@ -318,6 +380,30 @@ public abstract class Grammar
 
 internal sealed class SqliteGrammar() : Grammar(DatabaseDialect.Sqlite, 32766, '"', '"')
 {
+    internal override string JsonExtract(string column, IReadOnlyList<string> path, CompileContext context, object? hint) =>
+        $"json_extract({column}, {context.Add(IdentifierGrammar.JsonPathText(path))})";
+
+    internal override string Like(string column, string parameter, bool caseSensitive, bool negate) =>
+        caseSensitive
+            ? throw NotSupported("A case-sensitive WhereLike (SQLite LIKE ignores ASCII case; GLOB has different wildcards)")
+            : $"{column} {(negate ? "not like" : "like")} {parameter}";
+
+    internal override string FullText(IReadOnlyList<string> columns, string parameter, FullTextMode mode) =>
+        throw NotSupported("WhereFullText");
+
+    internal override string JsonContains(string column, IReadOnlyList<string>? path, object value, CompileContext context)
+    {
+        if (!IsJsonScalar(value)) throw NotSupported("WhereJsonContains with an array or object value (only a scalar inside a JSON array)");
+        var source = path is null ? column : $"{column}, {context.Add(IdentifierGrammar.JsonPathText(path))}";
+        return $"exists (select 1 from json_each({source}) where \"json_each\".\"value\" is {context.Add(value)})";
+    }
+
+    internal override string JsonContainsKey(string column, IReadOnlyList<string> path, CompileContext context) =>
+        $"json_type({column}, {context.Add(IdentifierGrammar.JsonPathText(path))}) is not null";
+
+    internal override string JsonLength(string column, IReadOnlyList<string>? path, string op, int value, CompileContext context) =>
+        $"json_array_length({(path is null ? column : $"{column}, {context.Add(IdentifierGrammar.JsonPathText(path))}")}) {op} {context.Add(value)}";
+
     internal override string DatePart(DatePartKind kind, string column) => kind switch
     {
         DatePartKind.Date => $"date({column})",
@@ -336,6 +422,29 @@ internal sealed class SqliteGrammar() : Grammar(DatabaseDialect.Sqlite, 32766, '
 
 internal sealed class MySqlGrammar() : Grammar(DatabaseDialect.MySql, 65535, '`', '`')
 {
+    internal override string JsonExtract(string column, IReadOnlyList<string> path, CompileContext context, object? hint) =>
+        $"json_unquote(json_extract({column}, {context.Add(IdentifierGrammar.JsonPathText(path))}))";
+
+    internal override string Like(string column, string parameter, bool caseSensitive, bool negate) =>
+        $"{column} {(negate ? "not like" : "like")}{(caseSensitive ? " binary" : string.Empty)} {parameter}";
+
+    internal override string FullText(IReadOnlyList<string> columns, string parameter, FullTextMode mode) =>
+        $"match({string.Join(", ", columns)}) against ({parameter} in {(mode == FullTextMode.Boolean ? "boolean" : "natural language")} mode)";
+
+    internal override string JsonContains(string column, IReadOnlyList<string>? path, object value, CompileContext context)
+    {
+        var candidate = context.Add(JsonText(value));
+        return path is null
+            ? $"json_contains({column}, {candidate})"
+            : $"json_contains({column}, {candidate}, {context.Add(IdentifierGrammar.JsonPathText(path))})";
+    }
+
+    internal override string JsonContainsKey(string column, IReadOnlyList<string> path, CompileContext context) =>
+        $"ifnull(json_contains_path({column}, 'one', {context.Add(IdentifierGrammar.JsonPathText(path))}), 0)";
+
+    internal override string JsonLength(string column, IReadOnlyList<string>? path, string op, int value, CompileContext context) =>
+        $"json_length({(path is null ? column : $"{column}, {context.Add(IdentifierGrammar.JsonPathText(path))}")}) {op} {context.Add(value)}";
+
     internal override string DatePart(DatePartKind kind, string column) => kind switch
     {
         DatePartKind.Date => $"date({column})",
@@ -357,6 +466,37 @@ internal sealed class MySqlGrammar() : Grammar(DatabaseDialect.MySql, 65535, '`'
 
 internal sealed class PostgresGrammar() : Grammar(DatabaseDialect.Postgres, 65535, '"', '"')
 {
+    internal override string JsonExtract(string column, IReadOnlyList<string> path, CompileContext context, object? hint)
+    {
+        var extracted = $"(cast({column} as jsonb) #>> cast({context.Add(IdentifierGrammar.JsonPathArray(path))} as text[]))";
+        return PostgresCast(hint) is { } type ? $"cast({extracted} as {type})" : extracted;
+    }
+
+    internal override string Like(string column, string parameter, bool caseSensitive, bool negate) =>
+        $"{column} {(negate ? "not " : string.Empty)}{(caseSensitive ? "like" : "ilike")} {parameter}";
+
+    internal override string FullText(IReadOnlyList<string> columns, string parameter, FullTextMode mode) =>
+        $"({string.Join(" || ", columns.Select(c => $"to_tsvector('english', {c})"))}) @@ {(mode == FullTextMode.Boolean ? "to_tsquery" : "plainto_tsquery")}('english', {parameter})";
+
+    internal override string JsonContains(string column, IReadOnlyList<string>? path, object value, CompileContext context)
+    {
+        var source = path is null
+            ? $"cast({column} as jsonb)"
+            : $"(cast({column} as jsonb) #> cast({context.Add(IdentifierGrammar.JsonPathArray(path))} as text[]))";
+        return $"{source} @> cast({context.Add(JsonText(value))} as jsonb)";
+    }
+
+    internal override string JsonContainsKey(string column, IReadOnlyList<string> path, CompileContext context) =>
+        $"coalesce(jsonb_path_exists(cast({column} as jsonb), cast({context.Add(IdentifierGrammar.JsonPathText(path))} as jsonpath)), false)";
+
+    internal override string JsonLength(string column, IReadOnlyList<string>? path, string op, int value, CompileContext context)
+    {
+        var source = path is null
+            ? $"cast({column} as jsonb)"
+            : $"(cast({column} as jsonb) #> cast({context.Add(IdentifierGrammar.JsonPathArray(path))} as text[]))";
+        return $"jsonb_array_length({source}) {op} {context.Add(value)}";
+    }
+
     internal override string DatePart(DatePartKind kind, string column) => kind switch
     {
         DatePartKind.Date => $"cast({column} as date)",
@@ -377,6 +517,46 @@ internal sealed class PostgresGrammar() : Grammar(DatabaseDialect.Postgres, 6553
 
 internal sealed class SqlServerGrammar() : Grammar(DatabaseDialect.SqlServer, 2098, '[', ']')
 {
+    internal override string JsonExtract(string column, IReadOnlyList<string> path, CompileContext context, object? hint) =>
+        $"json_value({column}, {context.Add(IdentifierGrammar.JsonPathText(path))})";
+
+    internal override string Like(string column, string parameter, bool caseSensitive, bool negate) =>
+        $"{column} {(negate ? "not like" : "like")} {parameter}{(caseSensitive ? " collate SQL_Latin1_General_CP1_CS_AS" : string.Empty)}";
+
+    internal override string FullText(IReadOnlyList<string> columns, string parameter, FullTextMode mode)
+    {
+        var list = columns.Count == 1 ? columns[0] : "(" + string.Join(", ", columns) + ")";
+        return $"{(mode == FullTextMode.Boolean ? "contains" : "freetext")}({list}, {parameter})";
+    }
+
+    internal override string JsonContains(string column, IReadOnlyList<string>? path, object value, CompileContext context)
+    {
+        if (!IsJsonScalar(value)) throw NotSupported("WhereJsonContains with an array or object value (only a scalar inside a JSON array)");
+        var text = value switch
+        {
+            bool b => b ? "true" : "false",
+            string s => s,
+            IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
+            _ => value.ToString() ?? string.Empty,
+        };
+        var candidate = context.Add(text);
+        var source = path is null ? column : $"{column}, {context.Add(IdentifierGrammar.JsonPathText(path))}";
+        return $"{candidate} in (select [value] from openjson({source}))";
+    }
+
+    internal override string JsonContainsKey(string column, IReadOnlyList<string> path, CompileContext context)
+    {
+        var scalar = context.Add(IdentifierGrammar.JsonPathText(path));
+        var fragment = context.Add(IdentifierGrammar.JsonPathText(path));
+        return $"(json_value({column}, {scalar}) is not null or json_query({column}, {fragment}) is not null)";
+    }
+
+    internal override string JsonLength(string column, IReadOnlyList<string>? path, string op, int value, CompileContext context)
+    {
+        var source = path is null ? column : $"{column}, {context.Add(IdentifierGrammar.JsonPathText(path))}";
+        return $"(select count(*) from openjson({source})) {op} {context.Add(value)}";
+    }
+
     internal override string DatePart(DatePartKind kind, string column) => kind switch
     {
         DatePartKind.Date => $"cast({column} as date)",

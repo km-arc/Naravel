@@ -16,8 +16,8 @@ public sealed class DialectTheoryAttribute : TheoryAttribute
     }
 }
 
-/// <summary>What a contract scenario works on: the database, its dialect and the two run-unique tables.</summary>
-internal sealed record ContractContext(IDatabase Db, DatabaseDialect Dialect, string People, string Types);
+/// <summary>What a contract scenario works on: the database, its dialect and the run-unique tables.</summary>
+internal sealed record ContractContext(IDatabase Db, DatabaseDialect Dialect, string People, string Types, string Docs);
 
 /// <summary>
 /// One database per dialect for the contract suite: a run-unique table prefix, the schema created once and a small fixed data set
@@ -57,7 +57,7 @@ public abstract class ContractFixture : IAsyncLifetime
         _provider = services.BuildServiceProvider();
 
         var prefix = "nc_" + Guid.NewGuid().ToString("N")[..8];
-        var context = new ContractContext(_provider.GetRequiredService<IDatabase>(), Dialect, prefix + "_people", prefix + "_types");
+        var context = new ContractContext(_provider.GetRequiredService<IDatabase>(), Dialect, prefix + "_people", prefix + "_types", prefix + "_docs");
         foreach (var statement in ContractSchema.Create(context)) await context.Db.UnpreparedAsync(statement);
         await ContractSchema.SeedAsync(context);
         Context = context;
@@ -68,7 +68,7 @@ public abstract class ContractFixture : IAsyncLifetime
         if (Context is not null)
         {
             // Best effort: the CI containers are throwaway, but a developer's local server should be left clean.
-            foreach (var table in new[] { Context.People, Context.Types })
+            foreach (var table in new[] { Context.People, Context.Types, Context.Docs })
             {
                 try { await Context.Db.UnpreparedAsync($"drop table {table}"); }
                 catch (Exception) { /* ignore */ }
@@ -94,6 +94,10 @@ internal static class ContractSchema
         yield return $"create table {context.People} (id integer not null primary key, name {stringType} not null, votes integer not null, active {boolType} not null, note {stringType} null, born {dateTimeType} not null)";
         yield return $"create table {context.Types} (id integer not null primary key, c_bool {boolType} null, c_decimal {decimalType} null, c_guid {guidType} null, c_datetime {dateTimeType} null, " +
                      $"c_offset {offsetType} null, c_date {dateType} null, c_time {timeType} null, c_bytes {bytesType} null, c_long bigint null, c_double {doubleType} null, c_string {stringType} null, c_enum integer null)";
+        var jsonType = context.Dialect switch { DatabaseDialect.MySql => "json", DatabaseDialect.Postgres => "jsonb", DatabaseDialect.SqlServer => "nvarchar(max)", _ => "text" };
+        var bodyType = context.Dialect == DatabaseDialect.SqlServer ? "nvarchar(max)" : context.Dialect == DatabaseDialect.Sqlite ? "text" : "text";
+        yield return $"create table {context.Docs} (id integer not null primary key, name {stringType} not null, body {bodyType} not null, payload {jsonType} not null)";
+        if (context.Dialect == DatabaseDialect.MySql) yield return $"alter table {context.Docs} add fulltext index ft_body (body)";
     }
 
     public static async Task SeedAsync(ContractContext context)
@@ -111,6 +115,15 @@ internal static class ContractSchema
             await context.Db.StatementAsync($"insert into {context.People} (id, name, votes, active, note, born) values (?, ?, ?, ?, ?, ?)",
                 [person.Id, person.Name, person.Votes, person.Active, person.Note, person.Born]);
         }
+
+        // Literals, not bindings: PostgreSQL will not store a text parameter into a jsonb column without a cast.
+        string[] docs =
+        [
+            $"insert into {context.Docs} (id, name, body, payload) values (1, 'Ada', 'kernel hackers love unix', '{{\"name\":\"Ada\",\"age\":36,\"tags\":[\"php\",\"go\"],\"active\":true}}')",
+            $"insert into {context.Docs} (id, name, body, payload) values (2, 'Grace', 'compilers and cobol', '{{\"name\":\"Grace\",\"age\":45,\"tags\":[\"cobol\"],\"active\":false}}')",
+            $"insert into {context.Docs} (id, name, body, payload) values (3, 'Linus', 'the linux kernel', '{{\"name\":\"Linus\",\"age\":55,\"tags\":[\"c\",\"git\",\"kernel\"],\"active\":true,\"nick\":\"torvalds\"}}')",
+        ];
+        foreach (var statement in docs) await context.Db.UnpreparedAsync(statement);
     }
 }
 

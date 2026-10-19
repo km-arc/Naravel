@@ -94,6 +94,54 @@ internal static class ContractScenarios
             (await NamesAsync(c.Db.Table(c.People).Where("id", 1).OrWhereColumn("id", "votes").OrderBy("id"))).Should().Equal("Ada", "Dennis");
             (await NamesAsync(c.Db.Table(c.People).WhereColumn(new Dictionary<string, string> { ["id"] = "votes" }).OrderBy("id"))).Should().Equal("Dennis");
         }),
+        new("where_like_ignores_case", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.Docs).WhereLike("name", "%A%").OrderBy("id"))).Should().Equal("Ada", "Grace");
+            (await NamesAsync(c.Db.Table(c.Docs).WhereNotLike("name", "%a%").OrderBy("id"))).Should().Equal("Linus");
+            (await NamesAsync(c.Db.Table(c.Docs).WhereLike("name", "L%").OrWhereLike("name", "ada").OrderBy("id"))).Should().Equal("Ada", "Linus");
+        }),
+        new("where_like_case_sensitive", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.Docs).WhereLike("name", "%A%", caseSensitive: true).OrderBy("id"))).Should().Equal("Ada");
+            (await NamesAsync(c.Db.Table(c.Docs).WhereNotLike("name", "%A%", caseSensitive: true).OrderBy("id"))).Should().Equal("Grace", "Linus");
+        }, DatabaseDialect.Sqlite),
+        new("where_json_path_compares_text_and_numbers", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.Docs).Where("payload->name", "Grace"))).Should().Equal("Grace");
+            (await NamesAsync(c.Db.Table(c.Docs).Where("payload->age", ">", 40).OrderBy("id"))).Should().Equal("Grace", "Linus");
+            (await NamesAsync(c.Db.Table(c.Docs).WhereIn("payload->name", new[] { "Ada", "Linus" }).OrderBy("id"))).Should().Equal("Ada", "Linus");
+            (await NamesAsync(c.Db.Table(c.Docs).WhereBetween("payload->age", 40, 50).OrderBy("id"))).Should().Equal("Grace");
+        }),
+        new("where_json_path_null_and_missing_key", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.Docs).WhereNotNull("payload->nick"))).Should().Equal("Linus");
+            (await NamesAsync(c.Db.Table(c.Docs).WhereNull("payload->nick").OrderBy("id"))).Should().Equal("Ada", "Grace");
+            (await NamesAsync(c.Db.Table(c.Docs).WhereJsonContainsKey("payload->nick"))).Should().Equal("Linus");
+            (await NamesAsync(c.Db.Table(c.Docs).WhereJsonDoesntContainKey("payload->nick").OrderBy("id"))).Should().Equal("Ada", "Grace");
+        }),
+        new("where_json_contains_a_scalar_in_an_array", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.Docs).WhereJsonContains("payload->tags", "php"))).Should().Equal("Ada");
+            (await NamesAsync(c.Db.Table(c.Docs).WhereJsonDoesntContain("payload->tags", "php").OrderBy("id"))).Should().Equal("Grace", "Linus");
+            (await NamesAsync(c.Db.Table(c.Docs).WhereJsonContains("payload->tags", "cobol").OrWhereJsonContains("payload->tags", "git").OrderBy("id"))).Should().Equal("Grace", "Linus");
+        }),
+        new("where_json_length_of_an_array", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.Docs).WhereJsonLength("payload->tags", ">", 1).OrderBy("id"))).Should().Equal("Ada", "Linus");
+            (await NamesAsync(c.Db.Table(c.Docs).WhereJsonLength("payload->tags", 1))).Should().Equal("Grace");
+            (await NamesAsync(c.Db.Table(c.Docs).WhereJsonLength("payload->tags", 3).OrWhereJsonLength("payload->tags", "<", 2).OrderBy("id"))).Should().Equal("Grace", "Linus");
+        }),
+        new("where_json_boolean_value", async c =>
+            (await NamesAsync(c.Db.Table(c.Docs).Where("payload->active", true).OrderBy("id"))).Should().Equal("Ada", "Linus"), DatabaseDialect.MySql),
+        new("where_json_contains_a_whole_array", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.Docs).WhereJsonContains("payload->tags", new[] { "c", "git" }))).Should().Equal("Linus");
+        }, DatabaseDialect.Sqlite, DatabaseDialect.SqlServer),
+        new("where_full_text_natural", async c =>
+            (await NamesAsync(c.Db.Table(c.Docs).WhereFullText("body", "kernel").OrderBy("id"))).Should().Equal("Ada", "Linus"), DatabaseDialect.Sqlite, DatabaseDialect.SqlServer),
+        new("where_full_text_is_unsupported_on_sqlite", async c =>
+            await c.Db.Table(c.Docs).WhereFullText("body", "kernel").Awaiting(q => q.GetAsync()).Should().ThrowAsync<NotSupportedException>(),
+            DatabaseDialect.MySql, DatabaseDialect.Postgres, DatabaseDialect.SqlServer),
         new("where_in_with_an_empty_list", async c =>
         {
             (await NamesAsync(c.Db.Table(c.People).WhereIn("id", Array.Empty<int>()))).Should().BeEmpty();

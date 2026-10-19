@@ -95,6 +95,47 @@ internal sealed class DateWhere(DatePartKind kind, ParsedIdentifier column, stri
     public object Value { get; } = value;
 }
 
+internal sealed class LikeWhere(ParsedIdentifier column, string pattern, bool caseSensitive, bool negate, bool or) : WhereNode(or, false)
+{
+    public ParsedIdentifier Column { get; } = column;
+
+    public string Pattern { get; } = pattern;
+
+    public bool CaseSensitive { get; } = caseSensitive;
+
+    public bool Negate { get; } = negate;
+}
+
+internal sealed class FullTextWhere(IReadOnlyList<ParsedIdentifier> columns, string value, FullTextMode mode, bool or) : WhereNode(or, false)
+{
+    public IReadOnlyList<ParsedIdentifier> Columns { get; } = columns;
+
+    public string Value { get; } = value;
+
+    public FullTextMode Mode { get; } = mode;
+}
+
+internal sealed class JsonContainsWhere(ParsedIdentifier column, object value, bool or, bool not) : WhereNode(or, not)
+{
+    public ParsedIdentifier Column { get; } = column;
+
+    public object Value { get; } = value;
+}
+
+internal sealed class JsonKeyWhere(ParsedIdentifier column, bool or, bool not) : WhereNode(or, not)
+{
+    public ParsedIdentifier Column { get; } = column;
+}
+
+internal sealed class JsonLengthWhere(ParsedIdentifier column, string op, int value, bool or) : WhereNode(or, false)
+{
+    public ParsedIdentifier Column { get; } = column;
+
+    public string Operator { get; } = op;
+
+    public int Value { get; } = value;
+}
+
 internal sealed class SelectItem(ParsedIdentifier? identifier, string? rawSql, object?[] bindings)
 {
     public ParsedIdentifier? Identifier { get; } = identifier;

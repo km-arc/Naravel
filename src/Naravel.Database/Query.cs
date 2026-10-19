@@ -71,7 +71,13 @@ public sealed partial class Query
     public Query AddSelect(params string[] columns)
     {
         ArgumentNullException.ThrowIfNull(columns);
-        foreach (var column in columns) _columns.Add(new SelectItem(IdentifierGrammar.Parse(column, nameof(columns)), null, []));
+        foreach (var column in columns)
+        {
+            var identifier = IdentifierGrammar.Parse(column, nameof(columns));
+            if (identifier.JsonPath is not null) throw new NotSupportedException("JSON column paths ('col->key') are supported in where clauses only.");
+            _columns.Add(new SelectItem(identifier, null, []));
+        }
+
         return this;
     }
 
@@ -366,8 +372,13 @@ public sealed partial class Query
     /// <summary>The SQL with the values written in, <b>for logging and debugging only</b>: never execute it. Laravel: <c>toRawSql</c>.</summary>
     public string ToRawSql() => Grammar.Substitute(Compile());
 
-    private static ParsedIdentifier Plain(ParsedIdentifier identifier, string text, string parameterName, bool allowAlias)
+    private static ParsedIdentifier Plain(ParsedIdentifier identifier, string text, string parameterName, bool allowAlias, bool allowJson = false)
     {
+        if (identifier.JsonPath is not null && !allowJson)
+        {
+            throw new NotSupportedException("JSON column paths ('col->key') are supported in where clauses only.");
+        }
+
         if (identifier.IsStar || (!allowAlias && identifier.Alias is not null)) throw IdentifierGrammar.Invalid(text, parameterName);
         return identifier;
     }
@@ -384,7 +395,7 @@ public sealed partial class Query
 
     private Query AddBasic(string column, string op, object? value, bool or, bool not)
     {
-        var identifier = Plain(IdentifierGrammar.Parse(column, nameof(column)), column, nameof(column), allowAlias: false);
+        var identifier = Plain(IdentifierGrammar.Parse(column, nameof(column)), column, nameof(column), allowAlias: false, allowJson: true);
         var normalized = Grammar.NormalizeOperator(op, nameof(op));
         if (value is null)
         {
@@ -424,7 +435,7 @@ public sealed partial class Query
     }
 
     private ParsedIdentifier Column(string column, string parameterName) =>
-        Plain(IdentifierGrammar.Parse(column, parameterName), column, parameterName, allowAlias: false);
+        Plain(IdentifierGrammar.Parse(column, parameterName), column, parameterName, allowAlias: false, allowJson: true);
 
     private Query AddBetween(string column, object? low, object? high, bool negate, bool or)
     {
@@ -468,7 +479,7 @@ public sealed partial class Query
     {
         ArgumentNullException.ThrowIfNull(values);
         if (values is string) throw new ArgumentException("Pass a collection of values, not a string.", nameof(values));
-        var identifier = Plain(IdentifierGrammar.Parse(column, nameof(column)), column, nameof(column), allowAlias: false);
+        var identifier = Plain(IdentifierGrammar.Parse(column, nameof(column)), column, nameof(column), allowAlias: false, allowJson: true);
         var list = new List<object?>();
         foreach (var value in values) list.Add(value);
         _wheres.Add(new InWhere(identifier, list.ToArray(), negate, or));

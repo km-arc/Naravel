@@ -188,3 +188,26 @@ Naravel.Database.Testing.DatabaseFake.Table(string! table) -> Naravel.Database.Q
 Naravel.Database.Testing.DatabaseFake.UnpreparedAsync(string! sql, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Naravel.Database.Query.WhereColumn(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! pairs) -> Naravel.Database.Query!
 Naravel.Database.Query.OrWhereColumn(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! pairs) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereLike(string! column, string! pattern, bool caseSensitive = false) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNotLike(string! column, string! pattern, bool caseSensitive = false) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereLike(string! column, string! pattern, bool caseSensitive = false) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNotLike(string! column, string! pattern, bool caseSensitive = false) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereFullText(string! column, string! value, Naravel.Database.FullTextMode mode = Naravel.Database.FullTextMode.Natural) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereFullText(System.Collections.Generic.IEnumerable<string!>! columns, string! value, Naravel.Database.FullTextMode mode = Naravel.Database.FullTextMode.Natural) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereFullText(string! column, string! value, Naravel.Database.FullTextMode mode = Naravel.Database.FullTextMode.Natural) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereFullText(System.Collections.Generic.IEnumerable<string!>! columns, string! value, Naravel.Database.FullTextMode mode = Naravel.Database.FullTextMode.Natural) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereJsonContains(string! column, object! value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereJsonDoesntContain(string! column, object! value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereJsonContains(string! column, object! value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereJsonDoesntContain(string! column, object! value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereJsonContainsKey(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereJsonDoesntContainKey(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereJsonContainsKey(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereJsonDoesntContainKey(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereJsonLength(string! column, int value) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereJsonLength(string! column, string! op, int value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereJsonLength(string! column, int value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereJsonLength(string! column, string! op, int value) -> Naravel.Database.Query!
+Naravel.Database.FullTextMode
+Naravel.Database.FullTextMode.Boolean = 1 -> Naravel.Database.FullTextMode
+Naravel.Database.FullTextMode.Natural = 0 -> Naravel.Database.FullTextMode
