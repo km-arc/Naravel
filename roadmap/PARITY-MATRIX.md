@@ -150,7 +150,7 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 ## R16 — Pagination
 
 - Laravel surface: `Illuminate\Contracts\Pagination\Paginator`, `LengthAwarePaginator` and cursor pagination.
-- Naravel: future typed pagination metadata/query helpers.
+- Naravel: `Naravel.Pagination` (length-aware, simple and cursor results with Laravel's JSON) and `Naravel.Pagination.EntityFrameworkCore` (`PaginateAsync`, `SimplePaginateAsync`, `CursorPaginateAsync`); see PDR-020 and `docs/en/pagination.md`.
 - Value: stable API response metadata and safe cursor-based large result traversal.
 - Native baseline: LINQ, EF Core query operators, and ASP.NET Core response conventions.
 - API reference: [Illuminate Pagination](https://api.laravel.com/docs/13.x/Illuminate/Contracts/Pagination/Paginator.html).
