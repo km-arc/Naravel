@@ -122,7 +122,7 @@ See [docs/en/mail.md](docs/en/mail.md) and [docs/fa/mail.md](docs/fa/mail.md).
 
 ### Naravel.Database
 
-A Laravel-style query builder with named connections and parameter-bound SQL on SQLite, MySQL, PostgreSQL and SQL Server (Dapper maps rows; EF Core stays the tool for entities and migrations). **Today:** connections, the SQLite, MySQL, PostgreSQL and SQL Server drivers, the builder (select, the where family so far: value, null, between, column, date-part and any/all/none conditions, order, limit) that compiles for all four dialects and runs on all four (one shared contract suite in CI), and observability (a `Naravel.Database` meter and activity with no SQL in tags, `IQueryListener`, an opt-in query log) with a `DatabaseFake` for tests. Joins, aggregates, writes and transactions follow in later stages (see [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md)).
+A Laravel-style query builder with named connections and parameter-bound SQL on SQLite, MySQL, PostgreSQL and SQL Server (Dapper maps rows; EF Core stays the tool for entities and migrations). **Today:** connections, the SQLite, MySQL, PostgreSQL and SQL Server drivers, the builder (select, the full where family: value, null, between, column, date part, any/all/none, pattern, full text, JSON paths, exists and subqueries; conditionals; joins; group by and having; ordering helpers; limit) that compiles for all four dialects and runs on all four (one shared contract suite in CI), and observability (a `Naravel.Database` meter and activity with no SQL in tags, `IQueryListener`, an opt-in query log) with a `DatabaseFake` for tests. Aggregates and streaming, writes and transactions follow in later stages (see [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md)).
 
 ```csharp
 builder.Services.AddNaravelDatabase(builder.Configuration);
@@ -130,6 +130,15 @@ builder.Services.AddNaravelSqliteDatabase(builder.Configuration);   // Database:
 
 var adults = await db.Table("users").Where("active", true).Where("age", ">=", 18).OrderBy("name").GetAsync(cancellationToken);
 var ada    = await db.Table("users").Where("email", email).FirstAsync<UserRow>(cancellationToken);   // email is bound, never concatenated
+
+var authors = await db.Table("users")                       // joins, JSON paths, exists, grouping: the same Laravel names
+    .Join("posts", "users.id", "posts.user_id")
+    .WhereLike("users.name", "a%")
+    .Where("users.settings->theme", "dark")                  // JSON path, bound as a parameter
+    .WhereExists(s => s.Table("comments").WhereColumn("comments.post_id", "posts.id"))
+    .When(onlyRecent, q => q.Latest("posts.created_at"))
+    .Select("users.name").GroupBy("users.name")
+    .GetAsync(cancellationToken);
 ```
 
 Values are always bound as parameters, identifiers are validated, and raw SQL exists only in `*Raw` methods. See [docs/en/database.md](docs/en/database.md) and [docs/fa/database.md](docs/fa/database.md).

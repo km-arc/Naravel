@@ -245,3 +245,20 @@ Naravel.Database.JoinClause.OrWhere(string! column, string! op, object? value) -
 Naravel.Database.JoinClause.WhereNull(string! column) -> Naravel.Database.JoinClause!
 Naravel.Database.JoinClause.WhereNotNull(string! column) -> Naravel.Database.JoinClause!
 Naravel.Database.JoinClause.WhereIn(string! column, System.Collections.IEnumerable! values) -> Naravel.Database.JoinClause!
+Naravel.Database.Query.GroupBy(params string![]! columns) -> Naravel.Database.Query!
+Naravel.Database.Query.Having(string! column, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.Having(string! column, string! op, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrHaving(string! column, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.OrHaving(string! column, string! op, object? value) -> Naravel.Database.Query!
+Naravel.Database.Query.HavingBetween(string! column, object! low, object! high) -> Naravel.Database.Query!
+Naravel.Database.Query.OrHavingBetween(string! column, object! low, object! high) -> Naravel.Database.Query!
+Naravel.Database.Query.HavingNull(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.HavingNotNull(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.OrHavingNull(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.OrHavingNotNull(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.Latest(string! column = "created_at") -> Naravel.Database.Query!
+Naravel.Database.Query.Oldest(string! column = "created_at") -> Naravel.Database.Query!
+Naravel.Database.Query.InRandomOrder() -> Naravel.Database.Query!
+Naravel.Database.Query.Reorder() -> Naravel.Database.Query!
+Naravel.Database.Query.Reorder(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.ReorderDesc(string! column) -> Naravel.Database.Query!

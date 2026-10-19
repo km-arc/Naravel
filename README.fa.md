@@ -122,7 +122,7 @@ await mailer.To(user.Email).QueueAsync(new WelcomeMail(user), cancellationToken)
 
 ### Naravel.Database
 
-query builder به سبک Laravel با اتصال‌های نام‌دار و SQL با پارامتر، برای SQLite، MySQL، PostgreSQL و SQL Server (Dapper ردیف‌ها را map می‌کند؛ EF Core همچنان ابزار entity و migration است). **امروز:** اتصال‌ها، درایورهای SQLite، MySQL، PostgreSQL و SQL Server، builder برای select/where/order/limit که برای هر چهار دیالکت کامپایل می‌شود و روی هر چهار اجرا می‌شود (یک suite قرارداد مشترک در CI)، و مشاهده‌پذیری (meter و activity با نام `Naravel.Database` بدون SQL در tagها، `IQueryListener`، query log اختیاری) به‌همراه `DatabaseFake` برای تست. join، aggregate، نوشتن و تراکنش در مرحله‌های بعدی می‌آیند (فایل [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md) را ببینید).
+query builder به سبک Laravel با اتصال‌های نام‌دار و SQL با پارامتر، برای SQLite، MySQL، PostgreSQL و SQL Server (Dapper ردیف‌ها را map می‌کند؛ EF Core همچنان ابزار entity و migration است). **امروز:** اتصال‌ها، درایورهای SQLite، MySQL، PostgreSQL و SQL Server، builder با خانوادهٔ کامل where (مقدار، null، between، ستون، بخش تاریخ، any/all/none، الگو، متن کامل، مسیر JSON، exists و زیرکوئری)، شرطی‌ها، join، group by و having، کمک‌های ترتیب و limit که برای هر چهار دیالکت کامپایل می‌شود و روی هر چهار اجرا می‌شود (یک suite قرارداد مشترک در CI)، و مشاهده‌پذیری (meter و activity با نام `Naravel.Database` بدون SQL در tagها، `IQueryListener`، query log اختیاری) به‌همراه `DatabaseFake` برای تست. aggregate و streaming، نوشتن و تراکنش در مرحله‌های بعدی می‌آیند (فایل [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md) را ببینید).
 
 ```csharp
 builder.Services.AddNaravelDatabase(builder.Configuration);
@@ -130,6 +130,15 @@ builder.Services.AddNaravelSqliteDatabase(builder.Configuration);   // Database:
 
 var adults = await db.Table("users").Where("active", true).Where("age", ">=", 18).OrderBy("name").GetAsync(cancellationToken);
 var ada    = await db.Table("users").Where("email", email).FirstAsync<UserRow>(cancellationToken);   // email پارامتر می‌شود، هرگز به متن SQL نمی‌چسبد
+
+var authors = await db.Table("users")                       // join، مسیر JSON، exists، گروه‌بندی: همان نام‌های Laravel
+    .Join("posts", "users.id", "posts.user_id")
+    .WhereLike("users.name", "a%")
+    .Where("users.settings->theme", "dark")                  // مسیر JSON، به‌صورت پارامتر bind می‌شود
+    .WhereExists(s => s.Table("comments").WhereColumn("comments.post_id", "posts.id"))
+    .When(onlyRecent, q => q.Latest("posts.created_at"))
+    .Select("users.name").GroupBy("users.name")
+    .GetAsync(cancellationToken);
 ```
 
 مقدارها همیشه پارامتر می‌شوند، شناسه‌ها اعتبارسنجی می‌شوند و SQL خام فقط در متدهای `*Raw` وجود دارد. [docs/fa/database.md](docs/fa/database.md) و [docs/en/database.md](docs/en/database.md) را ببینید.
