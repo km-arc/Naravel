@@ -9,5 +9,9 @@ internal interface IQueryRunner
 
     Task<T> FirstValueAsync<T>(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken);
 
+    IAsyncEnumerable<IReadOnlyDictionary<string, object?>> StreamAsync(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken);
+
+    IAsyncEnumerable<T> StreamAsync<T>(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken);
+
     Task<int> NonQueryAsync(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken);
 }

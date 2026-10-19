@@ -1,5 +1,6 @@
 using System.Data;
 using System.Data.Common;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Dapper;
 
@@ -61,6 +62,47 @@ internal sealed class DatabaseExecutor(IConnectionScope scope, string? connectio
         var parser = Parser<T>(reader);
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) rows.Add(parser(reader));
         return rows;
+    }
+
+    public IAsyncEnumerable<IReadOnlyDictionary<string, object?>> StreamAsync(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken) =>
+        _observer.ObserveStreamAsync(ResolvedName, QueryOperation.Select, sql, bindings, () => StreamCoreAsync(sql, bindings, cancellationToken), cancellationToken);
+
+    private async IAsyncEnumerable<IReadOnlyDictionary<string, object?>> StreamCoreAsync(string sql, IReadOnlyList<object?> bindings, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await using var lease = await scope.AcquireAsync(connectionName, cancellationToken).ConfigureAwait(false);
+        await using var command = CreateCommand(lease, sql, bindings);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+
+        var names = new string[reader.FieldCount];
+        for (var i = 0; i < names.Length; i++) names[i] = reader.GetName(i);
+
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            var row = new Dictionary<string, object?>(names.Length, StringComparer.OrdinalIgnoreCase);
+            for (var i = 0; i < names.Length; i++) row[names[i]] = reader.IsDBNull(i) ? null : reader.GetValue(i);
+            yield return row;
+        }
+    }
+
+    public IAsyncEnumerable<T> StreamAsync<T>(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken) =>
+        _observer.ObserveStreamAsync(ResolvedName, QueryOperation.Select, sql, bindings, () => StreamCoreAsync<T>(sql, bindings, cancellationToken), cancellationToken);
+
+    private async IAsyncEnumerable<T> StreamCoreAsync<T>(string sql, IReadOnlyList<object?> bindings, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await using var lease = await scope.AcquireAsync(connectionName, cancellationToken).ConfigureAwait(false);
+        await using var command = CreateCommand(lease, sql, bindings);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+
+        if (ValueConverter.IsSimple(typeof(T)))
+        {
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) yield return ValueConverter.Convert<T>(reader.GetValue(0));
+            yield break;
+        }
+
+        var parser = Parser<T>(reader);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) yield return parser(reader);
     }
 
     public Task<T> FirstValueAsync<T>(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken) =>

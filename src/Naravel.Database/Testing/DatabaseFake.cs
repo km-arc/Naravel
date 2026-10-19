@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 
 namespace Naravel.Database.Testing;
 
@@ -170,6 +171,16 @@ public sealed class DatabaseFake : IDatabase, IQueryRunner
         var setup = Find(QueryOperation.Select, sql, typeof(T));
         if (setup is null) return Task.FromResult<IReadOnlyList<T>>([]);
         return Task.FromResult<IReadOnlyList<T>>(setup.Items.Cast<T>().ToArray());
+    }
+
+    async IAsyncEnumerable<IReadOnlyDictionary<string, object?>> IQueryRunner.StreamAsync(string sql, IReadOnlyList<object?> bindings, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        foreach (var row in await ((IQueryRunner)this).RowsAsync(sql, bindings, cancellationToken).ConfigureAwait(false)) yield return row;
+    }
+
+    async IAsyncEnumerable<T> IQueryRunner.StreamAsync<T>(string sql, IReadOnlyList<object?> bindings, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        foreach (var row in await ((IQueryRunner)this).RowsAsync<T>(sql, bindings, cancellationToken).ConfigureAwait(false)) yield return row;
     }
 
     Task<T> IQueryRunner.FirstValueAsync<T>(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken)
