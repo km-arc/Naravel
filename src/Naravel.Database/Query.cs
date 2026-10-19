@@ -190,12 +190,12 @@ public sealed partial class Query
     /// <param name="values">The values.</param>
     public Query WhereNotIn(string column, IEnumerable values) => AddIn(column, values, negate: true, or: false);
 
-    /// <summary>Like <see cref="WhereIn"/> but joined with <c>or</c>. Laravel: <c>orWhereIn</c>.</summary>
+    /// <summary>Like <see cref="WhereIn(string, System.Collections.IEnumerable)"/> but joined with <c>or</c>. Laravel: <c>orWhereIn</c>.</summary>
     /// <param name="column">The column.</param>
     /// <param name="values">The values.</param>
     public Query OrWhereIn(string column, IEnumerable values) => AddIn(column, values, negate: false, or: true);
 
-    /// <summary>Like <see cref="WhereNotIn"/> but joined with <c>or</c>. Laravel: <c>orWhereNotIn</c>.</summary>
+    /// <summary>Like <see cref="WhereNotIn(string, System.Collections.IEnumerable)"/> but joined with <c>or</c>. Laravel: <c>orWhereNotIn</c>.</summary>
     /// <param name="column">The column.</param>
     /// <param name="values">The values.</param>
     public Query OrWhereNotIn(string column, IEnumerable values) => AddIn(column, values, negate: true, or: true);
