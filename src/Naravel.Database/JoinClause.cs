@@ -72,7 +72,7 @@ public sealed class JoinClause
         return this;
     }
 
-    /// <summary>Like <see cref="Where(string, object?)"/> but joined with <c>or</c>. Laravel: <c>orWhere</c> on a join.</summary>
+    /// <summary>Like <see cref="Where(string, object)"/> but joined with <c>or</c>. Laravel: <c>orWhere</c> on a join.</summary>
     /// <param name="column">The column.</param>
     /// <param name="value">The value, always a parameter.</param>
     public JoinClause OrWhere(string column, object? value)
@@ -81,7 +81,7 @@ public sealed class JoinClause
         return this;
     }
 
-    /// <summary>Like <see cref="Where(string, string, object?)"/> but joined with <c>or</c>. Laravel: <c>orWhere</c> on a join.</summary>
+    /// <summary>Like <see cref="Where(string, string, object)"/> but joined with <c>or</c>. Laravel: <c>orWhere</c> on a join.</summary>
     /// <param name="column">The column.</param>
     /// <param name="op">An allowed operator.</param>
     /// <param name="value">The value, always a parameter.</param>
