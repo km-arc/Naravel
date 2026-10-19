@@ -6,6 +6,8 @@
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Naravel.Queue\Naravel.Queue.csproj" />
@@ -15,5 +17,7 @@
     <ProjectReference Include="..\..\src\Naravel.Routing\Naravel.Routing.csproj" />
     <ProjectReference Include="..\..\src\Naravel.Database\Naravel.Database.csproj" />
     <ProjectReference Include="..\..\src\Naravel.Database.Sqlite\Naravel.Database.Sqlite.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Pagination\Naravel.Pagination.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Pagination.EntityFrameworkCore\Naravel.Pagination.EntityFrameworkCore.csproj" />
   </ItemGroup>
 </Project>

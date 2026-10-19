@@ -35,3 +35,11 @@ dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*Data
 ```
 
 `DatabaseBenchmarks` (PDR-022 S2) compares building and compiling a query with a constant string (`CompileBuilder` against the `CompileFloor` baseline, no I/O), and running the same query on in-memory SQLite through the builder (`BuilderRows`, `BuilderTyped`), hand-written Dapper (`HandWrittenDapper`) and raw ADO.NET (`HandWrittenAdo`); each opens one connection per call. **No numbers are recorded yet:** the benchmark has not been run (the authoring environment has no .NET SDK). Record the first baseline here after running it on the CI or a developer machine, and treat a builder overhead that is large next to the SQLite round trip as a defect to fix before R20.
+
+Run the Pagination benchmark with:
+
+```sh
+dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*PaginationBenchmarks*' --job short --warmupCount 1 --iterationCount 3 --launchCount 1
+```
+
+`PaginationBenchmarks` (PDR-020 S2) reads one page of 20 rows from a 50 000 row in-memory SQLite table with `OFFSET` (`OffsetFirstPage`, `SimpleOffsetFirstPage`, `SimpleOffsetDeepPage`, `OffsetDeepPage`) and with a cursor (`KeysetFirstPage`, `KeysetDeepPage`); the deep page is page 2 000, and `SimpleOffsetDeepPage` is the baseline. The first-page rows are the control: the two styles should be about equal there, and the keyset deep page should stay close to its first page while the offset deep page grows with the offset. **No numbers are recorded yet:** the benchmark has not been run (the authoring environment has no .NET SDK). Record the first baseline here after running it on the CI or a developer machine. SQLite is the best case for `OFFSET` (no network, one process), so a gap here understates what a remote database shows.
