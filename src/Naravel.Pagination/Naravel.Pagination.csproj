@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Naravel.Pagination</PackageId>
+    <Description>Laravel-style pagination results for .NET: length-aware, simple and cursor pages with Laravel's data/links/meta JSON. No EF Core, ASP.NET Core or database dependency.</Description>
+    <PackageTags>pagination;paginator;cursor;laravel;naravel</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Naravel.Pagination.Tests" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,79 @@
+#nullable enable
+Naravel.Pagination.CursorLinks
+Naravel.Pagination.CursorLinks.Next.get -> string?
+Naravel.Pagination.CursorLinks.Previous.get -> string?
+Naravel.Pagination.CursorMeta
+Naravel.Pagination.CursorMeta.NextCursor.get -> string?
+Naravel.Pagination.CursorMeta.Path.get -> string?
+Naravel.Pagination.CursorMeta.PerPage.get -> int
+Naravel.Pagination.CursorMeta.PreviousCursor.get -> string?
+Naravel.Pagination.CursorPaginated<T>
+Naravel.Pagination.CursorPaginated<T>.CursorPaginated(System.Collections.Generic.IReadOnlyList<T>! items, int perPage, string? nextCursor, string? previousCursor) -> void
+Naravel.Pagination.CursorPaginated<T>.HasMorePages.get -> bool
+Naravel.Pagination.CursorPaginated<T>.Items.get -> System.Collections.Generic.IReadOnlyList<T>!
+Naravel.Pagination.CursorPaginated<T>.Links.get -> Naravel.Pagination.CursorLinks!
+Naravel.Pagination.CursorPaginated<T>.Map<TResult>(System.Func<T, TResult>! selector) -> Naravel.Pagination.CursorPaginated<TResult>!
+Naravel.Pagination.CursorPaginated<T>.Meta.get -> Naravel.Pagination.CursorMeta!
+Naravel.Pagination.CursorPaginated<T>.NextCursor.get -> string?
+Naravel.Pagination.CursorPaginated<T>.OnFirstPage.get -> bool
+Naravel.Pagination.CursorPaginated<T>.PerPage.get -> int
+Naravel.Pagination.CursorPaginated<T>.PreviousCursor.get -> string?
+Naravel.Pagination.CursorPaginated<T>.WithCursorName(string! cursorName) -> Naravel.Pagination.CursorPaginated<T>!
+Naravel.Pagination.CursorPaginated<T>.WithPath(string? path) -> Naravel.Pagination.CursorPaginated<T>!
+Naravel.Pagination.CursorPaginated<T>.WithQuery(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string?>>! query) -> Naravel.Pagination.CursorPaginated<T>!
+Naravel.Pagination.PageLinks
+Naravel.Pagination.PageLinks.First.get -> string?
+Naravel.Pagination.PageLinks.Last.get -> string?
+Naravel.Pagination.PageLinks.Next.get -> string?
+Naravel.Pagination.PageLinks.Previous.get -> string?
+Naravel.Pagination.PageMeta
+Naravel.Pagination.PageMeta.CurrentPage.get -> int
+Naravel.Pagination.PageMeta.From.get -> long?
+Naravel.Pagination.PageMeta.LastPage.get -> int
+Naravel.Pagination.PageMeta.Path.get -> string?
+Naravel.Pagination.PageMeta.PerPage.get -> int
+Naravel.Pagination.PageMeta.To.get -> long?
+Naravel.Pagination.PageMeta.Total.get -> long
+Naravel.Pagination.Paginated<T>
+Naravel.Pagination.Paginated<T>.CurrentPage.get -> int
+Naravel.Pagination.Paginated<T>.From.get -> long?
+Naravel.Pagination.Paginated<T>.HasMorePages.get -> bool
+Naravel.Pagination.Paginated<T>.Items.get -> System.Collections.Generic.IReadOnlyList<T>!
+Naravel.Pagination.Paginated<T>.LastPage.get -> int
+Naravel.Pagination.Paginated<T>.Links.get -> Naravel.Pagination.PageLinks!
+Naravel.Pagination.Paginated<T>.Map<TResult>(System.Func<T, TResult>! selector) -> Naravel.Pagination.Paginated<TResult>!
+Naravel.Pagination.Paginated<T>.Meta.get -> Naravel.Pagination.PageMeta!
+Naravel.Pagination.Paginated<T>.OnFirstPage.get -> bool
+Naravel.Pagination.Paginated<T>.OnLastPage.get -> bool
+Naravel.Pagination.Paginated<T>.Paginated(System.Collections.Generic.IReadOnlyList<T>! items, long total, int currentPage, int perPage) -> void
+Naravel.Pagination.Paginated<T>.PerPage.get -> int
+Naravel.Pagination.Paginated<T>.To.get -> long?
+Naravel.Pagination.Paginated<T>.Total.get -> long
+Naravel.Pagination.Paginated<T>.WithPageName(string! pageName) -> Naravel.Pagination.Paginated<T>!
+Naravel.Pagination.Paginated<T>.WithPath(string? path) -> Naravel.Pagination.Paginated<T>!
+Naravel.Pagination.Paginated<T>.WithQuery(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string?>>! query) -> Naravel.Pagination.Paginated<T>!
+Naravel.Pagination.SimplePageLinks
+Naravel.Pagination.SimplePageLinks.First.get -> string?
+Naravel.Pagination.SimplePageLinks.Next.get -> string?
+Naravel.Pagination.SimplePageLinks.Previous.get -> string?
+Naravel.Pagination.SimplePageMeta
+Naravel.Pagination.SimplePageMeta.CurrentPage.get -> int
+Naravel.Pagination.SimplePageMeta.From.get -> long?
+Naravel.Pagination.SimplePageMeta.Path.get -> string?
+Naravel.Pagination.SimplePageMeta.PerPage.get -> int
+Naravel.Pagination.SimplePageMeta.To.get -> long?
+Naravel.Pagination.SimplePaginated<T>
+Naravel.Pagination.SimplePaginated<T>.CurrentPage.get -> int
+Naravel.Pagination.SimplePaginated<T>.From.get -> long?
+Naravel.Pagination.SimplePaginated<T>.HasMorePages.get -> bool
+Naravel.Pagination.SimplePaginated<T>.Items.get -> System.Collections.Generic.IReadOnlyList<T>!
+Naravel.Pagination.SimplePaginated<T>.Links.get -> Naravel.Pagination.SimplePageLinks!
+Naravel.Pagination.SimplePaginated<T>.Map<TResult>(System.Func<T, TResult>! selector) -> Naravel.Pagination.SimplePaginated<TResult>!
+Naravel.Pagination.SimplePaginated<T>.Meta.get -> Naravel.Pagination.SimplePageMeta!
+Naravel.Pagination.SimplePaginated<T>.OnFirstPage.get -> bool
+Naravel.Pagination.SimplePaginated<T>.PerPage.get -> int
+Naravel.Pagination.SimplePaginated<T>.SimplePaginated(System.Collections.Generic.IReadOnlyList<T>! items, int currentPage, int perPage, bool hasMorePages) -> void
+Naravel.Pagination.SimplePaginated<T>.To.get -> long?
+Naravel.Pagination.SimplePaginated<T>.WithPageName(string! pageName) -> Naravel.Pagination.SimplePaginated<T>!
+Naravel.Pagination.SimplePaginated<T>.WithPath(string? path) -> Naravel.Pagination.SimplePaginated<T>!
+Naravel.Pagination.SimplePaginated<T>.WithQuery(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string?>>! query) -> Naravel.Pagination.SimplePaginated<T>!

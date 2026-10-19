@@ -196,6 +196,10 @@ Register the core package and only the providers your configured stores use. The
 
 Queue registrations are extension methods in `Naravel.Queue.Extensions`. The Queue configuration uses `NaravelQueue:Stores`; Cache and Filesystem use `Cache:Stores` and `Filesystem:Stores` by default. Each supports a custom section name.
 
+### Hashing (native, no package)
+
+Password hashing is already in .NET: `PasswordHasher<TUser>` from `Microsoft.Extensions.Identity.Core` does `Hash::make`, `Hash::check` and `Hash::needsRehash` (PDR-019, `DECLINED`). The one thing to change is the work factor: the default of 100,000 iterations is below the OWASP figure for HMAC-SHA512, so set `PasswordHasherOptions.IterationCount` yourself. See [docs/en/hashing.md](docs/en/hashing.md) and [docs/fa/hashing.md](docs/fa/hashing.md).
+
 ## Sample app
 
 `samples/Naravel.Sample` is a runnable web app that exercises the modules. It is never packed.

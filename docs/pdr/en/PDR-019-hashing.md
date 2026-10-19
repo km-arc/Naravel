@@ -2,7 +2,7 @@
 
 **Native-first verdict:** yes, plain .NET does this in three lines: `PasswordHasher<TUser>` from `Microsoft.Extensions.Identity.Core` hashes, verifies, and says when a stored hash should be upgraded. A Naravel wrapper would add a second API for the same three calls. **Proposed outcome: `DECLINED`, with a documented recipe.**
 
-Status: **Proposed, awaiting owner approval.** Nothing is built before the owner answers; see *Approval*.
+Status: **Approved 2026-10-19: option A (`DECLINED` with the recipe).**
 
 ## Context
 
@@ -59,4 +59,4 @@ If the owner picks alternative 1 or 2 instead, the stage would need: no plaintex
 
 ## Approval
 
-Pending. The owner is asked to approve one of: **A.** `DECLINED` with the recipe (recommended), **B.** a thin `IHasher`, **C.** a third-party bcrypt/Argon2id package under a new PDR. Until then the stage stays blocked.
+The owner approved option A on 2026-10-19: `DECLINED` with the recipe in `docs/en|fa/hashing.md`. Options B (a thin `IHasher`) and C (a third-party bcrypt/Argon2id package under a new PDR) were offered and not chosen.
