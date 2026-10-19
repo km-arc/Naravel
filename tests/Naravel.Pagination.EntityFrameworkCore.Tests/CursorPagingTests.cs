@@ -226,7 +226,7 @@ public class CursorPagingTests
     {
         using var db = new PostDb(5);
 
-        var call = () => db.Context.Posts.CursorPaginateAsync(ById, 5, cursor);
+        Action call = () => db.Context.Posts.CursorPaginateAsync(ById, 5, cursor);
 
         call.Should().Throw<InvalidCursorException>();
     }
@@ -237,7 +237,7 @@ public class CursorPagingTests
         using var db = new PostDb(5);
         var cursor = new string('A', 1025);
 
-        var call = () => db.Context.Posts.CursorPaginateAsync(ById, 5, cursor);
+        Action call = () => db.Context.Posts.CursorPaginateAsync(ById, 5, cursor);
 
         call.Should().Throw<InvalidCursorException>().Which.Message.Should().NotContain("AAAA");
     }
@@ -269,7 +269,7 @@ public class CursorPagingTests
     {
         using var db = new PostDb(1);
 
-        var call = () => db.Context.Posts.CursorPaginateAsync(k => k.By(p => p.Token), 5, null);
+        Action call = () => db.Context.Posts.CursorPaginateAsync(k => k.By(p => p.Token), 5, null);
 
         call.Should().Throw<NotSupportedException>().WithMessage("*Token*");
     }
@@ -279,7 +279,7 @@ public class CursorPagingTests
     {
         using var db = new PostDb(1);
 
-        var call = () => db.Context.Posts.CursorPaginateAsync(k => k.By(p => p.Id + 1), 5, null);
+        Action call = () => db.Context.Posts.CursorPaginateAsync(k => k.By(p => p.Id + 1), 5, null);
 
         call.Should().Throw<ArgumentException>();
     }
@@ -289,7 +289,7 @@ public class CursorPagingTests
     {
         using var db = new PostDb(1);
 
-        var call = () => db.Context.Posts.CursorPaginateAsync(k => k, 5, null);
+        Action call = () => db.Context.Posts.CursorPaginateAsync(k => k, 5, null);
 
         call.Should().Throw<ArgumentException>();
     }

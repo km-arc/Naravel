@@ -96,7 +96,7 @@ public class OffsetPagingTests
     {
         using var db = new PostDb(5);
 
-        var call = () => db.Context.Posts.OrderBy(p => p.Id).PaginateAsync(1, 0);
+        Action call = () => db.Context.Posts.OrderBy(p => p.Id).PaginateAsync(1, 0);
 
         call.Should().Throw<ArgumentOutOfRangeException>();
     }
@@ -106,19 +106,19 @@ public class OffsetPagingTests
     {
         using var db = new PostDb(5);
 
-        var call = () => db.Context.Posts.PaginateAsync(1, 10);
+        Action call = () => db.Context.Posts.PaginateAsync(1, 10);
 
         call.Should().Throw<InvalidOperationException>().WithMessage("*OrderBy*");
     }
 
     [Fact]
-    public void An_order_by_after_a_filter_counts_as_ordered()
+    public async Task An_order_by_after_a_filter_counts_as_ordered()
     {
         using var db = new PostDb(5);
 
         var call = () => db.Context.Posts.OrderByDescending(p => p.Id).Where(p => p.Id > 1).PaginateAsync(1, 10);
 
-        call.Should().NotThrow();
+        await FluentActions.Awaiting(call).Should().NotThrowAsync();
     }
 
     [Fact]

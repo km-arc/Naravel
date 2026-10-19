@@ -283,7 +283,7 @@ internal static class ContractScenarios
             row!["c_string"].Should().BeNull();
             row["c_decimal"].Should().BeNull();
             row["c_guid"].Should().BeNull();
-        })
+        }),
         new("aggregate_count", async c =>
         {
             (await c.Db.Table(c.People).CountAsync()).Should().Be(5);
