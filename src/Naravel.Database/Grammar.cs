@@ -153,6 +153,25 @@ public abstract class Grammar
         return new CompiledQuery(sql.ToString(), context.Bindings.ToArray());
     }
 
+    /// <summary>Compiles <paramref name="inner"/> as a derived table or subquery between two fixed pieces of SQL (no bindings of their own).</summary>
+    internal CompiledQuery CompileWrapped(string prefix, Query inner, string suffix)
+    {
+        var context = new CompileContext();
+        var sql = new StringBuilder(prefix).Append('(');
+        AppendSelect(sql, inner, context);
+        sql.Append(')').Append(suffix);
+
+        if (context.Bindings.Count > MaxParameters)
+        {
+            throw new InvalidOperationException($"The {Dialect} dialect allows at most {MaxParameters} parameters per statement, but this query has {context.Bindings.Count}.");
+        }
+
+        return new CompiledQuery(sql.ToString(), context.Bindings.ToArray());
+    }
+
+    /// <summary>One quoted name, for fixed aliases.</summary>
+    internal string QuoteName(string name) => Quote(name);
+
     /// <summary>Writes a whole select into <paramref name="sql"/>; a subquery shares the context of the outer statement so parameter numbers stay unique and in text order.</summary>
     private void AppendSelect(StringBuilder sql, Query query, CompileContext context)
     {

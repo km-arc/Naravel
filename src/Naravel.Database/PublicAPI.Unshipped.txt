@@ -262,3 +262,11 @@ Naravel.Database.Query.InRandomOrder() -> Naravel.Database.Query!
 Naravel.Database.Query.Reorder() -> Naravel.Database.Query!
 Naravel.Database.Query.Reorder(string! column) -> Naravel.Database.Query!
 Naravel.Database.Query.ReorderDesc(string! column) -> Naravel.Database.Query!
+Naravel.Database.Query.AvgAsync(string! column, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<double?>!
+Naravel.Database.Query.CountAsync(string! column, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Database.Query.CountAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Database.Query.DoesntExistAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Database.Query.ExistsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Database.Query.MaxAsync<T>(string! column, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+Naravel.Database.Query.MinAsync<T>(string! column, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+Naravel.Database.Query.SumAsync(string! column, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<decimal>!
