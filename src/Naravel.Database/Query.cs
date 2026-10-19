@@ -15,6 +15,7 @@ public sealed partial class Query
     private readonly List<SelectItem> _columns = new();
     private readonly List<WhereNode> _wheres = new();
     private readonly List<OrderItem> _orders = new();
+    private readonly List<JoinItem> _joins = new();
     private ParsedIdentifier? _table;
     private bool _distinct;
     private int? _limit;
@@ -38,6 +39,8 @@ public sealed partial class Query
     internal IReadOnlyList<WhereNode> Wheres => _wheres;
 
     internal IReadOnlyList<OrderItem> Orders => _orders;
+
+    internal IReadOnlyList<JoinItem> Joins => _joins;
 
     internal bool IsDistinct => _distinct;
 
@@ -356,6 +359,7 @@ public sealed partial class Query
         copy._columns.AddRange(_columns);
         copy._wheres.AddRange(_wheres);
         copy._orders.AddRange(_orders);
+        copy._joins.AddRange(_joins);
         return copy;
     }
 

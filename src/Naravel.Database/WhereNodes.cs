@@ -159,6 +159,23 @@ internal sealed class InSubqueryWhere(ParsedIdentifier column, Query subquery, b
     public bool Negate { get; } = negate;
 }
 
+internal enum JoinKind
+{
+    Inner,
+    Left,
+    Right,
+    Cross,
+}
+
+internal sealed class JoinItem(JoinKind kind, ParsedIdentifier table, IReadOnlyList<WhereNode> conditions)
+{
+    public JoinKind Kind { get; } = kind;
+
+    public ParsedIdentifier Table { get; } = table;
+
+    public IReadOnlyList<WhereNode> Conditions { get; } = conditions;
+}
+
 internal sealed class SelectItem(ParsedIdentifier? identifier, string? rawSql, object?[] bindings)
 {
     public ParsedIdentifier? Identifier { get; } = identifier;

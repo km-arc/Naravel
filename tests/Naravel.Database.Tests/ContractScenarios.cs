@@ -156,6 +156,24 @@ internal static class ContractScenarios
                 .When(true, q => q.Where("votes", 20))
                 .Unless(true, q => q.Where("id", 1), q => q.Where("active", true))
                 .OrderBy("id"))).Should().Equal("Grace")),
+        new("joins_inner_left_right_cross_and_alias", async c =>
+        {
+            var (people, docs) = (c.People, c.Docs);
+            (await NamesAsync(c.Db.Table(people).Join(docs, $"{people}.id", $"{docs}.id").Select($"{people}.name").OrderBy($"{people}.id"))).Should().Equal("Ada", "Grace", "Linus");
+            (await NamesAsync(c.Db.Table(people).LeftJoin(docs, $"{people}.id", $"{docs}.id").WhereNull($"{docs}.id").Select($"{people}.name").OrderBy($"{people}.id"))).Should().Equal("Margaret", "Dennis");
+            (await NamesAsync(c.Db.Table(docs).RightJoin(people, $"{people}.id", $"{docs}.id").WhereNull($"{docs}.id").Select($"{people}.name").OrderBy($"{people}.id"))).Should().Equal("Margaret", "Dennis");
+            (await NamesAsync(c.Db.Table(people).CrossJoin(docs).Where($"{docs}.id", 1).Select($"{people}.name").OrderBy($"{people}.id"))).Should().Equal("Ada", "Grace", "Linus", "Margaret", "Dennis");
+            (await NamesAsync(c.Db.Table($"{people} as p").Join($"{docs} as d", "p.id", "d.id").Where("d.name", "Grace").Select("p.name"))).Should().Equal("Grace");
+        }),
+        new("join_closure_with_on_or_on_and_values", async c =>
+        {
+            var (people, docs) = (c.People, c.Docs);
+            (await NamesAsync(c.Db.Table(people).Join(docs, j => j.On($"{people}.id", $"{docs}.id").Where($"{docs}.name", "Ada")).Select($"{people}.name"))).Should().Equal("Ada");
+            (await NamesAsync(c.Db.Table(people).Join(docs, j => j.On($"{people}.id", $"{docs}.id").Where($"{docs}.name", "<>", "Ada")).Select($"{people}.name").OrderBy($"{people}.id")))
+                .Should().Equal("Grace", "Linus");
+            (await NamesAsync(c.Db.Table(people).Join(docs, j => j.On($"{people}.id", $"{docs}.id").Where($"{docs}.name", "Ada")).Where($"{people}.votes", 10).Select($"{people}.name"))).Should().Equal("Ada");
+            (await NamesAsync(c.Db.Table(people).LeftJoin(docs, j => j.On($"{people}.id", $"{docs}.id").OrOn($"{people}.votes", "<", $"{docs}.id")).Where($"{docs}.name", "Grace").Select($"{people}.name"))).Should().Equal("Grace");
+        }),
         new("where_in_with_an_empty_list", async c =>
         {
             (await NamesAsync(c.Db.Table(c.People).WhereIn("id", Array.Empty<int>()))).Should().BeEmpty();
