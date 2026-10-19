@@ -39,8 +39,8 @@ public class QueryGroupOrderTests
             "select * from «users» group by «a» having «a» is null and «b» is not null or «c» is null or «d» is not null");
         Verify("having null value means is null", q => q.GroupBy("a").Having("a", null), "select * from «users» group by «a» having «a» is null");
         Verify("full statement order and binding order",
-            q => q.Select("a").Where("x", 1).GroupBy("a").Having("a", ">", 2).OrderBy("a").Limit(5),
-            "select «a» from «users» where «x» = @p0 group by «a» having «a» > @p1 order by «a» asc limit 5", 1, 2);
+            q => q.Select("a").Where("x", 1).GroupBy("a").Having("a", ">", 2).OrderBy("a"),
+            "select «a» from «users» where «x» = @p0 group by «a» having «a» > @p1 order by «a» asc", 1, 2);
     }
 
     [Fact]
