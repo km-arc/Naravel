@@ -77,3 +77,12 @@ Naravel.Pagination.SimplePaginated<T>.To.get -> long?
 Naravel.Pagination.SimplePaginated<T>.WithPageName(string! pageName) -> Naravel.Pagination.SimplePaginated<T>!
 Naravel.Pagination.SimplePaginated<T>.WithPath(string? path) -> Naravel.Pagination.SimplePaginated<T>!
 Naravel.Pagination.SimplePaginated<T>.WithQuery(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string?>>! query) -> Naravel.Pagination.SimplePaginated<T>!
+Naravel.Pagination.InvalidCursorException
+Naravel.Pagination.InvalidCursorException.InvalidCursorException(string! message) -> void
+Naravel.Pagination.InvalidCursorException.InvalidCursorException(string! message, System.Exception? innerException) -> void
+Naravel.Pagination.PaginationOptions
+Naravel.Pagination.PaginationOptions.ClampPerPage(int perPage) -> int
+Naravel.Pagination.PaginationOptions.MaxPerPage.get -> int
+Naravel.Pagination.PaginationOptions.MaxPerPage.init -> void
+Naravel.Pagination.PaginationOptions.PaginationOptions() -> void
+static Naravel.Pagination.PaginationOptions.Default.get -> Naravel.Pagination.PaginationOptions!

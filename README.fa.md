@@ -178,6 +178,17 @@ app.MapNaravel(routes => routes
 
 aliasهای آمادهٔ route middleware عبارت‌اند از `throttle` (پنجرهٔ ثابت در سطح فرایند)، `signed`، `maintenance`، `cache.headers`، `trim`، `convert.empty` و `guest`؛ aliasها، groupها و پارامترهای سفارشی هم پشتیبانی می‌شوند. وضعیت throttle و maintenance در سطح فرایند است و signed URL برای چند instance به key ring مشترک و پایدار Data Protection نیاز دارد. جزئیات: [docs/fa/routing.md](docs/fa/routing.md) و [docs/en/routing.md](docs/en/routing.md).
 
+### Naravel.Pagination
+
+بستهٔ `Naravel.Pagination` (بدون وابستگی به EF Core) صفحه‌هایی با شکل Laravel و `data`، `links` و `meta` برمی‌گرداند؛ `Naravel.Pagination.EntityFrameworkCore` متدهای `PaginateAsync`، `SimplePaginateAsync` و `CursorPaginateAsync` را به queryهای EF Core اضافه می‌کند. صفحه‌بندی cursor کلیدها را یک بار اعلام می‌کند و هم `ORDER BY` و هم `WHERE` را می‌نویسد؛ cursor یک موقعیتِ بدون امضاست که سخت‌گیرانه خوانده می‌شود (`InvalidCursorException`) و اندازهٔ صفحه حداکثر ۱۰۰ است.
+
+```csharp
+var page = await db.Posts.OrderBy(p => p.Id).PaginateAsync(page: 2, perPage: 15);
+var next = await db.Posts.CursorPaginateAsync(k => k.By(p => p.CreatedAt).Then(p => p.Id), 15, cursor);
+```
+
+راهنما: [docs/en/pagination.md](docs/en/pagination.md) و [docs/fa/pagination.md](docs/fa/pagination.md).
+
 ## بسته‌های provider
 
 بستهٔ اصلی و فقط providerهای موردنیاز storeهای پیکربندی‌شده را ثبت کنید. نمونه‌های زیر انتخاب‌های جایگزین‌اند؛ درایور Database علاوه بر این‌ها به EF Core context و نگاشت `ConfigureQueueJobs()` نیاز دارد. نیازمندی‌های هر provider در مستندات ماژول آمده است.
