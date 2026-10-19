@@ -2,7 +2,7 @@
 
 **Native-first verdict:** partly native. LINQ and EF Core already do the work (`Skip`/`Take` for offset pages, `Where` on the last seen key for keyset pages), and EF Core ships **no** pagination type. What .NET lacks is the part Laravel is loved for: one typed result that carries the page numbers and links, serializes to a stable JSON shape that front ends can rely on, and a cursor that is safe to hand to a client. Proposed outcome: **keep, small**: a dependency-free core with three result types, plus an EF Core adapter. A hand-rolled `Skip`/`Take` is three lines; the metadata, the cursor and the safe defaults are what the package adds.
 
-Status: **Proposed, awaiting owner approval.** Nothing is built before the owner answers; see *Questions for the owner*.
+Status: **Approved 2026-10-19** with the recommended answer to each of the five questions (see *Approval*).
 
 ## Context
 
@@ -103,4 +103,4 @@ var page = await db.Posts.CursorPaginateAsync(k => k.By(p => p.CreatedAt).Then(p
 
 ## Approval
 
-Pending. Until the owner answers, the stage stays blocked and no code is written.
+The owner approved the proposal on 2026-10-19 and accepted the recommended answer to every question: (1) snake_case `data`/`links`/`meta`; (2) the core package plus `Naravel.Pagination.EntityFrameworkCore`; (3) unsigned cursors with strict validation; (4) no `Meter` and no Fake for these I/O-free types; (5) `MaxPerPage` 100.
