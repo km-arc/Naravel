@@ -123,6 +123,20 @@ query.GetBindings(); // [true, 18, true]
 
 `WhereAny`، `WhereAll` و `WhereNone` فهرستی از ستون‌ها، یک عملگر اختیاری و یک مقدار می‌گیرند. هر ستون پارامتر خودش را دارد (همان مقدار تکرار می‌شود)، پس سقف پارامتر آن‌ها را هم می‌شمارد. Any به شکل `(a = @p0 or b = @p1)` است، all با `and` وصل می‌کند و none به شکل `not (a = @p0 or b = @p1)` است. فهرست خالی در لحظهٔ فراخوانی خطا می‌دهد.
 
+**الگو، جست‌وجوی متن کامل و JSON.** `WhereLike` و `WhereNotLike` (با شکل‌های `OrWhere...`) یک الگو را تطبیق می‌دهند؛ الگو همیشه پارامتر است و `%` و `_` همچنان wildcard هستند (escape نمی‌شوند). پیش‌فرض بدون حساسیت به حروف است؛ برای تطبیق دقیق `caseSensitive: true` بدهید. `WhereFullText` یک یا چند ستون ساده را با `FullTextMode.Natural` (کلمات ساده) یا `FullTextMode.Boolean` (نحو بولی خود موتور، که باز هم به‌صورت مقدار bind می‌شود) جست‌وجو می‌کند. هر گرامر SQL خودش را می‌نویسد:
+
+| متد | SQLite | MySQL | PostgreSQL | SQL Server |
+|---|---|---|---|---|
+| `WhereLike` | `c like p` | `c like p` (با حساسیت: `like binary`) | `c ilike p` (با حساسیت: `like`) | `c like p` (با حساسیت: `collate SQL_Latin1_General_CP1_CS_AS`) |
+| `WhereFullText` | `NotSupportedException` | `match(c) against (p in natural language mode)` یا `in boolean mode` | `to_tsvector('english', c) @@ plainto_tsquery('english', p)` (برای بولی `to_tsquery`) | `freetext(c, p)` یا `contains(c, p)` |
+| `WhereJsonContains` | `exists (select 1 from json_each(c, path) where value is p)` | `json_contains(c, p, path)` | `c::jsonb @> p::jsonb` | `p in (select value from openjson(c, path))` |
+| `WhereJsonContainsKey` | `json_type(c, path) is not null` | `json_contains_path(c, 'one', path)` | `jsonb_path_exists(c::jsonb, path::jsonpath)` | `json_value(c, path)` یا `json_query(c, path)` غیر null |
+| `WhereJsonLength` | `json_array_length` | `json_length` | `jsonb_array_length` | `(select count(*) from openjson(...))` |
+
+`WhereJsonContains` و `WhereJsonDoesntContain` روی MySQL و PostgreSQL هر مقدار قابل‌سریال‌سازی به JSON را می‌گیرند؛ SQLite و SQL Server فقط یک مقدار **اسکالر** (رشته، عدد، بولی) را داخل آرایهٔ JSON جست‌وجو می‌کنند و برای مقدار آرایه یا شیء `NotSupportedException` می‌دهند. `WhereJsonContainsKey` و `WhereJsonDoesntContainKey` مسیر می‌خواهند (`data->name`). `WhereJsonLength` تعداد عناصر آرایه را می‌شمارد (SQL Server و MySQL کلیدهای شیء را هم می‌شمارند)؛ طول منفی در لحظهٔ فراخوانی خطاست.
+
+**ستون‌های مسیر JSON.** ستونی که به شکل `data->name`، `data->list[0]` یا `data->a->b` نوشته شود در هر متد where که ستون می‌گیرد (`Where`، `WhereNull`، `WhereIn`، `WhereBetween`، `WhereLike` و متدهای JSON) پذیرفته می‌شود. بخش‌های مسیر باید از `[حرف، رقم، _]` با `[n]` اختیاری باشند؛ مسیر **به‌صورت پارامتر bind** می‌شود (`$."a"."b"[0]` یا آرایهٔ متنی برای PostgreSQL) و هرگز داخل متن SQL نمی‌آید. مسیر در `Select`، `OrderBy`، `Table` و بخش‌های تاریخ پذیرفته نمی‌شود (`NotSupportedException`). مقدار استخراج‌شده یک اسکالر قابل مقایسه است: در SQLite `json_extract`، در MySQL `json_unquote(json_extract(...))`، در SQL Server `json_value` و در PostgreSQL عملگر `#>>` که اگر مقدار مقایسه عدد یا بولی باشد به `numeric` یا `boolean` cast می‌شود. محدودیت‌ها: `null` در JSON روی SQLite، PostgreSQL و SQL Server همان `NULL` است ولی روی MySQL متن `null` است، و مقایسهٔ بولی JSON روی MySQL کار نمی‌کند (متن استخراج‌شدهٔ `true` همان عدد `1` نیست)، پس آنجا به‌صورت رشته مقایسه کنید. جست‌وجوی متن کامل روی MySQL و SQL Server به ایندکس متن کامل نیاز دارد (ایمیج تست SQL Server مؤلفهٔ متن کامل ندارد، پس آن مسیر فقط با تست‌های compile اثبات می‌شود)؛ PostgreSQL از پیکربندی `english` استفاده می‌کند.
+
 **قواعد ایمنی، در لحظهٔ فراخوانی اعمال می‌شوند:**
 - مقدارها **همیشه** پارامتر هستند (`@p0`، `@p1`، ...) روی هر دیالکت. هیچ چیزی که به‌عنوان مقدار داده شود نمی‌تواند SQL شود. `ToRawSql()` مقدارها را فقط برای لاگ داخل متن می‌گذارد؛ هرگز اجرایش نکنید.
 - شناسه‌ها (جدول، ستون، alias) باید با `[حرف یا _][حرف، رقم، _ یا $]*` بخوانند، حداکثر ۱۲۸ نویسه، در شکل‌های `col`، `table.col`، `schema.table.col`، `*`، `table.*` و `source as alias`. نام فارسی کار می‌کند. هر چیز دیگر فوراً `ArgumentException` می‌دهد. این گرامر با PDR-022 الف۳ قفل شده؛ شل‌کردنش اصلاحیهٔ PDR می‌خواهد.

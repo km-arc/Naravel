@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace Naravel.Database;
 
 /// <summary>An identifier that passed the frozen grammar: one to three name segments, an optional trailing <c>*</c> and an optional alias.</summary>
-internal sealed record ParsedIdentifier(IReadOnlyList<string> Segments, bool IsStar, string? Alias);
+internal sealed record ParsedIdentifier(IReadOnlyList<string> Segments, bool IsStar, string? Alias, IReadOnlyList<string>? JsonPath = null);
 
 /// <summary>
 /// The identifier grammar frozen by PDR-022 A3. Relaxing it needs a PDR amendment, never a local change.
@@ -11,8 +11,7 @@ internal sealed record ParsedIdentifier(IReadOnlyList<string> Segments, bool IsS
 /// <remarks>
 /// Segment: <c>^[\p{L}_][\p{L}\p{N}_$]*\z</c>, at most 128 characters (the end anchor is <c>\z</c>, not <c>$</c>, because <c>$</c>
 /// would accept a trailing newline). Forms: <c>col</c>, <c>table.col</c>, <c>schema.table.col</c>, <c>*</c> and <c>table.*</c>,
-/// <c>source as alias</c>. JSON paths (<c>col-&gt;key</c>) are recognised so they are rejected with a precise message until the
-/// JSON where methods exist.
+/// <c>source as alias</c>. JSON paths (<c>col-&gt;key</c>) are parsed into <see cref="ParsedIdentifier.JsonPath"/>; only where clauses accept them.
 /// </remarks>
 internal static class IdentifierGrammar
 {
@@ -40,18 +39,46 @@ internal static class IdentifierGrammar
         if (arrow >= 0)
         {
             var path = source[(arrow + 2)..].Split("->");
-            if (!IsBase(source[..arrow], allowStar: false, out _) || path.Any(part => part.Length == 0 || part.Length > MaxSegmentLength || !PathSegmentPattern.IsMatch(part)))
+            if (alias is not null || !IsBase(source[..arrow], allowStar: false, out var baseSegments) || path.Any(part => part.Length == 0 || part.Length > MaxSegmentLength || !PathSegmentPattern.IsMatch(part)))
             {
                 throw Invalid(text, parameterName);
             }
 
-            throw new NotSupportedException("JSON column paths ('col->key') are not supported yet; their syntax is frozen by PDR-022 A3 and they arrive with the JSON where methods.");
+            return new ParsedIdentifier(baseSegments, false, null, path);
         }
 
         if (!IsBase(source, allowStar: true, out var segments)) throw Invalid(text, parameterName);
         var star = segments[^1] == "*";
         if (star && alias is not null) throw Invalid(text, parameterName);
         return new ParsedIdentifier(segments, star, alias);
+    }
+
+    /// <summary>The JSON path text <c>$."a"."b"[0]</c> understood by SQLite, MySQL, SQL Server and PostgreSQL (jsonpath).</summary>
+    internal static string JsonPathText(IReadOnlyList<string> path)
+    {
+        var text = new System.Text.StringBuilder("$");
+        foreach (var part in path)
+        {
+            var bracket = part.IndexOf('[', StringComparison.Ordinal);
+            text.Append(".\"").Append(bracket < 0 ? part : part[..bracket]).Append('"');
+            if (bracket >= 0) text.Append(part.AsSpan(bracket));
+        }
+
+        return text.ToString();
+    }
+
+    /// <summary>The PostgreSQL text-array literal <c>{a,b,0}</c> for the <c>#&gt;</c> and <c>#&gt;&gt;</c> operators.</summary>
+    internal static string JsonPathArray(IReadOnlyList<string> path)
+    {
+        var items = new List<string>();
+        foreach (var part in path)
+        {
+            var bracket = part.IndexOf('[', StringComparison.Ordinal);
+            items.Add(bracket < 0 ? part : part[..bracket]);
+            if (bracket >= 0) items.Add(part[(bracket + 1)..^1]);
+        }
+
+        return "{" + string.Join(',', items) + "}";
     }
 
     private static bool IsBase(string text, bool allowStar, out string[] segments)

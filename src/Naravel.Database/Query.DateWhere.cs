@@ -192,6 +192,7 @@ public sealed partial class Query
     private Query AddDatePart(DatePartKind kind, string column, string op, object value, bool or)
     {
         var identifier = Column(column, nameof(column));
+        if (identifier.JsonPath is not null) throw new NotSupportedException("A date or time part cannot be taken from a JSON path.");
         ArgumentNullException.ThrowIfNull(op);
         var normalized = Grammar.NormalizeOperator(op, nameof(op));
         if (Array.IndexOf(ComparisonOperators, normalized) < 0)

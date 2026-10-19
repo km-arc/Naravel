@@ -53,14 +53,16 @@ public class IdentifierSafetyTests
     }
 
     [Fact]
-    public void Valid_json_paths_are_recognised_but_not_supported_yet_and_never_reach_the_sql()
+    public void Valid_json_paths_are_accepted_in_where_clauses_only_and_never_reach_the_sql_text()
     {
         foreach (var dialect in AllDialects)
         {
             var query = Query.For(dialect).Table("t");
 
-            ((Action)(() => query.Where("data->name", 1))).Should().Throw<NotSupportedException>();
+            query.Where("data->name", 1).Compile().Sql.Should().NotContain("name\"").And.NotContain("->");
             ((Action)(() => query.Select("data->list[0]"))).Should().Throw<NotSupportedException>();
+            ((Action)(() => query.OrderBy("data->name"))).Should().Throw<NotSupportedException>();
+            ((Action)(() => Grammar.For(dialect).Wrap("data->name"))).Should().Throw<NotSupportedException>();
         }
     }
 
