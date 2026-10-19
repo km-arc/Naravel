@@ -211,3 +211,15 @@ Naravel.Database.Query.OrWhereJsonLength(string! column, string! op, int value) 
 Naravel.Database.FullTextMode
 Naravel.Database.FullTextMode.Boolean = 1 -> Naravel.Database.FullTextMode
 Naravel.Database.FullTextMode.Natural = 0 -> Naravel.Database.FullTextMode
+Naravel.Database.Query.WhereExists(System.Action<Naravel.Database.Query!>! callback) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereExists(System.Action<Naravel.Database.Query!>! callback) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNotExists(System.Action<Naravel.Database.Query!>! callback) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNotExists(System.Action<Naravel.Database.Query!>! callback) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereSubquery(string! column, string! op, System.Action<Naravel.Database.Query!>! callback) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereSubquery(string! column, string! op, System.Action<Naravel.Database.Query!>! callback) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereIn(string! column, System.Action<Naravel.Database.Query!>! callback) -> Naravel.Database.Query!
+Naravel.Database.Query.WhereNotIn(string! column, System.Action<Naravel.Database.Query!>! callback) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereIn(string! column, System.Action<Naravel.Database.Query!>! callback) -> Naravel.Database.Query!
+Naravel.Database.Query.OrWhereNotIn(string! column, System.Action<Naravel.Database.Query!>! callback) -> Naravel.Database.Query!
+Naravel.Database.Query.When(bool condition, System.Action<Naravel.Database.Query!>! callback, System.Action<Naravel.Database.Query!>? otherwise = null) -> Naravel.Database.Query!
+Naravel.Database.Query.Unless(bool condition, System.Action<Naravel.Database.Query!>! callback, System.Action<Naravel.Database.Query!>? otherwise = null) -> Naravel.Database.Query!

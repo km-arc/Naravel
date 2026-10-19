@@ -136,6 +136,29 @@ internal sealed class JsonLengthWhere(ParsedIdentifier column, string op, int va
     public int Value { get; } = value;
 }
 
+internal sealed class ExistsWhere(Query subquery, bool or, bool not) : WhereNode(or, not)
+{
+    public Query Subquery { get; } = subquery;
+}
+
+internal sealed class SubqueryWhere(ParsedIdentifier column, string op, Query subquery, bool or, bool not) : WhereNode(or, not)
+{
+    public ParsedIdentifier Column { get; } = column;
+
+    public string Operator { get; } = op;
+
+    public Query Subquery { get; } = subquery;
+}
+
+internal sealed class InSubqueryWhere(ParsedIdentifier column, Query subquery, bool negate, bool or) : WhereNode(or, false)
+{
+    public ParsedIdentifier Column { get; } = column;
+
+    public Query Subquery { get; } = subquery;
+
+    public bool Negate { get; } = negate;
+}
+
 internal sealed class SelectItem(ParsedIdentifier? identifier, string? rawSql, object?[] bindings)
 {
     public ParsedIdentifier? Identifier { get; } = identifier;
