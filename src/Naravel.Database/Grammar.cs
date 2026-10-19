@@ -57,6 +57,9 @@ public abstract class Grammar
     /// <summary>The SQL that extracts one part of a date/time column; the engines have no common function for it (PDR-022).</summary>
     internal abstract string DatePart(DatePartKind kind, string column);
 
+    /// <summary>The SQL expression that orders rows randomly; each engine has its own function.</summary>
+    internal abstract string RandomOrder { get; }
+
     /// <summary>The SQL that extracts a JSON path from a column as a comparable value. The path is a bound parameter; <paramref name="hint"/> is the value it is compared with.</summary>
     internal abstract string JsonExtract(string column, IReadOnlyList<string> path, CompileContext context, object? hint);
 
@@ -172,6 +175,13 @@ public abstract class Grammar
         {
             sql.Append(" where ");
             AppendWheres(sql, query.Wheres, context);
+        }
+
+        if (query.Groups.Count > 0) sql.Append(" group by ").Append(string.Join(", ", query.Groups.Select(group => Wrap(group))));
+        if (query.Havings.Count > 0)
+        {
+            sql.Append(" having ");
+            AppendWheres(sql, query.Havings, context);
         }
 
         AppendOrders(sql, query, context);
@@ -410,6 +420,8 @@ public abstract class Grammar
 
 internal sealed class SqliteGrammar() : Grammar(DatabaseDialect.Sqlite, 32766, '"', '"')
 {
+    internal override string RandomOrder => "random()";
+
     internal override string JsonExtract(string column, IReadOnlyList<string> path, CompileContext context, object? hint) =>
         $"json_extract({column}, {context.Add(IdentifierGrammar.JsonPathText(path))})";
 
@@ -452,6 +464,8 @@ internal sealed class SqliteGrammar() : Grammar(DatabaseDialect.Sqlite, 32766, '
 
 internal sealed class MySqlGrammar() : Grammar(DatabaseDialect.MySql, 65535, '`', '`')
 {
+    internal override string RandomOrder => "rand()";
+
     internal override string JsonExtract(string column, IReadOnlyList<string> path, CompileContext context, object? hint) =>
         $"json_unquote(json_extract({column}, {context.Add(IdentifierGrammar.JsonPathText(path))}))";
 
@@ -496,6 +510,8 @@ internal sealed class MySqlGrammar() : Grammar(DatabaseDialect.MySql, 65535, '`'
 
 internal sealed class PostgresGrammar() : Grammar(DatabaseDialect.Postgres, 65535, '"', '"')
 {
+    internal override string RandomOrder => "random()";
+
     internal override string JsonExtract(string column, IReadOnlyList<string> path, CompileContext context, object? hint)
     {
         var extracted = $"(cast({column} as jsonb) #>> cast({context.Add(IdentifierGrammar.JsonPathArray(path))} as text[]))";
@@ -547,6 +563,8 @@ internal sealed class PostgresGrammar() : Grammar(DatabaseDialect.Postgres, 6553
 
 internal sealed class SqlServerGrammar() : Grammar(DatabaseDialect.SqlServer, 2098, '[', ']')
 {
+    internal override string RandomOrder => "newid()";
+
     internal override string JsonExtract(string column, IReadOnlyList<string> path, CompileContext context, object? hint) =>
         $"json_value({column}, {context.Add(IdentifierGrammar.JsonPathText(path))})";
 

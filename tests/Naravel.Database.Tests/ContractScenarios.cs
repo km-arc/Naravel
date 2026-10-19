@@ -174,6 +174,29 @@ internal static class ContractScenarios
             (await NamesAsync(c.Db.Table(people).Join(docs, j => j.On($"{people}.id", $"{docs}.id").Where($"{docs}.name", "Ada")).Where($"{people}.votes", 10).Select($"{people}.name"))).Should().Equal("Ada");
             (await NamesAsync(c.Db.Table(people).LeftJoin(docs, j => j.On($"{people}.id", $"{docs}.id").OrOn($"{people}.votes", "<", $"{docs}.id")).Where($"{docs}.name", "Grace").Select($"{people}.name"))).Should().Equal("Grace");
         }),
+        new("group_by_with_having_on_grouped_columns", async c =>
+        {
+            var votes = (await c.Db.Table(c.People).Select("votes").GroupBy("votes").Having("votes", ">", 5).OrderBy("votes").GetAsync()).Select(r => Convert.ToInt64(r["votes"])).ToArray();
+            votes.Should().Equal(10L, 20L, 30L);
+            var between = (await c.Db.Table(c.People).Select("votes").GroupBy("votes").HavingBetween("votes", 10, 20).OrHaving("votes", 30).OrderBy("votes").GetAsync()).Select(r => Convert.ToInt64(r["votes"])).ToArray();
+            between.Should().Equal(10L, 20L, 30L);
+            (await c.Db.Table(c.People).Select("active").GroupBy("active").HavingNotNull("active").GetAsync()).Should().HaveCount(2);
+        }),
+        new("group_by_with_having_on_a_select_alias", async c =>
+        {
+            var rows = await c.Db.Table(c.People).SelectRaw("votes, count(*) as n").GroupBy("votes").Having("n", ">", 1).GetAsync();
+            rows.Should().ContainSingle();
+            Convert.ToInt64(rows[0]["votes"]).Should().Be(20);
+        }, DatabaseDialect.Postgres, DatabaseDialect.SqlServer),
+        new("latest_oldest_reorder_and_random", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.People).Latest("id").Limit(2))).Should().Equal("Dennis", "Margaret");
+            (await NamesAsync(c.Db.Table(c.People).Oldest("id").Limit(2))).Should().Equal("Ada", "Grace");
+            (await NamesAsync(c.Db.Table(c.People).OrderBy("id").Reorder().OrderByDesc("votes").OrderBy("id").Limit(1))).Should().Equal("Margaret");
+            (await NamesAsync(c.Db.Table(c.People).OrderBy("id").ReorderDesc("id").Limit(1))).Should().Equal("Dennis");
+            (await NamesAsync(c.Db.Table(c.People).Reorder("id").Limit(1))).Should().Equal("Ada");
+            (await NamesAsync(c.Db.Table(c.People).InRandomOrder())).Should().BeEquivalentTo("Ada", "Grace", "Linus", "Margaret", "Dennis");
+        }),
         new("where_in_with_an_empty_list", async c =>
         {
             (await NamesAsync(c.Db.Table(c.People).WhereIn("id", Array.Empty<int>()))).Should().BeEmpty();
