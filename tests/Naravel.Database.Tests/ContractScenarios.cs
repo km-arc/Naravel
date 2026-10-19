@@ -142,6 +142,20 @@ internal static class ContractScenarios
         new("where_full_text_is_unsupported_on_sqlite", async c =>
             await c.Db.Table(c.Docs).WhereFullText("body", "kernel").Awaiting(q => q.GetAsync()).Should().ThrowAsync<NotSupportedException>(),
             DatabaseDialect.MySql, DatabaseDialect.Postgres, DatabaseDialect.SqlServer),
+        new("where_exists_and_subqueries", async c =>
+        {
+            (await NamesAsync(c.Db.Table(c.People).WhereExists(s => s.Table(c.Docs).WhereColumn($"{c.Docs}.id", $"{c.People}.id").Where("name", "Ada")))).Should().Equal("Ada");
+            (await NamesAsync(c.Db.Table(c.People).WhereNotExists(s => s.Table(c.Docs).WhereColumn($"{c.Docs}.id", $"{c.People}.id")).OrderBy("id"))).Should().Equal("Margaret", "Dennis");
+            (await NamesAsync(c.Db.Table(c.People).WhereIn("id", s => s.Table(c.Docs).Select("id").Where("name", "Grace")))).Should().Equal("Grace");
+            (await NamesAsync(c.Db.Table(c.People).WhereNotIn("id", s => s.Table(c.Docs).Select("id")).OrderBy("id"))).Should().Equal("Margaret", "Dennis");
+            (await NamesAsync(c.Db.Table(c.People).WhereSubquery("votes", ">", s => s.Table(c.People).Select("votes").Where("name", "Ada")).OrderBy("id"))).Should().Equal("Grace", "Linus", "Margaret");
+            (await NamesAsync(c.Db.Table(c.People).Where("id", 5).OrWhereExists(s => s.Table(c.Docs).Where("name", "Linus").Where("id", 3)).OrderBy("id"))).Should().Equal("Ada", "Grace", "Linus", "Margaret", "Dennis");
+        }),
+        new("when_and_unless", async c =>
+            (await NamesAsync(c.Db.Table(c.People)
+                .When(true, q => q.Where("votes", 20))
+                .Unless(true, q => q.Where("id", 1), q => q.Where("active", true))
+                .OrderBy("id"))).Should().Equal("Grace")),
         new("where_in_with_an_empty_list", async c =>
         {
             (await NamesAsync(c.Db.Table(c.People).WhereIn("id", Array.Empty<int>()))).Should().BeEmpty();

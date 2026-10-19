@@ -138,10 +138,24 @@ public abstract class Grammar
 
     internal CompiledQuery CompileSelect(Query query)
     {
+        var context = new CompileContext();
+        var sql = new StringBuilder();
+        AppendSelect(sql, query, context);
+
+        if (context.Bindings.Count > MaxParameters)
+        {
+            throw new InvalidOperationException($"The {Dialect} dialect allows at most {MaxParameters} parameters per statement, but this query has {context.Bindings.Count}.");
+        }
+
+        return new CompiledQuery(sql.ToString(), context.Bindings.ToArray());
+    }
+
+    /// <summary>Writes a whole select into <paramref name="sql"/>; a subquery shares the context of the outer statement so parameter numbers stay unique and in text order.</summary>
+    private void AppendSelect(StringBuilder sql, Query query, CompileContext context)
+    {
         if (query.TableName is null) throw new InvalidOperationException("The query has no table. Call Table(...) before compiling it.");
 
-        var context = new CompileContext();
-        var sql = new StringBuilder("select ");
+        sql.Append("select ");
         if (query.IsDistinct) sql.Append("distinct ");
         AppendTop(sql, query);
         AppendColumns(sql, query, context);
@@ -154,13 +168,6 @@ public abstract class Grammar
 
         AppendOrders(sql, query, context);
         AppendLimitOffset(sql, query);
-
-        if (context.Bindings.Count > MaxParameters)
-        {
-            throw new InvalidOperationException($"The {Dialect} dialect allows at most {MaxParameters} parameters per statement, but this query has {context.Bindings.Count}.");
-        }
-
-        return new CompiledQuery(sql.ToString(), context.Bindings.ToArray());
     }
 
     /// <summary>Writes the bound values into the SQL for display only. Never execute the result.</summary>
@@ -299,6 +306,21 @@ public abstract class Grammar
                     break;
                 case JsonLengthWhere length:
                     sql.Append(JsonLength(Base(length.Column), length.Column.JsonPath, length.Operator, length.Value, context));
+                    break;
+                case ExistsWhere exists:
+                    sql.Append("exists (");
+                    AppendSelect(sql, exists.Subquery, context);
+                    sql.Append(')');
+                    break;
+                case SubqueryWhere compared:
+                    sql.Append(Col(compared.Column, context)).Append(' ').Append(compared.Operator).Append(" (");
+                    AppendSelect(sql, compared.Subquery, context);
+                    sql.Append(')');
+                    break;
+                case InSubqueryWhere inSubquery:
+                    sql.Append(Col(inSubquery.Column, context)).Append(inSubquery.Negate ? " not in (" : " in (");
+                    AppendSelect(sql, inSubquery.Subquery, context);
+                    sql.Append(')');
                     break;
                 default:
                     throw new InvalidOperationException("Unknown where clause.");
