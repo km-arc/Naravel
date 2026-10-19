@@ -160,6 +160,14 @@ public abstract class Grammar
         AppendTop(sql, query);
         AppendColumns(sql, query, context);
         sql.Append(" from ").Append(Wrap(query.TableName));
+        foreach (var join in query.Joins)
+        {
+            sql.Append(join.Kind switch { JoinKind.Left => " left join ", JoinKind.Right => " right join ", JoinKind.Cross => " cross join ", _ => " inner join " }).Append(Wrap(join.Table));
+            if (join.Kind == JoinKind.Cross) continue;
+            sql.Append(" on ");
+            AppendWheres(sql, join.Conditions, context);
+        }
+
         if (query.Wheres.Count > 0)
         {
             sql.Append(" where ");

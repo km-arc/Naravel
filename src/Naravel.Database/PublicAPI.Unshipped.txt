@@ -223,3 +223,25 @@ Naravel.Database.Query.OrWhereIn(string! column, System.Action<Naravel.Database.
 Naravel.Database.Query.OrWhereNotIn(string! column, System.Action<Naravel.Database.Query!>! callback) -> Naravel.Database.Query!
 Naravel.Database.Query.When(bool condition, System.Action<Naravel.Database.Query!>! callback, System.Action<Naravel.Database.Query!>? otherwise = null) -> Naravel.Database.Query!
 Naravel.Database.Query.Unless(bool condition, System.Action<Naravel.Database.Query!>! callback, System.Action<Naravel.Database.Query!>? otherwise = null) -> Naravel.Database.Query!
+Naravel.Database.JoinClause
+Naravel.Database.Query.Join(string! table, string! first, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.Join(string! table, string! first, string! op, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.Join(string! table, System.Action<Naravel.Database.JoinClause!>! on) -> Naravel.Database.Query!
+Naravel.Database.Query.LeftJoin(string! table, string! first, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.LeftJoin(string! table, string! first, string! op, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.LeftJoin(string! table, System.Action<Naravel.Database.JoinClause!>! on) -> Naravel.Database.Query!
+Naravel.Database.Query.RightJoin(string! table, string! first, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.RightJoin(string! table, string! first, string! op, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.RightJoin(string! table, System.Action<Naravel.Database.JoinClause!>! on) -> Naravel.Database.Query!
+Naravel.Database.Query.CrossJoin(string! table) -> Naravel.Database.Query!
+Naravel.Database.JoinClause.On(string! first, string! second) -> Naravel.Database.JoinClause!
+Naravel.Database.JoinClause.On(string! first, string! op, string! second) -> Naravel.Database.JoinClause!
+Naravel.Database.JoinClause.OrOn(string! first, string! second) -> Naravel.Database.JoinClause!
+Naravel.Database.JoinClause.OrOn(string! first, string! op, string! second) -> Naravel.Database.JoinClause!
+Naravel.Database.JoinClause.Where(string! column, object? value) -> Naravel.Database.JoinClause!
+Naravel.Database.JoinClause.Where(string! column, string! op, object? value) -> Naravel.Database.JoinClause!
+Naravel.Database.JoinClause.OrWhere(string! column, object? value) -> Naravel.Database.JoinClause!
+Naravel.Database.JoinClause.OrWhere(string! column, string! op, object? value) -> Naravel.Database.JoinClause!
+Naravel.Database.JoinClause.WhereNull(string! column) -> Naravel.Database.JoinClause!
+Naravel.Database.JoinClause.WhereNotNull(string! column) -> Naravel.Database.JoinClause!
+Naravel.Database.JoinClause.WhereIn(string! column, System.Collections.IEnumerable! values) -> Naravel.Database.JoinClause!
