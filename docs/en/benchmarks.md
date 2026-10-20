@@ -36,6 +36,14 @@ dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*Data
 
 `DatabaseBenchmarks` (PDR-022 S2) compares building and compiling a query with a constant string (`CompileBuilder` against the `CompileFloor` baseline, no I/O), and running the same query on in-memory SQLite through the builder (`BuilderRows`, `BuilderTyped`), hand-written Dapper (`HandWrittenDapper`) and raw ADO.NET (`HandWrittenAdo`); each opens one connection per call. **No numbers are recorded yet:** the benchmark has not been run (the authoring environment has no .NET SDK). Record the first baseline here after running it on the CI or a developer machine, and treat a builder overhead that is large next to the SQLite round trip as a defect to fix before R20.
 
+Run the Streaming benchmark with:
+
+```sh
+dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*StreamingBenchmarks*' --job short --warmupCount 1 --iterationCount 3 --launchCount 1
+```
+
+`StreamingBenchmarks` (PDR-022 R22.T04) visits every row of a 50 000 row in-memory SQLite table: `BufferedGet` (baseline) loads the whole result, `CursorEnumerate` streams over one open reader, `LazyPages` pages with `limit`/`offset`, and `LazyByIdPages` and `ChunkByIdPages` page by keyset on `id`. Read the `Allocated` column first: streaming exists to keep memory bounded, so the streamed variants should allocate per row visited, not per row held, while `BufferedGet` holds all 50 000 rows at once; and keyset paging should not slow down on deep pages the way `limit`/`offset` does. **No numbers are recorded yet:** the benchmark has not been run (the authoring environment has no .NET SDK). Record the first baseline here after running it on the CI or a developer machine; if a streamed variant is slower than `BufferedGet` by more than the per-row cost of the open reader, treat it as a defect.
+
 Run the Pagination benchmark with:
 
 ```sh

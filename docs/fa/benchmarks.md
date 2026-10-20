@@ -37,6 +37,14 @@ dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*Data
 
 بنچمارک Pagination را این‌طور اجرا کنید:
 
+benchmark استریم را اجرا کنید با:
+
+```sh
+dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*StreamingBenchmarks*' --job short --warmupCount 1 --iterationCount 3 --launchCount 1
+```
+
+`StreamingBenchmarks` (PDR-022 R22.T04) همهٔ ردیف‌های یک جدول SQLite درون‌حافظه با ۵۰ هزار ردیف را می‌خواند: `BufferedGet` (خط پایه) کل نتیجه را بار می‌کند، `CursorEnumerate` روی یک reader باز استریم می‌کند، `LazyPages` با `limit`/`offset` صفحه‌بندی می‌کند و `LazyByIdPages` و `ChunkByIdPages` با keyset روی `id`. ابتدا ستون `Allocated` را بخوانید: استریم برای محدود نگه داشتن حافظه است، پس نسخه‌های استریم باید به‌ازای ردیف‌های بازدیدشده تخصیص بدهند نه ردیف‌های نگه‌داشته‌شده، در حالی که `BufferedGet` هر ۵۰ هزار ردیف را همزمان نگه می‌دارد؛ و صفحه‌بندی keyset نباید در صفحه‌های عمیق مثل `limit`/`offset` کند شود. **هنوز عددی ثبت نشده:** benchmark اجرا نشده است (محیط نگارش .NET SDK ندارد). اولین baseline را بعد از اجرا روی CI یا دستگاه توسعه‌دهنده اینجا ثبت کنید؛ اگر یک نسخهٔ استریم از `BufferedGet` بیش از هزینهٔ هر ردیف reader باز کندتر بود، آن را نقص بدانید.
+
 ```sh
 dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*PaginationBenchmarks*' --job short --warmupCount 1 --iterationCount 3 --launchCount 1
 ```
