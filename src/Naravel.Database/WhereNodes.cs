@@ -195,3 +195,19 @@ internal sealed class OrderItem(ParsedIdentifier? identifier, bool descending, s
 
     public object?[] Bindings { get; } = bindings;
 }
+
+/// <summary>How a dialect writes an update that joins other tables (PDR-022).</summary>
+internal enum UpdateJoinStyle
+{
+    /// <summary>PostgreSQL and SQLite: <c>update t set ... from other where ...</c>, inner joins only.</summary>
+    FromWhere,
+
+    /// <summary>MySQL: <c>update t inner join other on ... set ...</c>.</summary>
+    Inline,
+
+    /// <summary>SQL Server: <c>update t set ... from t inner join other on ...</c>.</summary>
+    From,
+}
+
+/// <summary>One column of an <c>update ... set</c> list: a value, an addition to the current value, or a JSON path inside the column.</summary>
+internal sealed record UpdateAssignment(string Column, IReadOnlyList<string>? JsonPath, object? Value, bool Add);
