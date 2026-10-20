@@ -325,6 +325,47 @@ internal static class ContractScenarios
             (await c.Db.Table(c.People).Select("name").OrderBy("name").Distinct().ExistsAsync()).Should().BeTrue("columns, ordering and distinct do not matter");
             (await c.Db.Table(c.People).GroupBy("votes").Having("votes", ">", 25).ExistsAsync()).Should().BeTrue();
         }),
+        new("write_insert_single_and_batch", async c =>
+        {
+            (await c.Db.Table(c.Writes).InsertAsync(new Dictionary<string, object?> { ["name"] = "w_a1", ["votes"] = 1 })).Should().Be(1);
+            var batch = Enumerable.Range(2, 3).Select(i => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?> { ["votes"] = i, ["name"] = "w_a" + i });
+            (await c.Db.Table(c.Writes).InsertAsync(batch)).Should().Be(3, "the second key order must not matter");
+            (await c.Db.Table(c.Writes).InsertAsync(Array.Empty<IReadOnlyDictionary<string, object?>>())).Should().Be(0);
+            (await c.Db.Table(c.Writes).WhereIn("name", new[] { "w_a1", "w_a2", "w_a3", "w_a4" }).SumAsync("votes")).Should().Be(10m);
+        }),
+        new("write_insert_batch_split_over_limits", async c =>
+        {
+            // 1200 rows with two columns is 2400 parameters (over SQL Server's 2098) and over its 1000 rows per statement.
+            var rows = Enumerable.Range(1, 1200).Select(i => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?> { ["name"] = "w_b" + i, ["votes"] = i }).ToArray();
+            (await c.Db.Table(c.Writes).InsertAsync(rows)).Should().Be(1200);
+            (await c.Db.Table(c.Writes).WhereLike("name", "w_b%").CountAsync()).Should().Be(1200);
+        }),
+        new("write_insert_batch_is_atomic", async c =>
+        {
+            var rows = Enumerable.Range(1, 1200).Select(i => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?> { ["name"] = i == 1200 ? "w_d1" : "w_d" + i, ["votes"] = i }).ToArray();
+            await FluentActions.Awaiting(() => c.Db.Table(c.Writes).InsertAsync(rows)).Should().ThrowAsync<System.Data.Common.DbException>();
+            (await c.Db.Table(c.Writes).WhereLike("name", "w_d%").CountAsync()).Should().Be(0, "a failing statement rolls back the statements before it");
+        }),
+        new("write_insert_or_ignore", async c =>
+        {
+            (await c.Db.Table(c.Writes).InsertOrIgnoreAsync(new Dictionary<string, object?> { ["name"] = "w_c1", ["votes"] = 1 })).Should().Be(1);
+            (await c.Db.Table(c.Writes).InsertOrIgnoreAsync(new Dictionary<string, object?> { ["name"] = "w_c1", ["votes"] = 2 })).Should().Be(0);
+            (await c.Db.Table(c.Writes).Where("name", "w_c1").ValueAsync<long>("votes")).Should().Be(1, "the existing row is untouched");
+        }, DatabaseDialect.SqlServer),
+        new("write_insert_get_id", async c =>
+        {
+            var first = await c.Db.Table(c.Writes).InsertGetIdAsync<long>(new Dictionary<string, object?> { ["name"] = "w_e1", ["votes"] = 1 });
+            var second = await c.Db.Table(c.Writes).InsertGetIdAsync<long>(new Dictionary<string, object?> { ["name"] = "w_e2", ["votes"] = 2 });
+            first.Should().BeGreaterThan(0);
+            second.Should().BeGreaterThan(first);
+            (await c.Db.Table(c.Writes).Where("id", second).ValueAsync<string>("name")).Should().Be("w_e2");
+        }),
+        new("write_insert_using", async c =>
+        {
+            var source = c.Db.Table(c.People).Select("name", "votes").Where("votes", ">=", 20);
+            (await c.Db.Table(c.Writes).InsertUsingAsync(["name", "votes"], source)).Should().Be(3);
+            (await c.Db.Table(c.Writes).WhereIn("name", new[] { "Grace", "Linus", "Margaret" }).CountAsync()).Should().Be(3);
+        }),
     ];
 
     public static IEnumerable<object[]> Names(DatabaseDialect dialect) =>

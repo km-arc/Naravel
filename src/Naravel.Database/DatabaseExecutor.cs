@@ -135,6 +135,57 @@ internal sealed class DatabaseExecutor(IConnectionScope scope, string? connectio
         return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<int> NonQueryManyAsync(IReadOnlyList<CompiledQuery> statements, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (statements.Count == 1) return await NonQueryAsync(statements[0].Sql, statements[0].Bindings, cancellationToken).ConfigureAwait(false);
+
+        await using var lease = await scope.AcquireAsync(connectionName, cancellationToken).ConfigureAwait(false);
+        var ambient = lease.Transaction;
+        await using var own = ambient is null ? await lease.Connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false) : null;
+        var transaction = ambient ?? own;
+
+        try
+        {
+            var total = 0;
+            foreach (var statement in statements)
+            {
+                total += await _observer.ObserveAsync(ResolvedName, QueryOperation.Statement, statement.Sql, statement.Bindings, async () =>
+                {
+                    await using var command = CreateCommand(lease, statement.Sql, statement.Bindings);
+                    command.Transaction = transaction;
+                    return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }).ConfigureAwait(false);
+            }
+
+            if (own is not null) await own.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return total;
+        }
+        catch
+        {
+            if (own is not null) await own.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    public async Task<T> NonQueryThenScalarAsync<T>(CompiledQuery first, string scalarSql, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await using var lease = await scope.AcquireAsync(connectionName, cancellationToken).ConfigureAwait(false);
+
+        await _observer.ObserveAsync(ResolvedName, QueryOperation.Statement, first.Sql, first.Bindings, async () =>
+        {
+            await using var command = CreateCommand(lease, first.Sql, first.Bindings);
+            return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+        return await _observer.ObserveAsync(ResolvedName, QueryOperation.Scalar, scalarSql, Array.Empty<object?>(), async () =>
+        {
+            await using var command = CreateCommand(lease, scalarSql, Array.Empty<object?>());
+            return ValueConverter.Convert<T>(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false));
+        }).ConfigureAwait(false);
+    }
+
     /// <summary>Turns <c>?</c> placeholders into <c>@p0</c>, <c>@p1</c>... (<c>??</c> is a literal question mark) and checks the value count.</summary>
     public static (string Sql, IReadOnlyList<object?> Bindings) Prepare(string sql, IEnumerable<object?>? bindings)
     {
