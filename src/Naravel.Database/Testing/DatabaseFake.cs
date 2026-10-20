@@ -197,6 +197,19 @@ public sealed class DatabaseFake : IDatabase, IQueryRunner
         return Task.FromResult(affected is int count ? count : 0);
     }
 
+    async Task<int> IQueryRunner.NonQueryManyAsync(IReadOnlyList<CompiledQuery> statements, CancellationToken cancellationToken)
+    {
+        var total = 0;
+        foreach (var statement in statements) total += await ((IQueryRunner)this).NonQueryAsync(statement.Sql, statement.Bindings, cancellationToken).ConfigureAwait(false);
+        return total;
+    }
+
+    async Task<T> IQueryRunner.NonQueryThenScalarAsync<T>(CompiledQuery first, string scalarSql, CancellationToken cancellationToken)
+    {
+        await ((IQueryRunner)this).NonQueryAsync(first.Sql, first.Bindings, cancellationToken).ConfigureAwait(false);
+        return await ((IQueryRunner)this).FirstValueAsync<T>(scalarSql, Array.Empty<object?>(), cancellationToken).ConfigureAwait(false);
+    }
+
     private static T Convert<T>(object? value)
     {
         if (value is null) return default!;

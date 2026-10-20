@@ -14,4 +14,10 @@ internal interface IQueryRunner
     IAsyncEnumerable<T> StreamAsync<T>(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken);
 
     Task<int> NonQueryAsync(string sql, IReadOnlyList<object?> bindings, CancellationToken cancellationToken);
+
+    /// <summary>Runs several statements on one connection inside one transaction (the ambient one when there is one, otherwise a new one that commits at the end) and returns the rows affected in total.</summary>
+    Task<int> NonQueryManyAsync(IReadOnlyList<CompiledQuery> statements, CancellationToken cancellationToken);
+
+    /// <summary>Runs <paramref name="first"/> and then <paramref name="scalarSql"/> on the same connection and returns the first value of the second.</summary>
+    Task<T> NonQueryThenScalarAsync<T>(CompiledQuery first, string scalarSql, CancellationToken cancellationToken);
 }

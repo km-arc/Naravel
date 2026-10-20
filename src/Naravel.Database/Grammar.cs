@@ -172,6 +172,105 @@ public abstract class Grammar
     /// <summary>One quoted name, for fixed aliases.</summary>
     internal string QuoteName(string name) => Quote(name);
 
+    /// <summary>The <c>insert</c> keywords up to and including the table's <c>into</c>; <paramref name="ignore"/> asks the engine to skip rows that violate a unique key.</summary>
+    internal virtual string InsertVerb(bool ignore) => ignore ? throw NotSupported("insert or ignore") : "insert into ";
+
+    /// <summary>Text after the values, for engines that put the ignore rule there.</summary>
+    internal virtual string InsertSuffix(bool ignore) => string.Empty;
+
+    /// <summary>What an insert with no columns looks like after the table name.</summary>
+    internal virtual string EmptyInsert => " default values";
+
+    /// <summary>The most rows one <c>values</c> list may carry.</summary>
+    internal virtual int MaxInsertRows => int.MaxValue;
+
+    /// <summary>Text between the column list and <c>values</c> that returns the generated key (SQL Server <c>output</c>), or <see langword="null"/>.</summary>
+    internal virtual string? InsertOutput(string quotedColumn) => null;
+
+    /// <summary>Text after the values that returns the generated key (<c>returning</c>), or <see langword="null"/>.</summary>
+    internal virtual string? InsertReturning(string quotedColumn) => null;
+
+    /// <summary>A second command that reads the generated key on the same connection (MySQL), or <see langword="null"/> when the insert itself returns it.</summary>
+    internal virtual string? LastInsertIdSql => null;
+
+    /// <summary>Compiles one or more <c>insert</c> statements for the rows; a batch is split to stay under the parameter and row limits of the dialect.</summary>
+    internal IReadOnlyList<CompiledQuery> CompileInsert(Query query, IReadOnlyList<string> columns, IReadOnlyList<object?[]> rows, bool ignore)
+    {
+        var table = Wrap(query.TableName ?? throw new InvalidOperationException("The query has no table. Call Table(...) before inserting."));
+        if (columns.Count == 0 && rows.Count != 1) throw new ArgumentException("Rows without columns cannot be inserted in a batch.", "rows");
+        if (columns.Count > MaxParameters) throw new InvalidOperationException($"The {Dialect} dialect allows at most {MaxParameters} parameters per statement, but one row has {columns.Count} values.");
+
+        var perStatement = columns.Count == 0 ? 1 : Math.Min(MaxInsertRows, MaxParameters / columns.Count);
+        var statements = new List<CompiledQuery>();
+        for (var start = 0; start < rows.Count; start += perStatement)
+        {
+            var context = new CompileContext();
+            var sql = new StringBuilder(InsertVerb(ignore)).Append(table);
+            var take = Math.Min(perStatement, rows.Count - start);
+            AppendInsertValues(sql, columns, rows, start, take, context, output: null);
+            sql.Append(InsertSuffix(ignore));
+            statements.Add(new CompiledQuery(sql.ToString(), context.Bindings.ToArray()));
+        }
+
+        return statements;
+    }
+
+    /// <summary>Compiles one <c>insert</c> that also returns the generated key, with <c>output</c> or <c>returning</c> where the engine has it.</summary>
+    internal CompiledQuery CompileInsertGetId(Query query, IReadOnlyList<string> columns, object?[] row, string idColumn)
+    {
+        var table = Wrap(query.TableName ?? throw new InvalidOperationException("The query has no table. Call Table(...) before inserting."));
+        if (columns.Count > MaxParameters) throw new InvalidOperationException($"The {Dialect} dialect allows at most {MaxParameters} parameters per statement, but one row has {columns.Count} values.");
+
+        var quotedId = Quote(idColumn);
+        var context = new CompileContext();
+        var sql = new StringBuilder(InsertVerb(ignore: false)).Append(table);
+        AppendInsertValues(sql, columns, [row], 0, 1, context, InsertOutput(quotedId));
+        if (InsertReturning(quotedId) is { } returning) sql.Append(returning);
+        return new CompiledQuery(sql.ToString(), context.Bindings.ToArray());
+    }
+
+    /// <summary>Compiles <c>insert into t (cols) select ...</c>; the source shares the parameter numbering.</summary>
+    internal CompiledQuery CompileInsertUsing(Query query, IReadOnlyList<string> columns, Query source)
+    {
+        var table = Wrap(query.TableName ?? throw new InvalidOperationException("The query has no table. Call Table(...) before inserting."));
+        var context = new CompileContext();
+        var sql = new StringBuilder(InsertVerb(ignore: false)).Append(table).Append(" (").Append(string.Join(", ", columns.Select(Quote))).Append(") ");
+        AppendSelect(sql, source, context);
+
+        if (context.Bindings.Count > MaxParameters)
+        {
+            throw new InvalidOperationException($"The {Dialect} dialect allows at most {MaxParameters} parameters per statement, but this query has {context.Bindings.Count}.");
+        }
+
+        return new CompiledQuery(sql.ToString(), context.Bindings.ToArray());
+    }
+
+    private void AppendInsertValues(StringBuilder sql, IReadOnlyList<string> columns, IReadOnlyList<object?[]> rows, int start, int take, CompileContext context, string? output)
+    {
+        if (columns.Count == 0)
+        {
+            sql.Append(output is null ? string.Empty : output).Append(EmptyInsert);
+            return;
+        }
+
+        sql.Append(" (").Append(string.Join(", ", columns.Select(Quote))).Append(')');
+        if (output is not null) sql.Append(output);
+        sql.Append(" values ");
+        for (var r = 0; r < take; r++)
+        {
+            if (r > 0) sql.Append(", ");
+            sql.Append('(');
+            var values = rows[start + r];
+            for (var c = 0; c < values.Length; c++)
+            {
+                if (c > 0) sql.Append(", ");
+                sql.Append(context.Add(values[c]));
+            }
+
+            sql.Append(')');
+        }
+    }
+
     /// <summary>Writes a whole select into <paramref name="sql"/>; a subquery shares the context of the outer statement so parameter numbers stay unique and in text order.</summary>
     private void AppendSelect(StringBuilder sql, Query query, CompileContext context)
     {
@@ -439,6 +538,10 @@ public abstract class Grammar
 
 internal sealed class SqliteGrammar() : Grammar(DatabaseDialect.Sqlite, 32766, '"', '"')
 {
+    internal override string InsertVerb(bool ignore) => ignore ? "insert or ignore into " : "insert into ";
+
+    internal override string? InsertReturning(string quotedColumn) => " returning " + quotedColumn;
+
     internal override string RandomOrder => "random()";
 
     internal override string JsonExtract(string column, IReadOnlyList<string> path, CompileContext context, object? hint) =>
@@ -483,6 +586,12 @@ internal sealed class SqliteGrammar() : Grammar(DatabaseDialect.Sqlite, 32766, '
 
 internal sealed class MySqlGrammar() : Grammar(DatabaseDialect.MySql, 65535, '`', '`')
 {
+    internal override string InsertVerb(bool ignore) => ignore ? "insert ignore into " : "insert into ";
+
+    internal override string EmptyInsert => " () values ()";
+
+    internal override string? LastInsertIdSql => "select last_insert_id()";
+
     internal override string RandomOrder => "rand()";
 
     internal override string JsonExtract(string column, IReadOnlyList<string> path, CompileContext context, object? hint) =>
@@ -529,6 +638,12 @@ internal sealed class MySqlGrammar() : Grammar(DatabaseDialect.MySql, 65535, '`'
 
 internal sealed class PostgresGrammar() : Grammar(DatabaseDialect.Postgres, 65535, '"', '"')
 {
+    internal override string InsertVerb(bool ignore) => "insert into ";
+
+    internal override string InsertSuffix(bool ignore) => ignore ? " on conflict do nothing" : string.Empty;
+
+    internal override string? InsertReturning(string quotedColumn) => " returning " + quotedColumn;
+
     internal override string RandomOrder => "random()";
 
     internal override string JsonExtract(string column, IReadOnlyList<string> path, CompileContext context, object? hint)
@@ -582,6 +697,10 @@ internal sealed class PostgresGrammar() : Grammar(DatabaseDialect.Postgres, 6553
 
 internal sealed class SqlServerGrammar() : Grammar(DatabaseDialect.SqlServer, 2098, '[', ']')
 {
+    internal override int MaxInsertRows => 1000;
+
+    internal override string? InsertOutput(string quotedColumn) => " output inserted." + quotedColumn;
+
     internal override string RandomOrder => "newid()";
 
     internal override string JsonExtract(string column, IReadOnlyList<string> path, CompileContext context, object? hint) =>
