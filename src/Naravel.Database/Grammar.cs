@@ -285,6 +285,87 @@ public abstract class Grammar
         }
     }
 
+    /// <summary>Compiles <c>delete</c>, with joins where the dialect can express them.</summary>
+    internal CompiledQuery CompileDelete(Query query)
+    {
+        if (query.TableName is not { } table) throw new InvalidOperationException("The query has no table. Call Table(...) before deleting.");
+        var context = new CompileContext();
+        var sql = new StringBuilder("delete ");
+        var wrapped = Wrap(table);
+        var bare = Wrap(new ParsedIdentifier(table.Segments, false, null));
+        var target = table.Alias is null ? bare : Quote(table.Alias);
+
+        if (query.Joins.Count == 0)
+        {
+            if (JoinedUpdate == UpdateJoinStyle.From && table.Alias is not null) sql.Append(target).Append(" from ").Append(wrapped);
+            else sql.Append("from ").Append(wrapped);
+            AppendWhereClause(sql, query.Wheres, context);
+        }
+        else
+        {
+            switch (JoinedUpdate)
+            {
+                case UpdateJoinStyle.Inline:
+                case UpdateJoinStyle.From: // MySQL and SQL Server: delete <target> from <table> <joins> where ...
+                    sql.Append(target).Append(" from ").Append(wrapped);
+                    AppendJoins(sql, query, context);
+                    AppendWhereClause(sql, query.Wheres, context);
+                    break;
+
+                default:
+                    if (Dialect == DatabaseDialect.Sqlite)
+                    {
+                        // SQLite has no joined delete: find the rows by rowid in a select that has the joins (a table WITHOUT ROWID cannot be used).
+                        sql.Append("from ").Append(wrapped).Append(" where ").Append(Quote("rowid")).Append(" in (select ").Append(target).Append('.').Append(Quote("rowid")).Append(" from ").Append(wrapped);
+                        AppendJoins(sql, query, context);
+                        AppendWhereClause(sql, query.Wheres, context);
+                        sql.Append(')');
+                    }
+                    else
+                    {
+                        // PostgreSQL: delete from t using o where ... (inner joins only).
+                        foreach (var join in query.Joins)
+                        {
+                            if (join.Kind != JoinKind.Inner) throw NotSupported("A delete with a left, right or cross join");
+                        }
+
+                        sql.Append("from ").Append(wrapped).Append(" using ").Append(Wrap(query.Joins[0].Table));
+                        for (var i = 1; i < query.Joins.Count; i++)
+                        {
+                            sql.Append(" inner join ").Append(Wrap(query.Joins[i].Table)).Append(" on ");
+                            AppendWheres(sql, query.Joins[i].Conditions, context);
+                        }
+
+                        sql.Append(" where (");
+                        AppendWheres(sql, query.Joins[0].Conditions, context);
+                        sql.Append(')');
+                        if (query.Wheres.Count > 0)
+                        {
+                            sql.Append(" and (");
+                            AppendWheres(sql, query.Wheres, context);
+                            sql.Append(')');
+                        }
+                    }
+
+                    break;
+            }
+        }
+
+        if (context.Bindings.Count > MaxParameters)
+        {
+            throw new InvalidOperationException($"The {Dialect} dialect allows at most {MaxParameters} parameters per statement, but this query has {context.Bindings.Count}.");
+        }
+
+        return new CompiledQuery(sql.ToString(), context.Bindings.ToArray());
+    }
+
+    /// <summary>Compiles the statements that empty a table and reset its identity counter. <paramref name="resetSequence"/> matters to SQLite only: its counter table exists only after a table used <c>autoincrement</c>.</summary>
+    internal virtual IReadOnlyList<CompiledQuery> CompileTruncate(Query query, bool resetSequence)
+    {
+        var table = Wrap(query.TableName ?? throw new InvalidOperationException("The query has no table. Call Table(...) before truncating."));
+        return [new CompiledQuery("truncate table " + table, [])];
+    }
+
     /// <summary>Compiles <c>update ... set ... where ...</c>, with joins where the dialect can express them.</summary>
     internal CompiledQuery CompileUpdate(Query query, IReadOnlyList<UpdateAssignment> assignments)
     {
@@ -688,6 +769,14 @@ internal sealed class SqliteGrammar() : Grammar(DatabaseDialect.Sqlite, 32766, '
 
     internal override string? InsertReturning(string quotedColumn) => " returning " + quotedColumn;
 
+    internal override IReadOnlyList<CompiledQuery> CompileTruncate(Query query, bool resetSequence)
+    {
+        var table = query.TableName ?? throw new InvalidOperationException("The query has no table. Call Table(...) before truncating.");
+        var statements = new List<CompiledQuery> { new("delete from " + Wrap(table), []) };
+        if (resetSequence) statements.Add(new CompiledQuery("delete from \"sqlite_sequence\" where \"name\" = @p0", [table.Segments[^1]]));
+        return statements;
+    }
+
     internal override string RandomOrder => "random()";
 
     internal override string JsonExtract(string column, IReadOnlyList<string> path, CompileContext context, object? hint) =>
@@ -799,6 +888,10 @@ internal sealed class PostgresGrammar() : Grammar(DatabaseDialect.Postgres, 6553
     internal override string InsertVerb(bool ignore) => "insert into ";
 
     internal override string InsertSuffix(bool ignore) => ignore ? " on conflict do nothing" : string.Empty;
+
+    // No cascade: truncating a table that foreign keys point at fails instead of silently emptying the tables that reference it.
+    internal override IReadOnlyList<CompiledQuery> CompileTruncate(Query query, bool resetSequence) =>
+        [new CompiledQuery("truncate table " + Wrap(query.TableName ?? throw new InvalidOperationException("The query has no table. Call Table(...) before truncating.")) + " restart identity", [])];
 
     internal override string? InsertReturning(string quotedColumn) => " returning " + quotedColumn;
 

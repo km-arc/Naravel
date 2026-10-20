@@ -452,6 +452,53 @@ internal static class ContractScenarios
             (await c.Db.Table(c.Writes).WhereLike("name", "w_t%").CountAsync()).Should().BeGreaterThanOrEqualTo(1200);
             (await c.Db.Table(c.Writes).Where("name", "w_t1200").CountAsync()).Should().Be(1);
         }),
+        new("write_delete_by_where_id_and_guard", async c =>
+        {
+            await c.Db.Table(c.Writes).InsertAsync(new[]
+            {
+                new Dictionary<string, object?> { ["name"] = "w_d1", ["votes"] = 1 },
+                new Dictionary<string, object?> { ["name"] = "w_d2", ["votes"] = 2 },
+                new Dictionary<string, object?> { ["name"] = "w_d3", ["votes"] = 3 },
+            });
+
+            (await c.Db.Table(c.Writes).Where("name", "w_d1").DeleteAsync()).Should().Be(1);
+            var id = await c.Db.Table(c.Writes).Where("name", "w_d2").ValueAsync<long>("id");
+            (await c.Db.Table(c.Writes).DeleteByIdAsync(id)).Should().Be(1);
+            (await c.Db.Table(c.Writes).DeleteByIdAsync(id)).Should().Be(0);
+
+            await FluentActions.Invoking(() => c.Db.Table(c.Writes).DeleteAsync()).Should().ThrowAsync<InvalidOperationException>();
+            (await c.Db.Table(c.Writes).Where("name", "w_d3").CountAsync()).Should().Be(1, "the refused delete removed nothing");
+        }),
+        new("write_delete_with_join", async c =>
+        {
+            await c.Db.Table(c.Writes).InsertAsync(new Dictionary<string, object?> { ["name"] = "Dennis", ["votes"] = 5 });
+
+            var removed = await c.Db.Table(c.Writes).Join(c.People, c.People + ".name", c.Writes + ".name").Where(c.People + ".votes", 5).DeleteAsync();
+
+            removed.Should().Be(1);
+            (await c.Db.Table(c.Writes).Where("name", "Dennis").CountAsync()).Should().Be(0);
+            (await c.Db.Table(c.People).Where("name", "Dennis").CountAsync()).Should().Be(1, "only the target table loses rows");
+        }),
+        new("write_truncate_resets_the_identity", async c =>
+        {
+            var table = c.Writes + "_tr";
+            await c.Db.UnpreparedAsync($"create table {table} (id {ContractSchema.IdColumn(c.Dialect)}, name varchar(50) not null)");
+            try
+            {
+                var row = new Dictionary<string, object?> { ["name"] = "x" };
+                await c.Db.Table(table).InsertAsync(new[] { row, row });
+                (await c.Db.Table(table).CountAsync()).Should().Be(2);
+
+                await c.Db.Table(table).TruncateAsync();
+
+                (await c.Db.Table(table).CountAsync()).Should().Be(0);
+                (await c.Db.Table(table).InsertGetIdAsync<long>(row)).Should().Be(1, "truncate restarts the counter");
+            }
+            finally
+            {
+                await c.Db.UnpreparedAsync($"drop table {table}");
+            }
+        }),
     ];
 
     public static IEnumerable<object[]> Names(DatabaseDialect dialect) =>
