@@ -74,6 +74,12 @@ public abstract class Grammar
 
     internal abstract string JsonLength(string column, IReadOnlyList<string>? path, string op, int value, CompileContext context);
 
+    /// <summary>The SQL expression that sets one JSON path inside <paramref name="expression"/> (a column or a nested call of this function) to a value.</summary>
+    internal abstract string JsonSet(string expression, IReadOnlyList<string> path, object? value, CompileContext context);
+
+    /// <summary>How the dialect writes an update that joins other tables.</summary>
+    internal virtual UpdateJoinStyle JoinedUpdate => UpdateJoinStyle.FromWhere;
+
     internal virtual IReadOnlyCollection<string> ExtraOperators => Array.Empty<string>();
 
     internal virtual string? OffsetOnlyLimit => null;
@@ -268,6 +274,138 @@ public abstract class Grammar
             }
 
             sql.Append(')');
+        }
+    }
+
+    /// <summary>Compiles <c>update ... set ... where ...</c>, with joins where the dialect can express them.</summary>
+    internal CompiledQuery CompileUpdate(Query query, IReadOnlyList<UpdateAssignment> assignments)
+    {
+        if (query.TableName is not { } table) throw new InvalidOperationException("The query has no table. Call Table(...) before updating.");
+        var context = new CompileContext();
+        var sql = new StringBuilder("update ");
+        var hasJoins = query.Joins.Count > 0;
+        var wrapped = Wrap(table);
+
+        switch (JoinedUpdate)
+        {
+            case UpdateJoinStyle.Inline: // MySQL: the joins sit between the table and set.
+                sql.Append(wrapped);
+                AppendJoins(sql, query, context);
+                AppendSet(sql, assignments, context);
+                AppendWhereClause(sql, query.Wheres, context);
+                break;
+
+            case UpdateJoinStyle.From: // SQL Server: the target is the alias or table, and a from clause repeats the table with its joins.
+                sql.Append(table.Alias is null ? wrapped : Quote(table.Alias));
+                AppendSet(sql, assignments, context);
+                if (hasJoins || table.Alias is not null)
+                {
+                    sql.Append(" from ").Append(wrapped);
+                    AppendJoins(sql, query, context);
+                }
+
+                AppendWhereClause(sql, query.Wheres, context);
+                break;
+
+            default: // PostgreSQL and SQLite: update from; the first join's condition moves into where.
+                sql.Append(wrapped);
+                AppendSet(sql, assignments, context);
+                if (hasJoins)
+                {
+                    foreach (var join in query.Joins)
+                    {
+                        if (join.Kind != JoinKind.Inner) throw NotSupported("An update with a left, right or cross join");
+                    }
+
+                    sql.Append(" from ").Append(Wrap(query.Joins[0].Table));
+                    for (var i = 1; i < query.Joins.Count; i++)
+                    {
+                        sql.Append(" inner join ").Append(Wrap(query.Joins[i].Table)).Append(" on ");
+                        AppendWheres(sql, query.Joins[i].Conditions, context);
+                    }
+
+                    sql.Append(" where (");
+                    AppendWheres(sql, query.Joins[0].Conditions, context);
+                    sql.Append(')');
+                    if (query.Wheres.Count > 0)
+                    {
+                        sql.Append(" and (");
+                        AppendWheres(sql, query.Wheres, context);
+                        sql.Append(')');
+                    }
+                }
+                else
+                {
+                    AppendWhereClause(sql, query.Wheres, context);
+                }
+
+                break;
+        }
+
+        if (context.Bindings.Count > MaxParameters)
+        {
+            throw new InvalidOperationException($"The {Dialect} dialect allows at most {MaxParameters} parameters per statement, but this query has {context.Bindings.Count}.");
+        }
+
+        return new CompiledQuery(sql.ToString(), context.Bindings.ToArray());
+    }
+
+    private void AppendJoins(StringBuilder sql, Query query, CompileContext context)
+    {
+        foreach (var join in query.Joins)
+        {
+            sql.Append(join.Kind switch { JoinKind.Left => " left join ", JoinKind.Right => " right join ", JoinKind.Cross => " cross join ", _ => " inner join " }).Append(Wrap(join.Table));
+            if (join.Kind == JoinKind.Cross) continue;
+            sql.Append(" on ");
+            AppendWheres(sql, join.Conditions, context);
+        }
+    }
+
+    private void AppendWhereClause(StringBuilder sql, IReadOnlyList<WhereNode> wheres, CompileContext context)
+    {
+        if (wheres.Count == 0) return;
+        sql.Append(" where ");
+        AppendWheres(sql, wheres, context);
+    }
+
+    private void AppendSet(StringBuilder sql, IReadOnlyList<UpdateAssignment> assignments, CompileContext context)
+    {
+        sql.Append(" set ");
+
+        // Several JSON paths of one column become one assignment with nested calls; the column keeps its first position.
+        var order = new List<string>();
+        var plain = new Dictionary<string, UpdateAssignment>(StringComparer.Ordinal);
+        var json = new Dictionary<string, List<UpdateAssignment>>(StringComparer.Ordinal);
+        foreach (var assignment in assignments)
+        {
+            if (!order.Contains(assignment.Column)) order.Add(assignment.Column);
+            if (assignment.JsonPath is null)
+            {
+                if (json.ContainsKey(assignment.Column) || !plain.TryAdd(assignment.Column, assignment)) throw new ArgumentException($"The column '{assignment.Column}' is assigned more than once.", "values");
+            }
+            else
+            {
+                if (plain.ContainsKey(assignment.Column)) throw new ArgumentException($"The column '{assignment.Column}' is assigned as a whole and as a JSON path in the same update.", "values");
+                if (!json.TryGetValue(assignment.Column, out var list)) json[assignment.Column] = list = new List<UpdateAssignment>();
+                list.Add(assignment);
+            }
+        }
+
+        for (var i = 0; i < order.Count; i++)
+        {
+            if (i > 0) sql.Append(", ");
+            var column = Quote(order[i]);
+            sql.Append(column).Append(" = ");
+            if (plain.TryGetValue(order[i], out var single))
+            {
+                sql.Append(single.Add ? $"{column} + {context.Add(single.Value)}" : context.Add(single.Value));
+            }
+            else
+            {
+                var expression = column;
+                foreach (var item in json[order[i]]) expression = JsonSet(expression, item.JsonPath!, item.Value, context);
+                sql.Append(expression);
+            }
         }
     }
 
@@ -565,6 +703,9 @@ internal sealed class SqliteGrammar() : Grammar(DatabaseDialect.Sqlite, 32766, '
     internal override string JsonContainsKey(string column, IReadOnlyList<string> path, CompileContext context) =>
         $"json_type({column}, {context.Add(IdentifierGrammar.JsonPathText(path))}) is not null";
 
+    internal override string JsonSet(string expression, IReadOnlyList<string> path, object? value, CompileContext context) =>
+        $"json_set({expression}, {context.Add(IdentifierGrammar.JsonPathText(path))}, json({context.Add(JsonText(value!))}))";
+
     internal override string JsonLength(string column, IReadOnlyList<string>? path, string op, int value, CompileContext context) =>
         $"json_array_length({(path is null ? column : $"{column}, {context.Add(IdentifierGrammar.JsonPathText(path))}")}) {op} {context.Add(value)}";
 
@@ -613,6 +754,11 @@ internal sealed class MySqlGrammar() : Grammar(DatabaseDialect.MySql, 65535, '`'
 
     internal override string JsonContainsKey(string column, IReadOnlyList<string> path, CompileContext context) =>
         $"ifnull(json_contains_path({column}, 'one', {context.Add(IdentifierGrammar.JsonPathText(path))}), 0)";
+
+    internal override UpdateJoinStyle JoinedUpdate => UpdateJoinStyle.Inline;
+
+    internal override string JsonSet(string expression, IReadOnlyList<string> path, object? value, CompileContext context) =>
+        $"json_set({expression}, {context.Add(IdentifierGrammar.JsonPathText(path))}, cast({context.Add(JsonText(value!))} as json))";
 
     internal override string JsonLength(string column, IReadOnlyList<string>? path, string op, int value, CompileContext context) =>
         $"json_length({(path is null ? column : $"{column}, {context.Add(IdentifierGrammar.JsonPathText(path))}")}) {op} {context.Add(value)}";
@@ -668,6 +814,9 @@ internal sealed class PostgresGrammar() : Grammar(DatabaseDialect.Postgres, 6553
 
     internal override string JsonContainsKey(string column, IReadOnlyList<string> path, CompileContext context) =>
         $"coalesce(jsonb_path_exists(cast({column} as jsonb), cast({context.Add(IdentifierGrammar.JsonPathText(path))} as jsonpath)), false)";
+
+    internal override string JsonSet(string expression, IReadOnlyList<string> path, object? value, CompileContext context) =>
+        $"jsonb_set(cast({expression} as jsonb), cast({context.Add(IdentifierGrammar.JsonPathArray(path))} as text[]), cast({context.Add(JsonText(value!))} as jsonb))";
 
     internal override string JsonLength(string column, IReadOnlyList<string>? path, string op, int value, CompileContext context)
     {
@@ -735,6 +884,20 @@ internal sealed class SqlServerGrammar() : Grammar(DatabaseDialect.SqlServer, 20
         var scalar = context.Add(IdentifierGrammar.JsonPathText(path));
         var fragment = context.Add(IdentifierGrammar.JsonPathText(path));
         return $"(json_value({column}, {scalar}) is not null or json_query({column}, {fragment}) is not null)";
+    }
+
+    internal override UpdateJoinStyle JoinedUpdate => UpdateJoinStyle.From;
+
+    internal override string JsonSet(string expression, IReadOnlyList<string> path, object? value, CompileContext context)
+    {
+        var target = context.Add(IdentifierGrammar.JsonPathText(path));
+        return value switch
+        {
+            null => throw NotSupported("Setting a JSON path to null (json_modify would delete the key)"),
+            bool flag => $"json_modify({expression}, {target}, cast({context.Add(flag)} as bit))",
+            _ when IsJsonScalar(value) => $"json_modify({expression}, {target}, {context.Add(value)})",
+            _ => $"json_modify({expression}, {target}, json_query({context.Add(JsonText(value))}))",
+        };
     }
 
     internal override string JsonLength(string column, IReadOnlyList<string>? path, string op, int value, CompileContext context)

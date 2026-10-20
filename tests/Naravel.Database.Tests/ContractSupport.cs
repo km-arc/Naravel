@@ -105,7 +105,7 @@ internal static class ContractSchema
             DatabaseDialect.SqlServer => "bigint identity(1,1) not null primary key",
             _ => "integer primary key",
         };
-        yield return $"create table {context.Writes} (id {idColumn}, name {stringType} not null unique, votes integer not null)";
+        yield return $"create table {context.Writes} (id {idColumn}, name {stringType} not null unique, votes integer not null, tag {stringType} null, meta {jsonType} null)";
     }
 
     public static async Task SeedAsync(ContractContext context)

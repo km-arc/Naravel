@@ -20,6 +20,7 @@ public sealed partial class Query
     private readonly List<WhereNode> _havings = new();
     private ParsedIdentifier? _table;
     private bool _distinct;
+    private bool _allRows;
     private int? _limit;
     private int? _offset;
 
@@ -361,7 +362,7 @@ public sealed partial class Query
     /// <summary>Copies the query so it can be changed without touching the original. Laravel: <c>clone</c>.</summary>
     public Query Clone()
     {
-        var copy = new Query(Grammar) { _table = _table, _distinct = _distinct, _limit = _limit, _offset = _offset, Runner = Runner };
+        var copy = new Query(Grammar) { _table = _table, _distinct = _distinct, _allRows = _allRows, _limit = _limit, _offset = _offset, Runner = Runner };
         copy._columns.AddRange(_columns);
         copy._wheres.AddRange(_wheres);
         copy._orders.AddRange(_orders);

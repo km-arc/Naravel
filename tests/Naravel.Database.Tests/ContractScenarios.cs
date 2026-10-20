@@ -366,6 +366,65 @@ internal static class ContractScenarios
             (await c.Db.Table(c.Writes).InsertUsingAsync(["name", "votes"], source)).Should().Be(3);
             (await c.Db.Table(c.Writes).WhereIn("name", new[] { "Grace", "Linus", "Margaret" }).CountAsync()).Should().Be(3);
         }),
+        new("write_update_basic", async c =>
+        {
+            await c.Db.Table(c.Writes).InsertAsync(new[] { "w_u1", "w_u2", "w_u3" }.Select((n, i) => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?> { ["name"] = n, ["votes"] = i + 1 }));
+            (await c.Db.Table(c.Writes).Where("name", "w_u1").UpdateAsync(new Dictionary<string, object?> { ["votes"] = 10, ["tag"] = "first" })).Should().Be(1);
+            (await c.Db.Table(c.Writes).Where("name", "w_u1").ValueAsync<long>("votes")).Should().Be(10);
+            (await c.Db.Table(c.Writes).Where("name", "w_u1").ValueAsync<string>("tag")).Should().Be("first");
+            (await c.Db.Table(c.Writes).WhereIn("name", new[] { "w_u2", "w_u3" }).UpdateAsync(new Dictionary<string, object?> { ["votes"] = 0, ["tag"] = null })).Should().Be(2);
+            (await c.Db.Table(c.Writes).WhereIn("name", new[] { "w_u1", "w_u2", "w_u3" }).SumAsync("votes")).Should().Be(10m);
+            await FluentActions.Awaiting(() => c.Db.Table(c.Writes).UpdateAsync(new Dictionary<string, object?> { ["votes"] = 0 })).Should().ThrowAsync<InvalidOperationException>().WithMessage("*every row*");
+        }),
+        new("write_update_or_insert", async c =>
+        {
+            var attributes = new Dictionary<string, object?> { ["name"] = "w_o1" };
+            (await c.Db.Table(c.Writes).UpdateOrInsertAsync(attributes, new Dictionary<string, object?> { ["votes"] = 1 })).Should().BeTrue("no row matched, so one was inserted");
+            (await c.Db.Table(c.Writes).UpdateOrInsertAsync(attributes, new Dictionary<string, object?> { ["votes"] = 2 })).Should().BeFalse("the row existed, so it was updated");
+            (await c.Db.Table(c.Writes).Where("name", "w_o1").ValueAsync<long>("votes")).Should().Be(2);
+            (await c.Db.Table(c.Writes).UpdateOrInsertAsync(attributes, new Dictionary<string, object?>())).Should().BeFalse();
+            (await c.Db.Table(c.Writes).Where("name", "w_o1").CountAsync()).Should().Be(1);
+        }),
+        new("write_increment_decrement", async c =>
+        {
+            await c.Db.Table(c.Writes).InsertAsync(new Dictionary<string, object?> { ["name"] = "w_i1", ["votes"] = 10 });
+            (await c.Db.Table(c.Writes).Where("name", "w_i1").IncrementAsync("votes")).Should().Be(1);
+            (await c.Db.Table(c.Writes).Where("name", "w_i1").IncrementAsync("votes", 5)).Should().Be(1);
+            (await c.Db.Table(c.Writes).Where("name", "w_i1").DecrementAsync("votes", 3)).Should().Be(1);
+            (await c.Db.Table(c.Writes).Where("name", "w_i1").ValueAsync<long>("votes")).Should().Be(13);
+            (await c.Db.Table(c.Writes).Where("name", "w_i1").IncrementEachAsync(new Dictionary<string, long> { ["votes"] = 2 })).Should().Be(1);
+            (await c.Db.Table(c.Writes).Where("name", "w_i1").DecrementEachAsync(new Dictionary<string, long> { ["votes"] = 1 })).Should().Be(1);
+            (await c.Db.Table(c.Writes).Where("name", "w_i1").IncrementAsync("votes", 1, new Dictionary<string, object?> { ["tag"] = "bumped" })).Should().Be(1);
+            (await c.Db.Table(c.Writes).Where("name", "w_i1").ValueAsync<long>("votes")).Should().Be(15);
+            (await c.Db.Table(c.Writes).Where("name", "w_i1").ValueAsync<string>("tag")).Should().Be("bumped");
+        }),
+        new("write_update_with_join", async c =>
+        {
+            await c.Db.Table(c.Writes).InsertAsync(new Dictionary<string, object?> { ["name"] = "Ada", ["votes"] = 1 });
+            var changed = await c.Db.Table(c.Writes).Join(c.People, c.Writes + ".name", c.People + ".name").Where(c.People + ".votes", 10).UpdateAsync(new Dictionary<string, object?> { ["tag"] = "joined" });
+            changed.Should().Be(1);
+            (await c.Db.Table(c.Writes).Where("name", "Ada").ValueAsync<string>("tag")).Should().Be("joined");
+        }),
+        new("write_update_json_paths", async c =>
+        {
+            await c.Db.StatementAsync($"insert into {c.Writes} (name, votes, meta) values ('w_j1', 1, '" + "{\"a\":1,\"nested\":{\"x\":\"y\"},\"list\":[1,2]}" + "')");
+            var changed = await c.Db.Table(c.Writes).Where("name", "w_j1").UpdateAsync(new Dictionary<string, object?>
+            {
+                ["meta->a"] = 5,
+                ["meta->theme"] = "dark",
+                ["meta->flag"] = true,
+                ["meta->nested->x"] = "z",
+                ["votes"] = 2,
+            });
+            changed.Should().Be(1);
+            var json = System.Text.Json.JsonDocument.Parse((await c.Db.Table(c.Writes).Where("name", "w_j1").ValueAsync<string>("meta"))!).RootElement;
+            json.GetProperty("a").GetInt32().Should().Be(5);
+            json.GetProperty("theme").GetString().Should().Be("dark");
+            json.GetProperty("flag").GetBoolean().Should().BeTrue();
+            json.GetProperty("nested").GetProperty("x").GetString().Should().Be("z");
+            json.GetProperty("list").GetArrayLength().Should().Be(2, "the untouched paths stay");
+            (await c.Db.Table(c.Writes).Where("name", "w_j1").ValueAsync<long>("votes")).Should().Be(2);
+        }),
     ];
 
     public static IEnumerable<object[]> Names(DatabaseDialect dialect) =>
