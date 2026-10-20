@@ -218,6 +218,29 @@ The same builder call compiles differently per database. Everything below is pro
 
 An operator that exists on one dialect only throws `NotSupportedException` on the others instead of generating SQL that fails at run time. `Offset` on SQL Server without `OrderBy` throws `InvalidOperationException`, because `OFFSET ... FETCH` requires `ORDER BY`.
 
+### R21 dialect matrix
+
+What the where family, joins, grouping and ordering helpers do on each database. `yes` means the same call compiles and runs everywhere; a cell that says `throws` raises `NotSupportedException` naming the dialect when the query is compiled. `tests/Naravel.Database.Tests/DialectMatrixTests.cs` asserts this table: change both together.
+
+| Feature | SQLite | MySQL | PostgreSQL | SQL Server |
+|---|---|---|---|---|
+| `WhereLike` / `WhereNotLike` | yes (ASCII case-insensitive) | yes | yes (`ilike`) | yes |
+| case-sensitive `WhereLike` | throws | `like binary` | `like` | `collate SQL_Latin1_General_CP1_CS_AS` |
+| `WhereFullText` | throws | yes, needs a full-text index | yes, `english` configuration | yes, needs a full-text index |
+| `WhereJsonContains` scalar in an array | yes | yes | yes | yes |
+| `WhereJsonContains` array or object value | throws | yes | yes | throws |
+| `WhereJsonContainsKey`, `WhereJsonLength` | yes | yes | yes (array length) | yes |
+| JSON path column (`data->a->b[0]`) in where | yes | yes (JSON booleans do not compare) | yes (cast to numeric/boolean by the compared value) | yes |
+| `WhereDate`, `WhereMonth`, `WhereDay`, `WhereYear`, `WhereTime` | yes | yes | yes | yes |
+| `WhereAny`, `WhereAll`, `WhereNone`, `WhereBetween`, `WhereColumn` | yes | yes | yes | yes |
+| `WhereExists`, subquery where, `WhereIn` with a callback | yes | yes | yes | yes (`top (n)` inside) |
+| `Join`, `LeftJoin`, `CrossJoin` | yes | yes | yes | yes |
+| `RightJoin` | yes, SQLite 3.39 or later | yes | yes | yes |
+| `GroupBy`, `Having` on grouped columns | yes | yes | yes | yes |
+| `Having` on a select alias | yes | yes | no (database rule) | no (database rule) |
+| `Latest`, `Oldest`, `Reorder` | yes | yes | yes | yes |
+| `InRandomOrder` | `random()` | `rand()` | `random()` | `newid()` |
+
 ### Types
 
 Parameters are bound with a value and, where providers disagree, an explicit type. Single values read back (`ValueAsync<T>`, `ScalarAsync<T>`, `PluckAsync<T>`, `GetAsync<T>` for a simple `T`) are converted by Naravel, so the same call gives the same CLR value on every database:
