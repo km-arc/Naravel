@@ -61,6 +61,12 @@ public sealed partial class Query
 
     internal CompiledQuery CompileDelete()
     {
+        CheckDeleteTarget();
+        return Grammar.CompileDelete(this);
+    }
+
+    private void CheckDeleteTarget()
+    {
         if (_table is null) throw new InvalidOperationException("The query has no table. Call Table(...) before deleting.");
         if (_columns.Count > 0 || _groups.Count > 0 || _havings.Count > 0 || _orders.Count > 0 || _distinct || _limit.HasValue || _offset.HasValue)
         {
@@ -71,8 +77,6 @@ public sealed partial class Query
         {
             throw new InvalidOperationException("This delete has no where, so it would remove every row. Add a Where(...), or call AllRows() or DeleteAllAsync to confirm that you mean every row, or TruncateAsync to empty the table and reset its counter.");
         }
-
-        return Grammar.CompileDelete(this);
     }
 
     internal IReadOnlyList<CompiledQuery> CompileTruncate(bool resetSequence)
