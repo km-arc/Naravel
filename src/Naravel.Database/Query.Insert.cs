@@ -139,6 +139,7 @@ public sealed partial class Query
 
     private void CheckInsertTarget()
     {
+        if (_table?.Alias is not null) throw new InvalidOperationException("An insert or upsert query cannot have a table alias: use the plain table name.");
         if (_wheres.Count > 0 || _joins.Count > 0 || _groups.Count > 0 || _havings.Count > 0 || _orders.Count > 0 || _columns.Count > 0 || _distinct || _limit.HasValue || _offset.HasValue)
         {
             throw new InvalidOperationException("An insert query may only have a table: where, join, group, having, ordering, select, distinct, limit and offset do not apply to an insert and would be ignored. Start a new query with Table(...).");
