@@ -499,6 +499,40 @@ internal static class ContractScenarios
                 await c.Db.UnpreparedAsync($"drop table {table}");
             }
         }),
+        new("write_returning_insert_update_delete", async c =>
+        {
+            var inserted = await c.Db.Table(c.Writes).InsertReturningAsync(new Dictionary<string, object?> { ["name"] = "w_r1", ["votes"] = 4 }, ["id", "name", "votes"]);
+            inserted["name"].Should().Be("w_r1");
+            Convert.ToInt64(inserted["votes"]).Should().Be(4);
+            var id = Convert.ToInt64(inserted["id"]);
+            id.Should().BeGreaterThan(0);
+
+            var updated = await c.Db.Table(c.Writes).Where("name", "w_r1").UpdateReturningAsync(new Dictionary<string, object?> { ["votes"] = 40 }, ["id", "votes"]);
+            updated.Should().ContainSingle();
+            Convert.ToInt64(updated[0]["id"]).Should().Be(id);
+            Convert.ToInt64(updated[0]["votes"]).Should().Be(40, "the row as it is after the update");
+
+            var deleted = await c.Db.Table(c.Writes).Where("name", "w_r1").DeleteReturningAsync(["id", "votes"]);
+            deleted.Should().ContainSingle();
+            Convert.ToInt64(deleted[0]["votes"]).Should().Be(40);
+            (await c.Db.Table(c.Writes).Where("name", "w_r1").CountAsync()).Should().Be(0);
+        }, DatabaseDialect.MySql),
+        new("write_returning_batch_insert", async c =>
+        {
+            var rows = await c.Db.Table(c.Writes).InsertReturningAsync(new[]
+            {
+                new Dictionary<string, object?> { ["name"] = "w_rb1", ["votes"] = 1 },
+                new Dictionary<string, object?> { ["name"] = "w_rb2", ["votes"] = 2 },
+            }, ["name"]);
+
+            rows.Select(r => (string)r["name"]!).Should().BeEquivalentTo("w_rb1", "w_rb2");
+        }, DatabaseDialect.MySql),
+        new("write_returning_is_refused_on_mysql", async c =>
+        {
+            await FluentActions.Invoking(() => c.Db.Table(c.Writes).InsertReturningAsync(new Dictionary<string, object?> { ["name"] = "w_rm", ["votes"] = 1 }, ["id"]))
+                .Should().ThrowAsync<NotSupportedException>();
+            (await c.Db.Table(c.Writes).Where("name", "w_rm").CountAsync()).Should().Be(0, "nothing was sent to the server");
+        }, DatabaseDialect.Sqlite, DatabaseDialect.Postgres, DatabaseDialect.SqlServer),
     ];
 
     public static IEnumerable<object[]> Names(DatabaseDialect dialect) =>

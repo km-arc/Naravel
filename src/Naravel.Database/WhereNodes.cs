@@ -211,3 +211,16 @@ internal enum UpdateJoinStyle
 
 /// <summary>One column of an <c>update ... set</c> list: a value, an addition to the current value, or a JSON path inside the column.</summary>
 internal sealed record UpdateAssignment(string Column, IReadOnlyList<string>? JsonPath, object? Value, bool Add);
+
+/// <summary>How a dialect hands back the rows a write touched.</summary>
+internal enum ReturningStyle
+{
+    /// <summary>MySQL: no way to do it in the statement.</summary>
+    None,
+
+    /// <summary>SQLite and PostgreSQL: <c>returning</c> after the statement.</summary>
+    Suffix,
+
+    /// <summary>SQL Server: <c>output inserted.x</c> / <c>deleted.x</c> inside the statement.</summary>
+    Output,
+}

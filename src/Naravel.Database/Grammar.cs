@@ -196,16 +196,45 @@ public abstract class Grammar
     /// <summary>Text after the values that returns the generated key (<c>returning</c>), or <see langword="null"/>.</summary>
     internal virtual string? InsertReturning(string quotedColumn) => null;
 
+    /// <summary>How the dialect returns the rows a write touched: <c>returning</c> after the statement, <c>output</c> inside it, or not at all.</summary>
+    internal virtual ReturningStyle ReturningMode => ReturningStyle.Suffix;
+
+    /// <summary>The <c>output inserted.a, inserted.b</c> clause (SQL Server), <see langword="null"/> when nothing is returned or the dialect uses <c>returning</c>; throws where the dialect has neither.</summary>
+    internal string? ReturningOutput(IReadOnlyList<string>? columns, string source)
+    {
+        if (columns is null) return null;
+        return ReturningMode switch
+        {
+            ReturningStyle.Output => " output " + string.Join(", ", columns.Select(column => source + "." + Quote(column))),
+            ReturningStyle.None => throw NotSupported("Returning the written rows (RETURNING or OUTPUT)"),
+            _ => null,
+        };
+    }
+
+    /// <summary>The trailing <c>returning a, b</c> clause, <see langword="null"/> when nothing is returned or the dialect uses <c>output</c>; throws where the dialect has neither.</summary>
+    internal string? ReturningSuffix(IReadOnlyList<string>? columns)
+    {
+        if (columns is null) return null;
+        return ReturningMode switch
+        {
+            ReturningStyle.Suffix => " returning " + string.Join(", ", columns.Select(Quote)),
+            ReturningStyle.None => throw NotSupported("Returning the written rows (RETURNING or OUTPUT)"),
+            _ => null,
+        };
+    }
+
     /// <summary>A second command that reads the generated key on the same connection (MySQL), or <see langword="null"/> when the insert itself returns it.</summary>
     internal virtual string? LastInsertIdSql => null;
 
     /// <summary>Compiles one or more <c>insert</c> statements for the rows; a batch is split to stay under the parameter and row limits of the dialect.</summary>
-    internal IReadOnlyList<CompiledQuery> CompileInsert(Query query, IReadOnlyList<string> columns, IReadOnlyList<object?[]> rows, bool ignore, string? suffix = null)
+    internal IReadOnlyList<CompiledQuery> CompileInsert(Query query, IReadOnlyList<string> columns, IReadOnlyList<object?[]> rows, bool ignore, string? suffix = null, IReadOnlyList<string>? returning = null)
     {
         var table = Wrap(query.TableName ?? throw new InvalidOperationException("The query has no table. Call Table(...) before inserting."));
         if (columns.Count == 0 && rows.Count != 1) throw new ArgumentException("Rows without columns cannot be inserted in a batch.", "rows");
         if (columns.Count > MaxParameters) throw new InvalidOperationException($"The {Dialect} dialect allows at most {MaxParameters} parameters per statement, but one row has {columns.Count} values.");
 
+        var output = ReturningOutput(returning, "inserted");
+        var tail = ReturningSuffix(returning);
         var perStatement = columns.Count == 0 ? 1 : Math.Min(MaxInsertRows, MaxParameters / columns.Count);
         var statements = new List<CompiledQuery>();
         for (var start = 0; start < rows.Count; start += perStatement)
@@ -213,8 +242,8 @@ public abstract class Grammar
             var context = new CompileContext();
             var sql = new StringBuilder(InsertVerb(ignore)).Append(table);
             var take = Math.Min(perStatement, rows.Count - start);
-            AppendInsertValues(sql, columns, rows, start, take, context, output: null);
-            sql.Append(suffix ?? InsertSuffix(ignore));
+            AppendInsertValues(sql, columns, rows, start, take, context, output);
+            sql.Append(suffix ?? InsertSuffix(ignore)).Append(tail);
             statements.Add(new CompiledQuery(sql.ToString(), context.Bindings.ToArray()));
         }
 
@@ -286,8 +315,9 @@ public abstract class Grammar
     }
 
     /// <summary>Compiles <c>delete</c>, with joins where the dialect can express them.</summary>
-    internal CompiledQuery CompileDelete(Query query)
+    internal CompiledQuery CompileDelete(Query query, IReadOnlyList<string>? returning = null)
     {
+        var mid = ReturningOutput(returning, "deleted");
         if (query.TableName is not { } table) throw new InvalidOperationException("The query has no table. Call Table(...) before deleting.");
         var context = new CompileContext();
         var sql = new StringBuilder("delete ");
@@ -297,8 +327,8 @@ public abstract class Grammar
 
         if (query.Joins.Count == 0)
         {
-            if (JoinedUpdate == UpdateJoinStyle.From && table.Alias is not null) sql.Append(target).Append(" from ").Append(wrapped);
-            else sql.Append("from ").Append(wrapped);
+            if (JoinedUpdate == UpdateJoinStyle.From && table.Alias is not null) sql.Append(target).Append(mid).Append(" from ").Append(wrapped);
+            else sql.Append("from ").Append(wrapped).Append(mid);
             AppendWhereClause(sql, query.Wheres, context);
         }
         else
@@ -307,7 +337,7 @@ public abstract class Grammar
             {
                 case UpdateJoinStyle.Inline:
                 case UpdateJoinStyle.From: // MySQL and SQL Server: delete <target> from <table> <joins> where ...
-                    sql.Append(target).Append(" from ").Append(wrapped);
+                    sql.Append(target).Append(mid).Append(" from ").Append(wrapped);
                     AppendJoins(sql, query, context);
                     AppendWhereClause(sql, query.Wheres, context);
                     break;
@@ -351,6 +381,8 @@ public abstract class Grammar
             }
         }
 
+        sql.Append(ReturningSuffix(returning));
+
         if (context.Bindings.Count > MaxParameters)
         {
             throw new InvalidOperationException($"The {Dialect} dialect allows at most {MaxParameters} parameters per statement, but this query has {context.Bindings.Count}.");
@@ -367,8 +399,9 @@ public abstract class Grammar
     }
 
     /// <summary>Compiles <c>update ... set ... where ...</c>, with joins where the dialect can express them.</summary>
-    internal CompiledQuery CompileUpdate(Query query, IReadOnlyList<UpdateAssignment> assignments)
+    internal CompiledQuery CompileUpdate(Query query, IReadOnlyList<UpdateAssignment> assignments, IReadOnlyList<string>? returning = null)
     {
+        var mid = ReturningOutput(returning, "inserted");
         if (query.TableName is not { } table) throw new InvalidOperationException("The query has no table. Call Table(...) before updating.");
         var context = new CompileContext();
         var sql = new StringBuilder("update ");
@@ -381,12 +414,14 @@ public abstract class Grammar
                 sql.Append(wrapped);
                 AppendJoins(sql, query, context);
                 AppendSet(sql, assignments, context);
+                sql.Append(mid);
                 AppendWhereClause(sql, query.Wheres, context);
                 break;
 
             case UpdateJoinStyle.From: // SQL Server: the target is the alias or table, and a from clause repeats the table with its joins.
                 sql.Append(table.Alias is null ? wrapped : Quote(table.Alias));
                 AppendSet(sql, assignments, context);
+                sql.Append(mid);
                 if (hasJoins || table.Alias is not null)
                 {
                     sql.Append(" from ").Append(wrapped);
@@ -399,6 +434,7 @@ public abstract class Grammar
             default: // PostgreSQL and SQLite: update from; the first join's condition moves into where.
                 sql.Append(wrapped);
                 AppendSet(sql, assignments, context);
+                sql.Append(mid);
                 if (hasJoins)
                 {
                     foreach (var join in query.Joins)
@@ -430,6 +466,8 @@ public abstract class Grammar
 
                 break;
         }
+
+        sql.Append(ReturningSuffix(returning));
 
         if (context.Bindings.Count > MaxParameters)
         {
@@ -824,6 +862,8 @@ internal sealed class SqliteGrammar() : Grammar(DatabaseDialect.Sqlite, 32766, '
 
 internal sealed class MySqlGrammar() : Grammar(DatabaseDialect.MySql, 65535, '`', '`')
 {
+    internal override ReturningStyle ReturningMode => ReturningStyle.None;
+
     internal override string InsertVerb(bool ignore) => ignore ? "insert ignore into " : "insert into ";
 
     internal override string EmptyInsert => " () values ()";
@@ -951,6 +991,8 @@ internal sealed class PostgresGrammar() : Grammar(DatabaseDialect.Postgres, 6553
 
 internal sealed class SqlServerGrammar() : Grammar(DatabaseDialect.SqlServer, 2098, '[', ']')
 {
+    internal override ReturningStyle ReturningMode => ReturningStyle.Output;
+
     internal override int MaxInsertRows => 1000;
 
     internal override string? InsertOutput(string quotedColumn) => " output inserted." + quotedColumn;
