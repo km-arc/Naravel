@@ -218,6 +218,29 @@ query.GetBindings(); // [true, 18, true]
 
 عملگری که فقط در یک dialect هست روی بقیه `NotSupportedException` می‌دهد، نه SQLی که در زمان اجرا خطا بدهد. `Offset` روی SQL Server بدون `OrderBy` یک `InvalidOperationException` می‌دهد، چون `OFFSET ... FETCH` به `ORDER BY` نیاز دارد.
 
+### ماتریس دیالکت R21
+
+خانوادهٔ where، join، گروه‌بندی و کمک‌های ترتیب روی هر پایگاه داده چه می‌کنند. `yes` یعنی همان فراخوانی همه‌جا کامپایل و اجرا می‌شود؛ خانه‌ای که `throws` دارد هنگام کامپایل `NotSupportedException` با نام دیالکت می‌دهد. فایل `tests/Naravel.Database.Tests/DialectMatrixTests.cs` همین جدول را assert می‌کند: هر دو را با هم تغییر دهید.
+
+| قابلیت | SQLite | MySQL | PostgreSQL | SQL Server |
+|---|---|---|---|---|
+| `WhereLike` / `WhereNotLike` | yes (بدون حساسیت به حروف ASCII) | yes | yes (`ilike`) | yes |
+| `WhereLike` با حساسیت به حروف | throws | `like binary` | `like` | `collate SQL_Latin1_General_CP1_CS_AS` |
+| `WhereFullText` | throws | yes، ایندکس متن کامل می‌خواهد | yes، پیکربندی `english` | yes، ایندکس متن کامل می‌خواهد |
+| `WhereJsonContains` مقدار اسکالر در آرایه | yes | yes | yes | yes |
+| `WhereJsonContains` مقدار آرایه یا شیء | throws | yes | yes | throws |
+| `WhereJsonContainsKey`، `WhereJsonLength` | yes | yes | yes (طول آرایه) | yes |
+| ستون مسیر JSON (`data->a->b[0]`) در where | yes | yes (بولی JSON مقایسه نمی‌شود) | yes (بسته به مقدار مقایسه به numeric/boolean cast می‌شود) | yes |
+| `WhereDate`، `WhereMonth`، `WhereDay`، `WhereYear`، `WhereTime` | yes | yes | yes | yes |
+| `WhereAny`، `WhereAll`، `WhereNone`، `WhereBetween`، `WhereColumn` | yes | yes | yes | yes |
+| `WhereExists`، where با زیرکوئری، `WhereIn` با callback | yes | yes | yes | yes (داخلش `top (n)`) |
+| `Join`، `LeftJoin`، `CrossJoin` | yes | yes | yes | yes |
+| `RightJoin` | yes، SQLite نسخهٔ 3.39 یا بالاتر | yes | yes | yes |
+| `GroupBy`، `Having` روی ستون‌های گروه‌بندی‌شده | yes | yes | yes | yes |
+| `Having` روی alias بخش select | yes | yes | no (قاعدهٔ پایگاه داده) | no (قاعدهٔ پایگاه داده) |
+| `Latest`، `Oldest`، `Reorder` | yes | yes | yes | yes |
+| `InRandomOrder` | `random()` | `rand()` | `random()` | `newid()` |
+
 ### نوع‌ها
 
 پارامترها با مقدار و، جایی که providerها اختلاف دارند، با نوع صریح bind می‌شوند. مقدارهای تکیِ خوانده‌شده (`ValueAsync<T>`، `ScalarAsync<T>`، `PluckAsync<T>` و `GetAsync<T>` برای `T` ساده) را خود Naravel تبدیل می‌کند، پس یک فراخوانی روی هر پایگاه داده همان مقدار CLR را می‌دهد:
