@@ -44,6 +44,14 @@ dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*Stre
 
 `StreamingBenchmarks` (PDR-022 R22.T04) visits every row of a 50 000 row in-memory SQLite table: `BufferedGet` (baseline) loads the whole result, `CursorEnumerate` streams over one open reader, `LazyPages` pages with `limit`/`offset`, and `LazyByIdPages` and `ChunkByIdPages` page by keyset on `id`. Read the `Allocated` column first: streaming exists to keep memory bounded, so the streamed variants should allocate per row visited, not per row held, while `BufferedGet` holds all 50 000 rows at once; and keyset paging should not slow down on deep pages the way `limit`/`offset` does. **No numbers are recorded yet:** the benchmark has not been run (the authoring environment has no .NET SDK). Record the first baseline here after running it on the CI or a developer machine; if a streamed variant is slower than `BufferedGet` by more than the per-row cost of the open reader, treat it as a defect.
 
+Run the Writes benchmark with:
+
+```sh
+dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*WritesBenchmarks*' --job short --warmupCount 1 --iterationCount 3 --launchCount 1
+```
+
+`WritesBenchmarks` (PDR-022 R23.T06) writes 1 000 rows into an empty in-memory SQLite table: `RowByRowInserts` (baseline) runs one `InsertAsync` per row, `BatchInsert` sends the rows as one `InsertAsync` batch (one statement, one transaction) and `BatchUpsert` as one `UpsertAsync` batch. The batch should beat the loop clearly, because the loop pays a command and a commit per row, and the upsert should stay close to the plain batch. **No numbers are recorded yet:** the benchmark has not been run (the authoring environment has no .NET SDK). Record the first baseline here after running it on the CI or a developer machine; a batch that is slower than the loop is a defect.
+
 Run the Pagination benchmark with:
 
 ```sh

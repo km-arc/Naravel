@@ -35,6 +35,14 @@ dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*Data
 
 `DatabaseBenchmarks` (PDR-022 S2) ساخت و کامپایل یک کوئری را با یک رشتهٔ ثابت مقایسه می‌کند (`CompileBuilder` در برابر baseline با نام `CompileFloor`، بدون I/O) و همان کوئری را روی SQLite در حافظه از طریق builder (`BuilderRows`، `BuilderTyped`)، Dapper دست‌نویس (`HandWrittenDapper`) و ADO.NET خام (`HandWrittenAdo`) اجرا می‌کند؛ هر کدام در هر فراخوانی یک اتصال باز می‌کنند. **هنوز عددی ثبت نشده:** بنچمارک اجرا نشده است (محیط نوشتن SDK دات‌نت ندارد). نخستین baseline را بعد از اجرا روی CI یا ماشین توسعه‌دهنده همین‌جا ثبت کنید و سربار builder را اگر در برابر رفت‌وبرگشت SQLite بزرگ بود، پیش از R20 یک نقص بدانید.
 
+بنچمارک Writes را این‌طور اجرا کنید:
+
+```sh
+dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*WritesBenchmarks*' --job short --warmupCount 1 --iterationCount 3 --launchCount 1
+```
+
+`WritesBenchmarks` (PDR-022 R23.T06) هزار ردیف را در یک جدول خالی SQLite درون‌حافظه می‌نویسد: `RowByRowInserts` (خط پایه) برای هر ردیف یک `InsertAsync` اجرا می‌کند، `BatchInsert` ردیف‌ها را با یک batch `InsertAsync` می‌فرستد (یک statement و یک تراکنش) و `BatchUpsert` با یک batch `UpsertAsync`. batch باید به‌وضوح از حلقه سریع‌تر باشد چون حلقه برای هر ردیف یک دستور و یک commit می‌پردازد، و upsert باید به batch ساده نزدیک بماند. **هنوز عددی ثبت نشده است:** benchmark اجرا نشده (محیط نگارش .NET SDK ندارد). نخستین baseline را پس از اجرا در CI یا روی دستگاه توسعه‌دهنده اینجا ثبت کنید؛ batchی که از حلقه کندتر باشد نقص است.
+
 بنچمارک Pagination را این‌طور اجرا کنید:
 
 benchmark استریم را اجرا کنید با:
