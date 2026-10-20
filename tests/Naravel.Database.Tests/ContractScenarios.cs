@@ -425,6 +425,33 @@ internal static class ContractScenarios
             json.GetProperty("list").GetArrayLength().Should().Be(2, "the untouched paths stay");
             (await c.Db.Table(c.Writes).Where("name", "w_j1").ValueAsync<long>("votes")).Should().Be(2);
         }),
+        new("write_upsert_updates_and_is_idempotent", async c =>
+        {
+            IReadOnlyDictionary<string, object?> Row(string name, int votes, string tag) => new Dictionary<string, object?> { ["name"] = name, ["votes"] = votes, ["tag"] = tag };
+            var rows = new[] { Row("w_s1", 1, "a"), Row("w_s2", 2, "b") };
+
+            await c.Db.Table(c.Writes).UpsertAsync(rows, ["name"]);
+            await c.Db.Table(c.Writes).UpsertAsync(rows, ["name"]);
+            (await c.Db.Table(c.Writes).WhereIn("name", new[] { "w_s1", "w_s2" }).CountAsync()).Should().Be(2, "the second run collides on every row and changes nothing");
+
+            await c.Db.Table(c.Writes).UpsertAsync(new[] { Row("w_s1", 99, "zzz"), Row("w_s3", 3, "c") }, ["name"], ["votes"]);
+            (await c.Db.Table(c.Writes).Where("name", "w_s1").ValueAsync<long>("votes")).Should().Be(99);
+            (await c.Db.Table(c.Writes).Where("name", "w_s1").ValueAsync<string>("tag")).Should().Be("a", "only the listed columns are overwritten");
+            (await c.Db.Table(c.Writes).Where("name", "w_s3").ValueAsync<string>("tag")).Should().Be("c", "a new row is inserted whole");
+
+            await c.Db.Table(c.Writes).UpsertAsync(Row("w_s2", 22, "bb"), ["name"]);
+            (await c.Db.Table(c.Writes).Where("name", "w_s2").ValueAsync<string>("tag")).Should().Be("bb", "no update list overwrites every column");
+        }),
+        new("write_upsert_batch_split_over_limits", async c =>
+        {
+            var rows = Enumerable.Range(1, 1200).Select(i => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?> { ["name"] = "w_t" + i, ["votes"] = i, ["tag"] = "t" }).ToArray();
+
+            await c.Db.Table(c.Writes).UpsertAsync(rows, ["name"]);
+            await c.Db.Table(c.Writes).UpsertAsync(rows, ["name"]);
+
+            (await c.Db.Table(c.Writes).WhereLike("name", "w_t%").CountAsync()).Should().BeGreaterThanOrEqualTo(1200);
+            (await c.Db.Table(c.Writes).Where("name", "w_t1200").CountAsync()).Should().Be(1);
+        }),
     ];
 
     public static IEnumerable<object[]> Names(DatabaseDialect dialect) =>

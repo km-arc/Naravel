@@ -200,7 +200,7 @@ public abstract class Grammar
     internal virtual string? LastInsertIdSql => null;
 
     /// <summary>Compiles one or more <c>insert</c> statements for the rows; a batch is split to stay under the parameter and row limits of the dialect.</summary>
-    internal IReadOnlyList<CompiledQuery> CompileInsert(Query query, IReadOnlyList<string> columns, IReadOnlyList<object?[]> rows, bool ignore)
+    internal IReadOnlyList<CompiledQuery> CompileInsert(Query query, IReadOnlyList<string> columns, IReadOnlyList<object?[]> rows, bool ignore, string? suffix = null)
     {
         var table = Wrap(query.TableName ?? throw new InvalidOperationException("The query has no table. Call Table(...) before inserting."));
         if (columns.Count == 0 && rows.Count != 1) throw new ArgumentException("Rows without columns cannot be inserted in a batch.", "rows");
@@ -214,12 +214,20 @@ public abstract class Grammar
             var sql = new StringBuilder(InsertVerb(ignore)).Append(table);
             var take = Math.Min(perStatement, rows.Count - start);
             AppendInsertValues(sql, columns, rows, start, take, context, output: null);
-            sql.Append(InsertSuffix(ignore));
+            sql.Append(suffix ?? InsertSuffix(ignore));
             statements.Add(new CompiledQuery(sql.ToString(), context.Bindings.ToArray()));
         }
 
         return statements;
     }
+
+    /// <summary>The text after the values that turns an insert into an upsert (<c>on conflict</c>, <c>on duplicate key update</c>); <paramref name="uniqueBy"/> is unused by MySQL, which reacts to any unique key.</summary>
+    internal virtual string UpsertSuffix(IReadOnlyList<string> uniqueBy, IReadOnlyList<string> update) =>
+        " on conflict (" + string.Join(", ", uniqueBy.Select(Quote)) + ") do update set " + string.Join(", ", update.Select(column => $"{Quote(column)} = excluded.{Quote(column)}"));
+
+    /// <summary>Compiles one or more upsert statements; a batch is split like an insert so it stays under the parameter and row limits.</summary>
+    internal virtual IReadOnlyList<CompiledQuery> CompileUpsert(Query query, IReadOnlyList<string> columns, IReadOnlyList<object?[]> rows, IReadOnlyList<string> uniqueBy, IReadOnlyList<string> update) =>
+        CompileInsert(query, columns, rows, false, UpsertSuffix(uniqueBy, update));
 
     /// <summary>Compiles one <c>insert</c> that also returns the generated key, with <c>output</c> or <c>returning</c> where the engine has it.</summary>
     internal CompiledQuery CompileInsertGetId(Query query, IReadOnlyList<string> columns, object?[] row, string idColumn)
@@ -733,6 +741,10 @@ internal sealed class MySqlGrammar() : Grammar(DatabaseDialect.MySql, 65535, '`'
 
     internal override string? LastInsertIdSql => "select last_insert_id()";
 
+    // Row alias instead of the deprecated values() function: MySQL 8.0.19 or later.
+    internal override string UpsertSuffix(IReadOnlyList<string> uniqueBy, IReadOnlyList<string> update) =>
+        " as `naravel_upsert` on duplicate key update " + string.Join(", ", update.Select(column => $"`{column}` = `naravel_upsert`.`{column}`"));
+
     internal override string RandomOrder => "rand()";
 
     internal override string JsonExtract(string column, IReadOnlyList<string> path, CompileContext context, object? hint) =>
@@ -849,6 +861,37 @@ internal sealed class SqlServerGrammar() : Grammar(DatabaseDialect.SqlServer, 20
     internal override int MaxInsertRows => 1000;
 
     internal override string? InsertOutput(string quotedColumn) => " output inserted." + quotedColumn;
+
+    internal override IReadOnlyList<CompiledQuery> CompileUpsert(Query query, IReadOnlyList<string> columns, IReadOnlyList<object?[]> rows, IReadOnlyList<string> uniqueBy, IReadOnlyList<string> update)
+    {
+        if (query.TableName is not { } table) throw new InvalidOperationException("The query has no table. Call Table(...) before upserting.");
+        if (table.Alias is not null) throw new InvalidOperationException("An upsert query cannot have a table alias.");
+        if (columns.Count > MaxParameters) throw new InvalidOperationException($"The {Dialect} dialect allows at most {MaxParameters} parameters per statement, but one row has {columns.Count} values.");
+
+        var perStatement = Math.Min(MaxInsertRows, MaxParameters / columns.Count);
+        var statements = new List<CompiledQuery>();
+        for (var start = 0; start < rows.Count; start += perStatement)
+        {
+            var context = new CompileContext();
+            var take = Math.Min(perStatement, rows.Count - start);
+            var sql = new StringBuilder("merge ").Append(Wrap(table)).Append(" with (holdlock) as [naravel_target] using (values ");
+            for (var r = 0; r < take; r++)
+            {
+                if (r > 0) sql.Append(", ");
+                sql.Append('(').Append(string.Join(", ", rows[start + r].Select(value => context.Add(value)))).Append(')');
+            }
+
+            sql.Append(") as [naravel_source] (").Append(string.Join(", ", columns.Select(Quote))).Append(") on ")
+                .Append(string.Join(" and ", uniqueBy.Select(column => $"[naravel_target].{Quote(column)} = [naravel_source].{Quote(column)}")))
+                .Append(" when matched then update set ")
+                .Append(string.Join(", ", update.Select(column => $"[naravel_target].{Quote(column)} = [naravel_source].{Quote(column)}")))
+                .Append(" when not matched then insert (").Append(string.Join(", ", columns.Select(Quote))).Append(") values (")
+                .Append(string.Join(", ", columns.Select(column => $"[naravel_source].{Quote(column)}"))).Append(");");
+            statements.Add(new CompiledQuery(sql.ToString(), context.Bindings.ToArray()));
+        }
+
+        return statements;
+    }
 
     internal override string RandomOrder => "newid()";
 
