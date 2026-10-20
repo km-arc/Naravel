@@ -88,6 +88,13 @@ internal sealed class CursorKey<T, TKey> : CursorKey<T>
         Name = string.Join('.', path.Select(member => member.Name));
 
         // Fail when the key is declared, not on the first request that happens to use a cursor.
+        // Guid, bool and enums have no portable database ordering even where .NET offers a comparison operator (Guid has one since .NET 9).
+        var underlying = Nullable.GetUnderlyingType(typeof(TKey)) ?? typeof(TKey);
+        if (underlying == typeof(Guid) || underlying == typeof(bool) || underlying.IsEnum)
+        {
+            throw new NotSupportedException($"The cursor key '{Name}' has type {typeof(TKey).Name}, which has no ordering the databases agree on. Use a number, DateTime, DateTimeOffset, TimeSpan, DateOnly, TimeOnly or string key (or its underlying number).");
+        }
+
         try
         {
             _ = Compare(Expression.Parameter(typeof(T), "x"), default(TKey)!, greater: true);

@@ -249,7 +249,8 @@ public class CursorPagingTests
         db.Context.Posts.Add(new Post { Id = 99, Title = "no-score", Score = null });
         await db.Context.SaveChangesAsync();
 
-        var call = () => db.Context.Posts.CursorPaginateAsync(k => k.By(p => p.Score).Then(p => p.Id), 2, null);
+        // SQLite sorts NULL first, so with one row per page the null row is the last row of the first page and its key must be written into the cursor.
+        var call = () => db.Context.Posts.CursorPaginateAsync(k => k.By(p => p.Score).Then(p => p.Id), 1, null);
 
         (await FluentActions.Awaiting(call).Should().ThrowAsync<InvalidOperationException>()).Which.Message.Should().Contain("Score").And.Contain("null");
     }
