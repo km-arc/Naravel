@@ -8,7 +8,7 @@ Out of scope: Transactions (R25).
 Decisions: Every `*Raw` method takes bindings and is the only way SQL text enters a query; a test greps the public API for string parameters that are interpreted as SQL outside `Raw`.
 
 ## Tasks
-- [ ] **R24.T01 — Unions:** `Union`, `UnionAll` with ordering and limit on the union. **Accept:** SQL tests per dialect (SQL Server and SQLite parenthesis rules).
+- [x] **R24.T01 — Unions:** `Union`, `UnionAll` with ordering and limit on the union. **Accept:** SQL tests per dialect (SQL Server and SQLite parenthesis rules). Added with compile tests on four grammars, SQLite execution tests and contract scenarios, EN/FA docs; build and tests NOT RUN locally (no .NET SDK); CI is the check. Decisions: ordering and limit set after the first `Union` apply to the whole union, those set before stay with the first select; a term or union with ordering or a limit becomes a derived table on every dialect; added queries are copied; a union query is read-only.
 - [ ] **R24.T02 — Subqueries:** `SelectSub`, `FromSub`, `JoinSub`, `LeftJoinSub`, `RightJoinSub`, `JoinLateral`, `LeftJoinLateral`, subquery where forms. **Accept:** binding-order tests; lateral on SQLite throws `NotSupportedException`; SQL Server uses `CROSS/OUTER APPLY`.
 - [ ] **R24.T03 — CTEs:** `WithExpression`, recursive CTE. **Accept:** SQL tests per dialect (`WITH RECURSIVE` vs SQL Server `WITH`); a tree-walk execution test.
 - [ ] **R24.T04 — Raw expressions:** `Raw`, `SelectRaw`, `WhereRaw`, `OrWhereRaw`, `HavingRaw`, `OrHavingRaw`, `OrderByRaw`, `GroupByRaw`, `FromRaw`. **Accept:** binding tests and injection tests.

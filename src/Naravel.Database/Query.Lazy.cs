@@ -111,6 +111,7 @@ public sealed partial class Query
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(count, 1);
         _ = Connected();
+        if (!needsOrder) RefuseUnion("Lazy paging by key");
         if (needsOrder && _orders.Count == 0) throw new InvalidOperationException("Lazy paging with offset needs an OrderBy: pages of an unordered query are not stable. Add OrderBy(<unique column>), or use LazyByIdAsync.");
     }
 

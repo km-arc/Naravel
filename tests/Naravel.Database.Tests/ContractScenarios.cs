@@ -533,6 +533,34 @@ internal static class ContractScenarios
                 .Should().ThrowAsync<NotSupportedException>();
             (await c.Db.Table(c.Writes).Where("name", "w_rm").CountAsync()).Should().Be(0, "nothing was sent to the server");
         }, DatabaseDialect.Sqlite, DatabaseDialect.Postgres, DatabaseDialect.SqlServer),
+        new("union_dedup_all_and_order", async c =>
+        {
+            Query Votes(Query q) => q.Select("votes");
+            var distinct = await Votes(c.Db.Table(c.People)).Where("votes", 20).Union(Votes(c.Db.Table(c.People)).Where("votes", ">=", 20)).OrderBy("votes").PluckAsync<long>("votes");
+            var all = await Votes(c.Db.Table(c.People)).Where("votes", 20).UnionAll(Votes(c.Db.Table(c.People)).Where("votes", ">=", 20)).OrderBy("votes").PluckAsync<long>("votes");
+
+            distinct.Should().Equal(20L, 30L);
+            all.Should().Equal(20L, 20L, 20L, 20L, 30L);
+        }),
+        new("union_limit_offset_and_head_limit", async c =>
+        {
+            Query Names(Query q) => q.Select("name");
+            var first = await Names(c.Db.Table(c.People)).Where("votes", 5).UnionAll(Names(c.Db.Table(c.People)).Where("votes", 10)).OrderBy("name").Limit(1).PluckAsync<string>("name");
+            var second = await Names(c.Db.Table(c.People)).Where("votes", 5).UnionAll(Names(c.Db.Table(c.People)).Where("votes", 10)).OrderBy("name").Offset(1).Limit(1).PluckAsync<string>("name");
+            var head = await Names(c.Db.Table(c.People)).OrderBy("id").Limit(2).Union(Names(c.Db.Table(c.People)).Where("id", 5)).OrderBy("name").PluckAsync<string>("name");
+
+            first.Should().Equal("Ada");
+            second.Should().Equal("Dennis");
+            head.Should().Equal("Ada", "Dennis", "Grace");
+        }),
+        new("union_count_and_exists", async c =>
+        {
+            Query Votes(Query q) => q.Select("votes");
+            var union = Votes(c.Db.Table(c.People)).Where("votes", 20).Union(Votes(c.Db.Table(c.People)).Where("votes", 20));
+
+            (await union.CountAsync()).Should().Be(1, "a union removes the duplicate");
+            (await union.ExistsAsync()).Should().BeTrue();
+        }),
     ];
 
     public static IEnumerable<object[]> Names(DatabaseDialect dialect) =>

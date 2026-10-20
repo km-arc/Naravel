@@ -39,6 +39,7 @@ public sealed partial class Query
     /// <param name="cancellationToken">Cancels the command.</param>
     public async Task<bool> ExistsAsync(CancellationToken cancellationToken = default)
     {
+        if (_unions.Count > 0) return await CountAsync(cancellationToken).ConfigureAwait(false) > 0;
         var compiled = CompileExists();
         return await Connected().FirstValueAsync<long>(compiled.Sql, compiled.Bindings, cancellationToken).ConfigureAwait(false) != 0;
     }
@@ -53,7 +54,7 @@ public sealed partial class Query
         if (identifier is null && function != "count") throw new ArgumentException($"{function} needs a column.", nameof(column));
 
         var distinctColumn = _distinct && identifier is not null;
-        var derived = _groups.Count > 0 || _havings.Count > 0 || (_distinct && !distinctColumn) || _limit.HasValue || _offset.HasValue;
+        var derived = _unions.Count > 0 || _groups.Count > 0 || _havings.Count > 0 || (_distinct && !distinctColumn) || _limit.HasValue || _offset.HasValue;
         var alias = Grammar.QuoteName("aggregate");
 
         if (!derived)
@@ -76,6 +77,7 @@ public sealed partial class Query
 
     internal CompiledQuery CompileExists()
     {
+        RefuseUnion("A single-statement exists");
         var inner = Clone();
         inner._columns.Clear();
         inner._columns.Add(new SelectItem(null, "1", []));

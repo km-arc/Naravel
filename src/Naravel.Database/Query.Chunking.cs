@@ -129,6 +129,7 @@ public sealed partial class Query
         ArgumentNullException.ThrowIfNull(callback);
         _ = Connected();
         _ = KeyName(column);
+        RefuseUnion("Chunking by key");
 
         object? last = null;
         while (true)

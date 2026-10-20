@@ -15,6 +15,10 @@ public sealed partial class Query
     private readonly List<SelectItem> _columns = new();
     private readonly List<WhereNode> _wheres = new();
     private readonly List<OrderItem> _orders = new();
+    private readonly List<UnionItem> _unions = new();
+    private readonly List<OrderItem> _headOrders = new();
+    private int? _headLimit;
+    private int? _headOffset;
     private readonly List<JoinItem> _joins = new();
     private readonly List<ParsedIdentifier> _groups = new();
     private readonly List<WhereNode> _havings = new();
@@ -42,6 +46,10 @@ public sealed partial class Query
     internal IReadOnlyList<WhereNode> Wheres => _wheres;
 
     internal IReadOnlyList<OrderItem> Orders => _orders;
+
+    internal IReadOnlyList<UnionItem> Unions => _unions;
+
+    internal bool HasUnions => _unions.Count > 0;
 
     internal IReadOnlyList<JoinItem> Joins => _joins;
 
@@ -366,6 +374,10 @@ public sealed partial class Query
         copy._columns.AddRange(_columns);
         copy._wheres.AddRange(_wheres);
         copy._orders.AddRange(_orders);
+        copy._unions.AddRange(_unions);
+        copy._headOrders.AddRange(_headOrders);
+        copy._headLimit = _headLimit;
+        copy._headOffset = _headOffset;
         copy._joins.AddRange(_joins);
         copy._groups.AddRange(_groups);
         copy._havings.AddRange(_havings);
