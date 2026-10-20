@@ -505,7 +505,7 @@ public abstract class Grammar
                 .Concat(new SqlServerGrammar().ExtraOperators),
             StringComparer.Ordinal);
 
-    private string Quote(string segment) => _open + segment.Replace(_close.ToString(), _close.ToString() + _close, StringComparison.Ordinal) + _close;
+    private protected string Quote(string segment) => _open + segment.Replace(_close.ToString(), _close.ToString() + _close, StringComparison.Ordinal) + _close;
 
     private void AppendColumns(StringBuilder sql, Query query, CompileContext context)
     {
