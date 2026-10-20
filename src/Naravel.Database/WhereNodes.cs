@@ -224,3 +224,6 @@ internal enum ReturningStyle
     /// <summary>SQL Server: <c>output inserted.x</c> / <c>deleted.x</c> inside the statement.</summary>
     Output,
 }
+
+/// <summary>One <c>union</c> or <c>union all</c> term: a snapshot of the query that was added.</summary>
+internal sealed record UnionItem(Query Query, bool All);

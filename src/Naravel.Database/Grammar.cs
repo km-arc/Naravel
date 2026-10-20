@@ -539,6 +539,12 @@ public abstract class Grammar
     /// <summary>Writes a whole select into <paramref name="sql"/>; a subquery shares the context of the outer statement so parameter numbers stay unique and in text order.</summary>
     private void AppendSelect(StringBuilder sql, Query query, CompileContext context)
     {
+        if (query.HasUnions)
+        {
+            AppendUnion(sql, query, context);
+            return;
+        }
+
         if (query.TableName is null) throw new InvalidOperationException("The query has no table. Call Table(...) before compiling it.");
 
         sql.Append("select ");
@@ -569,6 +575,45 @@ public abstract class Grammar
 
         AppendOrders(sql, query, context);
         AppendLimitOffset(sql, query);
+    }
+
+    /// <summary>Writes <c>select ... union [all] select ...</c>. A term with its own ordering, limit or union, and the whole union when it has ordering or a limit, becomes a derived table.</summary>
+    private void AppendUnion(StringBuilder sql, Query query, CompileContext context)
+    {
+        var tail = query.UnionTail();
+        var wrapAll = tail.Orders.Count > 0 || tail.LimitValue.HasValue || tail.OffsetValue.HasValue;
+        if (wrapAll)
+        {
+            sql.Append("select ");
+            AppendTop(sql, tail);
+            sql.Append("* from (");
+        }
+
+        AppendUnionTerm(sql, query.UnionHead(), context, 0);
+        var index = 1;
+        foreach (var union in query.Unions)
+        {
+            sql.Append(union.All ? " union all " : " union ");
+            AppendUnionTerm(sql, union.Query, context, index++);
+        }
+
+        if (!wrapAll) return;
+        sql.Append(") as ").Append(Quote("naravel_union"));
+        AppendOrders(sql, tail, context);
+        AppendLimitOffset(sql, tail);
+    }
+
+    private void AppendUnionTerm(StringBuilder sql, Query term, CompileContext context, int index)
+    {
+        if (term.Orders.Count == 0 && !term.LimitValue.HasValue && !term.OffsetValue.HasValue && !term.HasUnions)
+        {
+            AppendSelect(sql, term, context);
+            return;
+        }
+
+        sql.Append("select * from (");
+        AppendSelect(sql, term, context);
+        sql.Append(") as ").Append(Quote("naravel_union_" + index.ToString(CultureInfo.InvariantCulture)));
     }
 
     /// <summary>Writes the bound values into the SQL for display only. Never execute the result.</summary>
