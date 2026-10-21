@@ -153,9 +153,9 @@ public sealed partial class Query
     private void CheckUpdateTarget()
     {
         if (_table is null) throw new InvalidOperationException("The query has no table. Call Table(...) before updating.");
-        if (_ctes.Count > 0 || _fromSubquery is not null || _fromRawSql is not null || HasSubqueryJoin || _unions.Count > 0 || _columns.Count > 0 || _groups.Count > 0 || _havings.Count > 0 || _orders.Count > 0 || _distinct || _limit.HasValue || _offset.HasValue)
+        if (_ctes.Count > 0 || _fromSubquery is not null || _fromRawSql is not null || HasSubqueryJoin || _unions.Count > 0 || _columns.Count > 0 || _groups.Count > 0 || _havings.Count > 0 || _orders.Count > 0 || _distinct || _limit.HasValue || _offset.HasValue || _lock != LockMode.None)
         {
-            throw new InvalidOperationException("An update query may only have a table, joins and where: select, group, having, ordering, distinct, limit and offset do not apply to an update.");
+            throw new InvalidOperationException("An update query may only have a table, joins and where: select, group, having, ordering, distinct, limit, offset and a lock do not apply to an update.");
         }
 
         if (_wheres.Count == 0 && !_allRows)

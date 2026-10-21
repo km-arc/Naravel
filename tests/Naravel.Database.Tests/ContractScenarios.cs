@@ -632,6 +632,19 @@ internal static class ContractScenarios
             (await c.Db.Table(c.Writes).Where("name", "w_raw").ValueAsync<long>("votes")).Should().Be(16);
             (await c.Db.Table(c.People).Where("votes", ">", new Raw("? - 15", 20)).CountAsync()).Should().Be(4, "votes above 5");
         }),
+        new("locks_read_the_same_rows", async c =>
+        {
+            // Outside a transaction every database frees the lock when the statement ends (the transactions arrive with R25), so this proves that each one accepts the SQL and returns the rows.
+            (await NamesAsync(c.Db.Table(c.People).Where("votes", 20).OrderBy("id").SharedLock())).Should().Equal("Grace", "Linus");
+            (await NamesAsync(c.Db.Table(c.People).Where("active", true).OrderBy("id").LockForUpdate())).Should().Equal("Ada", "Grace", "Margaret");
+            (await c.Db.Table(c.People).Where("id", 5).LockForUpdate().ValueAsync<string>("name")).Should().Be("Dennis");
+        }, DatabaseDialect.Sqlite),
+        new("locks_are_refused_on_sqlite", async c =>
+        {
+            await FluentActions.Invoking(() => c.Db.Table(c.People).SharedLock().GetAsync()).Should().ThrowAsync<NotSupportedException>();
+            await FluentActions.Invoking(() => c.Db.Table(c.People).LockForUpdate().GetAsync()).Should().ThrowAsync<NotSupportedException>();
+            (await c.Db.Table(c.People).CountAsync()).Should().Be(5, "a query without a lock still runs");
+        }, DatabaseDialect.MySql, DatabaseDialect.Postgres, DatabaseDialect.SqlServer),
     ];
 
     public static IEnumerable<object[]> Names(DatabaseDialect dialect) =>

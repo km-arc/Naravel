@@ -338,3 +338,5 @@ Naravel.Database.Raw
 Naravel.Database.Raw.Raw(string! sql, params object?[]! bindings) -> void
 Naravel.Database.Raw.Sql.get -> string!
 Naravel.Database.Raw.Bindings.get -> System.Collections.Generic.IReadOnlyList<object?>!
+Naravel.Database.Query.SharedLock() -> Naravel.Database.Query!
+Naravel.Database.Query.LockForUpdate() -> Naravel.Database.Query!
