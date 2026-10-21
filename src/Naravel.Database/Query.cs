@@ -23,6 +23,8 @@ public sealed partial class Query
     private readonly List<ParsedIdentifier> _groups = new();
     private readonly List<WhereNode> _havings = new();
     private ParsedIdentifier? _table;
+    private Query? _fromSubquery;
+    private string? _fromAlias;
     private bool _distinct;
     private bool _allRows;
     private int? _limit;
@@ -40,6 +42,10 @@ public sealed partial class Query
     public Grammar Grammar { get; }
 
     internal ParsedIdentifier? TableName => _table;
+
+    internal Query? FromSubquery => _fromSubquery;
+
+    internal string? FromAlias => _fromAlias;
 
     internal IReadOnlyList<SelectItem> Columns => _columns;
 
@@ -72,6 +78,8 @@ public sealed partial class Query
     public Query Table(string table)
     {
         _table = Plain(IdentifierGrammar.Parse(table, nameof(table)), table, nameof(table), allowAlias: true);
+        _fromSubquery = null;
+        _fromAlias = null;
         return this;
     }
 
@@ -370,7 +378,7 @@ public sealed partial class Query
     /// <summary>Copies the query so it can be changed without touching the original. Laravel: <c>clone</c>.</summary>
     public Query Clone()
     {
-        var copy = new Query(Grammar) { _table = _table, _distinct = _distinct, _allRows = _allRows, _limit = _limit, _offset = _offset, Runner = Runner };
+        var copy = new Query(Grammar) { _table = _table, _fromSubquery = _fromSubquery, _fromAlias = _fromAlias, _distinct = _distinct, _allRows = _allRows, _limit = _limit, _offset = _offset, Runner = Runner };
         copy._columns.AddRange(_columns);
         copy._wheres.AddRange(_wheres);
         copy._orders.AddRange(_orders);

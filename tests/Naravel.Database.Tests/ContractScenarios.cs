@@ -561,6 +561,46 @@ internal static class ContractScenarios
             (await union.CountAsync()).Should().Be(1, "a union removes the duplicate");
             (await union.ExistsAsync()).Should().BeTrue();
         }),
+        new("subquery_select_sub_correlated_count", async c =>
+        {
+            var rows = await c.Db.Table(c.People + " as p").Select("p.name")
+                .SelectSub(c.Db.Table(c.People + " as q").SelectRaw("count(*)").WhereColumn("q.votes", "<", "p.votes"), "lower_count")
+                .OrderBy("p.id").GetAsync();
+
+            rows.Select(r => (string)r["name"]!).Should().Equal("Ada", "Grace", "Linus", "Margaret", "Dennis");
+            rows.Select(r => Convert.ToInt64(r["lower_count"])).Should().Equal(1L, 2L, 2L, 4L, 0L);
+        }),
+        new("subquery_from_sub_over_an_aggregate", async c =>
+        {
+            var votes = await c.Db.Table(c.People).FromSub(c.Db.Table(c.People).Select("votes").SelectRaw("count(*) as n").GroupBy("votes"), "g").Where("n", ">", 1).PluckAsync<long>("votes");
+
+            votes.Should().Equal(20L);
+        }),
+        new("subquery_join_sub_and_left_join_sub", async c =>
+        {
+            var shared = c.Db.Table(c.People).Select("votes").SelectRaw("count(*) as n").GroupBy("votes");
+            var inner = await NamesAsync(c.Db.Table(c.People).Select(c.People + ".name").JoinSub(shared, "g", "g.votes", c.People + ".votes").Where("g.n", ">", 1).OrderBy(c.People + ".id"));
+            var twenty = c.Db.Table(c.People).Select("votes").Where("votes", 20);
+            var unmatched = await NamesAsync(c.Db.Table(c.People).Select(c.People + ".name").LeftJoinSub(twenty, "g", "g.votes", c.People + ".votes").WhereNull("g.votes").OrderBy(c.People + ".id"));
+
+            inner.Should().Equal("Grace", "Linus");
+            unmatched.Should().Equal("Ada", "Margaret", "Dennis");
+        }),
+        new("subquery_join_lateral_and_left_join_lateral", async c =>
+        {
+            Query Next() => c.Db.Table(c.People + " as q").Select("q.name as rival").WhereColumn("q.votes", ">", c.People + ".votes").OrderBy("q.votes").OrderBy("q.id").Limit(1);
+            var inner = await c.Db.Table(c.People).Select(c.People + ".name").JoinLateral(Next(), "r").OrderBy(c.People + ".id").GetAsync();
+            var left = await c.Db.Table(c.People).Select(c.People + ".name").LeftJoinLateral(Next(), "r").OrderBy(c.People + ".id").GetAsync();
+
+            inner.Select(r => (string)r["name"]! + ":" + (string)r["rival"]!).Should().Equal("Ada:Grace", "Grace:Margaret", "Linus:Margaret", "Dennis:Ada");
+            left.Should().HaveCount(5);
+            left.Single(r => (string)r["name"]! == "Margaret")["rival"].Should().BeNull();
+        }, DatabaseDialect.Sqlite),
+        new("subquery_lateral_is_refused_on_sqlite", async c =>
+        {
+            await FluentActions.Invoking(() => c.Db.Table(c.People).JoinLateral(c.Db.Table(c.People + " as q").WhereColumn("q.id", c.People + ".id"), "r").GetAsync())
+                .Should().ThrowAsync<NotSupportedException>();
+        }, DatabaseDialect.MySql, DatabaseDialect.Postgres, DatabaseDialect.SqlServer),
     ];
 
     public static IEnumerable<object[]> Names(DatabaseDialect dialect) =>

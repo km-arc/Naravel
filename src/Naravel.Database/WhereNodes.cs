@@ -167,8 +167,14 @@ internal enum JoinKind
     Cross,
 }
 
-internal sealed class JoinItem(JoinKind kind, ParsedIdentifier table, IReadOnlyList<WhereNode> conditions)
+internal sealed class JoinItem(JoinKind kind, ParsedIdentifier table, IReadOnlyList<WhereNode> conditions, Query? subquery = null, bool lateral = false)
 {
+    /// <summary>The joined subquery (then <see cref="Table"/> holds its alias), or <see langword="null"/> for a table.</summary>
+    public Query? Subquery { get; } = subquery;
+
+    /// <summary>A lateral join (<c>join lateral</c>, <c>cross apply</c>, <c>outer apply</c>): the subquery may refer to the tables before it.</summary>
+    public bool Lateral { get; } = lateral;
+
     public JoinKind Kind { get; } = kind;
 
     public ParsedIdentifier Table { get; } = table;
@@ -176,8 +182,13 @@ internal sealed class JoinItem(JoinKind kind, ParsedIdentifier table, IReadOnlyL
     public IReadOnlyList<WhereNode> Conditions { get; } = conditions;
 }
 
-internal sealed class SelectItem(ParsedIdentifier? identifier, string? rawSql, object?[] bindings)
+internal sealed class SelectItem(ParsedIdentifier? identifier, string? rawSql, object?[] bindings, Query? subquery = null, string? alias = null)
 {
+    /// <summary>A scalar subquery selected as <see cref="Alias"/>, or <see langword="null"/>.</summary>
+    public Query? Subquery { get; } = subquery;
+
+    public string? Alias { get; } = alias;
+
     public ParsedIdentifier? Identifier { get; } = identifier;
 
     public string? RawSql { get; } = rawSql;
