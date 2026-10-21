@@ -342,9 +342,10 @@ internal static class ContractScenarios
         }),
         new("write_insert_batch_is_atomic", async c =>
         {
-            var rows = Enumerable.Range(1, 1200).Select(i => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?> { ["name"] = i == 1200 ? "w_d1" : "w_d" + i, ["votes"] = i }).ToArray();
+            var rows = Enumerable.Range(1, 1200).Select(i => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?> { ["name"] = i == 1200 ? "w_atom1" : "w_atom" + i, ["votes"] = i }).ToArray();
             await FluentActions.Awaiting(() => c.Db.Table(c.Writes).InsertAsync(rows)).Should().ThrowAsync<System.Data.Common.DbException>();
-            (await c.Db.Table(c.Writes).WhereLike("name", "w_d%").CountAsync()).Should().Be(0, "a failing statement rolls back the statements before it");
+            // A prefix of its own: the scenarios share one Writes table, and the delete scenario leaves w_d3 behind.
+            (await c.Db.Table(c.Writes).WhereLike("name", "w_atom%").CountAsync()).Should().Be(0, "a failing statement rolls back the statements before it");
         }),
         new("write_insert_or_ignore", async c =>
         {
@@ -589,8 +590,8 @@ internal static class ContractScenarios
         new("subquery_join_lateral_and_left_join_lateral", async c =>
         {
             Query Next() => c.Db.Table(c.People + " as q").Select("q.name as rival").WhereColumn("q.votes", ">", c.People + ".votes").OrderBy("q.votes").OrderBy("q.id").Limit(1);
-            var inner = await c.Db.Table(c.People).Select(c.People + ".name").JoinLateral(Next(), "r").OrderBy(c.People + ".id").GetAsync();
-            var left = await c.Db.Table(c.People).Select(c.People + ".name").LeftJoinLateral(Next(), "r").OrderBy(c.People + ".id").GetAsync();
+            var inner = await c.Db.Table(c.People).Select(c.People + ".name", "r.rival").JoinLateral(Next(), "r").OrderBy(c.People + ".id").GetAsync();
+            var left = await c.Db.Table(c.People).Select(c.People + ".name", "r.rival").LeftJoinLateral(Next(), "r").OrderBy(c.People + ".id").GetAsync();
 
             inner.Select(r => (string)r["name"]! + ":" + (string)r["rival"]!).Should().Equal("Ada:Grace", "Grace:Margaret", "Linus:Margaret", "Dennis:Ada");
             left.Should().HaveCount(5);

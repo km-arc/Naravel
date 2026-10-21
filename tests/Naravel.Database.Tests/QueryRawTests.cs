@@ -33,8 +33,8 @@ public class QueryRawTests
     {
         Verify("group by raw", d => Users(d).GroupBy("a").GroupByRaw("lower(b)").Compile(), "select * from «users» group by «a», lower(b)");
         Verify("group by raw binding", d => Users(d).GroupByRaw("substr(b, ?, 1)", 2).Compile(), "select * from «users» group by substr(b, @p0, 1)", 2);
-        Verify("having raw", d => Users(d).GroupBy("a").HavingRaw("sum(x) > ?", 5).Compile(), "select * from «users» group by «a» having sum(x) > @p0", 5);
-        Verify("or having raw", d => Users(d).GroupBy("a").Having("a", 1).OrHavingRaw("sum(x) > ?", 5).Compile(), "select * from «users» group by «a» having «a» = @p0 or sum(x) > @p1", 1, 5);
+        Verify("having raw", d => Users(d).GroupBy("a").HavingRaw("sum(x) > ?", 5).Compile(), "select * from «users» group by «a» having (sum(x) > @p0)", 5);
+        Verify("or having raw", d => Users(d).GroupBy("a").Having("a", 1).OrHavingRaw("sum(x) > ?", 5).Compile(), "select * from «users» group by «a» having «a» = @p0 or (sum(x) > @p1)", 1, 5);
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public class QueryRawTests
                 .GroupByRaw("g % ?", 4)
                 .HavingRaw("count(*) > ?", 6)
                 .OrderByRaw("g % ?", 7).Compile(),
-            "select g * @p0 from generate_series(@p1, @p2) as g where g > @p3 group by g % @p4 having count(*) > @p5 order by g % @p6", 2, 1, 3, 0, 4, 6, 7);
+            "select g * @p0 from generate_series(@p1, @p2) as g where (g > @p3) group by g % @p4 having (count(*) > @p5) order by g % @p6", 2, 1, 3, 0, 4, 6, 7);
         Verify("table after from raw", d => Query.For(d).FromRaw("x as y").Table("users").Compile(), "select * from «users»");
         Verify("from raw after table", d => Users(d).FromRaw("x as y").Compile(), "select * from x as y");
     }
