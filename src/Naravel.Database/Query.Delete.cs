@@ -68,7 +68,7 @@ public sealed partial class Query
     private void CheckDeleteTarget()
     {
         if (_table is null) throw new InvalidOperationException("The query has no table. Call Table(...) before deleting.");
-        if (_fromSubquery is not null || HasSubqueryJoin || _unions.Count > 0 || _columns.Count > 0 || _groups.Count > 0 || _havings.Count > 0 || _orders.Count > 0 || _distinct || _limit.HasValue || _offset.HasValue)
+        if (_ctes.Count > 0 || _fromSubquery is not null || HasSubqueryJoin || _unions.Count > 0 || _columns.Count > 0 || _groups.Count > 0 || _havings.Count > 0 || _orders.Count > 0 || _distinct || _limit.HasValue || _offset.HasValue)
         {
             throw new InvalidOperationException("A delete query may only have a table, joins and where: select, group, having, ordering, distinct, limit and offset do not apply to a delete.");
         }
@@ -88,7 +88,7 @@ public sealed partial class Query
     private void CheckTruncateTarget()
     {
         if (_table is null) throw new InvalidOperationException("The query has no table. Call Table(...) before truncating.");
-        if (_unions.Count > 0 || _table.Alias is not null || _wheres.Count > 0 || _joins.Count > 0 || _columns.Count > 0 || _groups.Count > 0 || _havings.Count > 0 || _orders.Count > 0 || _distinct || _limit.HasValue || _offset.HasValue)
+        if (_ctes.Count > 0 || _unions.Count > 0 || _table.Alias is not null || _wheres.Count > 0 || _joins.Count > 0 || _columns.Count > 0 || _groups.Count > 0 || _havings.Count > 0 || _orders.Count > 0 || _distinct || _limit.HasValue || _offset.HasValue)
         {
             throw new InvalidOperationException("A truncate query may only have a table: it empties the whole table, so a where, join, alias, select, ordering or limit would be misleading. Use DeleteAsync with a where to remove some rows.");
         }

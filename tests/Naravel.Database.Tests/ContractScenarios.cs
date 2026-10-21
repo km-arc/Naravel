@@ -601,6 +601,23 @@ internal static class ContractScenarios
             await FluentActions.Invoking(() => c.Db.Table(c.People).JoinLateral(c.Db.Table(c.People + " as q").WhereColumn("q.id", c.People + ".id"), "r").GetAsync())
                 .Should().ThrowAsync<NotSupportedException>();
         }, DatabaseDialect.MySql, DatabaseDialect.Postgres, DatabaseDialect.SqlServer),
+        new("cte_recursive_counting", async c =>
+        {
+            var seed = c.Db.Table(c.People).Select("id").Where("id", 1);
+            var step = c.Db.Table("nums").SelectRaw("n + 1").Where("n", "<", 5);
+            var numbers = await c.Db.Table("nums").WithRecursiveExpression("nums", ["n"], seed.UnionAll(step)).OrderBy("n").PluckAsync<long>("n");
+
+            numbers.Should().Equal(1L, 2L, 3L, 4L, 5L);
+        }),
+        new("cte_plain_and_count", async c =>
+        {
+            Query Big() => c.Db.Table("big").WithExpression("big", ["id", "name"], c.Db.Table(c.People).Select("id", "name").Where("votes", ">=", 20));
+
+            (await Big().OrderBy("id").PluckAsync<string>("name")).Should().Equal("Grace", "Linus", "Margaret");
+            (await Big().CountAsync()).Should().Be(3);
+            (await Big().Limit(2).CountAsync()).Should().Be(2, "the expression is hoisted out of the derived table the count needs");
+            (await Big().Where("id", 99).ExistsAsync()).Should().BeFalse();
+        }),
     ];
 
     public static IEnumerable<object[]> Names(DatabaseDialect dialect) =>

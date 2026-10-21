@@ -16,6 +16,7 @@ public sealed partial class Query
     private readonly List<WhereNode> _wheres = new();
     private readonly List<OrderItem> _orders = new();
     private readonly List<UnionItem> _unions = new();
+    private readonly List<CteItem> _ctes = new();
     private readonly List<OrderItem> _headOrders = new();
     private int? _headLimit;
     private int? _headOffset;
@@ -56,6 +57,10 @@ public sealed partial class Query
     internal IReadOnlyList<UnionItem> Unions => _unions;
 
     internal bool HasUnions => _unions.Count > 0;
+
+    internal IReadOnlyList<CteItem> Ctes => _ctes;
+
+    internal bool HasCtes => _ctes.Count > 0;
 
     internal IReadOnlyList<JoinItem> Joins => _joins;
 
@@ -383,6 +388,7 @@ public sealed partial class Query
         copy._wheres.AddRange(_wheres);
         copy._orders.AddRange(_orders);
         copy._unions.AddRange(_unions);
+        copy._ctes.AddRange(_ctes);
         copy._headOrders.AddRange(_headOrders);
         copy._headLimit = _headLimit;
         copy._headOffset = _headOffset;
