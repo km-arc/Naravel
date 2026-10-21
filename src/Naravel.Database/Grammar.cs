@@ -481,12 +481,40 @@ public abstract class Grammar
     {
         foreach (var join in query.Joins)
         {
-            sql.Append(join.Kind switch { JoinKind.Left => " left join ", JoinKind.Right => " right join ", JoinKind.Cross => " cross join ", _ => " inner join " }).Append(Wrap(join.Table));
+            if (join.Lateral)
+            {
+                sql.Append(LateralKeyword(join.Kind == JoinKind.Left));
+                AppendJoinSource(sql, join, context);
+                sql.Append(LateralOn);
+                continue;
+            }
+
+            sql.Append(join.Kind switch { JoinKind.Left => " left join ", JoinKind.Right => " right join ", JoinKind.Cross => " cross join ", _ => " inner join " });
+            AppendJoinSource(sql, join, context);
             if (join.Kind == JoinKind.Cross) continue;
             sql.Append(" on ");
             AppendWheres(sql, join.Conditions, context);
         }
     }
+
+    private void AppendJoinSource(StringBuilder sql, JoinItem join, CompileContext context)
+    {
+        if (join.Subquery is null)
+        {
+            sql.Append(Wrap(join.Table));
+            return;
+        }
+
+        sql.Append('(');
+        AppendSelect(sql, join.Subquery, context);
+        sql.Append(") as ").Append(Quote(join.Table.Segments[0]));
+    }
+
+    /// <summary>The keyword that starts a lateral join (<c>inner join lateral</c>, <c>cross apply</c>...); throws where the dialect has none.</summary>
+    internal virtual string LateralKeyword(bool left) => throw NotSupported("JoinLateral and LeftJoinLateral");
+
+    /// <summary>What follows a lateral subquery: <c>on true</c> where the dialect needs a condition, nothing for <c>apply</c>.</summary>
+    internal virtual string LateralOn => string.Empty;
 
     private void AppendWhereClause(StringBuilder sql, IReadOnlyList<WhereNode> wheres, CompileContext context)
     {
@@ -545,20 +573,25 @@ public abstract class Grammar
             return;
         }
 
-        if (query.TableName is null) throw new InvalidOperationException("The query has no table. Call Table(...) before compiling it.");
+        if (query.TableName is null && query.FromSubquery is null) throw new InvalidOperationException("The query has no table. Call Table(...) or FromSub(...) before compiling it.");
 
         sql.Append("select ");
         if (query.IsDistinct) sql.Append("distinct ");
         AppendTop(sql, query);
         AppendColumns(sql, query, context);
-        sql.Append(" from ").Append(Wrap(query.TableName));
-        foreach (var join in query.Joins)
+        sql.Append(" from ");
+        if (query.FromSubquery is { } fromSubquery)
         {
-            sql.Append(join.Kind switch { JoinKind.Left => " left join ", JoinKind.Right => " right join ", JoinKind.Cross => " cross join ", _ => " inner join " }).Append(Wrap(join.Table));
-            if (join.Kind == JoinKind.Cross) continue;
-            sql.Append(" on ");
-            AppendWheres(sql, join.Conditions, context);
+            sql.Append('(');
+            AppendSelect(sql, fromSubquery, context);
+            sql.Append(") as ").Append(Quote(query.FromAlias!));
         }
+        else
+        {
+            sql.Append(Wrap(query.TableName!));
+        }
+
+        AppendJoins(sql, query, context);
 
         if (query.Wheres.Count > 0)
         {
@@ -683,8 +716,20 @@ public abstract class Grammar
         {
             if (i > 0) sql.Append(", ");
             var item = query.Columns[i];
-            if (item.Identifier is not null) sql.Append(Wrap(item.Identifier));
-            else AppendRaw(sql, item.RawSql!, item.Bindings, context);
+            if (item.Identifier is not null)
+            {
+                sql.Append(Wrap(item.Identifier));
+            }
+            else if (item.Subquery is not null)
+            {
+                sql.Append('(');
+                AppendSelect(sql, item.Subquery, context);
+                sql.Append(") as ").Append(Quote(item.Alias!));
+            }
+            else
+            {
+                AppendRaw(sql, item.RawSql!, item.Bindings, context);
+            }
         }
     }
 
@@ -909,6 +954,10 @@ internal sealed class MySqlGrammar() : Grammar(DatabaseDialect.MySql, 65535, '`'
 {
     internal override ReturningStyle ReturningMode => ReturningStyle.None;
 
+    internal override string LateralKeyword(bool left) => left ? " left join lateral " : " inner join lateral ";
+
+    internal override string LateralOn => " on true";
+
     internal override string InsertVerb(bool ignore) => ignore ? "insert ignore into " : "insert into ";
 
     internal override string EmptyInsert => " () values ()";
@@ -970,6 +1019,10 @@ internal sealed class MySqlGrammar() : Grammar(DatabaseDialect.MySql, 65535, '`'
 
 internal sealed class PostgresGrammar() : Grammar(DatabaseDialect.Postgres, 65535, '"', '"')
 {
+    internal override string LateralKeyword(bool left) => left ? " left join lateral " : " inner join lateral ";
+
+    internal override string LateralOn => " on true";
+
     internal override string InsertVerb(bool ignore) => "insert into ";
 
     internal override string InsertSuffix(bool ignore) => ignore ? " on conflict do nothing" : string.Empty;
@@ -1037,6 +1090,8 @@ internal sealed class PostgresGrammar() : Grammar(DatabaseDialect.Postgres, 6553
 internal sealed class SqlServerGrammar() : Grammar(DatabaseDialect.SqlServer, 2098, '[', ']')
 {
     internal override ReturningStyle ReturningMode => ReturningStyle.Output;
+
+    internal override string LateralKeyword(bool left) => left ? " outer apply " : " cross apply ";
 
     internal override int MaxInsertRows => 1000;
 

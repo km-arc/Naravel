@@ -313,3 +313,16 @@ Naravel.Database.Query.UpdateReturningAsync(System.Collections.Generic.IReadOnly
 Naravel.Database.Query.DeleteReturningAsync(string![]! returning, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyDictionary<string!, object?>!>!>!
 Naravel.Database.Query.Union(Naravel.Database.Query! other) -> Naravel.Database.Query!
 Naravel.Database.Query.UnionAll(Naravel.Database.Query! other) -> Naravel.Database.Query!
+Naravel.Database.Query.FromSub(Naravel.Database.Query! query, string! alias) -> Naravel.Database.Query!
+Naravel.Database.Query.SelectSub(Naravel.Database.Query! query, string! alias) -> Naravel.Database.Query!
+Naravel.Database.Query.JoinSub(Naravel.Database.Query! query, string! alias, string! first, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.JoinSub(Naravel.Database.Query! query, string! alias, string! first, string! op, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.JoinSub(Naravel.Database.Query! query, string! alias, System.Action<Naravel.Database.JoinClause!>! on) -> Naravel.Database.Query!
+Naravel.Database.Query.LeftJoinSub(Naravel.Database.Query! query, string! alias, string! first, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.LeftJoinSub(Naravel.Database.Query! query, string! alias, string! first, string! op, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.LeftJoinSub(Naravel.Database.Query! query, string! alias, System.Action<Naravel.Database.JoinClause!>! on) -> Naravel.Database.Query!
+Naravel.Database.Query.RightJoinSub(Naravel.Database.Query! query, string! alias, string! first, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.RightJoinSub(Naravel.Database.Query! query, string! alias, string! first, string! op, string! second) -> Naravel.Database.Query!
+Naravel.Database.Query.RightJoinSub(Naravel.Database.Query! query, string! alias, System.Action<Naravel.Database.JoinClause!>! on) -> Naravel.Database.Query!
+Naravel.Database.Query.JoinLateral(Naravel.Database.Query! query, string! alias) -> Naravel.Database.Query!
+Naravel.Database.Query.LeftJoinLateral(Naravel.Database.Query! query, string! alias) -> Naravel.Database.Query!

@@ -68,7 +68,7 @@ public sealed partial class Query
     private void CheckDeleteTarget()
     {
         if (_table is null) throw new InvalidOperationException("The query has no table. Call Table(...) before deleting.");
-        if (_unions.Count > 0 || _columns.Count > 0 || _groups.Count > 0 || _havings.Count > 0 || _orders.Count > 0 || _distinct || _limit.HasValue || _offset.HasValue)
+        if (_fromSubquery is not null || HasSubqueryJoin || _unions.Count > 0 || _columns.Count > 0 || _groups.Count > 0 || _havings.Count > 0 || _orders.Count > 0 || _distinct || _limit.HasValue || _offset.HasValue)
         {
             throw new InvalidOperationException("A delete query may only have a table, joins and where: select, group, having, ordering, distinct, limit and offset do not apply to a delete.");
         }
