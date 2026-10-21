@@ -330,3 +330,11 @@ Naravel.Database.Query.WithExpression(string! name, Naravel.Database.Query! quer
 Naravel.Database.Query.WithExpression(string! name, string![]! columns, Naravel.Database.Query! query) -> Naravel.Database.Query!
 Naravel.Database.Query.WithRecursiveExpression(string! name, Naravel.Database.Query! query) -> Naravel.Database.Query!
 Naravel.Database.Query.WithRecursiveExpression(string! name, string![]! columns, Naravel.Database.Query! query) -> Naravel.Database.Query!
+Naravel.Database.Query.GroupByRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
+Naravel.Database.Query.HavingRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
+Naravel.Database.Query.OrHavingRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
+Naravel.Database.Query.FromRaw(string! sql, params object?[]! bindings) -> Naravel.Database.Query!
+Naravel.Database.Raw
+Naravel.Database.Raw.Raw(string! sql, params object?[]! bindings) -> void
+Naravel.Database.Raw.Sql.get -> string!
+Naravel.Database.Raw.Bindings.get -> System.Collections.Generic.IReadOnlyList<object?>!

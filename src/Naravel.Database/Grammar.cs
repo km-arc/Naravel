@@ -252,6 +252,11 @@ public abstract class Grammar
             var take = Math.Min(perStatement, rows.Count - start);
             AppendInsertValues(sql, columns, rows, start, take, context, output);
             sql.Append(suffix ?? InsertSuffix(ignore)).Append(tail);
+            if (context.Bindings.Count > MaxParameters)
+            {
+                throw new InvalidOperationException($"A statement of this insert has {context.Bindings.Count} parameters but the {Dialect} dialect allows at most {MaxParameters}: a Raw value with several bindings counts as one when a batch is split. Insert fewer rows per call.");
+            }
+
             statements.Add(new CompiledQuery(sql.ToString(), context.Bindings.ToArray()));
         }
 
@@ -582,14 +587,18 @@ public abstract class Grammar
             return;
         }
 
-        if (query.TableName is null && query.FromSubquery is null) throw new InvalidOperationException("The query has no table. Call Table(...) or FromSub(...) before compiling it.");
+        if (query.TableName is null && query.FromSubquery is null && query.FromRawSql is null) throw new InvalidOperationException("The query has no table. Call Table(...), FromSub(...) or FromRaw(...) before compiling it.");
 
         sql.Append("select ");
         if (query.IsDistinct) sql.Append("distinct ");
         AppendTop(sql, query);
         AppendColumns(sql, query, context);
         sql.Append(" from ");
-        if (query.FromSubquery is { } fromSubquery)
+        if (query.FromRawSql is { } fromRaw)
+        {
+            AppendRaw(sql, fromRaw, query.FromRawBindings, context);
+        }
+        else if (query.FromSubquery is { } fromSubquery)
         {
             sql.Append('(');
             AppendSelect(sql, fromSubquery, context);
@@ -608,7 +617,18 @@ public abstract class Grammar
             AppendWheres(sql, query.Wheres, context);
         }
 
-        if (query.Groups.Count > 0) sql.Append(" group by ").Append(string.Join(", ", query.Groups.Select(group => Wrap(group))));
+        if (query.Groups.Count > 0)
+        {
+            sql.Append(" group by ");
+            for (var i = 0; i < query.Groups.Count; i++)
+            {
+                if (i > 0) sql.Append(", ");
+                var group = query.Groups[i];
+                if (group.Identifier is not null) sql.Append(Wrap(group.Identifier));
+                else AppendRaw(sql, group.RawSql!, group.Bindings, context);
+            }
+        }
+
         if (query.Havings.Count > 0)
         {
             sql.Append(" having ");
@@ -909,6 +929,13 @@ public abstract class Grammar
 
         public string Add(object? value)
         {
+            if (value is Raw raw)
+            {
+                var text = new StringBuilder();
+                AppendRaw(text, raw.Sql, raw.Bindings.ToArray(), this);
+                return text.ToString();
+            }
+
             Bindings.Add(value);
             return "@p" + (Bindings.Count - 1).ToString(CultureInfo.InvariantCulture);
         }
