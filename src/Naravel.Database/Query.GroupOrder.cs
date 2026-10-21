@@ -8,9 +8,29 @@ public sealed partial class Query
     {
         ArgumentNullException.ThrowIfNull(columns);
         if (columns.Length == 0) throw new ArgumentException("At least one column is required.", nameof(columns));
-        foreach (var column in columns) _groups.Add(Plain(IdentifierGrammar.Parse(column, nameof(columns)), column, nameof(columns), allowAlias: false));
+        foreach (var column in columns) _groups.Add(new GroupItem(Plain(IdentifierGrammar.Parse(column, nameof(columns)), column, nameof(columns), allowAlias: false), null, []));
         return this;
     }
+
+    /// <summary>Adds a raw expression to <c>group by</c>; each <c>?</c> is replaced by a bound parameter (write <c>??</c> for a literal question mark). Laravel: <c>groupByRaw</c>.</summary>
+    /// <param name="sql">The SQL text. Never build it from user input.</param>
+    /// <param name="bindings">The values for each <c>?</c>.</param>
+    public Query GroupByRaw(string sql, params object?[] bindings)
+    {
+        CheckRaw(sql, bindings);
+        _groups.Add(new GroupItem(null, sql, bindings));
+        return this;
+    }
+
+    /// <summary>Adds a raw condition to <c>having</c>; each <c>?</c> is replaced by a bound parameter. Laravel: <c>havingRaw</c>.</summary>
+    /// <param name="sql">The SQL text. Never build it from user input.</param>
+    /// <param name="bindings">The values for each <c>?</c>.</param>
+    public Query HavingRaw(string sql, params object?[] bindings) => AddHaving(q => q.WhereRaw(sql, bindings));
+
+    /// <summary>Like <see cref="HavingRaw"/> but joined with <c>or</c>. Laravel: <c>orHavingRaw</c>.</summary>
+    /// <param name="sql">The SQL text. Never build it from user input.</param>
+    /// <param name="bindings">The values for each <c>?</c>.</param>
+    public Query OrHavingRaw(string sql, params object?[] bindings) => AddHaving(q => q.OrWhereRaw(sql, bindings));
 
     /// <summary>Adds a <c>having</c> condition with <c>=</c> on a grouped column or a select alias. PostgreSQL and SQL Server only accept grouped columns here, not aliases. Laravel: <c>having</c>.</summary>
     /// <param name="column">The column or alias.</param>

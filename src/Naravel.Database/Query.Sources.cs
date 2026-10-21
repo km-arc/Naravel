@@ -13,6 +13,25 @@ public sealed partial class Query
         _table = null;
         _fromSubquery = source;
         _fromAlias = name;
+        _fromRawSql = null;
+        _fromRawBindings = [];
+        return this;
+    }
+
+    /// <summary>
+    /// Selects from raw SQL text: <c>select ... from {sql}</c>, for a table function, a derived table or anything the identifier grammar cannot name. Replaces the table. Laravel: <c>fromRaw</c>.
+    /// </summary>
+    /// <param name="sql">The SQL text after <c>from</c>, including any alias: <c>"generate_series(1, ?) as g(n)"</c>. Never build it from user input.</param>
+    /// <param name="bindings">The values for each <c>?</c>; they are sent as parameters, in text order.</param>
+    /// <remarks>A query built on <c>FromRaw</c> can be read but not written to (insert, update, delete and truncate need a table).</remarks>
+    public Query FromRaw(string sql, params object?[] bindings)
+    {
+        CheckRaw(sql, bindings);
+        _table = null;
+        _fromSubquery = null;
+        _fromAlias = null;
+        _fromRawSql = sql;
+        _fromRawBindings = bindings.ToArray();
         return this;
     }
 

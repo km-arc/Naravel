@@ -618,6 +618,20 @@ internal static class ContractScenarios
             (await Big().Limit(2).CountAsync()).Should().Be(2, "the expression is hoisted out of the derived table the count needs");
             (await Big().Where("id", 99).ExistsAsync()).Should().BeFalse();
         }),
+        new("raw_group_having_from_and_values", async c =>
+        {
+            var votes = await c.Db.Table(c.People).Select("votes").SelectRaw("count(*) as n").GroupByRaw("votes").HavingRaw("count(*) > ?", 1).PluckAsync<long>("votes");
+            votes.Should().Equal(20L);
+
+            var rival = await c.Db.Table(c.People).FromRaw(c.People + " as p").Select("p.name").Where("p.votes", 5).PluckAsync<string>("name");
+            rival.Should().Equal("Dennis");
+
+            await c.Db.Table(c.Writes).InsertAsync(new Dictionary<string, object?> { ["name"] = "w_raw", ["votes"] = new Raw("2 * 3") });
+            (await c.Db.Table(c.Writes).Where("name", "w_raw").ValueAsync<long>("votes")).Should().Be(6);
+            await c.Db.Table(c.Writes).Where("name", "w_raw").UpdateAsync(new Dictionary<string, object?> { ["votes"] = new Raw("votes + ?", 10) });
+            (await c.Db.Table(c.Writes).Where("name", "w_raw").ValueAsync<long>("votes")).Should().Be(16);
+            (await c.Db.Table(c.People).Where("votes", ">", new Raw("? - 15", 20)).CountAsync()).Should().Be(4, "votes above 5");
+        }),
     ];
 
     public static IEnumerable<object[]> Names(DatabaseDialect dialect) =>

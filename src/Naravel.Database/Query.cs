@@ -21,11 +21,13 @@ public sealed partial class Query
     private int? _headLimit;
     private int? _headOffset;
     private readonly List<JoinItem> _joins = new();
-    private readonly List<ParsedIdentifier> _groups = new();
+    private readonly List<GroupItem> _groups = new();
     private readonly List<WhereNode> _havings = new();
     private ParsedIdentifier? _table;
     private Query? _fromSubquery;
     private string? _fromAlias;
+    private string? _fromRawSql;
+    private object?[] _fromRawBindings = [];
     private bool _distinct;
     private bool _allRows;
     private int? _limit;
@@ -48,6 +50,10 @@ public sealed partial class Query
 
     internal string? FromAlias => _fromAlias;
 
+    internal string? FromRawSql => _fromRawSql;
+
+    internal object?[] FromRawBindings => _fromRawBindings;
+
     internal IReadOnlyList<SelectItem> Columns => _columns;
 
     internal IReadOnlyList<WhereNode> Wheres => _wheres;
@@ -64,7 +70,7 @@ public sealed partial class Query
 
     internal IReadOnlyList<JoinItem> Joins => _joins;
 
-    internal IReadOnlyList<ParsedIdentifier> Groups => _groups;
+    internal IReadOnlyList<GroupItem> Groups => _groups;
 
     internal IReadOnlyList<WhereNode> Havings => _havings;
 
@@ -85,6 +91,8 @@ public sealed partial class Query
         _table = Plain(IdentifierGrammar.Parse(table, nameof(table)), table, nameof(table), allowAlias: true);
         _fromSubquery = null;
         _fromAlias = null;
+        _fromRawSql = null;
+        _fromRawBindings = [];
         return this;
     }
 
@@ -383,7 +391,7 @@ public sealed partial class Query
     /// <summary>Copies the query so it can be changed without touching the original. Laravel: <c>clone</c>.</summary>
     public Query Clone()
     {
-        var copy = new Query(Grammar) { _table = _table, _fromSubquery = _fromSubquery, _fromAlias = _fromAlias, _distinct = _distinct, _allRows = _allRows, _limit = _limit, _offset = _offset, Runner = Runner };
+        var copy = new Query(Grammar) { _table = _table, _fromSubquery = _fromSubquery, _fromAlias = _fromAlias, _fromRawSql = _fromRawSql, _fromRawBindings = _fromRawBindings, _distinct = _distinct, _allRows = _allRows, _limit = _limit, _offset = _offset, Runner = Runner };
         copy._columns.AddRange(_columns);
         copy._wheres.AddRange(_wheres);
         copy._orders.AddRange(_orders);

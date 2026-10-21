@@ -241,3 +241,13 @@ internal sealed record UnionItem(Query Query, bool All);
 
 /// <summary>One common table expression: <c>name (columns) as (query)</c>.</summary>
 internal sealed record CteItem(string Name, IReadOnlyList<string>? Columns, Query Query, bool Recursive);
+
+/// <summary>One <c>group by</c> item: a column or a raw expression.</summary>
+internal sealed class GroupItem(ParsedIdentifier? identifier, string? rawSql, object?[] bindings)
+{
+    public ParsedIdentifier? Identifier { get; } = identifier;
+
+    public string? RawSql { get; } = rawSql;
+
+    public object?[] Bindings { get; } = bindings;
+}
