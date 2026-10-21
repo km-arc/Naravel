@@ -391,7 +391,7 @@ public sealed partial class Query
     /// <summary>Copies the query so it can be changed without touching the original. Laravel: <c>clone</c>.</summary>
     public Query Clone()
     {
-        var copy = new Query(Grammar) { _table = _table, _fromSubquery = _fromSubquery, _fromAlias = _fromAlias, _fromRawSql = _fromRawSql, _fromRawBindings = _fromRawBindings, _distinct = _distinct, _allRows = _allRows, _limit = _limit, _offset = _offset, Runner = Runner };
+        var copy = new Query(Grammar) { _table = _table, _fromSubquery = _fromSubquery, _fromAlias = _fromAlias, _fromRawSql = _fromRawSql, _fromRawBindings = _fromRawBindings, _distinct = _distinct, _allRows = _allRows, _limit = _limit, _offset = _offset, _lock = _lock, Runner = Runner };
         copy._columns.AddRange(_columns);
         copy._wheres.AddRange(_wheres);
         copy._orders.AddRange(_orders);

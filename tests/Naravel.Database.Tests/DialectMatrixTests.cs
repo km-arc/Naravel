@@ -3,7 +3,7 @@ using Naravel.Database;
 namespace Naravel.Database.Tests;
 
 /// <summary>
-/// The R21 dialect matrix of docs/en/database.md and docs/fa/database.md, as code: a call a dialect cannot express throws
+/// The R21 and R24 dialect matrices of docs/en/database.md and docs/fa/database.md, as code: a call a dialect cannot express throws
 /// <see cref="NotSupportedException"/> naming the dialect when compiled; every other call compiles on all four. Change this table and the docs together.
 /// </summary>
 public class DialectMatrixTests
@@ -33,6 +33,8 @@ public class DialectMatrixTests
         new("GroupBy and Having", q => q.GroupBy("a").Having("a", ">", 1).HavingBetween("a", 1, 2).HavingNull("b")),
         new("Latest, Oldest, Reorder", q => q.Latest().Oldest("id").Reorder("x")),
         new("InRandomOrder", q => q.InRandomOrder()),
+        new("SharedLock (R24.T05)", q => q.SharedLock(), DatabaseDialect.Sqlite),
+        new("LockForUpdate (R24.T05)", q => q.LockForUpdate(), DatabaseDialect.Sqlite),
     ];
 
     public static IEnumerable<object[]> Cases() =>

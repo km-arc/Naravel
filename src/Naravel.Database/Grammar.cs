@@ -596,17 +596,19 @@ public abstract class Grammar
         sql.Append(" from ");
         if (query.FromRawSql is { } fromRaw)
         {
+            RefuseLockHint(query);
             AppendRaw(sql, fromRaw, query.FromRawBindings, context);
         }
         else if (query.FromSubquery is { } fromSubquery)
         {
+            RefuseLockHint(query);
             sql.Append('(');
             AppendSelect(sql, fromSubquery, context);
             sql.Append(") as ").Append(Quote(query.FromAlias!));
         }
         else
         {
-            sql.Append(Wrap(query.TableName!));
+            sql.Append(Wrap(query.TableName!)).Append(LockHint(query.Lock));
         }
 
         AppendJoins(sql, query, context);
@@ -637,6 +639,29 @@ public abstract class Grammar
 
         AppendOrders(sql, query, context);
         AppendLimitOffset(sql, query);
+        sql.Append(LockClause(query.Lock));
+    }
+
+    /// <summary>Whether a lock is a table hint written after the table (SQL Server) and not a clause at the end of the select.</summary>
+    internal virtual bool LockIsTableHint => false;
+
+    /// <summary>The clause that ends a select with a lock, with its leading space: <c>for share</c> or <c>for update</c>; empty without a lock and where the lock is a table hint. SQLite throws <see cref="NotSupportedException"/>.</summary>
+    internal virtual string LockClause(LockMode mode) => mode switch
+    {
+        LockMode.Shared => " for share",
+        LockMode.Update => " for update",
+        _ => string.Empty,
+    };
+
+    /// <summary>The table hint that carries a lock, with its leading space; empty where the lock is a clause at the end of the select (every dialect but SQL Server).</summary>
+    internal virtual string LockHint(LockMode mode) => string.Empty;
+
+    private void RefuseLockHint(Query query)
+    {
+        if (query.Lock != LockMode.None && LockIsTableHint)
+        {
+            throw NotSupported("A lock on a query built on FromSub or FromRaw (the lock is a table hint, which a derived table cannot take)");
+        }
     }
 
     /// <summary>Writes <c>with [recursive] name (columns) as (select ...), ... </c> in front of a statement. SQL Server has no <c>recursive</c> keyword.</summary>
@@ -690,6 +715,7 @@ public abstract class Grammar
 
     private void AppendUnionTerm(StringBuilder sql, Query term, CompileContext context, int index)
     {
+        if (term.Lock != LockMode.None) throw new InvalidOperationException("SharedLock and LockForUpdate cannot be used on a query with Union or UnionAll, or on one of its terms: the builder cannot write a row lock on a compound select. Lock the rows in a separate query.");
         if (term.Orders.Count == 0 && !term.LimitValue.HasValue && !term.OffsetValue.HasValue && !term.HasUnions && !term.HasCtes)
         {
             AppendSelect(sql, term, context);
@@ -952,6 +978,10 @@ public abstract class Grammar
 
 internal sealed class SqliteGrammar() : Grammar(DatabaseDialect.Sqlite, 32766, '"', '"')
 {
+    // SQLite locks the whole database file while it writes and has no row locks, so asking for one is refused instead of being dropped.
+    internal override string LockClause(LockMode mode) =>
+        mode == LockMode.None ? string.Empty : throw NotSupported("SharedLock and LockForUpdate (SQLite has no row locks)");
+
     internal override string InsertVerb(bool ignore) => ignore ? "insert or ignore into " : "insert into ";
 
     internal override string? InsertReturning(string quotedColumn) => " returning " + quotedColumn;
@@ -1151,6 +1181,17 @@ internal sealed class SqlServerGrammar() : Grammar(DatabaseDialect.SqlServer, 20
     internal override ReturningStyle ReturningMode => ReturningStyle.Output;
 
     internal override bool RecursiveKeyword => false;
+
+    internal override bool LockIsTableHint => true;
+
+    internal override string LockClause(LockMode mode) => string.Empty;
+
+    internal override string LockHint(LockMode mode) => mode switch
+    {
+        LockMode.Shared => " with (rowlock, holdlock)",
+        LockMode.Update => " with (rowlock, updlock, holdlock)",
+        _ => string.Empty,
+    };
 
     internal override string LateralKeyword(bool left) => left ? " outer apply " : " cross apply ";
 
