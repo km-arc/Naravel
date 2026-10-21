@@ -326,3 +326,7 @@ Naravel.Database.Query.RightJoinSub(Naravel.Database.Query! query, string! alias
 Naravel.Database.Query.RightJoinSub(Naravel.Database.Query! query, string! alias, System.Action<Naravel.Database.JoinClause!>! on) -> Naravel.Database.Query!
 Naravel.Database.Query.JoinLateral(Naravel.Database.Query! query, string! alias) -> Naravel.Database.Query!
 Naravel.Database.Query.LeftJoinLateral(Naravel.Database.Query! query, string! alias) -> Naravel.Database.Query!
+Naravel.Database.Query.WithExpression(string! name, Naravel.Database.Query! query) -> Naravel.Database.Query!
+Naravel.Database.Query.WithExpression(string! name, string![]! columns, Naravel.Database.Query! query) -> Naravel.Database.Query!
+Naravel.Database.Query.WithRecursiveExpression(string! name, Naravel.Database.Query! query) -> Naravel.Database.Query!
+Naravel.Database.Query.WithRecursiveExpression(string! name, string![]! columns, Naravel.Database.Query! query) -> Naravel.Database.Query!

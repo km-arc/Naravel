@@ -46,6 +46,7 @@ public sealed partial class Query
     {
         var head = Clone();
         head._unions.Clear();
+        head._ctes.Clear();
         head._orders.Clear();
         head._orders.AddRange(_headOrders);
         head._limit = _headLimit;

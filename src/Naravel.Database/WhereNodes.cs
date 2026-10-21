@@ -238,3 +238,6 @@ internal enum ReturningStyle
 
 /// <summary>One <c>union</c> or <c>union all</c> term: a snapshot of the query that was added.</summary>
 internal sealed record UnionItem(Query Query, bool All);
+
+/// <summary>One common table expression: <c>name (columns) as (query)</c>.</summary>
+internal sealed record CteItem(string Name, IReadOnlyList<string>? Columns, Query Query, bool Recursive);

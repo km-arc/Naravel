@@ -163,7 +163,15 @@ public abstract class Grammar
     internal CompiledQuery CompileWrapped(string prefix, Query inner, string suffix)
     {
         var context = new CompileContext();
-        var sql = new StringBuilder(prefix).Append('(');
+        var sql = new StringBuilder();
+        if (inner.HasCtes)
+        {
+            // SQL Server accepts with only at the front of the statement, so the expressions are hoisted out of the derived table.
+            AppendWith(sql, inner, context);
+            inner = inner.WithoutCtes();
+        }
+
+        sql.Append(prefix).Append('(');
         AppendSelect(sql, inner, context);
         sql.Append(')').Append(suffix);
 
@@ -567,6 +575,7 @@ public abstract class Grammar
     /// <summary>Writes a whole select into <paramref name="sql"/>; a subquery shares the context of the outer statement so parameter numbers stay unique and in text order.</summary>
     private void AppendSelect(StringBuilder sql, Query query, CompileContext context)
     {
+        AppendWith(sql, query, context);
         if (query.HasUnions)
         {
             AppendUnion(sql, query, context);
@@ -610,6 +619,29 @@ public abstract class Grammar
         AppendLimitOffset(sql, query);
     }
 
+    /// <summary>Writes <c>with [recursive] name (columns) as (select ...), ... </c> in front of a statement. SQL Server has no <c>recursive</c> keyword.</summary>
+    private void AppendWith(StringBuilder sql, Query query, CompileContext context)
+    {
+        if (!query.HasCtes) return;
+        sql.Append("with ");
+        if (RecursiveKeyword && query.Ctes.Any(cte => cte.Recursive)) sql.Append("recursive ");
+        for (var i = 0; i < query.Ctes.Count; i++)
+        {
+            var cte = query.Ctes[i];
+            if (i > 0) sql.Append(", ");
+            sql.Append(Quote(cte.Name));
+            if (cte.Columns is not null) sql.Append(" (").Append(string.Join(", ", cte.Columns.Select(Quote))).Append(')');
+            sql.Append(" as (");
+            AppendSelect(sql, cte.Query, context);
+            sql.Append(')');
+        }
+
+        sql.Append(' ');
+    }
+
+    /// <summary>Whether a recursive expression is introduced with <c>with recursive</c> (every dialect but SQL Server).</summary>
+    internal virtual bool RecursiveKeyword => true;
+
     /// <summary>Writes <c>select ... union [all] select ...</c>. A term with its own ordering, limit or union, and the whole union when it has ordering or a limit, becomes a derived table.</summary>
     private void AppendUnion(StringBuilder sql, Query query, CompileContext context)
     {
@@ -638,7 +670,7 @@ public abstract class Grammar
 
     private void AppendUnionTerm(StringBuilder sql, Query term, CompileContext context, int index)
     {
-        if (term.Orders.Count == 0 && !term.LimitValue.HasValue && !term.OffsetValue.HasValue && !term.HasUnions)
+        if (term.Orders.Count == 0 && !term.LimitValue.HasValue && !term.OffsetValue.HasValue && !term.HasUnions && !term.HasCtes)
         {
             AppendSelect(sql, term, context);
             return;
@@ -1090,6 +1122,8 @@ internal sealed class PostgresGrammar() : Grammar(DatabaseDialect.Postgres, 6553
 internal sealed class SqlServerGrammar() : Grammar(DatabaseDialect.SqlServer, 2098, '[', ']')
 {
     internal override ReturningStyle ReturningMode => ReturningStyle.Output;
+
+    internal override bool RecursiveKeyword => false;
 
     internal override string LateralKeyword(bool left) => left ? " outer apply " : " cross apply ";
 
