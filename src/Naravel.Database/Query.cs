@@ -426,7 +426,7 @@ public sealed partial class Query
     /// <remarks>
     /// Each value is written the way its dialect reads it: text is quoted with <c>'</c> doubled (and, on MySQL, the backslash doubled; SQL Server text gets the <c>N</c> prefix), booleans are <c>1</c>/<c>0</c> or
     /// <c>true</c>/<c>false</c> (PostgreSQL), <c>null</c> is <c>NULL</c>, binary is <c>x'..'</c>, <c>0x..</c> or <c>'\x..'</c>, and dates, times, <see cref="Guid"/> and enums are written invariantly. The text is a
-    /// <b>display</b> form, not a safe statement: it is built by string substitution, so a <c>Raw</c> or <c>*Raw</c> text that itself contains something shaped like <c>@p1</c> is also replaced, a custom type is shown
+    /// <b>display</b> form, not a safe statement: it is built by string substitution, so a custom type is shown
     /// through <c>ToString()</c>, and a value the database would convert differently (a string compared with a number, a date with a time zone) may behave differently when pasted into a console.
     /// To run a query, run the query (<c>GetAsync</c> and the others bind the values as parameters), or pass <see cref="ToSql"/> and <see cref="GetBindings"/> to your own command.
     /// </remarks>
