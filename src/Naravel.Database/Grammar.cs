@@ -16,6 +16,9 @@ public abstract class Grammar
     private static readonly Regex OperatorWhitespace = new(@"\s+", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
     private static readonly Regex ParameterMarker = new(@"@p(\d+)", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
+    /// <summary>Whether raw SQL text contains something that looks like one of the builder's own parameter markers (<c>@p0</c>, <c>@p12</c>...). Such text would be bound to a generated value, or substituted by <c>ToRawSql</c>, by accident.</summary>
+    internal static bool ContainsParameterMarker(string sql) => ParameterMarker.IsMatch(sql);
+
     private static readonly HashSet<string> CommonOperators = new(StringComparer.Ordinal)
     {
         "=", "<", ">", "<=", ">=", "<>", "!=", "like", "not like",
