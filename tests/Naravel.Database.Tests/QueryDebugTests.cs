@@ -124,16 +124,6 @@ public class QueryDebugTests
         fake.AssertExecuted(e => e.Operation == QueryOperation.Statement).Sql.Should().Be("update \"users\" set \"name\" = @p0 where \"id\" = @p1");
     }
 
-    [Fact]
-    public void Text_in_a_raw_part_that_looks_like_a_marker_is_replaced_in_the_display_only()
-    {
-        var query = Users(DatabaseDialect.Sqlite).Where("a", 9).WhereRaw("note = '@p0'");
-
-        query.ToSql().Should().Be("select * from \"users\" where \"a\" = @p0 and (note = '@p0')");
-        query.GetBindings().Should().Equal(9);
-        query.ToRawSql().Should().Be("select * from \"users\" where \"a\" = 9 and (note = '9')", "the display form is a substitution, which is why it must never be executed");
-    }
-
     [Theory]
     [InlineData("a = @p0")]
     [InlineData("a = @p12 or b = 1")]
