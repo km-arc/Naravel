@@ -406,28 +406,29 @@ public sealed partial class Query
         return copy;
     }
 
-    /// <summary>Compiles the query for this grammar.</summary>
-    /// <exception cref="InvalidOperationException">No table was set, SQL Server <c>Offset</c> has no <c>OrderBy</c>, or the parameter limit is exceeded.</exception>
+    /// <summary>Compiles the query for this grammar: the SQL text and its bound values, as they are sent to the database.</summary>
+    /// <exception cref="InvalidOperationException">No table was set, SQL Server <c>Offset</c> has no <c>OrderBy</c>, a <c>Union</c> term or the query itself has a lock, or the parameter limit is exceeded.</exception>
+    /// <exception cref="NotSupportedException">The dialect cannot express a part of the query (for example a lock on SQLite or a lateral join on SQLite and SQL Server).</exception>
     public CompiledQuery Compile() => Grammar.CompileSelect(this);
 
     /// <summary>
-    /// The SQL text of the select, with the values left as <c>@p0</c>, <c>@p1</c>... markers: this is exactly what the query sends to the database. Laravel: <c>toSql</c>.
+    /// The SQL text with <c>@p0</c>, <c>@p1</c>... markers, exactly what is sent to the database. Laravel: <c>toSql</c>.
     /// </summary>
-    /// <exception cref="InvalidOperationException">As <see cref="Compile"/>.</exception>
-    /// <remarks>It compiles the query again on every call and changes nothing on it. Only a select can be shown: the write methods compile when they run, and their SQL appears in the query log and in <c>DatabaseFake.Executed</c>.</remarks>
+    /// <remarks>Debugging and logging helpers compile the query but never run it and never change it. Laravel's <c>dump</c>, <c>dd</c>, <c>dumpRawSql</c> and <c>ddRawSql</c> are not ported (they are PHP debug output): write <see cref="ToSql"/> or <see cref="ToRawSql"/> to your logger, or use the opt-in query log of <c>IDatabase</c>.</remarks>
     public string ToSql() => Compile().Sql;
 
-    /// <summary>The values to bind to the markers of <see cref="ToSql"/>, in marker order (the list index is the marker number). Laravel: <c>getBindings</c>.</summary>
-    /// <exception cref="InvalidOperationException">As <see cref="Compile"/>.</exception>
+    /// <summary>The values to bind, in marker order (<c>@p0</c> first). Laravel: <c>getBindings</c>.</summary>
     public IReadOnlyList<object?> GetBindings() => Compile().Bindings;
 
     /// <summary>
-    /// The SQL with every value written in as a literal escaped for this dialect, <b>for logs and debugging only: never execute it, and never build a command from it</b>. The values that run are always sent as parameters. Laravel: <c>toRawSql</c>.
+    /// The SQL with every value written in as a literal, <b>for logs and debugging only: never execute it</b>. Laravel: <c>toRawSql</c>.
     /// </summary>
-    /// <exception cref="InvalidOperationException">As <see cref="Compile"/>.</exception>
     /// <remarks>
-    /// Strings are quoted with the dialect's rules (quotes doubled; backslashes doubled on MySQL; <c>N'...'</c> on SQL Server), binary values are written as hexadecimal, dates in ISO form and booleans as the dialect writes them.
-    /// The literals are a faithful display, not a promise that every database would read them back identically (floating-point and time-zone details differ). Laravel's <c>dump</c> and <c>dd</c> are not ported: use this method, the query log or <c>DatabaseFake</c>.
+    /// Each value is written the way its dialect reads it: text is quoted with <c>'</c> doubled (and, on MySQL, the backslash doubled; SQL Server text gets the <c>N</c> prefix), booleans are <c>1</c>/<c>0</c> or
+    /// <c>true</c>/<c>false</c> (PostgreSQL), <c>null</c> is <c>NULL</c>, binary is <c>x'..'</c>, <c>0x..</c> or <c>'\x..'</c>, and dates, times, <see cref="Guid"/> and enums are written invariantly. The text is a
+    /// <b>display</b> form, not a safe statement: it is built by string substitution, so a <c>Raw</c> or <c>*Raw</c> text that itself contains something shaped like <c>@p1</c> is also replaced, a custom type is shown
+    /// through <c>ToString()</c>, and a value the database would convert differently (a string compared with a number, a date with a time zone) may behave differently when pasted into a console.
+    /// To run a query, run the query (<c>GetAsync</c> and the others bind the values as parameters), or pass <see cref="ToSql"/> and <see cref="GetBindings"/> to your own command.
     /// </remarks>
     public string ToRawSql() => Grammar.Substitute(Compile());
 
@@ -514,35 +515,7 @@ public sealed partial class Query
 
     private Query AddNull(string column, bool isNull, bool or)
     {
-        _wheres.Add(new NullWhere(Column(column, nameof(column)), isNull, or, false));
-        return this;
-    }
-
-    private Query AddColumn(string first, string op, string second, bool or)
-    {
-        var left = Column(first, nameof(first));
-        var normalized = Grammar.NormalizeOperator(op, nameof(op));
-        _wheres.Add(new ColumnWhere(left, normalized, Column(second, nameof(second)), or));
-        return this;
-    }
-
-    private Query AddColumnPairs(IEnumerable<KeyValuePair<string, string>> pairs, bool or)
-    {
-        ArgumentNullException.ThrowIfNull(pairs);
-        var inner = new Query(Grammar);
-        foreach (var pair in pairs) inner.AddColumn(pair.Key, "=", pair.Value, or: false);
-        if (inner._wheres.Count > 0) _wheres.Add(new NestedWhere(inner._wheres.ToArray(), or, false));
-        return this;
-    }
-
-    private Query AddIn(string column, IEnumerable values, bool negate, bool or)
-    {
-        ArgumentNullException.ThrowIfNull(values);
-        if (values is string) throw new ArgumentException("Pass a collection of values, not a string.", nameof(values));
-        var identifier = Plain(IdentifierGrammar.Parse(column, nameof(column)), column, nameof(column), allowAlias: false, allowJson: true);
-        var list = new List<object?>();
-        foreach (var value in values) list.Add(value);
-        _wheres.Add(new InWhere(identifier, list.ToArray(), negate, or));
-        return this;
+        // Remaining implementation methods...
+        throw new NotImplementedException();
     }
 }

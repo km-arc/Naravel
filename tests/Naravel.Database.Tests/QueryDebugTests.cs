@@ -1,3 +1,4 @@
+using System.Reflection;
 using Naravel.Database;
 using Naravel.Database.Testing;
 
@@ -9,18 +10,18 @@ public class QueryDebugTests
     private static Query Users(DatabaseDialect d) => Query.For(d).Table("users");
 
     [Fact]
-    public void ToSql_and_GetBindings_are_what_compile_returns_and_change_nothing()
+    public void ToSql_and_GetBindings_are_what_Compile_returns_and_change_nothing()
     {
         foreach (var dialect in Enum.GetValues<DatabaseDialect>())
         {
-            var query = Users(dialect).Where("a", 1).Union(Query.For(dialect).Table("b").Where("c", "x")).OrderBy("a").Limit(5);
-            var before = query.Compile();
+            var query = Users(dialect).Where("a", 1).Where("b", "x").OrderBy("a").Limit(3);
+            var before = query.Clone().Compile();
 
-            query.ToSql().Should().Be(before.Sql);
-            query.GetBindings().Should().Equal(before.Bindings);
-            query.ToSql().Should().Be(before.Sql, "a second call gives the same text");
+            query.ToSql().Should().Be(before.Sql, dialect.ToString());
+            query.GetBindings().Should().Equal(before.Bindings, dialect.ToString());
             query.ToRawSql().Should().NotBeNullOrEmpty();
             query.Compile().Sql.Should().Be(before.Sql, "nothing on the query changed");
+            query.Compile().Bindings.Should().Equal(before.Bindings);
         }
     }
 
@@ -34,6 +35,20 @@ public class QueryDebugTests
             .ToRawSql();
 
         raw.Should().Be("select * from \"users\" where (c1 = 'x') and (c2 = 7) and (c3 = 1.25) and (c4 = 0.5) and (c5 = NULL) and (c6 = '2026-10-17 09:30:00.000000+03:30') and (c7 = '2026-01-02') and (c8 = '03:04:05.000000') and (c9 = 5) and (c10 = 0)");
+    }
+
+    [Fact]
+    public void ToRawSql_writes_null_text_and_numbers_the_way_each_dialect_reads_them()
+    {
+        var sqlite = Users(DatabaseDialect.Sqlite).WhereRaw("coalesce(a, ?) = 1", (object?)null).Where("n", 3).Where("s", "it's").ToRawSql();
+        var mysql = Users(DatabaseDialect.MySql).Where("s", "a'b\\c").Where("f", 1.5).ToRawSql();
+        var postgres = Users(DatabaseDialect.Postgres).Where("ok", true).Where("s", "it's").ToRawSql();
+        var sqlServer = Users(DatabaseDialect.SqlServer).Where("ok", false).Where("s", "it's").ToRawSql();
+
+        sqlite.Should().Be("select * from \"users\" where (coalesce(a, NULL) = 1) and \"n\" = 3 and \"s\" = 'it''s'");
+        mysql.Should().Be("select * from `users` where `s` = 'a''b\\\\c' and `f` = 1.5");
+        postgres.Should().Be("select * from \"users\" where \"ok\" = true and \"s\" = 'it''s'");
+        sqlServer.Should().Be("select * from [users] where [ok] = 0 and [s] = N'it''s'");
     }
 
     [Fact]
@@ -73,6 +88,18 @@ public class QueryDebugTests
     }
 
     [Fact]
+    public void A_value_that_tries_to_end_the_text_stays_inside_it()
+    {
+        foreach (var dialect in Enum.GetValues<DatabaseDialect>())
+        {
+            var raw = Users(dialect).Where("name", "x'; drop table users; --").ToRawSql();
+
+            raw.Should().Contain("'x''; drop table users; --'", dialect.ToString());
+            Users(dialect).Where("name", "x'; drop table users; --").ToSql().Should().NotContain("drop table", "the SQL text never holds the value");
+        }
+    }
+
+    [Fact]
     public async Task What_runs_is_the_parameterised_text_and_never_the_raw_form()
     {
         var fake = new DatabaseFake(DatabaseDialect.SqlServer);
@@ -95,6 +122,16 @@ public class QueryDebugTests
         await fake.Table("users").Where("id", 1).UpdateAsync(new Dictionary<string, object?> { ["name"] = "n" });
 
         fake.AssertExecuted(e => e.Operation == QueryOperation.Statement).Sql.Should().Be("update \"users\" set \"name\" = @p0 where \"id\" = @p1");
+    }
+
+    [Fact]
+    public void Text_in_a_raw_part_that_looks_like_a_marker_is_replaced_in_the_display_only()
+    {
+        var query = Users(DatabaseDialect.Sqlite).Where("a", 9).WhereRaw("note = '@p0'");
+
+        query.ToSql().Should().Be("select * from \"users\" where \"a\" = @p0 and (note = '@p0')");
+        query.GetBindings().Should().Equal(9);
+        query.ToRawSql().Should().Be("select * from \"users\" where \"a\" = 9 and (note = '9')", "the display form is a substitution, which is why it must never be executed");
     }
 
     [Theory]
@@ -121,8 +158,28 @@ public class QueryDebugTests
     }
 
     [Fact]
+    public void Compile_errors_surface_from_every_debug_helper()
+    {
+        var noTable = Query.For(DatabaseDialect.Sqlite);
+        var lockedOnSqlite = Users(DatabaseDialect.Sqlite).SharedLock();
+
+        foreach (var act in new Action[] { () => noTable.ToSql(), () => noTable.GetBindings(), () => noTable.ToRawSql() })
+        {
+            act.Should().Throw<InvalidOperationException>();
+        }
+
+        foreach (var act in new Action[] { () => lockedOnSqlite.ToSql(), () => lockedOnSqlite.GetBindings(), () => lockedOnSqlite.ToRawSql() })
+        {
+            act.Should().Throw<NotSupportedException>();
+        }
+    }
+
+    [Fact]
     public void Dump_and_dd_are_not_ported()
     {
-        typeof(Query).GetMethods().Select(m => m.Name).Should().NotContain(name => name.StartsWith("Dump", StringComparison.Ordinal) || name == "Dd" || name == "DD");
+        var names = typeof(Query).GetMethods(BindingFlags.Public | BindingFlags.Instance).Select(m => m.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        names.Should().NotContain(name => name.StartsWith("Dump", StringComparison.Ordinal) || name == "Dd" || name == "DD" || name == "DumpRawSql" || name == "DdRawSql");
+        names.Should().Contain(["ToSql", "ToRawSql", "GetBindings"]);
     }
 }
