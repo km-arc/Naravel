@@ -64,5 +64,35 @@ public interface IDatabase
     /// <param name="sql">The SQL. Never build it from user input.</param>
     /// <param name="cancellationToken">Cancels the command.</param>
     Task UnpreparedAsync(string sql, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Runs <paramref name="callback"/> in a transaction: commit when it completes, roll back and rethrow when it throws. The <see cref="IDatabase"/>
+    /// passed to the callback runs every query (builder or raw) on the transaction's connection. Laravel: <c>DB::transaction</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nesting:</b> calling <c>TransactionAsync</c> on the callback's <see cref="IDatabase"/> opens a savepoint; a failure rolls back only to it.
+    /// Savepoints are never retried.</para>
+    /// <para><b>Deadlocks:</b> when <paramref name="attempts"/> is greater than one, an outermost transaction that fails with a deadlock or lock conflict
+    /// (PostgreSQL 40P01 / 40001, MySQL 1213, SQL Server 1205, SQLite busy/locked) is rolled back and the whole callback runs again, so the callback must be repeatable.</para>
+    /// <para><b>Why a parameter, not ambient state:</b> an <c>AsyncLocal</c> transaction does not flow back out of <c>await</c> and is invisible in a stack
+    /// trace; passing the database makes "this runs in the transaction" explicit. A transaction cannot be started on a database borrowed from EF Core
+    /// (neither side commits a transaction it did not start).</para>
+    /// </remarks>
+    /// <typeparam name="T">The callback's result type.</typeparam>
+    /// <param name="callback">The work to run. Do not use the passed database from several threads at once.</param>
+    /// <param name="attempts">How many times to try on a deadlock, 1 (no retry) by default.</param>
+    /// <param name="cancellationToken">Cancels beginning and committing; a cancelled callback rolls back.</param>
+    Task<T> TransactionAsync<T>(Func<IDatabase, Task<T>> callback, int attempts = 1, CancellationToken cancellationToken = default);
+
+    /// <summary>Same as <see cref="TransactionAsync{T}"/> for a callback without a result.</summary>
+    /// <param name="callback">The work to run.</param>
+    /// <param name="attempts">How many times to try on a deadlock, 1 (no retry) by default.</param>
+    /// <param name="cancellationToken">Cancels beginning and committing; a cancelled callback rolls back.</param>
+    Task TransactionAsync(Func<IDatabase, Task> callback, int attempts = 1, CancellationToken cancellationToken = default);
+
+    /// <summary>Starts a transaction you commit yourself; <see cref="IDatabaseTransaction.Database"/> joins it. Laravel: <c>DB::beginTransaction</c>.</summary>
+    /// <param name="cancellationToken">Cancels beginning the transaction.</param>
+    /// <exception cref="InvalidOperationException">This instance is already inside a transaction (use <c>TransactionAsync</c> for a savepoint), or its connection is borrowed from EF Core.</exception>
+    Task<IDatabaseTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
 }
 #pragma warning restore RS0026, RS0027

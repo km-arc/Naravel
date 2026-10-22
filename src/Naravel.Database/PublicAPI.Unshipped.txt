@@ -340,3 +340,15 @@ Naravel.Database.Raw.Sql.get -> string!
 Naravel.Database.Raw.Bindings.get -> System.Collections.Generic.IReadOnlyList<object?>!
 Naravel.Database.Query.SharedLock() -> Naravel.Database.Query!
 Naravel.Database.Query.LockForUpdate() -> Naravel.Database.Query!
+Naravel.Database.IDatabase.BeginTransactionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Naravel.Database.IDatabaseTransaction!>!
+Naravel.Database.IDatabase.TransactionAsync(System.Func<Naravel.Database.IDatabase!, System.Threading.Tasks.Task!>! callback, int attempts = 1, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Database.IDatabase.TransactionAsync<T>(System.Func<Naravel.Database.IDatabase!, System.Threading.Tasks.Task<T>!>! callback, int attempts = 1, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+Naravel.Database.IDatabaseTransaction
+Naravel.Database.IDatabaseTransaction.CommitAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Database.IDatabaseTransaction.Database.get -> Naravel.Database.IDatabase!
+Naravel.Database.IDatabaseTransaction.RollBackAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Database.Testing.DatabaseFake.BeginTransactionAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Naravel.Database.IDatabaseTransaction!>!
+Naravel.Database.Testing.DatabaseFake.TransactionAsync(System.Func<Naravel.Database.IDatabase!, System.Threading.Tasks.Task!>! callback, int attempts = 1, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Database.Testing.DatabaseFake.TransactionAsync<T>(System.Func<Naravel.Database.IDatabase!, System.Threading.Tasks.Task<T>!>! callback, int attempts = 1, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+Naravel.Database.Testing.DatabaseFake.TransactionsCommitted.get -> int
+Naravel.Database.Testing.DatabaseFake.TransactionsRolledBack.get -> int
