@@ -515,7 +515,35 @@ public sealed partial class Query
 
     private Query AddNull(string column, bool isNull, bool or)
     {
-        // Remaining implementation methods...
-        throw new NotImplementedException();
+        _wheres.Add(new NullWhere(Column(column, nameof(column)), isNull, or, false));
+        return this;
+    }
+
+    private Query AddColumn(string first, string op, string second, bool or)
+    {
+        var left = Column(first, nameof(first));
+        var normalized = Grammar.NormalizeOperator(op, nameof(op));
+        _wheres.Add(new ColumnWhere(left, normalized, Column(second, nameof(second)), or));
+        return this;
+    }
+
+    private Query AddColumnPairs(IEnumerable<KeyValuePair<string, string>> pairs, bool or)
+    {
+        ArgumentNullException.ThrowIfNull(pairs);
+        var inner = new Query(Grammar);
+        foreach (var pair in pairs) inner.AddColumn(pair.Key, "=", pair.Value, or: false);
+        if (inner._wheres.Count > 0) _wheres.Add(new NestedWhere(inner._wheres.ToArray(), or, false));
+        return this;
+    }
+
+    private Query AddIn(string column, IEnumerable values, bool negate, bool or)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        if (values is string) throw new ArgumentException("Pass a collection of values, not a string.", nameof(values));
+        var identifier = Plain(IdentifierGrammar.Parse(column, nameof(column)), column, nameof(column), allowAlias: false, allowJson: true);
+        var list = new List<object?>();
+        foreach (var value in values) list.Add(value);
+        _wheres.Add(new InWhere(identifier, list.ToArray(), negate, or));
+        return this;
     }
 }

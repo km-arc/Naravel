@@ -74,4 +74,56 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 - `Naravel.Queue` migrated onto `Naravel.Foundation` (PDR-006): `QueueManager : Manager<IQueueDriver, QueueOptions>`, shared `AddQueueDriver` registration helper, config key `Connections` -> `Stores` (PDR-005), hot-reload-aware worker.
 
 ### Changed
-- **Breaking (pre-1.0), PDR-012a / D-29:** the Kafka queue d
+- **Breaking (pre-1.0), PDR-012a / D-29:** the Kafka queue driver no longer supports delayed delivery. `DelayFor`/`RunAt` on a Kafka store now throws `NotSupportedException`, and a worker retry on Kafka is delivered immediately without its `Backoff` (a warning is logged once per job type). Previously a delayed or backed-off record blocked every record behind it in the partition. New `IQueueDriver.SupportsDelayedDelivery` (default `true`). Records written earlier with a future `AvailableAt` are still honored. Use Redis, Database or RabbitMQ for delayed jobs; see "Kafka: no delayed delivery" in `docs/en|fa/queue.md`.
+- `ICacheStore` adds `IncrementAsync(key, by, ttl)`; external custom stores must implement the TTL-aware atomic counter operation.
+- `ConfigureQueueJobs()` now maps failed-job and batch tables and `QueueJobs` connection/trace columns; apply an EF migration after upgrading.
+- Queue reservation fencing (AUDIT D-28): `QueuedMessage.ReservationId` is stamped on every Redis/File/Database `PopAsync`, and `AckAsync`/`ReleaseAsync`/`FailAsync` are no-ops once the reservation was reclaimed or re-taken. **Database users must add the nullable `QueueJobs.ReservationId varchar(64)` column (EF migration) before upgrading.** Envelopes without the field stay unfenced; Redis scripts take an extra `ARGV` token.
+- Queue job middleware (PDR-012b, R08.T02): jobs can declare their own middleware with `IHasJobMiddleware` (runs inside the global `IJobMiddleware`), and middleware that does not call `next` must now call `JobContext.Release(delay)` (back to the queue, no attempt counted) or `JobContext.Skip()` (acknowledged, not run). **Breaking before 1.0:** a middleware that returns without `next` and without either call used to make the worker treat the job as successful; it now fails the job with an explanatory exception. New counter `naravel.queue.outcome` (tag `outcome` = `released`/`skipped`).
+- `IQueueDriver.TryFailAsync` (default member): returns `false` when a fencing driver (Redis/File/Database) lost the reservation. The queue worker then removes its `IFailedJobStore` record and skips the `failed` handler, so a fenced-out worker no longer leaves a failed-job record for a job another worker owns (AUDIT D-28).
+- Pre-1.0 Queue interfaces gained durable-store and batch operations. Custom `IFailedJobStore` and `IBatchRepository` implementations must add the new members; `SleepWhenEmpty` remains an alias for `Rest`.
+- `RabbitMQ.Client` is centrally upgraded from 6.8.1 to 7.2.2; the provider now uses async connection/channel APIs.
+
+### Security
+- Pin the test-only SQLite native library to `SQLitePCLRaw.lib.e_sqlite3` 2.1.13 to avoid the high-severity advisory affecting 2.1.11.
+- `Naravel.Filesystem`: fixed a path-traversal vulnerability in `LocalStorageDriver.GetFullPath` (paths such as `../../etc/passwd` resolved outside the disk root). Paths outside the root now throw `UnauthorizedAccessException`; regression coverage added.
+- `Naravel.Filesystem` migrated onto Foundation under approved PDR-008: `Default`/`Stores`, runtime `Extend`, config reload, manager-owned driver disposal, and S3 region handling. EN/FA filesystem docs added.
+
+### Documentation
+- Reconciled README (EN/FA), `AGENTS.md`, `PROGRESS.md`, parity tables and next-agent prompts with the implemented Cache state; CI workflow runs are linked for verification results.
+- CI workflow runs are the source for build and test verification results: [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml).
+- Added `ROADMAP.md` as the authoritative project plan with dependency/gate-aware priorities R00–R17, a Persian owner overview, parity matrix, audit, backlog, stage briefs, and a roadmap consistency checker. CI reports checker results; prior Filesystem and Cache work is recorded without treating unfinished RateLimiter work as complete.
+
+### Fixed
+- `Naravel.Queue.Kafka`: each queue now consumes in its own consumer group (`<groupId>-<queue>`). With one shared group, a new queue's consumer triggered an eager rebalance that waited for idle consumers of other queues to poll again, stalling delivery for minutes (broker log evidence in D-25). **Breaking (pre-1.0):** new group ids restart from the earliest retained offset; drain Kafka queues before upgrading.
+- `Naravel.Queue.Redis`: atomically push, promote delayed work, reclaim reservations, reserve, ack, release and fail with Lua scripts.
+- `Naravel.Queue.Kafka`: serialize consumer operations, commit only contiguous acknowledged offsets per partition, and prioritize up to 256 records already available in a poll batch.
+- `Naravel.Queue.RabbitMQ`: honor queue message priority using broker priority queues. Existing ready queues created without `x-max-priority` must be recreated before upgrade.
+- `Naravel.Queue`: replace assembly-qualified job type resolution with an explicit alias registry, reject unknown/non-job payload types before deserialization, and deserialize at most once per attempt. This changes the queue wire identifier; worker-only processes must register their jobs, and legacy payloads need an explicit compatibility alias.
+- `Naravel.Queue`: preserve the original connection, queue, priority, and max-attempt setting through static and runtime chain continuation; add optional source-generated JSON metadata.
+- Cache tag reads/writes use a stable version zero until the first invalidation, preventing concurrent first-use requests from writing under divergent versions.
+- Named Memory stores now default to store-name prefixes; Memcached null TTL means no expiry. Memcached server lists are validated because the provider shares one pooled client across named stores.
+
+### Changed (dependencies and build hygiene)
+- Added `Microsoft.CodeAnalysis.PublicApiAnalyzers` as a private source-project analyzer and enabled SDK package validation for source packages.
+- `Directory.Packages.props`: Microsoft.Extensions.* / EF Core / AspNetCore.TestHost 10.0.0 -> 10.0.10, StackExchange.Redis 2.8.16 -> 2.13.17, Confluent.Kafka 2.5.3 -> 2.15.1, Microsoft.NET.Test.Sdk 17.14.1 -> 18.0.1. Removed the unreferenced `Microsoft.Extensions.Configuration.Memory` entry.
+- Package audit updates: Microsoft.Extensions.* and EF Core packages from 10.0.10 to 10.0.12, `EnyimMemcachedCore` from 3.2.0 to 3.5.1, `MessagePack` from 2.5.301 to patched 3.1.7 (required by EnyimMemcachedCore 3.5.1), and `Microsoft.NET.Test.Sdk` from 18.0.1 to 18.10.1. Removed the unused `Microsoft.Extensions.Hosting` version entry.
+- Added the test-only `coverlet.collector` package to collect Cobertura coverage reports as CI artifacts; no coverage threshold is enforced.
+- `Naravel.Cache.Memcached.csproj` declares `MessagePack` and `Newtonsoft.Json`; no C# source usages were found. Both references are retained for their provider dependency requirements.
+- NuGet vulnerability audit is now enabled repo-wide (`Directory.Build.props`, mode `all`); the per-project `NuGetAudit=false` in 7 projects was removed. (With audit disabled, `dotnet list package --vulnerable` can never report anything.)
+- `nuget.config`: removed a machine-specific local cache source (`/home/<user>/nuget-cache`) that broke restore on any other machine and on CI.
+- `Naravel.Foundation`: replaced `FrameworkReference Microsoft.AspNetCore.App` (no ASP.NET code is used) with explicit `Microsoft.Extensions.DependencyInjection.Abstractions`, `Options`, `Options.ConfigurationExtensions` references, so non-web hosts do not pull in the ASP.NET shared framework.
+- `Naravel.Filesystem`: removed `TreatWarningsAsErrors` (no other project had it; with audit on, a vulnerability warning would have failed the build). Decide the repo-wide warning policy in PDR-008.
+
+### Verification
+- Build, test, and workflow verification results are available from [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml).
+
+### Fixed
+- `Naravel.Cache.Memcached`: `Guid`, `DateTimeOffset` and `decimal` values were returned as their default value on a cache hit; they are now stored as invariant text and round-trip correctly.
+
+### Added (R07.T09)
+- Env-gated `MemcachedSerializerRoundTripTests` (`NARAVEL_TEST_MEMCACHED`) round-trip common value types and a plain object through a real Memcached server, covering the pinned `MessagePack` 3.1.7; `Directory.Packages.props` now explains why the pin exists.
+
+### Known gaps
+- Package audits report no vulnerable packages. Major-version updates needing owner approval remain unchanged: `StackExchange.Redis` 3.x, `AWSSDK.S3` 4.x, `SQLitePCLRaw.lib.e_sqlite3` 3.x, `FluentAssertions` 8.x, and `xunit.runner.visualstudio` 4.x.
+- `AWSSDK.S3` (3.7.300 -> 4.x) and StackExchange.Redis 3.x are intentionally **not** upgraded; they need separate approval.
+- Redis failed-job/batch, RabbitMQ, Kafka and Memcached live provider tests require the CI service job or matching local services and were not run in the R07 verification. Ready-made HTTP middleware remains staged in R05.
