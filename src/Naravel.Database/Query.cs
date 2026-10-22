@@ -406,17 +406,30 @@ public sealed partial class Query
         return copy;
     }
 
-    /// <summary>Compiles the query for this grammar.</summary>
-    /// <exception cref="InvalidOperationException">No table was set, SQL Server <c>Offset</c> has no <c>OrderBy</c>, or the parameter limit is exceeded.</exception>
+    /// <summary>Compiles the query for this grammar: the SQL text and its bound values, as they are sent to the database.</summary>
+    /// <exception cref="InvalidOperationException">No table was set, SQL Server <c>Offset</c> has no <c>OrderBy</c>, a <c>Union</c> term or the query itself has a lock, or the parameter limit is exceeded.</exception>
+    /// <exception cref="NotSupportedException">The dialect cannot express a part of the query (for example a lock on SQLite or a lateral join on SQLite and SQL Server).</exception>
     public CompiledQuery Compile() => Grammar.CompileSelect(this);
 
-    /// <summary>The SQL text with <c>@p0</c>, <c>@p1</c>... markers. Laravel: <c>toSql</c>.</summary>
+    /// <summary>
+    /// The SQL text with <c>@p0</c>, <c>@p1</c>... markers, exactly what is sent to the database. Laravel: <c>toSql</c>.
+    /// </summary>
+    /// <remarks>Debugging and logging helpers compile the query but never run it and never change it. Laravel's <c>dump</c>, <c>dd</c>, <c>dumpRawSql</c> and <c>ddRawSql</c> are not ported (they are PHP debug output): write <see cref="ToSql"/> or <see cref="ToRawSql"/> to your logger, or use the opt-in query log of <c>IDatabase</c>.</remarks>
     public string ToSql() => Compile().Sql;
 
-    /// <summary>The values to bind, in marker order. Laravel: <c>getBindings</c>.</summary>
+    /// <summary>The values to bind, in marker order (<c>@p0</c> first). Laravel: <c>getBindings</c>.</summary>
     public IReadOnlyList<object?> GetBindings() => Compile().Bindings;
 
-    /// <summary>The SQL with the values written in, <b>for logging and debugging only</b>: never execute it. Laravel: <c>toRawSql</c>.</summary>
+    /// <summary>
+    /// The SQL with every value written in as a literal, <b>for logs and debugging only: never execute it</b>. Laravel: <c>toRawSql</c>.
+    /// </summary>
+    /// <remarks>
+    /// Each value is written the way its dialect reads it: text is quoted with <c>'</c> doubled (and, on MySQL, the backslash doubled; SQL Server text gets the <c>N</c> prefix), booleans are <c>1</c>/<c>0</c> or
+    /// <c>true</c>/<c>false</c> (PostgreSQL), <c>null</c> is <c>NULL</c>, binary is <c>x'..'</c>, <c>0x..</c> or <c>'\x..'</c>, and dates, times, <see cref="Guid"/> and enums are written invariantly. The text is a
+    /// <b>display</b> form, not a safe statement: it is built by string substitution, so a <c>Raw</c> or <c>*Raw</c> text that itself contains something shaped like <c>@p1</c> is also replaced, a custom type is shown
+    /// through <c>ToString()</c>, and a value the database would convert differently (a string compared with a number, a date with a time zone) may behave differently when pasted into a console.
+    /// To run a query, run the query (<c>GetAsync</c> and the others bind the values as parameters), or pass <see cref="ToSql"/> and <see cref="GetBindings"/> to your own command.
+    /// </remarks>
     public string ToRawSql() => Grammar.Substitute(Compile());
 
     private static ParsedIdentifier Plain(ParsedIdentifier identifier, string text, string parameterName, bool allowAlias, bool allowJson = false)
