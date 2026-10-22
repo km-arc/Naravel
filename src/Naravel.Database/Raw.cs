@@ -21,6 +21,7 @@ public sealed class Raw
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(bindings);
+        if (Grammar.ContainsParameterMarker(sql)) throw new ArgumentException("The raw SQL contains '@p' followed by digits, which is how this builder names its own parameters (@p0, @p1, ...) and would be bound to a generated value. Use '?' placeholders and bindings, or rename the variable.", nameof(sql));
         if (Grammar.CountPlaceholders(sql) != bindings.Length)
         {
             throw new ArgumentException($"The raw SQL has {Grammar.CountPlaceholders(sql)} '?' placeholders but {bindings.Length} bindings were given. Write '??' for a literal question mark.", nameof(bindings));

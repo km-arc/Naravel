@@ -410,13 +410,25 @@ public sealed partial class Query
     /// <exception cref="InvalidOperationException">No table was set, SQL Server <c>Offset</c> has no <c>OrderBy</c>, or the parameter limit is exceeded.</exception>
     public CompiledQuery Compile() => Grammar.CompileSelect(this);
 
-    /// <summary>The SQL text with <c>@p0</c>, <c>@p1</c>... markers. Laravel: <c>toSql</c>.</summary>
+    /// <summary>
+    /// The SQL text of the select, with the values left as <c>@p0</c>, <c>@p1</c>... markers: this is exactly what the query sends to the database. Laravel: <c>toSql</c>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">As <see cref="Compile"/>.</exception>
+    /// <remarks>It compiles the query again on every call and changes nothing on it. Only a select can be shown: the write methods compile when they run, and their SQL appears in the query log and in <c>DatabaseFake.Executed</c>.</remarks>
     public string ToSql() => Compile().Sql;
 
-    /// <summary>The values to bind, in marker order. Laravel: <c>getBindings</c>.</summary>
+    /// <summary>The values to bind to the markers of <see cref="ToSql"/>, in marker order (the list index is the marker number). Laravel: <c>getBindings</c>.</summary>
+    /// <exception cref="InvalidOperationException">As <see cref="Compile"/>.</exception>
     public IReadOnlyList<object?> GetBindings() => Compile().Bindings;
 
-    /// <summary>The SQL with the values written in, <b>for logging and debugging only</b>: never execute it. Laravel: <c>toRawSql</c>.</summary>
+    /// <summary>
+    /// The SQL with every value written in as a literal escaped for this dialect, <b>for logs and debugging only: never execute it, and never build a command from it</b>. The values that run are always sent as parameters. Laravel: <c>toRawSql</c>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">As <see cref="Compile"/>.</exception>
+    /// <remarks>
+    /// Strings are quoted with the dialect's rules (quotes doubled; backslashes doubled on MySQL; <c>N'...'</c> on SQL Server), binary values are written as hexadecimal, dates in ISO form and booleans as the dialect writes them.
+    /// The literals are a faithful display, not a promise that every database would read them back identically (floating-point and time-zone details differ). Laravel's <c>dump</c> and <c>dd</c> are not ported: use this method, the query log or <c>DatabaseFake</c>.
+    /// </remarks>
     public string ToRawSql() => Grammar.Substitute(Compile());
 
     private static ParsedIdentifier Plain(ParsedIdentifier identifier, string text, string parameterName, bool allowAlias, bool allowJson = false)
@@ -434,6 +446,7 @@ public sealed partial class Query
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(bindings);
+        if (Grammar.ContainsParameterMarker(sql)) throw new ArgumentException("The raw SQL contains '@p' followed by digits, which is how this builder names its own parameters (@p0, @p1, ...) and would be bound to a generated value. Use '?' placeholders and bindings, or rename the variable.", nameof(sql));
         if (Grammar.CountPlaceholders(sql) != bindings.Length)
         {
             throw new ArgumentException($"The raw SQL has {Grammar.CountPlaceholders(sql)} '?' placeholders but {bindings.Length} bindings were given. Write '??' for a literal question mark.", nameof(bindings));
