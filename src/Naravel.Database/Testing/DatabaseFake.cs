@@ -21,20 +21,22 @@ public sealed class DatabaseFake : IDatabase, IQueryRunner
     private readonly DatabaseDialect _dialect;
     private readonly ConcurrentQueue<QueryExecuted> _executed;
     private readonly ConcurrentQueue<Setup> _setups;
+    private readonly TransactionCounts _counts;
 
     /// <summary>Creates a fake that compiles <c>Table(...)</c> queries for a dialect.</summary>
     /// <param name="dialect">The dialect whose grammar compiles the SQL, SQLite by default.</param>
     public DatabaseFake(DatabaseDialect dialect = DatabaseDialect.Sqlite)
-        : this(dialect, null, new ConcurrentQueue<QueryExecuted>(), new ConcurrentQueue<Setup>())
+        : this(dialect, null, new ConcurrentQueue<QueryExecuted>(), new ConcurrentQueue<Setup>(), new TransactionCounts())
     {
     }
 
-    private DatabaseFake(DatabaseDialect dialect, string? connectionName, ConcurrentQueue<QueryExecuted> executed, ConcurrentQueue<Setup> setups)
+    private DatabaseFake(DatabaseDialect dialect, string? connectionName, ConcurrentQueue<QueryExecuted> executed, ConcurrentQueue<Setup> setups, TransactionCounts counts)
     {
         _dialect = dialect;
         ConnectionName = connectionName;
         _executed = executed;
         _setups = setups;
+        _counts = counts;
     }
 
     /// <inheritdoc />
@@ -44,10 +46,57 @@ public sealed class DatabaseFake : IDatabase, IQueryRunner
     public IReadOnlyList<QueryExecuted> Executed => _executed.ToArray();
 
     /// <inheritdoc />
-    public IDatabase Connection(string? name) => new DatabaseFake(_dialect, name, _executed, _setups);
+    public IDatabase Connection(string? name) => new DatabaseFake(_dialect, name, _executed, _setups, _counts);
 
     /// <inheritdoc />
     public Query Table(string table) => new Query(Grammar.For(_dialect)) { Runner = this }.Table(table);
+
+    /// <summary>How many fake transactions committed so far, across all <see cref="Connection"/> instances of this fake.</summary>
+    public int TransactionsCommitted => Volatile.Read(ref _counts.Committed);
+
+    /// <summary>How many fake transactions rolled back so far (a failed attempt that is retried counts as one rollback).</summary>
+    public int TransactionsRolledBack => Volatile.Read(ref _counts.RolledBack);
+
+    /// <inheritdoc />
+    public async Task<T> TransactionAsync<T>(Func<IDatabase, Task<T>> callback, int attempts = 1, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(callback);
+        ArgumentOutOfRangeException.ThrowIfLessThan(attempts, 1);
+
+        for (var attempt = 1; ; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                var result = await callback(this).ConfigureAwait(false);
+                Interlocked.Increment(ref _counts.Committed);
+                return result;
+            }
+            catch (Exception exception)
+            {
+                Interlocked.Increment(ref _counts.RolledBack);
+                if (attempt >= attempts || !DeadlockDetector.IsDeadlock(exception)) throw;
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    public Task TransactionAsync(Func<IDatabase, Task> callback, int attempts = 1, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(callback);
+        return TransactionAsync<bool>(async database =>
+        {
+            await callback(database).ConfigureAwait(false);
+            return true;
+        }, attempts, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<IDatabaseTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult<IDatabaseTransaction>(new FakeTransaction(this));
+    }
 
     /// <summary>Makes selects whose SQL contains <paramref name="sqlContains"/> return these rows (the latest matching set-up wins).</summary>
     /// <param name="rows">The rows, each a column-name to value map.</param>
@@ -231,6 +280,44 @@ public sealed class DatabaseFake : IDatabase, IQueryRunner
             && (s.SqlContains is null || sql.Contains(s.SqlContains, StringComparison.OrdinalIgnoreCase)));
 
     private string Describe() => string.Join("; ", _executed.Select(q => q.Sql));
+
+    private sealed class TransactionCounts
+    {
+        public int Committed;
+        public int RolledBack;
+    }
+
+    private sealed class FakeTransaction(DatabaseFake fake) : IDatabaseTransaction
+    {
+        private int _done;
+
+        public IDatabase Database => fake;
+
+        public Task CommitAsync(CancellationToken cancellationToken = default)
+        {
+            Finish();
+            Interlocked.Increment(ref fake._counts.Committed);
+            return Task.CompletedTask;
+        }
+
+        public Task RollBackAsync(CancellationToken cancellationToken = default)
+        {
+            Finish();
+            Interlocked.Increment(ref fake._counts.RolledBack);
+            return Task.CompletedTask;
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            if (Interlocked.Exchange(ref _done, 1) == 0) Interlocked.Increment(ref fake._counts.RolledBack);
+            return ValueTask.CompletedTask;
+        }
+
+        private void Finish()
+        {
+            if (Interlocked.Exchange(ref _done, 1) != 0) throw new InvalidOperationException("The transaction was already committed or rolled back.");
+        }
+    }
 
     private sealed record Setup(string? SqlContains, QueryOperation Operation, object?[] Items, Type? ItemType = null);
 }
