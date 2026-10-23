@@ -6,6 +6,8 @@ internal sealed class DatabaseService(DatabaseManager manager, IConnectionScope 
 
     public string? ConnectionName => connectionName;
 
+    internal QueryObserver Observer => observer;
+
     public IDatabase Connection(string? name)
     {
         if (scope is LeasedTransactionScope && !string.Equals(name, connectionName, StringComparison.Ordinal))

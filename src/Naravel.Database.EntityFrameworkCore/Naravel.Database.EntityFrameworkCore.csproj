@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Naravel.Database.EntityFrameworkCore</PackageId>
+    <Description>EF Core interop for Naravel.Database: a DbContext and the query builder share one connection and one transaction.</Description>
+    <PackageTags>database;query-builder;ef-core;entity-framework;laravel;naravel</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Naravel.Database\Naravel.Database.csproj" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+  </ItemGroup>
+</Project>

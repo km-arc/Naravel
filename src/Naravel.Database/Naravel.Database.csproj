@@ -19,5 +19,6 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Naravel.Database.Tests" />
+    <InternalsVisibleTo Include="Naravel.Database.EntityFrameworkCore" />
   </ItemGroup>
 </Project>
