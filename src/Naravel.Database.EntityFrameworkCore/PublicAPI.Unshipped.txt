@@ -1,0 +1,4 @@
+#nullable enable
+Naravel.Database.EntityFrameworkCore.DbContextQueryExtensions
+static Naravel.Database.EntityFrameworkCore.DbContextQueryExtensions.Query(this Microsoft.EntityFrameworkCore.DbContext! context, string! table) -> Naravel.Database.Query!
+static Naravel.Database.EntityFrameworkCore.DbContextQueryExtensions.Using(this Naravel.Database.IDatabase! database, Microsoft.EntityFrameworkCore.DbContext! context) -> Naravel.Database.IDatabase!

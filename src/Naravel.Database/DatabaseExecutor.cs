@@ -11,7 +11,7 @@ namespace Naravel.Database;
 /// <c>command.Transaction</c> from it and disposes it, which closes the connection only when the lease owns it (PDR-022 A1).
 /// Plain rows are read straight from the <see cref="DbDataReader"/>; Dapper only maps rows to a type (PDR-022 A2).
 /// </summary>
-internal sealed class DatabaseExecutor(IConnectionScope scope, string? connectionName, DatabaseManager? manager = null, QueryObserver? observer = null) : IQueryRunner
+internal sealed class DatabaseExecutor(IConnectionScope scope, string? connectionName, DatabaseManager? manager = null, QueryObserver? observer = null, DatabaseDialect? fixedDialect = null) : IQueryRunner
 {
     private readonly QueryObserver _observer = observer ?? QueryObserver.None;
 
@@ -234,7 +234,7 @@ internal sealed class DatabaseExecutor(IConnectionScope scope, string? connectio
         var command = lease.Connection.CreateCommand();
         command.CommandText = sql;
         command.Transaction = lease.Transaction;
-        var dialect = manager?.Connection(connectionName).Dialect;
+        var dialect = fixedDialect ?? manager?.Connection(connectionName).Dialect;
         for (var i = 0; i < bindings.Count; i++)
         {
             var parameter = command.CreateParameter();
