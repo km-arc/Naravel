@@ -18,7 +18,7 @@ Stage template: [roadmap/STAGE-TEMPLATE.md](roadmap/STAGE-TEMPLATE.md).
 
 ## NEXT
 ```text
-NEXT: R24
+NEXT: R25
 ```
 
 ## Stages
@@ -53,7 +53,7 @@ needs the EN+FA PDR.
 | R21 | Query builder: Where family, joins, grouping and ordering helpers (PDR-022) | R20 | PDR | DONE (2026-10-20; tasks T01-T07 merged; the shared contract suite proves every R21 method on SQLite, MySQL 8.4, PostgreSQL 17 and SQL Server 2022 where the database can express it, and `DialectMatrixTests` asserts the dialect matrix of docs EN/FA; the three `database` CI legs were green on main for the R21.T06 merges (runs 39249198710 and 39308718597); `fast` was red on main only for two unrelated R16 cursor-pagination tests, fixed on `fix/R16-cursor-tests`; roadmap check passed; no local .NET SDK or database servers, so CI is the verification; see AUDIT D-51 to D-55) |
 | R22 | Query builder: Aggregates, existence and streaming (PDR-022) | R21 | PDR | DONE (2026-10-20; tasks T01-T04 merged; aggregates, chunking and streaming are proven by the shared contract suite on SQLite, MySQL 8.4, PostgreSQL 17 and SQL Server 2022; `StreamingBenchmarks` added but NOT RUN (no .NET SDK), so no numbers are claimed; docs EN/FA, README and parity updated; roadmap check passed; no local .NET SDK or database servers, so CI is the verification; see AUDIT D-56) |
 | R23 | Query builder: Insert, update, upsert and delete (PDR-022) | R21 | PDR | DONE (2026-10-20; tasks T01-T06 merged; inserts, updates, upserts, deletes, truncate and returning are proven by the shared contract suite on SQLite, MySQL 8.4, PostgreSQL 17 and SQL Server 2022 where the database can express them, and by compile and SQLite execution tests; `WritesBenchmarks` added but NOT RUN (no .NET SDK), so no numbers are claimed; docs EN/FA, README and parity updated; roadmap check passes except for one error that predates R23, the EN/FA mismatch of `docs/en/querybuilder.md` (AUDIT D-57); no local .NET SDK or database servers, so CI is the verification) |
-| R24 | Query builder: Unions, subqueries, CTEs, locks, raw and debugging (PDR-022) | R21 | PDR | DOING (T01 open) |
+| R24 | Query builder: Unions, subqueries, CTEs, locks, raw and debugging (PDR-022) | R21 | PDR | DONE (2026-10-23; tasks T01-T07 merged; unions, subqueries, lateral joins, CTEs, raw expressions, row locks and debugging helpers are proven by compile tests on four grammars, SQLite execution tests and the shared contract suite on SQLite, MySQL 8.4, PostgreSQL 17 and SQL Server 2022 where the database can express them; docs EN/FA, README and parity updated; roadmap check passed; no local .NET SDK or database servers, so CI is the verification: green on main at 176ca17, run 39950729174) |
 | R25 | Query builder: Transactions and EF Core interop (PDR-022) | R23 | PDR | DOING (T01 and T02: code and SQLite tests written, server deadlock tests still open) |
 | R26 | Query builder: Pagination integration (PDR-022) | R22, R16 | PDR | TODO |
 
@@ -69,7 +69,7 @@ R02 was completed before this roadmap existed; its R00 dependency is nominal and
 - `roadmap/check.py` enforces this: it fails on a hand-typed test count or a repeated stage status outside those places. Put
   `<!-- check:allow-count -->` on a line only when a number is not a test total (for example HTTP status codes).
 
-**Default order:** R24 → R25 → R10 → R18 → R03 → R15 → R26 → R11 → R12 → R13 → R14 → R17.
+**Default order:** R25 → R10 → R18 → R03 → R15 → R26 → R11 → R12 → R13 → R14 → R17.
 Rationale: correctness and proof first (R00, R01); then the two modules that carry the project's value (Queue, Cache);
 then the most Laravel-feeling features (middleware, events, mail); thin or likely-native stages last.
 Never run two stages that edit the same project in parallel. Parallel-safe: R15, R16, R06 touch no other module.
