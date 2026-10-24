@@ -27,7 +27,7 @@ public static class DatabaseServiceCollectionExtensions
         services.TryAddSingleton<IConnectionScope, PooledConnectionScope>();
         services.TryAddSingleton<IDatabase>(provider => new DatabaseService(
             provider.GetRequiredService<DatabaseManager>(),
-            provider.GetRequiredService<IConnectionScope>(),
+            new AmbientConnectionScope(provider.GetRequiredService<IConnectionScope>(), provider.GetRequiredService<DatabaseManager>()),
             null,
             new QueryObserver(provider.GetServices<IQueryListener>())));
         return services;

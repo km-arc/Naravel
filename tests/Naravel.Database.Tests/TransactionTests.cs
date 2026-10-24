@@ -192,6 +192,66 @@ public sealed class TransactionTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_injected_database_joins_the_transaction_and_rolls_back_with_it()
+    {
+        var failing = () => _db.TransactionAsync(async tx =>
+        {
+            await InsertAsync(tx, 1);
+            await InsertAsync(_db, 2); // the injected database, not the one passed to the callback
+            await _db.Table("accounts").InsertAsync(new Dictionary<string, object?> { ["id"] = 3L, ["balance"] = 100L });
+            throw new InvalidOperationException("boom");
+        });
+
+        await failing.Should().ThrowAsync<InvalidOperationException>().WithMessage("boom");
+        (await CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task The_injected_database_commits_with_the_transaction()
+    {
+        await _db.TransactionAsync(async _ =>
+        {
+            await InsertAsync(_db, 1);
+            await InsertAsync(_db, 2);
+        });
+
+        (await CountAsync()).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task TransactionAsync_on_the_injected_database_inside_a_callback_is_a_savepoint()
+    {
+        await _db.TransactionAsync(async tx =>
+        {
+            await InsertAsync(tx, 1);
+
+            var inner = () => _db.TransactionAsync(async _ =>
+            {
+                await InsertAsync(_db, 2);
+                throw new InvalidOperationException("inner");
+            });
+            await inner.Should().ThrowAsync<InvalidOperationException>().WithMessage("inner");
+
+            await InsertAsync(_db, 3);
+        });
+
+        (await _db.Table("accounts").OrderBy("id").PluckAsync<long>("id")).Should().Equal(1, 3);
+    }
+
+    [Fact]
+    public async Task The_ambient_transaction_ends_with_the_callback()
+    {
+        await _db.TransactionAsync(async tx => await InsertAsync(tx, 1));
+
+        // The injected database is no longer inside a transaction: beginning a new one must not be refused as "already inside".
+        await using var next = await _db.BeginTransactionAsync();
+        await InsertAsync(next.Database, 2);
+        await next.CommitAsync();
+
+        (await CountAsync()).Should().Be(2);
+    }
+
+    [Fact]
     public async Task BeginTransactionAsync_commits_on_CommitAsync()
     {
         await using (var tx = await _db.BeginTransactionAsync())
