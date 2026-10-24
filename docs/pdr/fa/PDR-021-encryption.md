@@ -50,3 +50,51 @@ marker/API دقیق و نسخه‌بندی envelope برای تأیید مالک
 ## تأیید
 
 مالک این پیشنهاد را در ۲۰۲۶-۱۰-۰۷ تأیید کرد. OD-03 همچنان الزام‌آور است: پیاده‌سازی باید از Data Protection استفاده کند و نباید رمزنگاری سفارشی اضافه کند.
+
+## اصلاحیه A1 (۲۰۲۶-۱۰-۲۴، پیشنهادی): API دقیق، envelope و قاعده‌ی مهاجرت
+
+تأیید بالا جهت را ثابت کرد ولی نشانگر دقیق، API و envelope را باز گذاشت («برای تأیید مالک باز است و پیش از پیاده‌سازی باید قطعی شود»). R18.T01 اینجا آن را می‌بندد. چیزی از رمزنگاری اضافه نمی‌شود: هر بایت حفاظت از `IDataProtector` می‌آید.
+
+### API پیشنهادی (S1: یک خط ثبت، دو فراخوانی)
+
+```csharp
+services.AddNaravelEncryption();   // اگر برنامه AddDataProtection() نزده باشد آن را ثبت می‌کند، و IEncrypter را
+
+var token = encrypter.Encrypt("secret");              // Laravel: Crypt::encryptString
+var text  = encrypter.Decrypt(token);                 // Crypt::decryptString
+var card  = encrypter.Decrypt<CardInfo>(encrypter.Encrypt(new CardInfo(...)));   // Crypt::encrypt / decrypt، JSON درون envelope
+```
+
+- `IEncrypter` این‌ها را دارد: `Encrypt(string)`، `Decrypt(string)`، `TryDecrypt(string, out string?)`، `Encrypt<T>(T)`، `Decrypt<T>(string)` (مقدار تایپ‌دار از `System.Text.Json` می‌گذرد؛ یک overload `JsonTypeInfo<T>` می‌گیرد تا فراداده‌ی source-generated کار کند) و `ForPurpose(string)` که یک `IEncrypter` جداشده زیر یک purpose فرعی برمی‌گرداند.
+- همه‌ی اعضا **همگام** هستند، همان‌طور که تأیید شد: primitive همگام است و پوشش async ساخته نمی‌شود.
+- مقداری که رمزگشایی نشود (دست‌کاری‌شده، purpose اشتباه، کلید گم یا باطل‌شده، بدشکل) `DecryptException` می‌دهد (Laravel: `DecryptException`) با پیام ثابت؛ پیام و داده‌ی استثنا هرگز ورودی یا متن ساده ندارند. `TryDecrypt` به‌جای استثنا false برمی‌گرداند.
+- purpose پیش‌فرض `Naravel.Encryption.v1` است؛ `ForPurpose("billing")` همان را با `/billing` می‌دهد. purposeهای متفاوت خروجی هم را نمی‌خوانند.
+- حلقه‌ی کلید: facade به کلیدها دست نمی‌زند. ماندگاری، حفاظت در حالت سکون، چرخش (Data Protection تقریباً هر ۹۰ روز کلید تازه می‌سازد و کلیدهای قدیمی را برای رمزگشایی نگه می‌دارد) و نام مشترک برنامه همه تنظیمات `AddDataProtection()` خود برنامه‌اند. تولیدکننده و کارگر صف **باید حلقه‌ی کلید و نام برنامه را مشترک داشته باشند**؛ مستندات اول همین را می‌گویند.
+- تله‌متری: یک `Meter` با نام `Naravel.Encryption` و شمارنده‌ی `naravel.encryption.operations` فقط با برچسب `operation` (`encrypt`، `decrypt`) و `outcome` (`ok`، `invalid`)؛ هرگز متن ساده، متن رمزشده، purpose برآمده از ورودی کاربر یا داده‌ی کلید.
+- بدون حفاظت زمان‌دار، بدون متن رمزشده‌ی سازگار با Laravel، بدون facade استاتیک `Crypt::` (از DI استفاده کنید).
+
+### jobهای رمزگذاری‌شده (`Naravel.Queue.Encryption`)
+
+- **نشانگر:** یک interface خالی `IShouldBeEncrypted` در `Naravel.Queue.Encryption`. کلاس job با پیاده‌سازی آن انتخاب می‌کند (Laravel: `ShouldBeEncrypted`). `Naravel.Queue` به Encryption یا نشانگر ارجاع نمی‌دهد.
+- **درز:** `AddNaravelQueueEncryption()` مقدار `IJobSerializer` را با decorator روی serializer ثبت‌شده جایگزین می‌کند. `Serialize(job)` برای job بدون نشانگر همان payload درونی را بی‌تغییر می‌نویسد، و برای job نشان‌دار `naravel:enc:v1:` را به‌علاوه‌ی خروجی Data Protection از payload درونی، زیر purpose `Naravel.Queue.Encryption.v1` می‌نویسد. `Deserialize(payload, type)` فقط بعد از آنکه ثبت alias نوع را انتخاب کرد صدا زده می‌شود (OD-07)، پس رمزگشایی هرگز نوع را انتخاب نمی‌کند.
+- **زنجیره‌ها، batchها و jobهای شکست‌خورده** از قبل رشته‌ی serialize‌شده را حمل می‌کنند، پس متن رمزشده را حمل می‌کنند و تغییری نمی‌خواهند.
+- **قاعده‌های شکست:** کلید در دسترس نبودن، دست‌کاری payload یا purpose اشتباه باعث می‌شود job با `DecryptException` از مسیر عادی jobهای شکست‌خورده شکست بخورد؛ job نشان‌دار هرگز به‌صورت متن ساده نوشته یا فرستاده نمی‌شود، و نسخه‌ی envelope یعنی `v1` بررسی می‌شود و نسخه‌ی ناشناخته شکست می‌خورد.
+- **مهاجرت:** jobی که پیش از نشان‌دار شدن کلاسش به‌صورت متن ساده در صف رفته، به‌طور پیش‌فرض با پیام روشن **رد می‌شود** (بدون متن ساده‌ی بی‌صدا). `QueueEncryptionOptions.AcceptPlaintextForMarkedJobs` (پیش‌فرض `false`) را می‌شود برای یک بازه‌ی استقرار روشن کرد تا jobهای در جریان تمام شوند، و بعد خاموش کرد. jobهای بدون نشانگر قالب فعلی را نگه می‌دارند؛ چیزی به‌طور پیش‌فرض رمزگذاری نمی‌شود.
+
+### تصمیم‌ها برای مالک
+
+- **E1 نام‌ها:** `IEncrypter.Encrypt`/`Decrypt` به سبک Laravel (توصیه‌شده)، یا `Protect`/`Unprotect` شروع سریع قبلی.
+- **E2 جای نشانگر:** `IShouldBeEncrypted` در بسته‌ی adapter (توصیه‌شده: هسته‌ی صف از آن آزاد می‌ماند، همان‌طور که تصمیم مرحله می‌خواهد)، یا در هسته‌ی `Naravel.Queue`.
+- **E3 envelope:** پیشوند متنی `naravel:enc:v1:` (توصیه‌شده: نمی‌تواند شروع یک payload از نوع JSON باشد، پس متن ساده و رمزشده بدون parse از هم تشخیص داده می‌شوند، و نسخه، قالب بعدی را ممکن می‌کند).
+- **E4 گزینه‌ی مهاجرت:** شامل کردن `AcceptPlaintextForMarkedJobs` با پیش‌فرض خاموش (توصیه‌شده)، یا بدون گزینه و تخلیه‌ی صف پیش از نشان‌دار کردن job.
+- **E5 purpose facade و purpose job:** purposeهای جدا (توصیه‌شده)، تا مقداری از `IEncrypter` هرگز به‌عنوان payload یک job پذیرفته نشود.
+- **E6 ارجاع بسته:** facade به `Microsoft.AspNetCore.DataProtection` ارجاع می‌دهد (توصیه‌شده تا `AddNaravelEncryption()` یک خط باشد؛ abstractions را هم می‌آورد)، یا فقط به `Microsoft.AspNetCore.DataProtection.Abstractions` و برنامه خودش `AddDataProtection()` را صدا می‌زند. نسخه هنگام پیاده‌سازی از NuGet قفل می‌شود.
+- **E7 Fake:** بدون `EncryptionFake` (توصیه‌شده: مرحله گفته تضمین‌های رمزنگاری را جعل نکنیم، و `EphemeralDataProtectionProvider` یک جایگزین آزمون واقعی، درون حافظه و بدون ماندگاری است که Data Protection خودش دارد؛ مستندات تنظیم دو خطی آزمون را نشان می‌دهند)، یا یک fake برچسب‌خورده و برگشت‌پذیر.
+
+### آزمون‌های لازم (T02، T03)
+
+رفت‌وبرگشت (رشته و تایپ‌دار)، تشخیص دست‌کاری، جداسازی purpose، `ForPurpose`، ماندگاری کلید بین دو نمونه‌ی provider، `TryDecrypt`، پیام خطایی که هرگز ورودی را ندارد. adapter: jobهای نشان‌دار و بدون نشانگر، payload ذخیره‌شده متن ساده نیست و با پیشوند envelope شروع می‌شود، job روی صف Memory همچنان اجرا می‌شود، انتخاب نوع فقط با alias، کلید گم‌شده و payload دست‌کاری‌شده بدون بازگشت به متن ساده آشکارا شکست می‌خورند، نسخه‌ی envelope ناشناخته، متنِ سادهٔ پیش از نشان‌دار شدن رد می‌شود و با گزینه پذیرفته می‌شود، زنجیره‌ها و jobهای شکست‌خورده متن رمزشده را حمل می‌کنند.
+
+### تأیید A1
+
+هنوز تأیید نشده. پس از تأیید، R18.T01 تیک می‌خورد و T02 (ماژول) و T03 (adapter) اجرا می‌شوند.
