@@ -117,6 +117,51 @@ fake.AssertRan("daily-digest");
 - **`before` and `after` hooks:** use the body of the task; `OnSuccess` and `OnFailure` cover the two outcomes.
 - **Catch-up of missed minutes:** see above.
 
+## Commands (the Artisan half): a recipe, no package
+
+Laravel's Artisan is a command framework. In .NET the command-line half is already solved by [System.CommandLine](https://learn.microsoft.com/en-us/dotnet/standard/commandline/) (typed arguments and options, help, completion, async actions with a `CancellationToken`), and the Generic Host gives the same dependency injection as the web app. PDR-017 therefore declines a `Naravel.Console` package and its signature-string parser: it would be a second command model next to one that already exists. A command is a normal action that resolves the services it needs.
+
+```csharp
+var builder = Host.CreateApplicationBuilder(args);
+builder.Services.AddNaravelCache(builder.Configuration);
+builder.Services.AddNaravelScheduling(schedule => schedule.Call("daily-digest", (sp, ct) => sp.GetRequiredService<Digest>().SendAsync(ct)).DailyAt(8, 0));
+using var host = builder.Build();   // built, not started: a command must not start the hosted services (the schedule loop)
+
+Argument<string> user = new("user") { Description = "The user to mail" };
+Option<string> queue = new("--queue") { Description = "The queue name" };
+Command send = new("mail:send", "Send the digest to one user") { user, queue };
+send.SetAction(async (parseResult, ct) =>
+{
+    await using var scope = host.Services.CreateAsyncScope();
+    await scope.ServiceProvider.GetRequiredService<Digest>().SendToAsync(parseResult.GetValue(user)!, parseResult.GetValue(queue), ct);
+    return 0;
+});
+
+Command list = new("schedule:list", "Show the scheduled tasks");
+list.SetAction(_ =>
+{
+    foreach (var task in host.Services.GetRequiredService<Scheduler>().List()) Console.WriteLine($"{task.Name}  {task.Expression}  next: {task.NextRun:u}");
+    return 0;
+});
+
+RootCommand root = new("app") { send, list };
+return await root.Parse(args).InvokeAsync();
+```
+
+| Artisan | .NET |
+|---|---|
+| `php artisan make:command` | a method, or a small class with an action; there is nothing to generate |
+| signature `mail:send {user} {--queue=}` | `new Command("mail:send") { new Argument<string>("user"), new Option<string>("--queue") }` |
+| `$this->argument('user')`, `$this->option('queue')` | `parseResult.GetValue(user)`, `parseResult.GetValue(queue)` |
+| `$this->call('other')` | call the service method directly, or `root.Parse(["other"]).InvokeAsync()` |
+| `$this->info()`, `ask`, `confirm`, `table` | `Console`, or a library such as Spectre.Console if you want prompts and tables |
+| `schedule:list` | `Scheduler.List()` (above) |
+| `schedule:work` | run the host: the hosted service is the loop |
+| `schedule:run` (called by cron every minute) | not needed with the hosted service. If a platform scheduler must start a process each minute instead, build the host as above and call `await scheduler.RunDueAsync(DateTimeOffset.UtcNow, ct)`, then exit; the same guards apply |
+| `route:list`, `migrate`, `queue:work` | separate questions (routing metadata R05, the database stage, the queue worker host); not decided here |
+
+System.CommandLine's API changed between its previews and 2.0; this recipe is written for the 2.x release, so check the package version you install. Do not mix synchronous and asynchronous actions in one program.
+
 ## Alternatives
 
 Hangfire and Quartz.NET add a job store, retries and a dashboard or clustering; use them when you need persistence of schedules or per-run history. Platform schedulers (cron, a Kubernetes `CronJob`, systemd timers) are the right choice when every run should be a separate process. This module is for the common case Laravel's `Schedule` covers: a handful of in-process tasks with simple guards.
