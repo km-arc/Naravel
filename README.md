@@ -120,6 +120,23 @@ await mailer.To(user.Email).QueueAsync(new WelcomeMail(user), cancellationToken)
 
 See [docs/en/mail.md](docs/en/mail.md) and [docs/fa/mail.md](docs/fa/mail.md).
 
+### Naravel.Notifications
+
+One typed notification sent to a recipient through channels you name, in the order you name them, with a fake for tests. The core package has no mail, queue or network dependency; Mail (`Naravel.Notifications.Mail`) and Queue (`Naravel.Notifications.Queue`) are opt-in packages, and any other channel is a class or delegate. A missing channel fails before anything is sent; a failing channel stops the dispatch and `NotificationDeliveryException` says which channel failed and which had already delivered.
+
+```csharp
+builder.Services.AddNaravelNotifications();
+builder.Services.AddLogNotificationChannel<InvoiceReady>();          // a channel named "log"
+
+await notifications.SendAsync(user, new InvoiceReady(7), ["log"], cancellationToken);   // notifications is an injected INotificationSender
+
+// optional Naravel.Notifications.Mail: services.AddMailNotificationChannel<InvoiceReady>(c => c.GetRecipient<User>().Email, n => new InvoiceMail(n));
+// optional Naravel.Notifications.Queue: services.AddNaravelNotificationQueue(); services.AddQueuedNotification<InvoicePayload>("invoice.ready", handler);
+//   await notificationQueue.QueueAsync("invoice.ready", payload);   // stores an alias and plain data only, at-least-once
+```
+
+See [docs/en/notifications.md](docs/en/notifications.md) and [docs/fa/notifications.md](docs/fa/notifications.md).
+
 ### Naravel.Database
 
 A Laravel-style query builder with named connections and parameter-bound SQL on SQLite, MySQL, PostgreSQL and SQL Server (Dapper maps rows; EF Core stays the tool for entities and migrations). **Today:** connections, the SQLite, MySQL, PostgreSQL and SQL Server drivers, the builder (select, the full where family: value, null, between, column, date part, any/all/none, pattern, full text, JSON paths, exists and subqueries; conditionals; joins; group by and having; ordering helpers; limit; aggregates, chunking and streaming; unions, subqueries and lateral joins, CTEs, raw expressions with bindings, row locks, `ToSql`/`ToRawSql`) that compiles for all four dialects and runs on all four (one shared contract suite in CI), and observability (a `Naravel.Database` meter and activity with no SQL in tags, `IQueryListener`, an opt-in query log) with a `DatabaseFake` for tests. Aggregates (`CountAsync`, `SumAsync`, `ExistsAsync`...), chunking and `IAsyncEnumerable` streaming are included, and so are writes: `InsertAsync`, `InsertGetIdAsync`, `UpdateAsync`, `IncrementAsync`, `UpsertAsync`, `DeleteAsync`, `TruncateAsync` and `*ReturningAsync`, with an explicit `where` required for update and delete; transactions (`TransactionAsync` with savepoints and deadlock retry, `BeginTransactionAsync`, joined by the injected `IDatabase`) and an opt-in EF Core adapter (`Naravel.Database.EntityFrameworkCore`: `dbContext.Query("table")` and `db.Using(dbContext)` share the context's connection and transaction); pagination integration follows in a later stage (see [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md)).
@@ -197,6 +214,9 @@ Register the core package and only the providers your configured stores use. The
 | `Naravel.Mail` | `builder.Services.AddNaravelMail(configuration);` |
 | `Naravel.Mail.Queue` | `builder.Services.AddNaravelMailQueue();` |
 | `Naravel.Mail.Smtp` | `builder.Services.AddNaravelMailSmtp(configuration);` |
+| `Naravel.Notifications` | `builder.Services.AddNaravelNotifications();` |
+| `Naravel.Notifications.Mail` | `builder.Services.AddMailNotificationChannel<TNotification>(address, mailable);` |
+| `Naravel.Notifications.Queue` | `builder.Services.AddNaravelNotificationQueue();` |
 | `Naravel.Database` | `builder.Services.AddNaravelDatabase(configuration);` |
 | `Naravel.Database.Sqlite` | `builder.Services.AddNaravelSqliteDatabase(configuration);` |
 | `Naravel.Database.MySql` | `builder.Services.AddNaravelMySqlDatabase(configuration);` |

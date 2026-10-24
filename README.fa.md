@@ -120,6 +120,23 @@ await mailer.To(user.Email).QueueAsync(new WelcomeMail(user), cancellationToken)
 
 جزئیات: [docs/fa/mail.md](docs/fa/mail.md) و [docs/en/mail.md](docs/en/mail.md).
 
+### Naravel.Notifications
+
+یک اعلان تایپ‌شده که از راه channelهایی که نام می‌برید، به همان ترتیب، برای یک گیرنده فرستاده می‌شود، با یک fake برای تست. بستهٔ هسته هیچ وابستگی به mail، queue یا شبکه ندارد؛ Mail (`Naravel.Notifications.Mail`) و Queue (`Naravel.Notifications.Queue`) بسته‌های اختیاری‌اند و هر channel دیگری یک کلاس یا delegate است. channel ثبت‌نشده پیش از ارسال هر چیزی شکست می‌خورد؛ channel ناموفق ارسال را متوقف می‌کند و `NotificationDeliveryException` می‌گوید کدام channel شکست خورد و کدام‌ها پیش‌تر تحویل داده بودند.
+
+```csharp
+builder.Services.AddNaravelNotifications();
+builder.Services.AddLogNotificationChannel<InvoiceReady>();          // یک channel با نام "log"
+
+await notifications.SendAsync(user, new InvoiceReady(7), ["log"], cancellationToken);   // notifications یک INotificationSender تزریق‌شده است
+
+// اختیاری Naravel.Notifications.Mail: services.AddMailNotificationChannel<InvoiceReady>(c => c.GetRecipient<User>().Email, n => new InvoiceMail(n));
+// اختیاری Naravel.Notifications.Queue: services.AddNaravelNotificationQueue(); services.AddQueuedNotification<InvoicePayload>("invoice.ready", handler);
+//   await notificationQueue.QueueAsync("invoice.ready", payload);   // فقط alias و داده‌ٔ ساده ذخیره می‌شود، at-least-once
+```
+
+جزئیات: [docs/fa/notifications.md](docs/fa/notifications.md) و [docs/en/notifications.md](docs/en/notifications.md).
+
 ### Naravel.Database
 
 query builder به سبک Laravel با اتصال‌های نام‌دار و SQL با پارامتر، برای SQLite، MySQL، PostgreSQL و SQL Server (Dapper ردیف‌ها را map می‌کند؛ EF Core همچنان ابزار entity و migration است). **امروز:** اتصال‌ها، درایورهای SQLite، MySQL، PostgreSQL و SQL Server، builder با خانوادهٔ کامل where (مقدار، null، between، ستون، بخش تاریخ، any/all/none، الگو، متن کامل، مسیر JSON، exists و زیرکوئری)، شرطی‌ها، join، group by و having، کمک‌های ترتیب، limit، union، زیرکوئری و join جانبی (lateral)، CTE، عبارت raw همراه با binding، قفل ردیف و `ToSql`/`ToRawSql` که برای هر چهار دیالکت کامپایل می‌شود و روی هر چهار اجرا می‌شود (یک suite قرارداد مشترک در CI)، و مشاهده‌پذیری (meter و activity با نام `Naravel.Database` بدون SQL در tagها، `IQueryListener`، query log اختیاری) به‌همراه `DatabaseFake` برای تست. aggregate (`CountAsync`، `SumAsync`، `ExistsAsync`...)، chunk و استریم `IAsyncEnumerable` شامل هستند؛ نوشتن هم هست: `InsertAsync`، `InsertGetIdAsync`، `UpdateAsync`، `IncrementAsync`، `UpsertAsync`، `DeleteAsync`، `TruncateAsync` و `*ReturningAsync` و برای update و delete `where` صریح لازم است؛ تراکنش (`TransactionAsync` با savepoint و تکرار هنگام deadlock، `BeginTransactionAsync`، که `IDatabase` تزریق‌شده هم به آن می‌پیوندد) و آداپتور اختیاری EF Core (`Naravel.Database.EntityFrameworkCore`: `dbContext.Query("table")` و `db.Using(dbContext)` اتصال و تراکنش context را به اشتراک می‌گذارند)؛ یکپارچگی صفحه‌بندی در مرحله‌ای بعد می‌آید (فایل [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md) را ببینید).
@@ -208,6 +225,9 @@ var next = await db.Posts.CursorPaginateAsync(k => k.By(p => p.CreatedAt).Then(p
 | `Naravel.Mail` | `builder.Services.AddNaravelMail(configuration);` |
 | `Naravel.Mail.Queue` | `builder.Services.AddNaravelMailQueue();` |
 | `Naravel.Mail.Smtp` | `builder.Services.AddNaravelMailSmtp(configuration);` |
+| `Naravel.Notifications` | `builder.Services.AddNaravelNotifications();` |
+| `Naravel.Notifications.Mail` | `builder.Services.AddMailNotificationChannel<TNotification>(address, mailable);` |
+| `Naravel.Notifications.Queue` | `builder.Services.AddNaravelNotificationQueue();` |
 | `Naravel.Database` | `builder.Services.AddNaravelDatabase(configuration);` |
 | `Naravel.Database.Sqlite` | `builder.Services.AddNaravelSqliteDatabase(configuration);` |
 | `Naravel.Database.MySql` | `builder.Services.AddNaravelMySqlDatabase(configuration);` |
