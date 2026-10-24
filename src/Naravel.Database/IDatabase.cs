@@ -74,9 +74,11 @@ public interface IDatabase
     /// Savepoints are never retried.</para>
     /// <para><b>Deadlocks:</b> when <paramref name="attempts"/> is greater than one, an outermost transaction that fails with a deadlock or lock conflict
     /// (PostgreSQL 40P01 / 40001, MySQL 1213, SQL Server 1205, SQLite busy/locked) is rolled back and the whole callback runs again, so the callback must be repeatable.</para>
-    /// <para><b>Why a parameter, not ambient state:</b> an <c>AsyncLocal</c> transaction does not flow back out of <c>await</c> and is invisible in a stack
-    /// trace; passing the database makes "this runs in the transaction" explicit. A transaction cannot be started on a database borrowed from EF Core
-    /// (neither side commits a transaction it did not start).</para>
+    /// <para><b>Passed database and injected database:</b> the database passed to the callback is the explicit form. The registered <see cref="IDatabase"/>
+    /// also joins the transaction for as long as the callback runs (an <c>AsyncLocal</c> flows into everything the callback awaits or starts and is cleared
+    /// when it returns), so a repository that only has the injected database takes part without being handed the transaction. Use one transaction's database
+    /// from one flow of execution at a time. A transaction cannot be started on a database borrowed from EF Core (neither side commits a transaction it did
+    /// not start).</para>
     /// </remarks>
     /// <typeparam name="T">The callback's result type.</typeparam>
     /// <param name="callback">The work to run. Do not use the passed database from several threads at once.</param>
