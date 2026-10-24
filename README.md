@@ -137,6 +137,20 @@ await notifications.SendAsync(user, new InvoiceReady(7), ["log"], cancellationTo
 
 See [docs/en/notifications.md](docs/en/notifications.md) and [docs/fa/notifications.md](docs/fa/notifications.md).
 
+### Naravel.Scheduling
+
+Named tasks on a schedule, run by a hosted service inside your host: no cron line and no command to start. Frequencies and filters read like Laravel's (`EveryFiveMinutes`, `DailyAt`, `Weekdays`, `Cron`), and two guards work across several instances over the cache locks: `WithoutOverlapping` and `OnOneServer` (startup fails when the lock driver is not shared). Each run gets a new DI scope; `SchedulerFake` runs a schedule at times you choose. The Artisan half is not a package: Commands are a documented `System.CommandLine` recipe (PDR-017).
+
+```csharp
+builder.Services.AddNaravelScheduling(schedule =>
+{
+    schedule.Call("prune-sessions", (sp, ct) => sp.GetRequiredService<SessionPruner>().RunAsync(ct)).EveryFiveMinutes().WithoutOverlapping();
+    schedule.Call("daily-digest", (sp, ct) => sp.GetRequiredService<Digest>().SendAsync(ct)).DailyAt(8, 0).OnOneServer();
+});
+```
+
+See [docs/en/scheduling.md](docs/en/scheduling.md) and [docs/fa/scheduling.md](docs/fa/scheduling.md).
+
 ### Naravel.Database
 
 A Laravel-style query builder with named connections and parameter-bound SQL on SQLite, MySQL, PostgreSQL and SQL Server (Dapper maps rows; EF Core stays the tool for entities and migrations). **Today:** connections, the SQLite, MySQL, PostgreSQL and SQL Server drivers, the builder (select, the full where family: value, null, between, column, date part, any/all/none, pattern, full text, JSON paths, exists and subqueries; conditionals; joins; group by and having; ordering helpers; limit; aggregates, chunking and streaming; unions, subqueries and lateral joins, CTEs, raw expressions with bindings, row locks, `ToSql`/`ToRawSql`) that compiles for all four dialects and runs on all four (one shared contract suite in CI), and observability (a `Naravel.Database` meter and activity with no SQL in tags, `IQueryListener`, an opt-in query log) with a `DatabaseFake` for tests. Aggregates (`CountAsync`, `SumAsync`, `ExistsAsync`...), chunking and `IAsyncEnumerable` streaming are included, and so are writes: `InsertAsync`, `InsertGetIdAsync`, `UpdateAsync`, `IncrementAsync`, `UpsertAsync`, `DeleteAsync`, `TruncateAsync` and `*ReturningAsync`, with an explicit `where` required for update and delete; transactions (`TransactionAsync` with savepoints and deadlock retry, `BeginTransactionAsync`, joined by the injected `IDatabase`) and an opt-in EF Core adapter (`Naravel.Database.EntityFrameworkCore`: `dbContext.Query("table")` and `db.Using(dbContext)` share the context's connection and transaction); pagination integration follows in a later stage (see [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md)).
@@ -217,6 +231,7 @@ Register the core package and only the providers your configured stores use. The
 | `Naravel.Notifications` | `builder.Services.AddNaravelNotifications();` |
 | `Naravel.Notifications.Mail` | `builder.Services.AddMailNotificationChannel<TNotification>(address, mailable);` |
 | `Naravel.Notifications.Queue` | `builder.Services.AddNaravelNotificationQueue();` |
+| `Naravel.Scheduling` | `builder.Services.AddNaravelScheduling(schedule => schedule.Call("name", handler).EveryFiveMinutes());` |
 | `Naravel.Database` | `builder.Services.AddNaravelDatabase(configuration);` |
 | `Naravel.Database.Sqlite` | `builder.Services.AddNaravelSqliteDatabase(configuration);` |
 | `Naravel.Database.MySql` | `builder.Services.AddNaravelMySqlDatabase(configuration);` |

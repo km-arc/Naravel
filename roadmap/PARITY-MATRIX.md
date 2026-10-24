@@ -126,7 +126,7 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 ## R13 — Console and Scheduling
 
 - Laravel surface: Artisan commands and `Illuminate\Console\Scheduling\Schedule`.
-- Naravel: future command/scheduling module; route:list and maintenance commands depend on this decision.
+- Naravel: `Naravel.Scheduling` (named schedule, hosted service, `WithoutOverlapping` and `OnOneServer` over `ICacheLock`, `SchedulerFake`) per PDR-017; Commands are `DECLINED` in favour of a documented `System.CommandLine` recipe. `route:list` and maintenance commands remain separate questions.
 - Value: typed command registration and hosted scheduling only if .NET hosting does not already meet the need.
 - Native baseline: `System.CommandLine`, Generic Host, hosted services, and deployment schedulers.
 - API reference: [Illuminate Console Scheduling](https://api.laravel.com/docs/13.x/Illuminate/Console/Scheduling/Schedule.html).
@@ -247,7 +247,7 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 | Cache | Done (+RateLimiter open) | R04 |
 | Concurrency | Native (`Task.WhenAll`, `Parallel`) | - |
 | Config | Native (`IConfiguration`, `IOptionsMonitor`) | PDR-004 |
-| Console | Evaluate vs `System.CommandLine`/Generic Host | R13 |
+| Console | Native (`System.CommandLine`; recipe, no package) and Scheduling adapted (`Naravel.Scheduling`) | R13 |
 | Container | Native (`Microsoft.Extensions.DependencyInjection`) | PDR-002 |
 | Contracts | Per-module interfaces | - |
 | Cookie | Native (ASP.NET Core) | - |
