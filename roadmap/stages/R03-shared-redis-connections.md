@@ -7,6 +7,8 @@ Touch: new `src/Naravel.Redis/**`, `tests/Naravel.Redis.Tests/**`, `src/Naravel.
 Out of scope: RateLimiter (R04); Lua scripts already written in R01 stay (move only if the PDR says so); StackExchange.Redis 3.x upgrade (needs approval).
 Decisions: OD-01 (env-gated tests), OD-06.
 
+Note: PDR-010 T01 is written (EN+FA) and waits for the owner's decisions D1 to D4; it stays unticked until approval.
+
 ## Tasks
 - [ ] **R03.T01 — PDR-010:** named-connection semantics, `IConnectionMultiplexer` ownership/disposal, config shape (`Stores` keyword per PDR-005), reload, migration path for Cache and Queue; native-first verdict (is `IConnectionMultiplexer` registered once in DI enough?). May conclude `DECLINED`. **Accept:** PDR-010 EN+FA exist with a ≤ 10-line quickstart.
 - [ ] **R03.T02 — Shared module:** `Naravel.Redis` on `Manager<,>`; one multiplexer per named connection. **Accept:** `Extend` and config-reload tests; no duplicate pools (test counts multiplexer creations).
