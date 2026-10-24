@@ -39,27 +39,28 @@ public static class NotificationQueueServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers the handler that a worker runs for <paramref name="alias"/>. The handler receives the deserialized payload and an
-    /// <see cref="INotificationSender"/> from the job's scope, and normally loads the recipient and builds the notification itself.
+    /// Registers the handler that a worker runs for <paramref name="alias"/>. The handler receives the deserialized payload and the job's
+    /// service scope: it loads the recipient from your own services, builds the notification and sends it with the scope's
+    /// <see cref="INotificationSender"/>.
     /// </summary>
     /// <typeparam name="TPayload">The plain payload type, serialized with System.Text.Json.</typeparam>
     /// <param name="services">The service collection.</param>
     /// <param name="alias">A stable alias that is stored in the queue; never rename it while jobs with it are queued.</param>
-    /// <param name="send">Sends the notification for one payload.</param>
+    /// <param name="send">Handles one payload; it gets the deserialized payload, the job's scope and the cancellation token.</param>
     public static IServiceCollection AddQueuedNotification<TPayload>(
         this IServiceCollection services,
         string alias,
-        Func<TPayload, INotificationSender, CancellationToken, Task> send)
+        Func<TPayload, IServiceProvider, CancellationToken, Task> send)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(alias);
         ArgumentNullException.ThrowIfNull(send);
 
-        services.AddSingleton(new QueuedNotificationEntry(alias, typeof(TPayload), (json, sender, cancellationToken) =>
+        services.AddSingleton(new QueuedNotificationEntry(alias, typeof(TPayload), (json, scope, cancellationToken) =>
         {
             var payload = JsonSerializer.Deserialize<TPayload>(json)
                 ?? throw new InvalidOperationException($"The stored payload for '{alias}' is empty.");
-            return send(payload, sender, cancellationToken);
+            return send(payload, scope, cancellationToken);
         }));
         return services;
     }

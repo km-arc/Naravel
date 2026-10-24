@@ -102,7 +102,7 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 ## R10 — Notifications
 
 - Laravel surface: `Illuminate\Contracts\Notifications\Dispatcher`, notification channels and notifiable routing.
-- Naravel: future Notifications module built on approved Events/Mail/Queue boundaries.
+- Naravel: `Naravel.Notifications` core (`INotificationSender`, typed `INotificationChannel<T>` chosen by name, log channel, `NotificationFake`) with opt-in `Naravel.Notifications.Mail` and `Naravel.Notifications.Queue` per PDR-014; Events is not a dependency.
 - Value: multi-channel delivery from one typed notification.
 - Native baseline: DI and channel/provider abstractions; avoid magic model traits.
 - API reference: [Illuminate Notifications](https://api.laravel.com/docs/13.x/Illuminate/Notifications/ChannelManager.html).
@@ -263,7 +263,7 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 | JsonSchema | Native (`System.Text.Json.Schema`) | - |
 | Log | Native (`ILogger`) | - |
 | Mail | Adapted (MailKit wrapped, optional) | R09 |
-| Notifications | Adapt | R10 |
+| Notifications | Adapted (typed channels, opt-in Mail and Queue adapters) | R10 |
 | Pagination | Adapt (cursor value) | R16 |
 | Pipeline | Native (delegates/middleware); revisit if Routing needs shared engine | - |
 | Process | Native (`System.Diagnostics.Process`) | - |

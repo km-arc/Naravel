@@ -21,11 +21,10 @@ public sealed class SendQueuedNotificationJob : Job
     /// <summary>The payload serialized as JSON.</summary>
     public string Payload { get; set; } = string.Empty;
 
-    /// <summary>Looks up the alias and runs its handler with a sender from the job's scope.</summary>
+    /// <summary>Looks up the alias and runs its handler with the job's service scope.</summary>
     public override async Task HandleAsync(JobContext context, CancellationToken cancellationToken)
     {
         var entry = context.Services.GetRequiredService<QueuedNotificationRegistry>().Get(Alias);
-        var sender = context.Services.GetRequiredService<INotificationSender>();
-        await entry.Run(Payload, sender, cancellationToken).ConfigureAwait(false);
+        await entry.Run(Payload, context.Services, cancellationToken).ConfigureAwait(false);
     }
 }

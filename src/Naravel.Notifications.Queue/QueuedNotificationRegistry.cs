@@ -3,7 +3,7 @@ namespace Naravel.Notifications.Queue;
 internal sealed record QueuedNotificationEntry(
     string Alias,
     Type PayloadType,
-    Func<string, INotificationSender, CancellationToken, Task> Run);
+    Func<string, IServiceProvider, CancellationToken, Task> Run);
 
 /// <summary>The explicit alias registry (OD-07): a stored alias maps to a handler registered in code, never to a CLR type found by name.</summary>
 internal sealed class QueuedNotificationRegistry
