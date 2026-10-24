@@ -5,7 +5,7 @@
 - **Scheduling:** .NET gives the clock (`PeriodicTimer`, `TimeProvider`) and the host (`BackgroundService`), but **not** the part Laravel users actually rely on: a named schedule with frequencies, a cron expression, an overlap guard and a "run on one server only" guard that work across several instances. Writing that by hand is about 150 lines every time, and the two guards are easy to get subtly wrong. **Proposed outcome: accepted, as a thin module over what already exists (`ICacheLock` from R04, the Generic Host).**
 - **Commands (Artisan):** `System.CommandLine` plus the Generic Host already give typed arguments, options, help, tab completion and DI. Laravel's value here is the PHP signature string (`mail:send {user} {--queue=}`) and the `make:command` generator, neither of which has a .NET equivalent worth building. **Proposed outcome: `DECLINED`, with a documented recipe.**
 
-Each half is decided separately (R13.T01). Status: **Proposed, awaiting owner approval.**
+Each half is decided separately. Status: **Approved 2026-10-24: D1 accept, D2 `DECLINED`, D3 Cronos, D4 one hour (reasons in Approval).**
 
 ## Context
 
@@ -83,4 +83,11 @@ No task payloads, exception messages with user data or lock tokens in logs or me
 
 ## Approval
 
-Not yet approved. After approval the stage runs T02 (Scheduling), T03 (Commands only if kept; otherwise ticked as `DECLINED` with the recipe docs) and T04 (Validate).
+The owner approved all four recommendations on 2026-10-24. The reasons are recorded here so a later reader can revisit them.
+
+- **D1 Scheduling accepted as a thin module.** .NET supplies the clock (`TimeProvider`) and the host (`BackgroundService`), not a named schedule with an overlap guard and a one-server guard that work across instances. Those two guards are the part that is easy to get subtly wrong, and every project would otherwise rewrite them. Quartz.NET and Hangfire were rejected for the first version because each brings its own job store and model, a larger commitment than Laravel's `Schedule` and against the "thin" rule; an adapter can come later if persistence or clustering is needed.
+- **D2 Commands `DECLINED`, recipe in `docs/en|fa/scheduling.md`.** Laravel's value is the PHP signature string and `make:command`. `System.CommandLine` already gives typed binding, help, completion and DI, so a second command model next to it fails rule zero. It can be reopened if a real need appears.
+- **D3 `Cron(expression)` through the Cronos package.** The BCL has no cron parser, and a hand-written one is correctness-sensitive (day-of-week and day-of-month rules, `L` and `W`, daylight-saving transitions). Laravel code uses `cron()` often, so leaving it out would make migration harder. The cost is one small dependency without transitive packages; at T02 the version is pinned from the NuGet audit, and its maintenance status and licence are checked before use. The fallback if that check fails is the fluent frequencies and `Every(TimeSpan)` only.
+- **D4 Overlap TTL default of one hour.** The TTL only matters after a crash. With Laravel's 24 hours, a task that runs every five minutes and crashes once stays blocked for a day; with one hour it is blocked for at most an hour. A task can set its own value, for example `WithoutOverlapping(TimeSpan.FromHours(6))` for a long job.
+
+The stage now runs T02 (Scheduling), T03 (Commands: ticked as `DECLINED` once the recipe docs exist, with no code) and T04 (Validate).
