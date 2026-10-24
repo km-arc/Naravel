@@ -9,7 +9,7 @@ namespace Naravel.Database.Tests;
 
 /// <summary>
 /// Transactions on the real servers. Each test runs only when its <c>NARAVEL_TEST_*</c> variable holds a connection string (CI <c>database</c> job);
-/// skipped means NOT RUN. The deadlock tests make two transactions lock the same two rows in opposite order, so the server must pick a victim.
+/// skipped means NOT RUN. Every test carries the `Dialect` trait, because the CI `database` legs select tests with `--filter "Dialect=..."`; a test without it is never run there. The deadlock tests make two transactions lock the same two rows in opposite order, so the server must pick a victim.
 /// </summary>
 public class ServerTransactionTests
 {
@@ -123,17 +123,22 @@ public class ServerTransactionTests
     }
 
     [ServiceFact("NARAVEL_TEST_POSTGRES")]
+    [Trait("Dialect", "Postgres")]
     public Task PostgreSql_retries_a_forced_deadlock() => ForceDeadlockAsync("pgsql", "NARAVEL_TEST_POSTGRES");
 
     [ServiceFact("NARAVEL_TEST_SQLSERVER")]
+    [Trait("Dialect", "SqlServer")]
     public Task SqlServer_retries_a_forced_deadlock() => ForceDeadlockAsync("sqlserver", "NARAVEL_TEST_SQLSERVER");
 
     [ServiceFact("NARAVEL_TEST_MYSQL")]
+    [Trait("Dialect", "MySql")]
     public Task MySql_savepoints_and_rollback() => SavepointsAndRollbackAsync("mysql", "NARAVEL_TEST_MYSQL");
 
     [ServiceFact("NARAVEL_TEST_POSTGRES")]
+    [Trait("Dialect", "Postgres")]
     public Task PostgreSql_savepoints_and_rollback() => SavepointsAndRollbackAsync("pgsql", "NARAVEL_TEST_POSTGRES");
 
     [ServiceFact("NARAVEL_TEST_SQLSERVER")]
+    [Trait("Dialect", "SqlServer")]
     public Task SqlServer_savepoints_and_rollback() => SavepointsAndRollbackAsync("sqlserver", "NARAVEL_TEST_SQLSERVER");
 }
