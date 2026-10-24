@@ -117,6 +117,51 @@ fake.AssertRan("daily-digest");
 - **قلاب‌های `before` و `after`:** از بدنه‌ی کار استفاده کنید؛ `OnSuccess` و `OnFailure` دو نتیجه را پوشش می‌دهند.
 - **جبران دقیقه‌های از دست‌رفته:** بالا را ببینید.
 
+## دستورها (نیمه‌ی Artisan): دستورالعمل، بدون بسته
+
+Artisan در Laravel یک چارچوب دستور است. در .NET نیمه‌ی خط فرمان از قبل با [System.CommandLine](https://learn.microsoft.com/en-us/dotnet/standard/commandline/) حل شده (آرگومان و گزینه‌ی تایپ‌دار، راهنما، تکمیل، actionهای ناهمگام با `CancellationToken`) و Generic Host همان تزریق وابستگی برنامه‌ی وب را می‌دهد. برای همین PDR-017 بسته‌ی `Naravel.Console` و تجزیه‌گر رشته‌ی signature را رد کرده است: مدل دستور دومی می‌شد کنار مدلی که از قبل هست. دستور یک action عادی است که سرویس‌های لازمش را resolve می‌کند.
+
+```csharp
+var builder = Host.CreateApplicationBuilder(args);
+builder.Services.AddNaravelCache(builder.Configuration);
+builder.Services.AddNaravelScheduling(schedule => schedule.Call("daily-digest", (sp, ct) => sp.GetRequiredService<Digest>().SendAsync(ct)).DailyAt(8, 0));
+using var host = builder.Build();   // ساخته می‌شود، شروع نمی‌شود: دستور نباید hosted serviceها (حلقه‌ی زمان‌بندی) را شروع کند
+
+Argument<string> user = new("user") { Description = "کاربری که ایمیل می‌گیرد" };
+Option<string> queue = new("--queue") { Description = "نام صف" };
+Command send = new("mail:send", "ارسال خلاصه به یک کاربر") { user, queue };
+send.SetAction(async (parseResult, ct) =>
+{
+    await using var scope = host.Services.CreateAsyncScope();
+    await scope.ServiceProvider.GetRequiredService<Digest>().SendToAsync(parseResult.GetValue(user)!, parseResult.GetValue(queue), ct);
+    return 0;
+});
+
+Command list = new("schedule:list", "نمایش کارهای زمان‌بندی‌شده");
+list.SetAction(_ =>
+{
+    foreach (var task in host.Services.GetRequiredService<Scheduler>().List()) Console.WriteLine($"{task.Name}  {task.Expression}  next: {task.NextRun:u}");
+    return 0;
+});
+
+RootCommand root = new("app") { send, list };
+return await root.Parse(args).InvokeAsync();
+```
+
+| Artisan | .NET |
+|---|---|
+| `php artisan make:command` | یک متد یا کلاس کوچک با action؛ چیزی برای تولید کردن نیست |
+| signature `mail:send {user} {--queue=}` | `new Command("mail:send") { new Argument<string>("user"), new Option<string>("--queue") }` |
+| `$this->argument('user')`، `$this->option('queue')` | `parseResult.GetValue(user)`، `parseResult.GetValue(queue)` |
+| `$this->call('other')` | مستقیم متد سرویس را صدا بزنید، یا `root.Parse(["other"]).InvokeAsync()` |
+| `$this->info()`، `ask`، `confirm`، `table` | `Console`، یا کتابخانه‌ای مثل Spectre.Console اگر پرسش و جدول می‌خواهید |
+| `schedule:list` | `Scheduler.List()` (بالا) |
+| `schedule:work` | میزبان را اجرا کنید: hosted service همان حلقه است |
+| `schedule:run` (cron هر دقیقه صدایش می‌زند) | با hosted service لازم نیست. اگر زمان‌بند پلتفرم باید هر دقیقه یک فرایند شروع کند، میزبان را مثل بالا بسازید و `await scheduler.RunDueAsync(DateTimeOffset.UtcNow, ct)` را صدا بزنید و خارج شوید؛ همان محافظ‌ها اعمال می‌شوند |
+| `route:list`، `migrate`، `queue:work` | پرسش‌های جدا (فراداده‌ی مسیر R05، مرحله‌ی پایگاه داده، میزبان کارگر صف)؛ اینجا تصمیم گرفته نمی‌شوند |
+
+API پکیج System.CommandLine بین نسخه‌های preview و 2.0 تغییر کرد؛ این دستورالعمل برای نسخه‌ی 2.x نوشته شده، پس نسخه‌ای را که نصب می‌کنید بررسی کنید. actionهای همگام و ناهمگام را در یک برنامه مخلوط نکنید.
+
 ## جایگزین‌ها
 
 Hangfire و Quartz.NET ذخیره‌ی کار، تلاش مجدد و داشبورد یا خوشه‌بندی اضافه می‌کنند؛ وقتی به ماندگاری برنامه‌ها یا تاریخچه‌ی هر اجرا نیاز دارید از آن‌ها استفاده کنید. زمان‌بندهای پلتفرم (cron، `CronJob` در Kubernetes، تایمرهای systemd) وقتی درست‌اند که هر اجرا باید فرایند جدا باشد. این ماژول برای حالت رایجی است که `Schedule` در Laravel پوشش می‌دهد: چند کار درون‌فرایندی با محافظ‌های ساده.
