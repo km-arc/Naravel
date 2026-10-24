@@ -10,6 +10,7 @@
     <Project Path="src/Naravel.Mail.Smtp/Naravel.Mail.Smtp.csproj" />
     <Project Path="src/Naravel.Notifications/Naravel.Notifications.csproj" />
     <Project Path="src/Naravel.Notifications.Mail/Naravel.Notifications.Mail.csproj" />
+    <Project Path="src/Naravel.Notifications.Queue/Naravel.Notifications.Queue.csproj" />
     <Project Path="src/Naravel.Pagination/Naravel.Pagination.csproj" />
     <Project Path="src/Naravel.Pagination.EntityFrameworkCore/Naravel.Pagination.EntityFrameworkCore.csproj" />
     <Project Path="src/Naravel.Database/Naravel.Database.csproj" />
@@ -44,6 +45,7 @@
     <Project Path="tests/Naravel.Mail.Smtp.Tests/Naravel.Mail.Smtp.Tests.csproj" />
     <Project Path="tests/Naravel.Notifications.Tests/Naravel.Notifications.Tests.csproj" />
     <Project Path="tests/Naravel.Notifications.Mail.Tests/Naravel.Notifications.Mail.Tests.csproj" />
+    <Project Path="tests/Naravel.Notifications.Queue.Tests/Naravel.Notifications.Queue.Tests.csproj" />
     <Project Path="tests/Naravel.Pagination.EntityFrameworkCore.Tests/Naravel.Pagination.EntityFrameworkCore.Tests.csproj" />
     <Project Path="tests/Naravel.Pagination.Tests/Naravel.Pagination.Tests.csproj" />
     <Project Path="tests/Naravel.Database.Tests/Naravel.Database.Tests.csproj" />
