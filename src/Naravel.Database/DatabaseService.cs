@@ -8,6 +8,13 @@ internal sealed class DatabaseService(DatabaseManager manager, IConnectionScope 
 
     internal QueryObserver Observer => observer;
 
+    internal IConnectionScope Scope => scope;
+
+    /// <summary>The transaction this database already runs in: its own (inside a callback) or, for the injected database, the ambient one.</summary>
+    private LeasedTransactionScope? CurrentTransaction =>
+        scope as LeasedTransactionScope
+        ?? (scope is AmbientConnectionScope ? AmbientTransaction.Find(manager, AmbientTransaction.NameOf(manager, connectionName)) : null);
+
     public IDatabase Connection(string? name)
     {
         if (scope is LeasedTransactionScope && !string.Equals(name, connectionName, StringComparison.Ordinal))
@@ -29,7 +36,7 @@ internal sealed class DatabaseService(DatabaseManager manager, IConnectionScope 
         ArgumentNullException.ThrowIfNull(callback);
         ArgumentOutOfRangeException.ThrowIfLessThan(attempts, 1);
 
-        if (scope is LeasedTransactionScope nested)
+        if (CurrentTransaction is { } nested)
         {
             return await RunSavepointAsync(nested, callback, cancellationToken).ConfigureAwait(false);
         }
@@ -39,7 +46,21 @@ internal sealed class DatabaseService(DatabaseManager manager, IConnectionScope 
             try
             {
                 await using var transaction = await BeginCoreAsync(cancellationToken).ConfigureAwait(false);
-                var result = await callback(transaction.Database).ConfigureAwait(false);
+
+                // Set here, in this async method, so it flows into the callback and everything it awaits; the injected IDatabase
+                // then joins the transaction (PDR-022 A1). Restored before the commit so the commit itself is not "inside".
+                var leased = (LeasedTransactionScope)((DatabaseService)transaction.Database).Scope;
+                var previous = AmbientTransaction.Push(manager, AmbientTransaction.NameOf(manager, connectionName), leased);
+                T result;
+                try
+                {
+                    result = await callback(transaction.Database).ConfigureAwait(false);
+                }
+                finally
+                {
+                    AmbientTransaction.Restore(previous);
+                }
+
                 await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
                 return result;
             }
@@ -62,7 +83,7 @@ internal sealed class DatabaseService(DatabaseManager manager, IConnectionScope 
 
     public async Task<IDatabaseTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
     {
-        if (scope is LeasedTransactionScope)
+        if (CurrentTransaction is not null)
         {
             throw new InvalidOperationException("Already inside a transaction. Use TransactionAsync on this database to open a savepoint.");
         }
