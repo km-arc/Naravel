@@ -44,8 +44,8 @@ public sealed class QueuedNotificationTests
 
         if (register)
         {
-            services.AddQueuedNotification<InvoicePayload>(Alias, (payload, sender, ct) =>
-                sender.SendAsync(new User(payload.Email), new InvoiceReady(payload.InvoiceId), ["record"], ct));
+            services.AddQueuedNotification<InvoicePayload>(Alias, (payload, scope, ct) =>
+                scope.GetRequiredService<INotificationSender>().SendAsync(new User(payload.Email), new InvoiceReady(payload.InvoiceId), ["record"], ct));
         }
 
         return services;
@@ -141,9 +141,28 @@ public sealed class QueuedNotificationTests
         await using var provider = services.BuildServiceProvider();
         var entry = provider.GetRequiredService<QueuedNotificationRegistry>().Get(Alias);
 
-        var act = () => entry.Run("null", new Naravel.Notifications.Testing.NotificationFake(), CancellationToken.None);
+        var act = () => entry.Run("null", provider, CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*empty*");
+    }
+
+    [Fact]
+    public async Task The_handler_receives_the_job_scope_to_load_its_own_data()
+    {
+        var services = BaseServices(register: false);
+        services.AddSingleton(new Dictionary<int, string> { [7] = "ada@example.com" });
+        var seen = new List<string>();
+        services.AddQueuedNotification<InvoicePayload>(Alias, (payload, scope, _) =>
+        {
+            seen.Add(scope.GetRequiredService<Dictionary<int, string>>()[payload.InvoiceId]);
+            return Task.CompletedTask;
+        });
+        await using var provider = services.BuildServiceProvider();
+
+        await provider.GetRequiredService<QueuedNotificationRegistry>().Get(Alias)
+            .Run(JsonSerializer.Serialize(new InvoicePayload("stale@example.com", 7)), provider, CancellationToken.None);
+
+        seen.Should().Equal("ada@example.com");
     }
 
     [Fact]
