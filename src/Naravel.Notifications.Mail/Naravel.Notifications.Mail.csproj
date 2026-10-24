@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Naravel.Notifications.Mail</PackageId>
+    <Description>Optional Naravel.Notifications adapter: a "mail" channel that delivers a notification through Naravel.Mail.</Description>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Naravel.Notifications\Naravel.Notifications.csproj" />
+    <ProjectReference Include="..\Naravel.Mail\Naravel.Mail.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Naravel.Notifications.Mail.Tests" />
+  </ItemGroup>
+</Project>
