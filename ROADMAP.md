@@ -42,7 +42,7 @@ needs the EN+FA PDR.
 | R10 | Notifications (PDR-014) | R07, R09 | PDR | TODO |
 | R11 | Session (PDR-015) | R04, R05 | PDR | TODO |
 | R12 | Auth-lite route middleware (legacy 4c, PDR-016) | R05, R11 | PDR | TODO |
-| R13 | Console + Scheduling (PDR-017) | R04, R05, R07 | PDR | TODO |
+| R13 | Console + Scheduling (PDR-017) | R04, R05, R07 | PDR | BLOCKED (awaiting PDR-017 approval; PDR written, see `docs/pdr/en/PDR-017-console-and-scheduling.md`) |
 | R14 | Broadcasting (PDR-018) | R06, R07 | PDR | TODO |
 | R15 | Hashing (PDR-019) | - | PDR | DECLINED (PDR-019 approved 2026-10-19: native `PasswordHasher<TUser>` is enough; the recipe is in docs/en and docs/fa hashing.md; roadmap check passed; no code was added, so there was nothing to build or test) |
 | R16 | Pagination (PDR-020) | - | PDR | DONE (2026-10-19; PDR-020 approved; tasks T01-T04 merged except T04 in review; build, tests and benchmark NOT RUN locally (no .NET SDK), CI is the verification and the first benchmark baseline is still open; roadmap check passed) |
