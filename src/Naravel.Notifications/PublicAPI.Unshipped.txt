@@ -1,0 +1,33 @@
+#nullable enable
+Microsoft.Extensions.DependencyInjection.NotificationServiceCollectionExtensions
+Naravel.Notifications.INotificationChannel<TNotification>
+Naravel.Notifications.INotificationChannel<TNotification>.Name.get -> string!
+Naravel.Notifications.INotificationChannel<TNotification>.SendAsync(Naravel.Notifications.NotificationContext! context, TNotification notification, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Naravel.Notifications.INotificationSender
+Naravel.Notifications.INotificationSender.SendAsync<TNotification>(object! recipient, TNotification notification, System.Collections.Generic.IReadOnlyList<string!>! channels, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Notifications.NotificationContext
+Naravel.Notifications.NotificationContext.Channel.get -> string!
+Naravel.Notifications.NotificationContext.GetRecipient<TRecipient>() -> TRecipient
+Naravel.Notifications.NotificationContext.NotificationContext(object! recipient, string! channel) -> void
+Naravel.Notifications.NotificationContext.Recipient.get -> object!
+Naravel.Notifications.NotificationDeliveryException
+Naravel.Notifications.NotificationDeliveryException.Channel.get -> string!
+Naravel.Notifications.NotificationDeliveryException.DeliveredChannels.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Naravel.Notifications.NotificationDeliveryException.NotificationDeliveryException(string! channel, System.Collections.Generic.IReadOnlyList<string!>! deliveredChannels, System.Exception! innerException) -> void
+Naravel.Notifications.Testing.NotificationFake
+Naravel.Notifications.Testing.NotificationFake.AssertNotSent<TNotification>() -> void
+Naravel.Notifications.Testing.NotificationFake.AssertNothingSent() -> void
+Naravel.Notifications.Testing.NotificationFake.AssertSent<TNotification>() -> Naravel.Notifications.Testing.SentNotification<TNotification>!
+Naravel.Notifications.Testing.NotificationFake.AssertSent<TNotification>(int expectedCount) -> System.Collections.Generic.IReadOnlyList<Naravel.Notifications.Testing.SentNotification<TNotification>!>!
+Naravel.Notifications.Testing.NotificationFake.Count.get -> int
+Naravel.Notifications.Testing.NotificationFake.NotificationFake() -> void
+Naravel.Notifications.Testing.NotificationFake.Reset() -> void
+Naravel.Notifications.Testing.NotificationFake.SendAsync<TNotification>(object! recipient, TNotification notification, System.Collections.Generic.IReadOnlyList<string!>! channels, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Notifications.Testing.SentNotification<TNotification>
+Naravel.Notifications.Testing.SentNotification<TNotification>.Channels.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Naravel.Notifications.Testing.SentNotification<TNotification>.Notification.get -> TNotification
+Naravel.Notifications.Testing.SentNotification<TNotification>.Recipient.get -> object!
+static Microsoft.Extensions.DependencyInjection.NotificationServiceCollectionExtensions.AddLogNotificationChannel<TNotification>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, string! name = "log") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Microsoft.Extensions.DependencyInjection.NotificationServiceCollectionExtensions.AddNaravelNotifications(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Microsoft.Extensions.DependencyInjection.NotificationServiceCollectionExtensions.AddNotificationChannel<TNotification, TChannel>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Microsoft.Extensions.DependencyInjection.NotificationServiceCollectionExtensions.AddNotificationChannel<TNotification>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, string! name, System.Func<Naravel.Notifications.NotificationContext!, TNotification, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! send) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
