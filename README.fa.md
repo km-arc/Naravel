@@ -137,6 +137,20 @@ await notifications.SendAsync(user, new InvoiceReady(7), ["log"], cancellationTo
 
 جزئیات: [docs/fa/notifications.md](docs/fa/notifications.md) و [docs/en/notifications.md](docs/en/notifications.md).
 
+### Naravel.Scheduling
+
+کارهای نام‌دار طبق یک برنامه، که یک hosted service درون میزبان شما اجرا می‌کند: بدون خط cron و بدون دستور برای شروع. فرکانس‌ها و فیلترها مثل Laravel خوانده می‌شوند (`EveryFiveMinutes`، `DailyAt`، `Weekdays`، `Cron`) و دو محافظ بین چند نمونه روی قفل‌های کش کار می‌کنند: `WithoutOverlapping` و `OnOneServer` (اگر درایور قفل مشترک نباشد راه‌اندازی شکست می‌خورد). هر اجرا دامنه‌ی DI تازه می‌گیرد؛ `SchedulerFake` برنامه را در زمان‌هایی که انتخاب می‌کنید اجرا می‌کند. نیمه‌ی Artisan بسته نیست: دستورها یک دستورالعمل مستند با `System.CommandLine` هستند (PDR-017).
+
+```csharp
+builder.Services.AddNaravelScheduling(schedule =>
+{
+    schedule.Call("prune-sessions", (sp, ct) => sp.GetRequiredService<SessionPruner>().RunAsync(ct)).EveryFiveMinutes().WithoutOverlapping();
+    schedule.Call("daily-digest", (sp, ct) => sp.GetRequiredService<Digest>().SendAsync(ct)).DailyAt(8, 0).OnOneServer();
+});
+```
+
+نگاه کنید به [docs/en/scheduling.md](docs/en/scheduling.md) و [docs/fa/scheduling.md](docs/fa/scheduling.md).
+
 ### Naravel.Database
 
 query builder به سبک Laravel با اتصال‌های نام‌دار و SQL با پارامتر، برای SQLite، MySQL، PostgreSQL و SQL Server (Dapper ردیف‌ها را map می‌کند؛ EF Core همچنان ابزار entity و migration است). **امروز:** اتصال‌ها، درایورهای SQLite، MySQL، PostgreSQL و SQL Server، builder با خانوادهٔ کامل where (مقدار، null، between، ستون، بخش تاریخ، any/all/none، الگو، متن کامل، مسیر JSON، exists و زیرکوئری)، شرطی‌ها، join، group by و having، کمک‌های ترتیب، limit، union، زیرکوئری و join جانبی (lateral)، CTE، عبارت raw همراه با binding، قفل ردیف و `ToSql`/`ToRawSql` که برای هر چهار دیالکت کامپایل می‌شود و روی هر چهار اجرا می‌شود (یک suite قرارداد مشترک در CI)، و مشاهده‌پذیری (meter و activity با نام `Naravel.Database` بدون SQL در tagها، `IQueryListener`، query log اختیاری) به‌همراه `DatabaseFake` برای تست. aggregate (`CountAsync`، `SumAsync`، `ExistsAsync`...)، chunk و استریم `IAsyncEnumerable` شامل هستند؛ نوشتن هم هست: `InsertAsync`، `InsertGetIdAsync`، `UpdateAsync`، `IncrementAsync`، `UpsertAsync`، `DeleteAsync`، `TruncateAsync` و `*ReturningAsync` و برای update و delete `where` صریح لازم است؛ تراکنش (`TransactionAsync` با savepoint و تکرار هنگام deadlock، `BeginTransactionAsync`، که `IDatabase` تزریق‌شده هم به آن می‌پیوندد) و آداپتور اختیاری EF Core (`Naravel.Database.EntityFrameworkCore`: `dbContext.Query("table")` و `db.Using(dbContext)` اتصال و تراکنش context را به اشتراک می‌گذارند)؛ یکپارچگی صفحه‌بندی در مرحله‌ای بعد می‌آید (فایل [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md) را ببینید).
@@ -228,6 +242,7 @@ var next = await db.Posts.CursorPaginateAsync(k => k.By(p => p.CreatedAt).Then(p
 | `Naravel.Notifications` | `builder.Services.AddNaravelNotifications();` |
 | `Naravel.Notifications.Mail` | `builder.Services.AddMailNotificationChannel<TNotification>(address, mailable);` |
 | `Naravel.Notifications.Queue` | `builder.Services.AddNaravelNotificationQueue();` |
+| `Naravel.Scheduling` | `builder.Services.AddNaravelScheduling(schedule => schedule.Call("name", handler).EveryFiveMinutes());` |
 | `Naravel.Database` | `builder.Services.AddNaravelDatabase(configuration);` |
 | `Naravel.Database.Sqlite` | `builder.Services.AddNaravelSqliteDatabase(configuration);` |
 | `Naravel.Database.MySql` | `builder.Services.AddNaravelMySqlDatabase(configuration);` |
