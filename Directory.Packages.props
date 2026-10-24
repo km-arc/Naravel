@@ -9,6 +9,8 @@
     <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.12" />
+    <!-- Cron expression parser for Naravel.Scheduling (PDR-017 D3). Version to be confirmed against NuGet before merge (no network in the authoring session). -->
+    <PackageVersion Include="Cronos" Version="0.11.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.12" />

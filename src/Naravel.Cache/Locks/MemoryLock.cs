@@ -20,6 +20,9 @@ public sealed class MemoryLock : ICacheLock
     /// <summary>Creates a process-local lock provider with an optional key prefix.</summary>
     public MemoryLock(string? prefix = null) => _prefix = string.IsNullOrWhiteSpace(prefix) ? string.Empty : prefix.TrimEnd(':') + ":";
 
+    /// <summary>Always <c>false</c>: the lock lives in this process only.</summary>
+    public bool IsShared => false;
+
     /// <inheritdoc />
     public Task<string?> AcquireAsync(string name, TimeSpan ttl, CancellationToken cancellationToken = default)
     {

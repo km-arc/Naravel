@@ -3,6 +3,7 @@ Microsoft.Extensions.DependencyInjection.CacheServiceCollectionExtensions
 Microsoft.Extensions.DependencyInjection.RateLimiterServiceCollectionExtensions
 Naravel.Cache.Abstractions.ICacheLock
 Naravel.Cache.Abstractions.ICacheLock.AcquireAsync(string! name, System.TimeSpan ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string?>!
+Naravel.Cache.Abstractions.ICacheLock.IsShared.get -> bool
 Naravel.Cache.Abstractions.ICacheLock.ReleaseAsync(string! name, string! token, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
 Naravel.Cache.Abstractions.ICacheStore
 Naravel.Cache.Abstractions.ICacheStore.DecrementAsync(string! key, long by, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
@@ -33,6 +34,7 @@ Naravel.Cache.LockManager
 Naravel.Cache.LockManager.LockManager(System.IServiceProvider! provider, Naravel.Foundation.IDriverRegistry<Naravel.Cache.Abstractions.ICacheLock!>! registry, Microsoft.Extensions.Options.IOptionsMonitor<Naravel.Cache.CacheOptions!>! options) -> void
 Naravel.Cache.Locks.MemoryLock
 Naravel.Cache.Locks.MemoryLock.AcquireAsync(string! name, System.TimeSpan ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string?>!
+Naravel.Cache.Locks.MemoryLock.IsShared.get -> bool
 Naravel.Cache.Locks.MemoryLock.MemoryLock(string? prefix = null) -> void
 Naravel.Cache.Locks.MemoryLock.ReleaseAsync(string! name, string! token, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
 Naravel.Cache.RateLimiting.CacheRateLimiter

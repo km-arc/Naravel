@@ -42,7 +42,7 @@ needs the EN+FA PDR.
 | R10 | Notifications (PDR-014) | R07, R09 | PDR | DONE (2026-10-24; PDR-014 approved 2026-10-07; tasks T01-T03 merged; the core sender, typed channels, log channel and fake, the Mail adapter and the Queue adapter (alias and plain payload only, Memory queue worker end to end) are proven by tests; docs EN/FA, README and parity updated; roadmap check passed; no benchmark because dispatch is I/O-bound; the stage file's `INotifiable`/`Via()`/manager plan was replaced by the approved PDR, see AUDIT D-60 to D-62; no local .NET SDK, so CI is the verification: green on PR #124 head 03d2465, run 40097461927, on three OSs and the services job) |
 | R11 | Session (PDR-015) | R04, R05 | PDR | TODO |
 | R12 | Auth-lite route middleware (legacy 4c, PDR-016) | R05, R11 | PDR | TODO |
-| R13 | Console + Scheduling (PDR-017) | R04, R05, R07 | PDR | TODO |
+| R13 | Console + Scheduling (PDR-017) | R04, R05, R07 | PDR | DOING |
 | R14 | Broadcasting (PDR-018) | R06, R07 | PDR | TODO |
 | R15 | Hashing (PDR-019) | - | PDR | DECLINED (PDR-019 approved 2026-10-19: native `PasswordHasher<TUser>` is enough; the recipe is in docs/en and docs/fa hashing.md; roadmap check passed; no code was added, so there was nothing to build or test) |
 | R16 | Pagination (PDR-020) | - | PDR | DONE (2026-10-19; PDR-020 approved; tasks T01-T04 merged except T04 in review; build, tests and benchmark NOT RUN locally (no .NET SDK), CI is the verification and the first benchmark baseline is still open; roadmap check passed) |
