@@ -51,7 +51,7 @@ Test round-trip, tamper detection, purpose isolation, key persistence across pro
 
 The owner approved this proposal on 2026-10-07. OD-03 remains binding: implementation must use Data Protection and must not add custom cryptography.
 
-## Amendment A1 (2026-10-24, proposed): the exact API, the envelope and the migration rule
+## Amendment A1 (2026-10-24, approved 2026-10-24): the exact API, the envelope and the migration rule
 
 The approval above fixed the direction but left the exact marker, API and envelope open ("open for owner approval and must be settled before implementation"). R18.T01 closes that here. Nothing below adds cryptography: every byte of protection comes from `IDataProtector`.
 
@@ -97,4 +97,21 @@ Round trip (string and typed), tamper detection, purpose isolation, `ForPurpose`
 
 ### Approval of A1
 
-Not yet approved. After approval, R18.T01 is ticked and T02 (module) and T03 (adapter) run.
+The owner approved E1 to E7 as recommended on 2026-10-24, after the reasons below were written out. Recorded so a later reader can revisit them.
+
+- **E1 `Encrypt`/`Decrypt`:** the names read like Laravel, which is the point of the package; the cost is a small naming gap with Data Protection's `Protect`/`Unprotect`, bridged by a table in the docs.
+- **E2 marker in the adapter:** the stage decision says Queue core must not depend on Encryption; the cost is that a job's project references the adapter package for an empty interface.
+- **E3 `naravel:enc:v1:` prefix:** it cannot start a JSON payload, so ciphertext and plaintext are told apart without parsing, and `v1` leaves room for a new format. The job type is still chosen only by the alias (OD-07).
+- **E4 migration option, default off:** a plaintext job of a newly marked class is refused so protection is never dropped silently; `AcceptPlaintextForMarkedJobs` is a temporary switch for a deploy window. Without it, the queue would have to be drained before marking a job.
+- **E5 two purposes:** a value from `IEncrypter` can never be accepted as a job payload, at almost no cost.
+- **E6 full `Microsoft.AspNetCore.DataProtection` reference:** keeps `AddNaravelEncryption()` to one line; the cost is one more dependency, whose version is pinned from NuGet and confirmed by the owner before merge (as with Cronos).
+- **E7 no `EncryptionFake`:** a reversible fake would fake a cryptographic guarantee, which this PDR forbids; `EphemeralDataProtectionProvider` is a real in-memory test double. The general "every module has a fake" rule is set aside here by the PDR text, and the docs say so.
+
+**Operational requirement (the owner asked for this to be documented prominently).** When the producer of a job and its worker are different applications or instances, they **must share the Data Protection key ring and the application name**. Otherwise the worker cannot decrypt, and every marked job fails with `DecryptException`. Concretely:
+
+- call `SetApplicationName(...)` with the same value in every application that shares data;
+- persist the key ring to a location all of them can read (a shared directory, a database, Redis or blob storage), and protect it at rest, because Data Protection writes keys unencrypted by default on some hosts;
+- Data Protection creates a new key about every 90 days and keeps old keys to decrypt old data; never delete the key ring while encrypted jobs or values may still exist;
+- a separate key ring per instance (the default on a container with a throw-away file system) breaks decryption across instances and after every redeploy.
+
+`docs/en|fa/encryption.md` opens with this section, before the quickstart, and the failure message of a marked job names the key ring as the first thing to check. T02 and T03 are not done until the docs and a test for the message exist.
