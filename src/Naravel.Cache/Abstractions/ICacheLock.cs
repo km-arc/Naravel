@@ -9,4 +9,10 @@ public interface ICacheLock
 
     /// <summary>Releases a lock only when the supplied token still owns it.</summary>
     Task<bool> ReleaseAsync(string name, string token, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Whether the lock is visible to every process that uses the same backend (Redis, Memcached) or only to this process (the memory driver).
+    /// Code that must hold across several instances, such as <c>OnOneServer</c> in <c>Naravel.Scheduling</c>, refuses a driver that is not shared. The default is <c>true</c>.
+    /// </summary>
+    bool IsShared => true;
 }

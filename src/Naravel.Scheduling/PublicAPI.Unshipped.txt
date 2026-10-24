@@ -1,0 +1,58 @@
+#nullable enable
+Microsoft.Extensions.DependencyInjection.SchedulingServiceCollectionExtensions
+Naravel.Scheduling.Schedule
+Naravel.Scheduling.Schedule.Call(string! name, System.Func<System.IServiceProvider!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! handler) -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.Schedule.Schedule() -> void
+Naravel.Scheduling.Schedule.Tasks.get -> System.Collections.Generic.IReadOnlyList<Naravel.Scheduling.ScheduledTask!>!
+Naravel.Scheduling.ScheduledTask
+Naravel.Scheduling.ScheduledTask.Between(System.TimeOnly start, System.TimeOnly end) -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.Cron(string! expression) -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.Daily() -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.DailyAt(int hour, int minute) -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.Every(System.TimeSpan interval) -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.EveryFifteenMinutes() -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.EveryFiveMinutes() -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.EveryMinute() -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.EveryTenMinutes() -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.EveryThirtyMinutes() -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.Expression.get -> string!
+Naravel.Scheduling.ScheduledTask.Hourly() -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.HourlyAt(int minute) -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.InTimeZone(System.TimeZoneInfo! zone) -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.Monthly() -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.Name.get -> string!
+Naravel.Scheduling.ScheduledTask.OnFailure(System.Func<System.Exception!, System.Threading.Tasks.Task!>! handler) -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.OnOneServer() -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.OnSuccess(System.Func<System.Threading.Tasks.Task!>! handler) -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.Skip(System.Func<bool>! predicate) -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.Weekdays() -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.Weekly() -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.WeeklyOn(System.DayOfWeek day, int hour, int minute) -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.When(System.Func<bool>! predicate) -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTask.WithoutOverlapping(System.TimeSpan? expiresAfter = null) -> Naravel.Scheduling.ScheduledTask!
+Naravel.Scheduling.ScheduledTaskInfo
+Naravel.Scheduling.ScheduledTaskInfo.Expression.get -> string!
+Naravel.Scheduling.ScheduledTaskInfo.Name.get -> string!
+Naravel.Scheduling.ScheduledTaskInfo.NextRun.get -> System.DateTimeOffset?
+Naravel.Scheduling.Scheduler
+Naravel.Scheduling.Scheduler.IsDue(string! name, System.DateTimeOffset when) -> bool
+Naravel.Scheduling.Scheduler.List() -> System.Collections.Generic.IReadOnlyList<Naravel.Scheduling.ScheduledTaskInfo!>!
+Naravel.Scheduling.Scheduler.RunDueAsync(System.DateTimeOffset now, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Scheduling.Scheduler.Validate() -> void
+Naravel.Scheduling.SchedulingOptions
+Naravel.Scheduling.SchedulingOptions.OverlapTtl.get -> System.TimeSpan
+Naravel.Scheduling.SchedulingOptions.OverlapTtl.set -> void
+Naravel.Scheduling.SchedulingOptions.SchedulingOptions() -> void
+Naravel.Scheduling.SchedulingOptions.SlotLockTtl.get -> System.TimeSpan
+Naravel.Scheduling.SchedulingOptions.SlotLockTtl.set -> void
+Naravel.Scheduling.Testing.SchedulerFake
+Naravel.Scheduling.Testing.SchedulerFake.AssertNotRan(string! name) -> void
+Naravel.Scheduling.Testing.SchedulerFake.AssertRan(string! name) -> void
+Naravel.Scheduling.Testing.SchedulerFake.IsDue(string! name, System.DateTimeOffset when) -> bool
+Naravel.Scheduling.Testing.SchedulerFake.List() -> System.Collections.Generic.IReadOnlyList<Naravel.Scheduling.ScheduledTaskInfo!>!
+Naravel.Scheduling.Testing.SchedulerFake.Outcomes.get -> System.Collections.Generic.IReadOnlyList<System.Collections.Generic.KeyValuePair<string!, string!>>!
+Naravel.Scheduling.Testing.SchedulerFake.RunAtAsync(System.DateTimeOffset when, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Scheduling.Testing.SchedulerFake.Schedule.get -> Naravel.Scheduling.Schedule!
+Naravel.Scheduling.Testing.SchedulerFake.SchedulerFake(System.Action<Naravel.Scheduling.Schedule!>! configure, Naravel.Cache.Abstractions.ICacheLock? locks = null) -> void
+Naravel.Scheduling.Testing.SchedulerFake.Validate() -> void
+static Microsoft.Extensions.DependencyInjection.SchedulingServiceCollectionExtensions.AddNaravelScheduling(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Naravel.Scheduling.Schedule!>! configure, System.Action<Naravel.Scheduling.SchedulingOptions!>? configureOptions = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

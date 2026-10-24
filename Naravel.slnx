@@ -21,6 +21,7 @@
     <Project Path="src/Naravel.Database.EntityFrameworkCore/Naravel.Database.EntityFrameworkCore.csproj" />
     <Project Path="src/Naravel.Foundation/Naravel.Foundation.csproj" />
     <Project Path="src/Naravel.Routing/Naravel.Routing.csproj" />
+    <Project Path="src/Naravel.Scheduling/Naravel.Scheduling.csproj" />
     <Project Path="src/Naravel.Queue/Naravel.Queue.csproj" />
     <Project Path="src/Naravel.Queue.Memory/Naravel.Queue.Memory.csproj" />
     <Project Path="src/Naravel.Queue.File/Naravel.Queue.File.csproj" />
@@ -46,6 +47,7 @@
     <Project Path="tests/Naravel.Notifications.Tests/Naravel.Notifications.Tests.csproj" />
     <Project Path="tests/Naravel.Notifications.Mail.Tests/Naravel.Notifications.Mail.Tests.csproj" />
     <Project Path="tests/Naravel.Notifications.Queue.Tests/Naravel.Notifications.Queue.Tests.csproj" />
+    <Project Path="tests/Naravel.Scheduling.Tests/Naravel.Scheduling.Tests.csproj" />
     <Project Path="tests/Naravel.Pagination.EntityFrameworkCore.Tests/Naravel.Pagination.EntityFrameworkCore.Tests.csproj" />
     <Project Path="tests/Naravel.Pagination.Tests/Naravel.Pagination.Tests.csproj" />
     <Project Path="tests/Naravel.Database.Tests/Naravel.Database.Tests.csproj" />
