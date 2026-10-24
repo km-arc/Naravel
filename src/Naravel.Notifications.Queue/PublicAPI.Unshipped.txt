@@ -1,0 +1,19 @@
+#nullable enable
+Microsoft.Extensions.DependencyInjection.NotificationQueueServiceCollectionExtensions
+Naravel.Notifications.Queue.INotificationQueue
+Naravel.Notifications.Queue.INotificationQueue.QueueAsync<TPayload>(string! alias, TPayload payload, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Notifications.Queue.NotificationQueueOptions
+Naravel.Notifications.Queue.NotificationQueueOptions.Connection.get -> string?
+Naravel.Notifications.Queue.NotificationQueueOptions.Connection.set -> void
+Naravel.Notifications.Queue.NotificationQueueOptions.NotificationQueueOptions() -> void
+Naravel.Notifications.Queue.NotificationQueueOptions.Queue.get -> string?
+Naravel.Notifications.Queue.NotificationQueueOptions.Queue.set -> void
+Naravel.Notifications.Queue.SendQueuedNotificationJob
+Naravel.Notifications.Queue.SendQueuedNotificationJob.Alias.get -> string!
+Naravel.Notifications.Queue.SendQueuedNotificationJob.Alias.set -> void
+Naravel.Notifications.Queue.SendQueuedNotificationJob.Payload.get -> string!
+Naravel.Notifications.Queue.SendQueuedNotificationJob.Payload.set -> void
+Naravel.Notifications.Queue.SendQueuedNotificationJob.SendQueuedNotificationJob() -> void
+override Naravel.Notifications.Queue.SendQueuedNotificationJob.HandleAsync(Naravel.Queue.Jobs.JobContext! context, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+static Microsoft.Extensions.DependencyInjection.NotificationQueueServiceCollectionExtensions.AddNaravelNotificationQueue(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Naravel.Notifications.Queue.NotificationQueueOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Microsoft.Extensions.DependencyInjection.NotificationQueueServiceCollectionExtensions.AddQueuedNotification<TPayload>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, string! alias, System.Func<TPayload, Naravel.Notifications.INotificationSender!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! send) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
