@@ -7,6 +7,8 @@ Touch: new `src/Naravel.Broadcasting/**`, tests, docs/PDR-018.
 Out of scope: replacing SignalR; Redis backplane (native SignalR feature).
 Decisions: Native baseline: SignalR.
 
+Note: PDR-018 T01 is written (EN+FA) and waits for the owner's decisions D1 to D5; it stays unticked until approval.
+
 ## Tasks
 - [ ] **R14.T01 — PDR-018:** typed `IBroadcastable` events, channel authorization callbacks (`channels.Authorize("orders.{id}", ...)`), drivers `signalr`/`log`/`null`. **Accept:** PDR EN+FA.
 - [ ] **R14.T02 — Implementation:** broadcaster on `Manager<,>`, SignalR driver, `BroadcastFake`. **Accept:** TestHost + SignalR client test receives the event; unauthorized channel is rejected.
