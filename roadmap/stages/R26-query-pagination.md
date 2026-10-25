@@ -8,6 +8,6 @@ Out of scope: New pagination types (they belong to R16).
 Decisions: Uses the R16 `Paginated<T>` and `CursorPaginated<T>`; this stage must not start before R16 is done.
 
 ## Tasks
-- [ ] **R26.T01 — Page-based:** `PaginateAsync(page, perPage)` (count plus page) and `SimplePaginateAsync`. **Accept:** SQL tests per dialect; edge tests for empty, last and out-of-range pages.
-- [ ] **R26.T02 — Cursor:** `CursorPaginateAsync` on an ordered unique column. **Accept:** stable cursor under inserts on SQLite; server tests env-gated.
-- [ ] **R26.T03 — Validate:** Docs EN/FA, parity, changelog, full verification. **Accept:** DoD 5-7.
+- [x] **R26.T01 — Page-based:** `PaginateAsync(page, perPage)` (count plus page) and `SimplePaginateAsync`. **Accept:** SQL tests per dialect; edge tests for empty, last and out-of-range pages.
+- [x] **R26.T02 — Cursor:** `CursorPaginateAsync` on an ordered unique column. **Accept:** stable cursor under inserts on SQLite; server tests env-gated.
+- [x] **R26.T03 — Validate:** Docs EN/FA, parity, changelog, full verification. **Accept:** DoD 5-7.
