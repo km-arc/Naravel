@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Naravel.Foundation\Naravel.Foundation.csproj" />
+    <ProjectReference Include="..\Naravel.Pagination\Naravel.Pagination.csproj" />
     <PackageReference Include="Dapper" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />

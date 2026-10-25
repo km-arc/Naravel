@@ -12,5 +12,6 @@
     <InternalsVisibleTo Include="Naravel.Pagination.Tests" />
     <InternalsVisibleTo Include="Naravel.Pagination.EntityFrameworkCore.Tests" />
     <InternalsVisibleTo Include="Naravel.Pagination.EntityFrameworkCore" />
+    <InternalsVisibleTo Include="Naravel.Database" />
   </ItemGroup>
 </Project>
