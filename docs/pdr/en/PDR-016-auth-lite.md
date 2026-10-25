@@ -2,7 +2,7 @@
 
 **Native-first verdict:** yes, plain .NET does this. ASP.NET Core's authentication and authorization already attach to a route as endpoint metadata: `RequireAuthorization()` and `RequireAuthorization("policy")` on the endpoint, with `AllowAnonymous()` and `MapGroup(...).RequireAuthorization()` for groups. `Naravel.Routing` already exposes the native builder (`NaravelRoute.Configure(b => b.RequireAuthorization("policy"))`), and it already ships a `guest` alias. **Proposed outcome: `DECLINED`, with a documented recipe and a table.**
 
-Status: **Proposed, awaiting owner approval.**
+Status: **Approved 2026-10-25.**
 
 ## Context
 
@@ -62,4 +62,4 @@ For a resource-based check (`can:update,post`) call `IAuthorizationService.Autho
 
 ## Approval
 
-Not yet approved. If approved as proposed, the stage is closed as `DECLINED` once the EN/FA recipe docs exist.
+The owner approved D1 and D2 as recommended on 2026-10-25, after the first review asked for the decisions to be confirmed explicitly. D1 `DECLINED` with the recipe in `docs/en|fa/auth.md`: `RequireAuthorization` through `NaravelRoute.Configure` is the native path, and an `auth` alias that checked `context.User` itself would be a second authorization path with its own status codes, outside the scheme's challenge and invisible to OpenAPI. D2 the built-in `guest` alias stays as it is.

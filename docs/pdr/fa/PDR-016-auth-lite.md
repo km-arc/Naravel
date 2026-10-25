@@ -2,7 +2,7 @@
 
 **داوری با اولویت .NET بومی:** بله، .NET ساده این کار را می‌کند. احراز هویت و مجوزدهی ASP.NET Core از قبل به‌صورت metadata به endpoint وصل می‌شوند: `RequireAuthorization()` و `RequireAuthorization("policy")` روی endpoint، و `AllowAnonymous()` و `MapGroup(...).RequireAuthorization()` برای گروه‌ها. `Naravel.Routing` همین builder بومی را از قبل در دسترس می‌گذارد (`NaravelRoute.Configure(b => b.RequireAuthorization("policy"))`) و alias‌ی `guest` را هم دارد. **نتیجه‌ی پیشنهادی: `DECLINED`، با دستورالعمل مستند و جدول.**
 
-وضعیت: **پیشنهادی، منتظر تأیید مالک.**
+وضعیت: **تأییدشده ۲۰۲۶-۱۰-۲۵.**
 
 ## زمینه
 
@@ -62,4 +62,4 @@ app.MapNaravel(r =>
 
 ## تأیید
 
-هنوز تأیید نشده. اگر مطابق پیشنهاد تأیید شود، مرحله پس از وجود مستندات دستورالعمل EN/FA به‌صورت `DECLINED` بسته می‌شود.
+مالک D1 و D2 را در ۲۰۲۶-۱۰-۲۵ همان‌طور که توصیه شده بود تأیید کرد، پس از آنکه در بررسی نخست تأیید صریح تصمیم‌ها خواسته شد. D1 `DECLINED` با دستورالعمل در `docs/en|fa/auth.md`: `RequireAuthorization` از طریق `NaravelRoute.Configure` مسیر بومی است، و alias‌ی `auth` که خودش `context.User` را بررسی کند مسیر مجوزدهی دومی با کدهای وضعیت خودش می‌شد، بیرون از challenge‌ی scheme و نادیدنی برای OpenAPI. D2 alias داخلی `guest` همان‌طور که هست می‌ماند.

@@ -267,6 +267,10 @@ Queue registrations are extension methods in `Naravel.Queue.Extensions`. The Que
 
 Password hashing is already in .NET: `PasswordHasher<TUser>` from `Microsoft.Extensions.Identity.Core` does `Hash::make`, `Hash::check` and `Hash::needsRehash` (PDR-019, `DECLINED`). The one thing to change is the work factor: the default of 100,000 iterations is below the OWASP figure for HMAC-SHA512, so set `PasswordHasherOptions.IterationCount` yourself. See [docs/en/hashing.md](docs/en/hashing.md) and [docs/fa/hashing.md](docs/fa/hashing.md).
 
+### Session and auth middleware (native, no package)
+
+Session is already in ASP.NET Core: `AddSession` over any `IDistributedCache`, with `TempData` and `ModelState` for flash data and old input (PDR-015, `DECLINED`). Route authorization is `NaravelRoute.Configure(b => b.RequireAuthorization("policy"))`; there are no `auth`, `can` or `verified` aliases, and the built-in `guest` alias stays (PDR-016, `DECLINED`). See [docs/en/session.md](docs/en/session.md), [docs/en/auth.md](docs/en/auth.md) and the Persian twins under `docs/fa/`.
+
 ### Pagination
 
 `Naravel.Pagination` (no EF Core dependency) returns Laravel-shaped pages with `data`, `links` and `meta`; `Naravel.Pagination.EntityFrameworkCore` adds `PaginateAsync`, `SimplePaginateAsync` and `CursorPaginateAsync` to EF Core queries. Cursor paging declares its keys once and writes both the `ORDER BY` and the `WHERE`; a cursor is an unsigned position, read strictly (`InvalidCursorException`), and page sizes are capped at 100.
