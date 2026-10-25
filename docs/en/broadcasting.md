@@ -83,7 +83,7 @@ connection.on("MemberLeft",   e => ...);   // { channel, member } when a user's 
 
 ## Testing
 
-`BroadcastFake` is an `IBroadcaster` that records what was sent: register it in place of the real one and call `AssertBroadcast(predicate)`, `AssertBroadcastCount(n)` or `AssertNothingBroadcast()`. To test authorization, use `Microsoft.AspNetCore.TestHost` and `Microsoft.AspNetCore.SignalR.Client` against `MapNaravelBroadcasting`, as this package's own tests do.
+`BroadcastFake` is an `IBroadcaster` that records what was sent: register it in place of the real one and call `AssertBroadcast(predicate)`, `AssertBroadcastCount(n)` or `AssertNothingBroadcast()`. To test authorization, use `Microsoft.AspNetCore.TestHost` and `Microsoft.AspNetCore.SignalR.Client` against `MapNaravelBroadcasting`, as this package's own tests do. The presence list is also tested on a real Redis with two connections that stand for two servers (`PresenceRedisTests`); those tests run only when `NARAVEL_TEST_REDIS` is set, which the CI `services` job does.
 
 ## Telemetry
 

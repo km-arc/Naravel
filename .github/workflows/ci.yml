@@ -237,6 +237,15 @@ jobs:
           --results-directory TestResults/Providers/Cache
           --collect:"XPlat Code Coverage"
 
+      - name: Broadcasting presence on Redis
+        run: >-
+          dotnet test tests/Naravel.Broadcasting.Tests/Naravel.Broadcasting.Tests.csproj
+          -c Release --no-build --no-restore
+          --filter "FullyQualifiedName~PresenceRedisTests"
+          --logger "trx;LogFileName=BroadcastingPresence.trx"
+          --results-directory TestResults/Providers/Broadcasting
+          --collect:"XPlat Code Coverage"
+
       - name: Annotate failed provider tests
         if: always()
         shell: bash

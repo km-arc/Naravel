@@ -15,6 +15,10 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Naravel.Broadcasting\Naravel.Broadcasting.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Cache.Redis\Naravel.Cache.Redis.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\Shared\ServiceFactAttribute.cs" Link="ServiceFactAttribute.cs" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
