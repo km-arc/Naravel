@@ -633,6 +633,102 @@ internal static class ContractScenarios
             (await c.Db.Table(c.Writes).Where("name", "w_raw").ValueAsync<long>("votes")).Should().Be(16);
             (await c.Db.Table(c.People).Where("votes", ">", new Raw("? - 15", 20)).CountAsync()).Should().Be(4, "votes above 5");
         }),
+        new("paginate_pages_totals_and_out_of_range", async c =>
+        {
+            var second = await c.Db.Table(c.People).OrderBy("id").PaginateAsync(2, 2);
+            second.Items.Select(row => (string)row["name"]!).Should().Equal("Linus", "Margaret");
+            (second.Total, second.LastPage, second.CurrentPage, second.HasMorePages).Should().Be((5L, 3, 2, true));
+
+            var last = await c.Db.Table(c.People).OrderBy("id").PaginateAsync(3, 2);
+            last.Items.Select(row => (string)row["name"]!).Should().Equal("Dennis");
+            last.HasMorePages.Should().BeFalse();
+
+            var beyond = await c.Db.Table(c.People).OrderBy("id").PaginateAsync(9, 2);
+            (beyond.Items.Count, beyond.Total).Should().Be((0, 5L));
+
+            var filtered = await c.Db.Table(c.People).Where("active", true).OrderBy("id").PaginateAsync(1, 2);
+            (filtered.Total, filtered.Items.Count).Should().Be((3L, 2));
+
+            var empty = await c.Db.Table(c.People).Where("votes", 999).OrderBy("id").PaginateAsync(1, 2);
+            (empty.Total, empty.Items.Count, empty.LastPage).Should().Be((0L, 0, 1));
+
+            (await c.Db.Table(c.People).OrderBy("id").PaginateAsync<ContractPerson>(1, 2)).Items.Select(p => p.Name).Should().Equal("Ada", "Grace");
+        }),
+        new("paginate_without_order_is_refused", async c =>
+        {
+            await FluentActions.Invoking(() => c.Db.Table(c.People).PaginateAsync(1, 2)).Should().ThrowAsync<InvalidOperationException>().WithMessage("*OrderBy*");
+            await FluentActions.Invoking(() => c.Db.Table(c.People).SimplePaginateAsync(1, 2)).Should().ThrowAsync<InvalidOperationException>().WithMessage("*OrderBy*");
+        }),
+        new("simple_paginate_knows_whether_more_exists", async c =>
+        {
+            var first = await c.Db.Table(c.People).OrderBy("id").SimplePaginateAsync(1, 2);
+            first.Items.Select(row => (string)row["name"]!).Should().Equal("Ada", "Grace");
+            first.HasMorePages.Should().BeTrue();
+
+            var third = await c.Db.Table(c.People).OrderBy("id").SimplePaginateAsync(3, 2);
+            third.Items.Select(row => (string)row["name"]!).Should().Equal("Dennis");
+            third.HasMorePages.Should().BeFalse();
+
+            var exact = await c.Db.Table(c.People).OrderBy("id").SimplePaginateAsync(1, 5);
+            (exact.Items.Count, exact.HasMorePages).Should().Be((5, false));
+        }),
+        new("cursor_paginate_walks_forward_and_back", async c =>
+        {
+            static string[] Names(Naravel.Pagination.CursorPaginated<IReadOnlyDictionary<string, object?>> page) => page.Items.Select(row => (string)row["name"]!).ToArray();
+
+            var first = await c.Db.Table(c.People).CursorPaginateAsync(2, null);
+            Names(first).Should().Equal("Ada", "Grace");
+            first.PreviousCursor.Should().BeNull();
+            first.NextCursor.Should().NotBeNull();
+
+            var second = await c.Db.Table(c.People).CursorPaginateAsync(2, first.NextCursor);
+            Names(second).Should().Equal("Linus", "Margaret");
+            second.PreviousCursor.Should().NotBeNull();
+
+            var third = await c.Db.Table(c.People).CursorPaginateAsync(2, second.NextCursor);
+            Names(third).Should().Equal("Dennis");
+            third.NextCursor.Should().BeNull();
+
+            var back = await c.Db.Table(c.People).CursorPaginateAsync(2, third.PreviousCursor);
+            Names(back).Should().Equal("Linus", "Margaret");
+            back.NextCursor.Should().NotBeNull();
+
+            var backAgain = await c.Db.Table(c.People).CursorPaginateAsync(2, back.PreviousCursor);
+            Names(backAgain).Should().Equal("Ada", "Grace");
+            backAgain.PreviousCursor.Should().BeNull();
+        }),
+        new("cursor_paginate_descending_and_filtered", async c =>
+        {
+            var first = await c.Db.Table(c.People).CursorPaginateAsync(2, null, descending: true);
+            first.Items.Select(row => (string)row["name"]!).Should().Equal("Dennis", "Margaret");
+
+            var second = await c.Db.Table(c.People).CursorPaginateAsync(2, first.NextCursor, descending: true);
+            second.Items.Select(row => (string)row["name"]!).Should().Equal("Linus", "Grace");
+
+            var active = await c.Db.Table(c.People).Where("active", true).CursorPaginateAsync(2, null);
+            active.Items.Select(row => (string)row["name"]!).Should().Equal("Ada", "Grace");
+            (await c.Db.Table(c.People).Where("active", true).CursorPaginateAsync(2, active.NextCursor)).Items.Select(row => (string)row["name"]!).Should().Equal("Margaret");
+        }),
+        new("cursor_paginate_stays_stable_when_rows_are_inserted", async c =>
+        {
+            var first = await c.Db.Table(c.People).CursorPaginateAsync(2, null);
+            await c.Db.StatementAsync($"insert into {c.People} (id, name, votes, active, note, born) values (?, ?, ?, ?, ?, ?)", [100, "Newcomer", 1, true, null, new DateTime(2024, 3, 1)]);
+            try
+            {
+                var second = await c.Db.Table(c.People).CursorPaginateAsync(2, first.NextCursor);
+                second.Items.Select(row => (string)row["name"]!).Should().Equal("Linus", "Margaret");
+            }
+            finally
+            {
+                await c.Db.Table(c.People).Where("id", 100).DeleteAsync();
+            }
+        }),
+        new("cursor_paginate_refuses_a_bad_cursor", async c =>
+        {
+            await FluentActions.Invoking(() => c.Db.Table(c.People).CursorPaginateAsync(2, "not-a-cursor")).Should().ThrowAsync<Naravel.Pagination.InvalidCursorException>();
+            var forged = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("{\"d\":\"n\",\"k\":[{\"x\":1}]}")).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+            await FluentActions.Invoking(() => c.Db.Table(c.People).CursorPaginateAsync(2, forged)).Should().ThrowAsync<Naravel.Pagination.InvalidCursorException>();
+        }),
         new("locks_read_the_same_rows", async c =>
         {
             // Outside a transaction every database frees the lock when the statement ends (the transactions arrive with R25), so this proves that each one accepts the SQL and returns the rows.
