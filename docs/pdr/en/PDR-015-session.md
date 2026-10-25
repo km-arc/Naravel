@@ -2,7 +2,7 @@
 
 **Native-first verdict:** yes, plain .NET already does this. `services.AddDistributedMemoryCache(); services.AddSession(); app.UseSession();` is three lines and gives a cookie-keyed `ISession` backed by any `IDistributedCache` (memory, Redis through `Microsoft.Extensions.Caching.StackExchangeRedis`, SQL Server). Flash data is `TempData`, and old input is model binding plus `ModelState`. **Proposed outcome: `DECLINED`, with a documented recipe.**
 
-Status: **Proposed, awaiting owner approval.**
+Status: **Approved 2026-10-25.**
 
 ## Context
 
@@ -50,4 +50,4 @@ Flash data for minimal APIs, if wanted, is a few lines over `ISession` (write th
 
 ## Approval
 
-Not yet approved. If approved as proposed, the stage is closed as `DECLINED` once the EN/FA recipe docs exist.
+The owner approved D1 and D2 as recommended on 2026-10-25, after the first review asked for the decisions to be confirmed explicitly. D1 `DECLINED` with the recipe in `docs/en|fa/session.md`: `ISession` over `IDistributedCache`, `TempData` and `ModelState` already cover flash data and old input for MVC and Razor Pages, and a few lines cover minimal APIs; a thin `Flash()`/`Old()` package would only work where `TempData` already exists. D2 the `IDistributedCache` adapter over `Naravel.Cache` is recorded in the backlog only: it raises its own question (sliding expiry) and nobody has asked for it.

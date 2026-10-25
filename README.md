@@ -171,6 +171,18 @@ builder.Services.AddNaravelScheduling(schedule =>
 
 See [docs/en/scheduling.md](docs/en/scheduling.md) and [docs/fa/scheduling.md](docs/fa/scheduling.md).
 
+### Naravel.Broadcasting
+
+A thin layer over SignalR for typed real-time events: `IBroadcastable` says which channels an event goes to, `Channels.Authorize("private-orders.{id}", ...)` decides who may join (a `private-` or `presence-` channel with no matching rule is **refused**), and `signalr`, `log` and `null` drivers are picked by configuration. Events are opted in one by one with `AddBroadcastOn<TEvent>()` because `Naravel.Events` dispatches by exact type. `presence-` channels keep a member list in the shared cache (`MemberJoined`, `MemberLeft`, `IPresence`), one member per user across all instances. Delivery is inline and at most once. `BroadcastFake` records broadcasts for tests (PDR-018).
+
+```csharp
+builder.Services.AddNaravelBroadcasting(builder.Configuration, o => o.Channels.Authorize("private-orders.{id}", (user, id) => user.FindFirst("order")?.Value == id));
+app.MapNaravelBroadcasting("/hubs/broadcast");
+await broadcaster.BroadcastAsync(new OrderShipped(7));   // record OrderShipped(int OrderId) : IBroadcastable { Channels() => [$"private-orders.{OrderId}"] }
+```
+
+See [docs/en/broadcasting.md](docs/en/broadcasting.md) and [docs/fa/broadcasting.md](docs/fa/broadcasting.md).
+
 ### Naravel.Database
 
 A Laravel-style query builder with named connections and parameter-bound SQL on SQLite, MySQL, PostgreSQL and SQL Server (Dapper maps rows; EF Core stays the tool for entities and migrations). **Today:** connections, the SQLite, MySQL, PostgreSQL and SQL Server drivers, the builder (select, the full where family: value, null, between, column, date part, any/all/none, pattern, full text, JSON paths, exists and subqueries; conditionals; joins; group by and having; ordering helpers; limit; aggregates, chunking and streaming; unions, subqueries and lateral joins, CTEs, raw expressions with bindings, row locks, `ToSql`/`ToRawSql`) that compiles for all four dialects and runs on all four (one shared contract suite in CI), and observability (a `Naravel.Database` meter and activity with no SQL in tags, `IQueryListener`, an opt-in query log) with a `DatabaseFake` for tests. Aggregates (`CountAsync`, `SumAsync`, `ExistsAsync`...), chunking and `IAsyncEnumerable` streaming are included, and so are writes: `InsertAsync`, `InsertGetIdAsync`, `UpdateAsync`, `IncrementAsync`, `UpsertAsync`, `DeleteAsync`, `TruncateAsync` and `*ReturningAsync`, with an explicit `where` required for update and delete; transactions (`TransactionAsync` with savepoints and deadlock retry, `BeginTransactionAsync`, joined by the injected `IDatabase`) and an opt-in EF Core adapter (`Naravel.Database.EntityFrameworkCore`: `dbContext.Query("table")` and `db.Using(dbContext)` share the context's connection and transaction); pagination integration follows in a later stage (see [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md)).
@@ -255,6 +267,7 @@ Register the core package and only the providers your configured stores use. The
 | `Naravel.Encryption` | `builder.Services.AddNaravelEncryption();` |
 | `Naravel.Queue.Encryption` | `builder.Services.AddNaravelQueueEncryption();` |
 | `Naravel.Scheduling` | `builder.Services.AddNaravelScheduling(schedule => schedule.Call("name", handler).EveryFiveMinutes());` |
+| `Naravel.Broadcasting` | `builder.Services.AddNaravelBroadcasting(configuration); app.MapNaravelBroadcasting("/hubs/broadcast");` |
 | `Naravel.Database` | `builder.Services.AddNaravelDatabase(configuration);` |
 | `Naravel.Database.Sqlite` | `builder.Services.AddNaravelSqliteDatabase(configuration);` |
 | `Naravel.Database.MySql` | `builder.Services.AddNaravelMySqlDatabase(configuration);` |
@@ -266,6 +279,10 @@ Queue registrations are extension methods in `Naravel.Queue.Extensions`. The Que
 ### Hashing (native, no package)
 
 Password hashing is already in .NET: `PasswordHasher<TUser>` from `Microsoft.Extensions.Identity.Core` does `Hash::make`, `Hash::check` and `Hash::needsRehash` (PDR-019, `DECLINED`). The one thing to change is the work factor: the default of 100,000 iterations is below the OWASP figure for HMAC-SHA512, so set `PasswordHasherOptions.IterationCount` yourself. See [docs/en/hashing.md](docs/en/hashing.md) and [docs/fa/hashing.md](docs/fa/hashing.md).
+
+### Session and auth middleware (native, no package)
+
+Session is already in ASP.NET Core: `AddSession` over any `IDistributedCache`, with `TempData` and `ModelState` for flash data and old input (PDR-015, `DECLINED`). Route authorization is `NaravelRoute.Configure(b => b.RequireAuthorization("policy"))`; there are no `auth`, `can` or `verified` aliases, and the built-in `guest` alias stays (PDR-016, `DECLINED`). See [docs/en/session.md](docs/en/session.md), [docs/en/auth.md](docs/en/auth.md) and the Persian twins under `docs/fa/`.
 
 ### Pagination
 

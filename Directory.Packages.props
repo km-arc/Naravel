@@ -61,6 +61,8 @@
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.13" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.13" />
+    <!-- Naravel.Broadcasting.Tests (R14): a real SignalR client over the TestHost. Same 10.0.13 train as TestHost; the restore in CI is the check that it exists. -->
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.13" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0" />
     <PackageVersion Include="coverlet.collector" Version="10.1.0" />

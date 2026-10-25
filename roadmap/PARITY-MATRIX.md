@@ -110,7 +110,7 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 ## R11 — Session
 
 - Laravel surface: `Illuminate\Contracts\Session\Session`, session store and HTTP middleware.
-- Naravel: future Session module and ASP.NET Core integration.
+- Naravel: none. PDR-015 `DECLINED`; recipe in `docs/en|fa/session.md`.
 - Value: framework-neutral session access and consistent middleware integration where ASP.NET defaults are insufficient.
 - Native baseline: ASP.NET Core `ISession` and session middleware first.
 - API reference: [Illuminate Session](https://api.laravel.com/docs/13.x/Illuminate/Session/Store.html).
@@ -118,7 +118,7 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 ## R12 — Auth-lite and deferred middleware
 
 - Laravel surface: guards, user resolution, `auth`, `can`, `verified`, password confirmation.
-- Naravel: future minimal auth integration, depending on Session and Routing.
+- Naravel: none. PDR-016 `DECLINED`; recipe in `docs/en|fa/auth.md`; the built-in `guest` alias stays.
 - Value: concise composition over ASP.NET Core Identity/authentication/authorization, not a replacement identity system.
 - Native baseline: ASP.NET Core Authentication, Authorization and Identity.
 - API reference: [Illuminate Auth](https://api.laravel.com/docs/13.x/Illuminate/Auth/AuthManager.html).
@@ -134,7 +134,7 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 ## R14 — Broadcasting
 
 - Laravel surface: `Illuminate\Contracts\Broadcasting\Factory` and broadcaster channels.
-- Naravel: future Broadcasting module after Events/Queue.
+- Naravel: `Naravel.Broadcasting` (PDR-018): `IBroadcastable`, channel rules, presence member lists in the shared cache, `signalr`/`log`/`null` drivers, `BroadcastFake`; see `docs/en|fa/broadcasting.md`.
 - Value: typed real-time event delivery behind provider-specific transports.
 - Native baseline: ASP.NET Core SignalR.
 - API reference: [Illuminate Broadcasting](https://api.laravel.com/docs/13.x/Illuminate/Contracts/Broadcasting/Factory.html).
@@ -241,8 +241,8 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 
 | Namespace | Disposition | Where |
 |---|---|---|
-| Auth | Adapt thin over ASP.NET Core Identity/Authz | R12 |
-| Broadcasting | Adapt over SignalR | R14 |
+| Auth | Native (`RequireAuthorization`; recipe, no package; PDR-016 `DECLINED`, `guest` alias kept) | R12 |
+| Broadcasting | Adapted (`Naravel.Broadcasting` over SignalR; PDR-018) | R14 |
 | Bus (chains, batches) | Part of Queue | R00, R07 |
 | Cache | Done (+RateLimiter open) | R04 |
 | Concurrency | Native (`Task.WhenAll`, `Parallel`) | - |
@@ -270,7 +270,7 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 | Queue | Done core; completion open | R00, R07, R08 |
 | Redis | Adapt shared connections | R03 |
 | Routing | 4a done; 4b open | R05 |
-| Session | Likely thin over `ISession`; PDR may DECLINE | R11 |
+| Session | Native (`ISession` over `IDistributedCache`; recipe, no package; PDR-015 `DECLINED`) | R11 |
 | Support (Str, Collection, helpers) | Native; no port | BACKLOG |
 | Testing (`*::fake`) | Fake per module (DoD S3) | every stage; Queue in R07 |
 | Translation | Native (`IStringLocalizer`) | - |

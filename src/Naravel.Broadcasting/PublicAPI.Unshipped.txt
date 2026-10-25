@@ -1,0 +1,51 @@
+#nullable enable
+Microsoft.AspNetCore.Builder.BroadcastingEndpointRouteBuilderExtensions
+Microsoft.Extensions.DependencyInjection.BroadcastingServiceCollectionExtensions
+Naravel.Broadcasting.BroadcastHub
+Naravel.Broadcasting.BroadcastHub.BroadcastHub(Microsoft.Extensions.Options.IOptionsMonitor<Naravel.Broadcasting.BroadcastingOptions!>! options, Microsoft.Extensions.Logging.ILogger<Naravel.Broadcasting.BroadcastHub!>! logger, System.IServiceProvider! services) -> void
+Naravel.Broadcasting.BroadcastHub.Subscribe(string! channel) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Naravel.Broadcasting.PresenceMember!>!>!
+Naravel.Broadcasting.BroadcastHub.Unsubscribe(string! channel) -> System.Threading.Tasks.Task!
+Naravel.Broadcasting.BroadcastManager
+Naravel.Broadcasting.BroadcastManager.Broadcaster(string? name = null) -> Naravel.Broadcasting.IBroadcaster!
+Naravel.Broadcasting.BroadcastManager.BroadcastManager(System.IServiceProvider! provider, Naravel.Foundation.IDriverRegistry<Naravel.Broadcasting.IBroadcastDriver!>! registry, Microsoft.Extensions.Options.IOptionsMonitor<Naravel.Broadcasting.BroadcastingOptions!>! options) -> void
+Naravel.Broadcasting.BroadcastMessage
+Naravel.Broadcasting.BroadcastMessage.BroadcastMessage(string! name, System.Collections.Generic.IReadOnlyList<string!>! channels, object! payload) -> void
+Naravel.Broadcasting.BroadcastMessage.Channels.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Naravel.Broadcasting.BroadcastMessage.Name.get -> string!
+Naravel.Broadcasting.BroadcastMessage.Payload.get -> object!
+Naravel.Broadcasting.BroadcastingOptions
+Naravel.Broadcasting.BroadcastingOptions.BroadcastingOptions() -> void
+Naravel.Broadcasting.BroadcastingOptions.Channels.get -> Naravel.Broadcasting.ChannelRules!
+Naravel.Broadcasting.BroadcastingOptions.PresenceEntryTtl.get -> System.TimeSpan
+Naravel.Broadcasting.BroadcastingOptions.PresenceEntryTtl.set -> void
+Naravel.Broadcasting.ChannelRules
+Naravel.Broadcasting.ChannelRules.Authorize(string! pattern, System.Func<System.Security.Claims.ClaimsPrincipal!, string!, bool>! rule) -> Naravel.Broadcasting.ChannelRules!
+Naravel.Broadcasting.ChannelRules.Authorize(string! pattern, System.Func<System.Security.Claims.ClaimsPrincipal!, System.Collections.Generic.IReadOnlyDictionary<string!, string!>!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<bool>>! rule) -> Naravel.Broadcasting.ChannelRules!
+Naravel.Broadcasting.ChannelRules.AuthorizePresence(string! pattern, System.Func<System.Security.Claims.ClaimsPrincipal!, string!, Naravel.Broadcasting.PresenceMember?>! rule) -> Naravel.Broadcasting.ChannelRules!
+Naravel.Broadcasting.ChannelRules.AuthorizePresence(string! pattern, System.Func<System.Security.Claims.ClaimsPrincipal!, System.Collections.Generic.IReadOnlyDictionary<string!, string!>!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<Naravel.Broadcasting.PresenceMember?>>! rule) -> Naravel.Broadcasting.ChannelRules!
+Naravel.Broadcasting.IBroadcastable
+Naravel.Broadcasting.IBroadcastable.BroadcastAs() -> string!
+Naravel.Broadcasting.IBroadcastable.BroadcastWith() -> object!
+Naravel.Broadcasting.IBroadcastable.Channels() -> System.Collections.Generic.IEnumerable<string!>!
+Naravel.Broadcasting.IBroadcaster
+Naravel.Broadcasting.IBroadcaster.BroadcastAsync(Naravel.Broadcasting.IBroadcastable! evt, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Broadcasting.IPresence
+Naravel.Broadcasting.IPresence.MembersAsync(string! channel, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Naravel.Broadcasting.PresenceMember!>!>!
+Naravel.Broadcasting.IBroadcastDriver
+Naravel.Broadcasting.IBroadcastDriver.SendAsync(Naravel.Broadcasting.BroadcastMessage! message, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Broadcasting.PresenceMember
+Naravel.Broadcasting.PresenceMember.Info.get -> System.Text.Json.JsonElement?
+Naravel.Broadcasting.PresenceMember.PresenceMember(string! userId, object? info = null) -> void
+Naravel.Broadcasting.PresenceMember.UserId.get -> string!
+Naravel.Broadcasting.Testing.BroadcastFake
+Naravel.Broadcasting.Testing.BroadcastFake.AssertBroadcast(System.Func<Naravel.Broadcasting.BroadcastMessage!, bool>? predicate = null) -> Naravel.Broadcasting.BroadcastMessage!
+Naravel.Broadcasting.Testing.BroadcastFake.AssertBroadcastCount(int expectedCount) -> System.Collections.Generic.IReadOnlyList<Naravel.Broadcasting.BroadcastMessage!>!
+Naravel.Broadcasting.Testing.BroadcastFake.AssertNothingBroadcast() -> void
+Naravel.Broadcasting.Testing.BroadcastFake.BroadcastAsync(Naravel.Broadcasting.IBroadcastable! evt, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Broadcasting.Testing.BroadcastFake.BroadcastFake() -> void
+Naravel.Broadcasting.Testing.BroadcastFake.Broadcasts.get -> System.Collections.Generic.IReadOnlyList<Naravel.Broadcasting.BroadcastMessage!>!
+Naravel.Broadcasting.Testing.BroadcastFake.Reset() -> void
+override Naravel.Broadcasting.BroadcastHub.OnDisconnectedAsync(System.Exception? exception) -> System.Threading.Tasks.Task!
+static Microsoft.AspNetCore.Builder.BroadcastingEndpointRouteBuilderExtensions.MapNaravelBroadcasting(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! endpoints, string! path) -> Microsoft.AspNetCore.Builder.HubEndpointConventionBuilder!
+static Microsoft.Extensions.DependencyInjection.BroadcastingServiceCollectionExtensions.AddBroadcastOn<TEvent>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Microsoft.Extensions.DependencyInjection.BroadcastingServiceCollectionExtensions.AddNaravelBroadcasting(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, System.Action<Naravel.Broadcasting.BroadcastingOptions!>? configure = null, string! sectionName = "Broadcasting") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
