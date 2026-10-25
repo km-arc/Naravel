@@ -18,7 +18,7 @@ Stage template: [roadmap/STAGE-TEMPLATE.md](roadmap/STAGE-TEMPLATE.md).
 
 ## NEXT
 ```text
-NEXT: R13
+NEXT: R14
 ```
 
 ## Stages
@@ -42,7 +42,7 @@ needs the EN+FA PDR.
 | R10 | Notifications (PDR-014) | R07, R09 | PDR | DONE (2026-10-24; PDR-014 approved 2026-10-07; tasks T01-T03 merged; the core sender, typed channels, log channel and fake, the Mail adapter and the Queue adapter (alias and plain payload only, Memory queue worker end to end) are proven by tests; docs EN/FA, README and parity updated; roadmap check passed; no benchmark because dispatch is I/O-bound; the stage file's `INotifiable`/`Via()`/manager plan was replaced by the approved PDR, see AUDIT D-60 to D-62; no local .NET SDK, so CI is the verification: green on PR #124 head 03d2465, run 40097461927, on three OSs and the services job) |
 | R11 | Session (PDR-015) | R04, R05 | PDR | DECLINED (PDR-015 approved 2026-10-25: native `ISession` over `IDistributedCache` is enough; the recipe is in docs/en and docs/fa session.md; roadmap check passed; no code was added, so there was nothing to build or test) |
 | R12 | Auth-lite route middleware (legacy 4c, PDR-016) | R05, R11 | PDR | DECLINED (PDR-016 approved 2026-10-25: native `RequireAuthorization` through `NaravelRoute.Configure` is enough and the built-in `guest` alias stays; the recipe is in docs/en and docs/fa auth.md; roadmap check passed; no code was added, so there was nothing to build or test) |
-| R13 | Console + Scheduling (PDR-017) | R04, R05, R07 | PDR | DOING |
+| R13 | Console + Scheduling (PDR-017) | R04, R05, R07 | PDR | DONE (2026-10-25; PDR-017 approved 2026-10-24 (D1 to D4); tasks T01-T04 merged; Scheduling is proven by tests with an injected clock, two scheduler instances over one shared lock (overlap and one-server), failure isolation and the startup refusal of `OnOneServer` on a lock that is not shared; Commands are `DECLINED` with a System.CommandLine recipe, so no code; docs EN/FA, README and parity updated; roadmap check passed; no benchmark because the loop wakes once a minute; no local .NET SDK, so CI is the verification: green on main, run 40225281995 (merge of PR #136, workflow run #306), as reported by the owner; the session that wrote this had no read access to GitHub and did not open the run) |
 | R14 | Broadcasting (PDR-018) | R06, R07 | PDR | DOING |
 | R15 | Hashing (PDR-019) | - | PDR | DECLINED (PDR-019 approved 2026-10-19: native `PasswordHasher<TUser>` is enough; the recipe is in docs/en and docs/fa hashing.md; roadmap check passed; no code was added, so there was nothing to build or test) |
 | R16 | Pagination (PDR-020) | - | PDR | DONE (2026-10-19; PDR-020 approved; tasks T01-T04 merged except T04 in review; build, tests and benchmark NOT RUN locally (no .NET SDK), CI is the verification and the first benchmark baseline is still open; roadmap check passed) |
@@ -69,7 +69,7 @@ R02 was completed before this roadmap existed; its R00 dependency is nominal and
 - `roadmap/check.py` enforces this: it fails on a hand-typed test count or a repeated stage status outside those places. Put
   `<!-- check:allow-count -->` on a line only when a number is not a test total (for example HTTP status codes).
 
-**Default order:** R15 → R11 → R12 → R13 → R14 → R17.
+**Default order:** R15 → R11 → R12 → R14 → R17.
 Rationale: correctness and proof first (R00, R01); then the two modules that carry the project's value (Queue, Cache);
 then the most Laravel-feeling features (middleware, events, mail); thin or likely-native stages last.
 Never run two stages that edit the same project in parallel. Parallel-safe: R15, R16, R06 touch no other module.
