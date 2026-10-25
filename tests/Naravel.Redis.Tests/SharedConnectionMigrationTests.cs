@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Naravel.Cache;
+using Naravel.Cache.Abstractions;
 using Naravel.Cache.Redis;
 using Naravel.Foundation;
 using Naravel.Queue.Drivers;
