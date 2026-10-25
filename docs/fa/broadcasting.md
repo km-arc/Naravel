@@ -83,7 +83,7 @@ connection.on("MemberLeft",   e => ...);   // { channel, member } وقتی آخ�
 
 ## آزمون
 
-`BroadcastFake` یک `IBroadcaster` است که آنچه فرستاده شد را ضبط می‌کند: به‌جای نمونهٔ واقعی ثبتش کنید و `AssertBroadcast(predicate)`، `AssertBroadcastCount(n)` یا `AssertNothingBroadcast()` را صدا بزنید. برای آزمون مجوزدهی، مثل آزمون‌های خود این بسته، `Microsoft.AspNetCore.TestHost` و `Microsoft.AspNetCore.SignalR.Client` را روی `MapNaravelBroadcasting` به کار ببرید.
+`BroadcastFake` یک `IBroadcaster` است که آنچه فرستاده شد را ضبط می‌کند: به‌جای نمونهٔ واقعی ثبتش کنید و `AssertBroadcast(predicate)`، `AssertBroadcastCount(n)` یا `AssertNothingBroadcast()` را صدا بزنید. برای آزمون مجوزدهی، مثل آزمون‌های خود این بسته، `Microsoft.AspNetCore.TestHost` و `Microsoft.AspNetCore.SignalR.Client` را روی `MapNaravelBroadcasting` به کار ببرید. فهرست presence روی Redis واقعی هم، با دو اتصال که جای دو سرور هستند، آزمون می‌شود (`PresenceRedisTests`)؛ این آزمون‌ها فقط وقتی `NARAVEL_TEST_REDIS` تنظیم باشد اجرا می‌شوند، که job ‏`services` در CI تنظیم می‌کند.
 
 ## تله‌متری
 
