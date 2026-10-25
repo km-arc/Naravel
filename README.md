@@ -120,6 +120,15 @@ await mailer.To(user.Email).QueueAsync(new WelcomeMail(user), cancellationToken)
 
 See [docs/en/mail.md](docs/en/mail.md) and [docs/fa/mail.md](docs/fa/mail.md).
 
+### Naravel.Redis
+
+Named, shared Redis connections: one StackExchange.Redis multiplexer per name (the real `IConnectionMultiplexer`, no command wrapper), owned and disposed by one manager. Cache and Queue stores name a connection with `Connection`; the old `ConnectionString` still works and equal strings share one connection. See [docs/en/redis.md](docs/en/redis.md) and [docs/fa/redis.md](docs/fa/redis.md).
+
+```csharp
+builder.Services.AddNaravelRedis(builder.Configuration);   // Redis:Default, Redis:Stores:<name>:ConnectionString
+var multiplexer = redis.Connection("main").Multiplexer;
+```
+
 ### Naravel.Notifications
 
 One typed notification sent to a recipient through channels you name, in the order you name them, with a fake for tests. The core package has no mail, queue or network dependency; Mail (`Naravel.Notifications.Mail`) and Queue (`Naravel.Notifications.Queue`) are opt-in packages, and any other channel is a class or delegate. A missing channel fails before anything is sent; a failing channel stops the dispatch and `NotificationDeliveryException` says which channel failed and which had already delivered.
@@ -227,6 +236,7 @@ Register the core package and only the providers your configured stores use. The
 | Package | Example registration |
 |---|---|
 | `Naravel.Cache` (Memory) | `builder.Services.AddNaravelCache(configuration);` |
+| `Naravel.Redis` | `builder.Services.AddNaravelRedis(configuration);` |
 | `Naravel.Cache.Redis` | `builder.Services.AddNaravelRedisCache(configuration);` |
 | `Naravel.Cache.Memcached` | `builder.Services.AddNaravelMemcachedCache(configuration);` |
 | `Naravel.Queue.Memory` | `builder.Services.AddMemoryDriver(configuration);` |

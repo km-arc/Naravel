@@ -18,7 +18,7 @@ Stage template: [roadmap/STAGE-TEMPLATE.md](roadmap/STAGE-TEMPLATE.md).
 
 ## NEXT
 ```text
-NEXT: R03
+NEXT: R26
 ```
 
 ## Stages
@@ -32,7 +32,7 @@ needs the EN+FA PDR.
 | R00 | Queue correctness: job type registry + type guard, chain options, docs, CI baseline | - | - | DONE (2026-10-05; build succeeded, 208/208 tests) |
 | R01 | Driver integration tests (env-gated, CI service containers), Redis/Kafka fixes, benchmarks | R00 | - (OD-01) | DONE (2026-10-05; 202/205 tests passed with Redis + SQLite exercised; RabbitMQ/Kafka/Memcached skipped locally; roadmap check passed) |
 | R02 | Filesystem on Foundation + API parity (legacy Stage 2, PDR-008) | R00 | PDR | DONE (2026-10-04; build clean, 172/172 tests) |
-| R03 | Naravel.Redis shared connections (PDR-010) | R01 | PDR | TODO |
+| R03 | Naravel.Redis shared connections (PDR-010) | R01 | PDR | DONE (2026-10-25; PDR-010 approved 2026-10-25; tasks T01-T04; build and tests NOT RUN locally (no .NET SDK), CI is the verification: green on PR #134 at ec81d8a, run 40189845619, including the Redis provider integration tests; AUDIT D-66) |
 | R04 | RateLimiter on Cache (Cache/locks already done; PDR-007 addendum) | R01 | PDR | DONE (2026-10-06; Release restore/build/test, 225 passed, 7 skipped; roadmap check passed) |
 | R05 | Http.Middleware + routing completion (legacy 4b) | R04 | GO | DONE (2026-10-06; Release restore/build/test, 233 passed, 7 skipped; routing benchmark and roadmap check passed) |
 | R06 | Events (PDR-011) | R00 | PDR | DONE (2026-10-07; Release restore/build/test, 243 passed, 8 skipped; Events benchmark 137.8 ns/24 B; roadmap check passed) |
@@ -69,7 +69,7 @@ R02 was completed before this roadmap existed; its R00 dependency is nominal and
 - `roadmap/check.py` enforces this: it fails on a hand-typed test count or a repeated stage status outside those places. Put
   `<!-- check:allow-count -->` on a line only when a number is not a test total (for example HTTP status codes).
 
-**Default order:** R03 → R15 → R26 → R11 → R12 → R13 → R14 → R17.
+**Default order:** R15 → R26 → R11 → R12 → R13 → R14 → R17.
 Rationale: correctness and proof first (R00, R01); then the two modules that carry the project's value (Queue, Cache);
 then the most Laravel-feeling features (middleware, events, mail); thin or likely-native stages last.
 Never run two stages that edit the same project in parallel. Parallel-safe: R15, R16, R06 touch no other module.
