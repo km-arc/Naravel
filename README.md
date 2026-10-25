@@ -137,6 +137,17 @@ await notifications.SendAsync(user, new InvoiceReady(7), ["log"], cancellationTo
 
 See [docs/en/notifications.md](docs/en/notifications.md) and [docs/fa/notifications.md](docs/fa/notifications.md).
 
+### Naravel.Encryption
+
+A thin `Encrypt` / `Decrypt` facade over ASP.NET Core Data Protection (no custom cryptography), typed values, `ForPurpose` isolation and `DecryptException`. `Naravel.Queue.Encryption` stores the payload of jobs marked `IShouldBeEncrypted` encrypted; the job type is still chosen by the alias registry only. **Producer and worker must share the Data Protection key ring and application name.** See [docs/en/encryption.md](docs/en/encryption.md) and [docs/fa/encryption.md](docs/fa/encryption.md).
+
+```csharp
+builder.Services.AddNaravelEncryption();
+var token = encrypter.Encrypt("secret");
+var text = encrypter.Decrypt(token);
+// optional Naravel.Queue.Encryption: services.AddNaravelQueueEncryption(); class MyJob : Job, IShouldBeEncrypted
+```
+
 ### Naravel.Scheduling
 
 Named tasks on a schedule, run by a hosted service inside your host: no cron line and no command to start. Frequencies and filters read like Laravel's (`EveryFiveMinutes`, `DailyAt`, `Weekdays`, `Cron`), and two guards work across several instances over the cache locks: `WithoutOverlapping` and `OnOneServer` (startup fails when the lock driver is not shared). Each run gets a new DI scope; `SchedulerFake` runs a schedule at times you choose. The Artisan half is not a package: Commands are a documented `System.CommandLine` recipe (PDR-017).
@@ -231,6 +242,8 @@ Register the core package and only the providers your configured stores use. The
 | `Naravel.Notifications` | `builder.Services.AddNaravelNotifications();` |
 | `Naravel.Notifications.Mail` | `builder.Services.AddMailNotificationChannel<TNotification>(address, mailable);` |
 | `Naravel.Notifications.Queue` | `builder.Services.AddNaravelNotificationQueue();` |
+| `Naravel.Encryption` | `builder.Services.AddNaravelEncryption();` |
+| `Naravel.Queue.Encryption` | `builder.Services.AddNaravelQueueEncryption();` |
 | `Naravel.Scheduling` | `builder.Services.AddNaravelScheduling(schedule => schedule.Call("name", handler).EveryFiveMinutes());` |
 | `Naravel.Database` | `builder.Services.AddNaravelDatabase(configuration);` |
 | `Naravel.Database.Sqlite` | `builder.Services.AddNaravelSqliteDatabase(configuration);` |
