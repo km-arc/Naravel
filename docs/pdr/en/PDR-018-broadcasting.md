@@ -2,7 +2,7 @@
 
 **Native-first verdict:** SignalR already delivers real-time messages: `IHubContext<TaskHub>` plus `Clients.Group("orders.7").SendAsync("OrderShipped", payload)` is one line, with `[Authorize]` on the hub and Redis or Azure SignalR backplanes built in. What it does not give is Laravel's **typed event contract and channel authorization**: an event class that says which channels it goes to, a registered rule for who may join `private-orders.{id}`, one place to switch the transport, and a fake for tests. **Proposed outcome: accepted as a thin layer over SignalR, and nothing that replaces SignalR.**
 
-Status: **Proposed, awaiting owner approval.**
+Status: **Approved 2026-10-25.**
 
 ## Context
 
@@ -37,7 +37,7 @@ await broadcaster.BroadcastAsync(new OrderShipped(7), cancellationToken);   // b
 1. New package `Naravel.Broadcasting` over `Manager<,>` (drivers `signalr`, `log`, `null`; PDR-004 and PDR-005 configuration shape), referencing the ASP.NET Core shared framework like `Naravel.Routing`. A Redis backplane stays a native SignalR option the application configures (out of scope).
 2. **`IBroadcastable`:** `Channels()` is required; `BroadcastAs()` (default: the type name) and `BroadcastWith()` (default: the event serialized with `System.Text.Json`) are optional. **`IBroadcaster.BroadcastAsync(event, ct)`** sends to every channel returned. Events integration is explicit, matching exact-type dispatch: `AddBroadcastOn<TEvent>()` registers an `IEventListener<TEvent>` that broadcasts, so the user states which events go out.
 3. **One hub, `BroadcastHub`,** mapped with `MapNaravelBroadcasting(path)`. Clients call `Subscribe(channel)`. A channel that starts with `private-` or `presence-` runs the registered authorization callbacks (`Channels.Authorize("private-orders.{id}", (user, id) => ...)` with route-style placeholders) and is **refused when no callback matches**: unregistered private channels are denied, not allowed. Public channels need no rule. The callback gets the authenticated `ClaimsPrincipal`; the hub requires authentication for private and presence channels.
-4. **Presence** (member lists) is **not** in the first version; it needs connection tracking that depends on the backplane. It is recorded in the backlog.
+4. **Presence (decision D4, option C):** a `presence-` channel has a member list kept in the **shared cache** (`ICacheStore` and `ICacheLock` from `Naravel.Cache`), so every instance sees the same members. A rule registered with `Channels.AuthorizePresence` returns a `PresenceMember` (user id and small info) or `null` to refuse. Members are users: several connections of one user are one member. `Subscribe` returns the list; the others receive `MemberJoined` and `MemberLeft`. Each change is a read-modify-write of one entry per channel under a per-channel lock; each instance refreshes its own connections' entries every third of `PresenceEntryTtl` (90 seconds), so entries of a crashed instance expire (without a `MemberLeft`). `IPresence.MembersAsync` reads the list from server code. With a non-shared lock the module logs one warning.
 5. **Delivery contract, stated in the docs:** at most once, no replay, no durable queue. The first version sends inline; broadcasting through `Naravel.Queue` (Laravel's default) is an optional later adapter, not part of this PDR.
 6. **Failure behaviour:** an exception from a transport is surfaced to the caller of `BroadcastAsync` (not swallowed); sending to a channel with no listeners is not an error.
 7. **S3:** `BroadcastFake` records broadcasts (event, channels, name, payload) with assertions, like the other fakes; a `Meter` `Naravel.Broadcasting` with counter `naravel.broadcasting.broadcasts` tagged by `driver` and `outcome` only (never channel names that embed user ids, payloads or tokens), and an `ActivitySource`.
@@ -56,8 +56,8 @@ await broadcaster.BroadcastAsync(new OrderShipped(7), cancellationToken);   // b
 - **D1:** accept the thin layer (recommended), or `DECLINED` with a recipe (alternative 1).
 - **D2:** unregistered `private-`/`presence-` channels are **denied** (recommended: safe by default), or allowed.
 - **D3:** explicit `AddBroadcastOn<TEvent>()` event integration (recommended), or only direct `BroadcastAsync`.
-- **D4:** no presence in the first version (recommended), or include it with an in-process member list.
-- **D5:** inline, at-most-once delivery now; a queue adapter later (recommended).
+- **D4:** presence. Options were A no member list in the first version, B an in-process list (wrong with several instances, silently) and C a list in the shared cache (decided: C).
+- **D5:** inline, at-most-once delivery now; a queue adapter later (decided: A).
 
 ## Contracts and quality (if accepted)
 
@@ -65,4 +65,10 @@ Authorization callbacks run before any group join; a callback that throws denies
 
 ## Approval
 
-Not yet approved. After approval the stage runs the implementation task and the validation task.
+The owner decided on 2026-10-25: D1 to D3 as recommended, **D4 option C** and **D5 option A**.
+
+- **D1** build the thin `Naravel.Broadcasting`: the typed event contract, channel authorization and a fake are what SignalR lacks.
+- **D2** unregistered `private-` and `presence-` channels are refused, because an unchecked group join lets any client listen to any group.
+- **D3** explicit `AddBroadcastOn<TEvent>()`, because `Naravel.Events` dispatches by exact type.
+- **D4 option C:** a presence member list in the shared cache. Option A (no list) was the recommendation; the owner chose C because the list is wanted now and an in-process list (B) is silently wrong with several instances. The cost is the design in point 4: a per-channel lock, a heartbeat, and expiry of entries after a crash without a `MemberLeft`.
+- **D5 option A:** inline, at-most-once delivery. The caller sees a transport failure; a queue adapter is a later, separate package if it is needed.

@@ -2,7 +2,7 @@
 
 **داوری با اولویت .NET بومی:** بله، .NET ساده از قبل این را انجام می‌دهد. `services.AddDistributedMemoryCache(); services.AddSession(); app.UseSession();` سه خط است و یک `ISession` با کلید cookie می‌دهد که روی هر `IDistributedCache` (حافظه، Redis با `Microsoft.Extensions.Caching.StackExchangeRedis`، SQL Server) سوار است. flash data همان `TempData` است و old input همان model binding به‌علاوه‌ی `ModelState`. **نتیجه‌ی پیشنهادی: `DECLINED`، با دستورالعمل مستند.**
 
-وضعیت: **پیشنهادی، منتظر تأیید مالک.**
+وضعیت: **تأییدشده ۲۰۲۶-۱۰-۲۵.**
 
 ## زمینه
 
@@ -50,4 +50,4 @@ flash data برای minimal APIها، اگر لازم شد، چند خط روی 
 
 ## تأیید
 
-هنوز تأیید نشده. اگر مطابق پیشنهاد تأیید شود، مرحله پس از وجود مستندات دستورالعمل EN/FA به‌صورت `DECLINED` بسته می‌شود.
+مالک D1 و D2 را در ۲۰۲۶-۱۰-۲۵ همان‌طور که توصیه شده بود تأیید کرد، پس از آنکه در بررسی نخست تأیید صریح تصمیم‌ها خواسته شد. D1 `DECLINED` با دستورالعمل در `docs/en|fa/session.md`: `ISession` روی `IDistributedCache`، و `TempData` و `ModelState` flash data و old input را برای MVC و Razor Pages پوشش می‌دهند و چند خط برای minimal API کافی است؛ بستهٔ نازک `Flash()`/`Old()` فقط جایی کار می‌کرد که `TempData` از قبل هست. D2 adapter‌ی `IDistributedCache` روی `Naravel.Cache` فقط در backlog ثبت می‌شود: پرسش خودش را دارد (انقضای لغزان) و کسی نخواسته است.

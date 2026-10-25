@@ -171,6 +171,18 @@ builder.Services.AddNaravelScheduling(schedule =>
 
 نگاه کنید به [docs/en/scheduling.md](docs/en/scheduling.md) و [docs/fa/scheduling.md](docs/fa/scheduling.md).
 
+### Naravel.Broadcasting
+
+لایه‌ای نازک روی SignalR برای رویدادهای بلادرنگ تایپ‌دار: `IBroadcastable` می‌گوید رویداد به کدام کانال‌ها می‌رود، `Channels.Authorize("private-orders.{id}", ...)` تصمیم می‌گیرد چه کسی بپیوندد (کانال `private-` یا `presence-` بدون قاعدهٔ منطبق **رد می‌شود**)، و driverهای `signalr`، `log` و `null` با پیکربندی انتخاب می‌شوند. رویدادها یکی‌یکی با `AddBroadcastOn<TEvent>()` اضافه می‌شوند چون `Naravel.Events` با نوع دقیق dispatch می‌کند. کانال‌های `presence-` فهرست اعضا را در cache مشترک نگه می‌دارند (`MemberJoined`، `MemberLeft`، `IPresence`)، یک عضو برای هر کاربر در همه‌ی نمونه‌ها. تحویل درون‌خطی و حداکثر یک‌بار است. `BroadcastFake` برای آزمون broadcastها را ضبط می‌کند (PDR-018).
+
+```csharp
+builder.Services.AddNaravelBroadcasting(builder.Configuration, o => o.Channels.Authorize("private-orders.{id}", (user, id) => user.FindFirst("order")?.Value == id));
+app.MapNaravelBroadcasting("/hubs/broadcast");
+await broadcaster.BroadcastAsync(new OrderShipped(7));   // record OrderShipped(int OrderId) : IBroadcastable { Channels() => [$"private-orders.{OrderId}"] }
+```
+
+[docs/en/broadcasting.md](docs/en/broadcasting.md) و [docs/fa/broadcasting.md](docs/fa/broadcasting.md) را ببینید.
+
 ### Naravel.Database
 
 query builder به سبک Laravel با اتصال‌های نام‌دار و SQL با پارامتر، برای SQLite، MySQL، PostgreSQL و SQL Server (Dapper ردیف‌ها را map می‌کند؛ EF Core همچنان ابزار entity و migration است). **امروز:** اتصال‌ها، درایورهای SQLite، MySQL، PostgreSQL و SQL Server، builder با خانوادهٔ کامل where (مقدار، null، between، ستون، بخش تاریخ، any/all/none، الگو، متن کامل، مسیر JSON، exists و زیرکوئری)، شرطی‌ها، join، group by و having، کمک‌های ترتیب، limit، union، زیرکوئری و join جانبی (lateral)، CTE، عبارت raw همراه با binding، قفل ردیف و `ToSql`/`ToRawSql` که برای هر چهار دیالکت کامپایل می‌شود و روی هر چهار اجرا می‌شود (یک suite قرارداد مشترک در CI)، و مشاهده‌پذیری (meter و activity با نام `Naravel.Database` بدون SQL در tagها، `IQueryListener`، query log اختیاری) به‌همراه `DatabaseFake` برای تست. aggregate (`CountAsync`، `SumAsync`، `ExistsAsync`...)، chunk و استریم `IAsyncEnumerable` شامل هستند؛ نوشتن هم هست: `InsertAsync`، `InsertGetIdAsync`، `UpdateAsync`، `IncrementAsync`، `UpsertAsync`، `DeleteAsync`، `TruncateAsync` و `*ReturningAsync` و برای update و delete `where` صریح لازم است؛ تراکنش (`TransactionAsync` با savepoint و تکرار هنگام deadlock، `BeginTransactionAsync`، که `IDatabase` تزریق‌شده هم به آن می‌پیوندد) و آداپتور اختیاری EF Core (`Naravel.Database.EntityFrameworkCore`: `dbContext.Query("table")` و `db.Using(dbContext)` اتصال و تراکنش context را به اشتراک می‌گذارند)؛ یکپارچگی صفحه‌بندی در مرحله‌ای بعد می‌آید (فایل [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md) را ببینید).
@@ -266,6 +278,7 @@ var next = await db.Posts.CursorPaginateAsync(k => k.By(p => p.CreatedAt).Then(p
 | `Naravel.Encryption` | `builder.Services.AddNaravelEncryption();` |
 | `Naravel.Queue.Encryption` | `builder.Services.AddNaravelQueueEncryption();` |
 | `Naravel.Scheduling` | `builder.Services.AddNaravelScheduling(schedule => schedule.Call("name", handler).EveryFiveMinutes());` |
+| `Naravel.Broadcasting` | `builder.Services.AddNaravelBroadcasting(configuration); app.MapNaravelBroadcasting("/hubs/broadcast");` |
 | `Naravel.Database` | `builder.Services.AddNaravelDatabase(configuration);` |
 | `Naravel.Database.Sqlite` | `builder.Services.AddNaravelSqliteDatabase(configuration);` |
 | `Naravel.Database.MySql` | `builder.Services.AddNaravelMySqlDatabase(configuration);` |
