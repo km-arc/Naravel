@@ -36,10 +36,10 @@ public class RedisQueueDriver : IQueueDriver, IDisposable
     /// <param name="mux">The Redis connection.</param>
     /// <param name="visibilityTimeout">How long a popped message stays reserved before it can be reclaimed.</param>
     /// <param name="ownsConnection">
-    /// <see langword="true"/> (the default) when <see cref="Dispose"/> should dispose <paramref name="mux"/>, so a connection the driver opened is no longer leaked; <see langword="false"/> when
-    /// it is borrowed from <c>Naravel.Redis</c>, which owns and disposes it.
+    /// <see langword="true"/> when <see cref="Dispose"/> should dispose <paramref name="mux"/>; <see langword="false"/> (the default, as before: the driver never closed the connection it was
+    /// given) when the caller or <c>Naravel.Redis</c> owns it. The leak of a connection the driver opened itself is fixed because <c>AddRedisDriver</c> now borrows it from <c>Naravel.Redis</c>.
     /// </param>
-    public RedisQueueDriver(IConnectionMultiplexer mux, TimeSpan visibilityTimeout, bool ownsConnection = true)
+    public RedisQueueDriver(IConnectionMultiplexer mux, TimeSpan visibilityTimeout, bool ownsConnection = false)
     {
         _ownsConnection = ownsConnection;
         _mux = mux;

@@ -126,11 +126,11 @@ public sealed class SharedConnectionMigrationTests
     }
 
     [Fact]
-    public void A_queue_driver_that_owns_its_connection_now_disposes_it()
+    public void A_queue_driver_told_to_own_its_connection_disposes_it()
     {
         var opener = new Opener();
         var multiplexer = opener.Open("x");
-        var driver = new RedisQueueDriver(multiplexer, TimeSpan.FromSeconds(1));
+        var driver = new RedisQueueDriver(multiplexer, TimeSpan.FromSeconds(1), ownsConnection: true);
 
         driver.Dispose();
         driver.Dispose();
@@ -139,10 +139,10 @@ public sealed class SharedConnectionMigrationTests
     }
 
     [Fact]
-    public void A_queue_driver_with_a_borrowed_connection_leaves_it_open()
+    public void A_queue_driver_leaves_the_connection_it_was_given_open_by_default()
     {
         var opener = new Opener();
-        var driver = new RedisQueueDriver(opener.Open("x"), TimeSpan.FromSeconds(1), ownsConnection: false);
+        var driver = new RedisQueueDriver(opener.Open("x"), TimeSpan.FromSeconds(1));
 
         driver.Dispose();
 
