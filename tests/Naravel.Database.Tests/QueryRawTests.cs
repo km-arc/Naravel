@@ -148,7 +148,7 @@ public class QueryRawTests
     {
         var allowed = new HashSet<string>(StringComparer.Ordinal)
         {
-            "alias", "column", "columns", "direction", "first", "highColumn", "idColumn", "keyColumn", "lowColumn", "name", "op", "pattern", "returning", "second", "table", "uniqueBy", "update", "value",
+            "alias", "column", "columns", "cursor", "direction", "first", "highColumn", "idColumn", "keyColumn", "lowColumn", "name", "op", "pattern", "returning", "second", "table", "uniqueBy", "update", "value",
         };
         var offenders = new List<string>();
         var rawMethods = new List<MethodInfo>();
