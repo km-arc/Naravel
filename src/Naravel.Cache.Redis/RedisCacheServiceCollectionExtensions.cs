@@ -1,30 +1,50 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Naravel.Cache.Extensions;
-using StackExchange.Redis;
+using Naravel.Redis;
 
 namespace Naravel.Cache.Redis;
 
 /// <summary>Registration of Redis cache and lock stores.</summary>
 public static class RedisCacheServiceCollectionExtensions
 {
-    /// <summary>Registers every Redis store configured under the Cache section.</summary>
+    /// <summary>
+    /// Registers every Redis store configured under the Cache section. A store names a shared connection with <c>Connection</c> (a <c>Redis:Stores</c> name) or, as before,
+    /// carries its own <c>ConnectionString</c>; equal strings share one connection. The store and its lock use the same connection, which <c>Naravel.Redis</c> owns.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configuration">The application configuration (also read for the <c>Redis</c> section).</param>
+    /// <param name="sectionName">The cache section, <c>Cache</c> by default.</param>
     public static IServiceCollection AddNaravelRedisCache(this IServiceCollection services, IConfiguration configuration, string sectionName = "Cache")
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentException.ThrowIfNullOrWhiteSpace(sectionName);
 
+        services.AddNaravelRedis(configuration);
         return services.AddCacheDriver(configuration, "redis",
-            (_, store) => new RedisCacheStore(
+            (provider, store) => new RedisCacheStore(
                 store.Key,
-                ConnectionMultiplexer.Connect(store["ConnectionString"] ?? throw new InvalidOperationException($"Redis store '{store.Key}' requires ConnectionString.")),
+                Resolve(provider, store).Multiplexer,
                 store["Prefix"] ?? store.Key,
-                int.TryParse(store["Database"], out var database) ? database : -1),
-            (_, store) => new RedisLock(
-                ConnectionMultiplexer.Connect(store["ConnectionString"] ?? throw new InvalidOperationException($"Redis store '{store.Key}' requires ConnectionString.")),
+                int.TryParse(store["Database"], out var database) ? database : -1,
+                ownsConnection: false),
+            (provider, store) => new RedisLock(
+                Resolve(provider, store).Multiplexer,
                 store["Prefix"] ?? store.Key,
-                int.TryParse(store["Database"], out var database) ? database : -1),
+                int.TryParse(store["Database"], out var database) ? database : -1,
+                ownsConnection: false),
             sectionName);
+    }
+
+    private static IRedisConnection Resolve(IServiceProvider provider, IConfigurationSection store)
+    {
+        var redis = provider.GetRequiredService<RedisManager>();
+        if (store["Connection"] is { Length: > 0 } name)
+        {
+            return redis.Connection(name);
+        }
+
+        return redis.FromConnectionString(store["ConnectionString"] ?? throw new InvalidOperationException($"Redis store '{store.Key}' requires Connection or ConnectionString."));
     }
 }

@@ -26,6 +26,11 @@ public static class RedisServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentException.ThrowIfNullOrWhiteSpace(sectionName);
 
+        if (services.Any(descriptor => descriptor.ServiceType == typeof(RedisManager)))
+        {
+            return services; // already registered, for example by AddNaravelRedisCache
+        }
+
         var section = configuration.GetSection(sectionName);
         services.AddNaravelManager<RedisManager, IRedisConnection, RedisOptions>(section);
         services.TryAddSingleton<Func<string, IConnectionMultiplexer>>(_ => connectionString => ConnectionMultiplexer.Connect(connectionString));
