@@ -1,0 +1,15 @@
+#nullable enable
+Microsoft.Extensions.DependencyInjection.EncryptionServiceCollectionExtensions
+Naravel.Encryption.DecryptException
+Naravel.Encryption.DecryptException.DecryptException(string! message) -> void
+Naravel.Encryption.DecryptException.DecryptException(string! message, System.Exception! innerException) -> void
+Naravel.Encryption.IEncrypter
+Naravel.Encryption.IEncrypter.Decrypt(string! payload) -> string!
+Naravel.Encryption.IEncrypter.Decrypt<T>(string! payload) -> T
+Naravel.Encryption.IEncrypter.Decrypt<T>(string! payload, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T>! typeInfo) -> T
+Naravel.Encryption.IEncrypter.Encrypt(string! value) -> string!
+Naravel.Encryption.IEncrypter.Encrypt<T>(T value) -> string!
+Naravel.Encryption.IEncrypter.Encrypt<T>(T value, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T>! typeInfo) -> string!
+Naravel.Encryption.IEncrypter.ForPurpose(string! purpose) -> Naravel.Encryption.IEncrypter!
+Naravel.Encryption.IEncrypter.TryDecrypt(string! payload, out string? value) -> bool
+static Microsoft.Extensions.DependencyInjection.EncryptionServiceCollectionExtensions.AddNaravelEncryption(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
