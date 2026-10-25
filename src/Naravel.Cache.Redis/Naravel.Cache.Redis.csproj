@@ -8,9 +8,9 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Naravel.Cache\Naravel.Cache.csproj" />
+    <ProjectReference Include="..\Naravel.Redis\Naravel.Redis.csproj" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
-    <PackageReference Include="StackExchange.Redis" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Naravel.Cache.Tests" />

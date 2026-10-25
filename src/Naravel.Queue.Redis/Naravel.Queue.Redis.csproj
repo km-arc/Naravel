@@ -11,7 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Naravel.Queue\Naravel.Queue.csproj" />
-    <PackageReference Include="StackExchange.Redis" />
+    <ProjectReference Include="..\Naravel.Redis\Naravel.Redis.csproj" />
   </ItemGroup>
 
   <ItemGroup>

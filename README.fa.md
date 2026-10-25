@@ -120,6 +120,15 @@ await mailer.To(user.Email).QueueAsync(new WelcomeMail(user), cancellationToken)
 
 جزئیات: [docs/fa/mail.md](docs/fa/mail.md) و [docs/en/mail.md](docs/en/mail.md).
 
+### Naravel.Redis
+
+اتصال‌های Redis نام‌دار و مشترک: یک multiplexer از StackExchange.Redis برای هر نام (خودِ `IConnectionMultiplexer` واقعی، بدون پوشاندن دستورها) که یک manager مالک و dispose‌کنندهٔ آن است. storeهای Cache و Queue با `Connection` نام یک اتصال را می‌دهند؛ `ConnectionString` قدیمی همچنان کار می‌کند و رشته‌های برابر یک اتصال مشترک می‌گیرند. نگاه کنید به [docs/en/redis.md](docs/en/redis.md) و [docs/fa/redis.md](docs/fa/redis.md).
+
+```csharp
+builder.Services.AddNaravelRedis(builder.Configuration);   // Redis:Default و Redis:Stores:<name>:ConnectionString
+var multiplexer = redis.Connection("main").Multiplexer;
+```
+
 ### Naravel.Notifications
 
 یک اعلان تایپ‌شده که از راه channelهایی که نام می‌برید، به همان ترتیب، برای یک گیرنده فرستاده می‌شود، با یک fake برای تست. بستهٔ هسته هیچ وابستگی به mail، queue یا شبکه ندارد؛ Mail (`Naravel.Notifications.Mail`) و Queue (`Naravel.Notifications.Queue`) بسته‌های اختیاری‌اند و هر channel دیگری یک کلاس یا delegate است. channel ثبت‌نشده پیش از ارسال هر چیزی شکست می‌خورد؛ channel ناموفق ارسال را متوقف می‌کند و `NotificationDeliveryException` می‌گوید کدام channel شکست خورد و کدام‌ها پیش‌تر تحویل داده بودند.
@@ -238,6 +247,7 @@ var next = await db.Posts.CursorPaginateAsync(k => k.By(p => p.CreatedAt).Then(p
 | بسته | نمونهٔ ثبت |
 |---|---|
 | `Naravel.Cache` (Memory) | `builder.Services.AddNaravelCache(configuration);` |
+| `Naravel.Redis` | `builder.Services.AddNaravelRedis(configuration);` |
 | `Naravel.Cache.Redis` | `builder.Services.AddNaravelRedisCache(configuration);` |
 | `Naravel.Cache.Memcached` | `builder.Services.AddNaravelMemcachedCache(configuration);` |
 | `Naravel.Queue.Memory` | `builder.Services.AddMemoryDriver(configuration);` |

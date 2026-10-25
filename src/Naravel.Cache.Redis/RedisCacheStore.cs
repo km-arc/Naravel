@@ -21,9 +21,20 @@ public sealed class RedisCacheStore : ICacheStore, IDisposable
     private readonly string _keyPrefix;
     private readonly string _scanPattern;
 
+    private readonly bool _ownsConnection;
+
     /// <summary>Creates a named Redis cache store.</summary>
-    public RedisCacheStore(string name, IConnectionMultiplexer multiplexer, string prefix, int database = -1)
+    /// <param name="name">The store name.</param>
+    /// <param name="multiplexer">The Redis connection.</param>
+    /// <param name="prefix">The key prefix.</param>
+    /// <param name="database">The Redis database number, or -1 for the connection default.</param>
+    /// <param name="ownsConnection">
+    /// <see langword="true"/> (the default, as before) when <see cref="Dispose"/> should dispose <paramref name="multiplexer"/>; <see langword="false"/> when the connection is
+    /// borrowed from <c>Naravel.Redis</c>, which owns and disposes it.
+    /// </param>
+    public RedisCacheStore(string name, IConnectionMultiplexer multiplexer, string prefix, int database = -1, bool ownsConnection = true)
     {
+        _ownsConnection = ownsConnection;
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(multiplexer);
         ArgumentException.ThrowIfNullOrWhiteSpace(prefix);
@@ -138,5 +149,11 @@ public sealed class RedisCacheStore : ICacheStore, IDisposable
     }
 
     /// <inheritdoc />
-    public void Dispose() => _multiplexer.Dispose();
+    public void Dispose()
+    {
+        if (_ownsConnection)
+        {
+            _multiplexer.Dispose();
+        }
+    }
 }

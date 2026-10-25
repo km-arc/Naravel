@@ -32,7 +32,7 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 ## R03 — Shared Redis connections
 
 - Laravel surface: Redis manager / connection resolution and reusable named connections.
-- Naravel: proposed Redis connection module shared by Cache and Queue providers.
+- Naravel: `Naravel.Redis` (implemented, R03): named shared connections used by Cache.Redis and Queue.Redis.
 - Value: consistent named connection configuration, reuse, and lifecycle management without duplicate pools.
 - Native baseline: provider client APIs remain underneath; do not create a wrapper that hides useful .NET client capabilities.
 - API reference: [Illuminate Redis](https://api.laravel.com/docs/13.x/Illuminate/Redis/RedisManager.html).

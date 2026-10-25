@@ -12,9 +12,18 @@ public sealed class RedisLock : ICacheLock, IDisposable
     private readonly IDatabase _database;
     private readonly string _keyPrefix;
 
+    private readonly bool _ownsConnection;
+
     /// <summary>Creates a Redis lock provider.</summary>
-    public RedisLock(IConnectionMultiplexer multiplexer, string prefix, int database = -1)
+    /// <param name="multiplexer">The Redis connection.</param>
+    /// <param name="prefix">The key prefix.</param>
+    /// <param name="database">The Redis database number, or -1 for the connection default.</param>
+    /// <param name="ownsConnection">
+    /// <see langword="true"/> (the default, as before) when <see cref="Dispose"/> should dispose <paramref name="multiplexer"/>; <see langword="false"/> when it is borrowed from <c>Naravel.Redis</c>.
+    /// </param>
+    public RedisLock(IConnectionMultiplexer multiplexer, string prefix, int database = -1, bool ownsConnection = true)
     {
+        _ownsConnection = ownsConnection;
         ArgumentNullException.ThrowIfNull(multiplexer);
         ArgumentException.ThrowIfNullOrWhiteSpace(prefix);
         _multiplexer = multiplexer;
@@ -45,5 +54,11 @@ public sealed class RedisLock : ICacheLock, IDisposable
     }
 
     /// <inheritdoc />
-    public void Dispose() => _multiplexer.Dispose();
+    public void Dispose()
+    {
+        if (_ownsConnection)
+        {
+            _multiplexer.Dispose();
+        }
+    }
 }

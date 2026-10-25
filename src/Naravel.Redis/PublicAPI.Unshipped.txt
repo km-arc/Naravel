@@ -1,0 +1,12 @@
+#nullable enable
+Microsoft.Extensions.DependencyInjection.RedisServiceCollectionExtensions
+Naravel.Redis.IRedisConnection
+Naravel.Redis.IRedisConnection.Multiplexer.get -> StackExchange.Redis.IConnectionMultiplexer!
+Naravel.Redis.IRedisConnection.Name.get -> string!
+Naravel.Redis.RedisManager
+Naravel.Redis.RedisManager.Connection(string? name = null) -> Naravel.Redis.IRedisConnection!
+Naravel.Redis.RedisManager.FromConnectionString(string! connectionString) -> Naravel.Redis.IRedisConnection!
+Naravel.Redis.RedisManager.RedisManager(System.IServiceProvider! provider, Naravel.Foundation.IDriverRegistry<Naravel.Redis.IRedisConnection!>! registry, Microsoft.Extensions.Options.IOptionsMonitor<Naravel.Redis.RedisOptions!>! options) -> void
+Naravel.Redis.RedisOptions
+Naravel.Redis.RedisOptions.RedisOptions() -> void
+static Microsoft.Extensions.DependencyInjection.RedisServiceCollectionExtensions.AddNaravelRedis(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "Redis") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

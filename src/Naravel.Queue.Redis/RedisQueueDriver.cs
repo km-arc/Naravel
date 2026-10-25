@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Naravel.Queue.Drivers;
 using Naravel.Queue.Extensions;
+using Naravel.Redis;
 using StackExchange.Redis;
 
 namespace Naravel.Queue.Redis;
@@ -24,16 +25,36 @@ namespace Naravel.Queue.Redis;
 /// token still matches, and a reclaim clears it, so a worker whose reservation expired cannot delete or re-queue the
 /// copy that another worker now owns. Messages without a token keep the previous unfenced behaviour.
 /// </summary>
-public class RedisQueueDriver : IQueueDriver
+public class RedisQueueDriver : IQueueDriver, IDisposable
 {
+    private readonly bool _ownsConnection;
     private readonly IConnectionMultiplexer _mux;
     private readonly TimeSpan _visibilityTimeout;
     public TimeSpan? VisibilityTimeout => _visibilityTimeout;
 
-    public RedisQueueDriver(IConnectionMultiplexer mux, TimeSpan visibilityTimeout)
+    /// <summary>Creates the driver.</summary>
+    /// <param name="mux">The Redis connection.</param>
+    /// <param name="visibilityTimeout">How long a popped message stays reserved before it can be reclaimed.</param>
+    /// <param name="ownsConnection">
+    /// <see langword="true"/> when <see cref="Dispose"/> should dispose <paramref name="mux"/>; <see langword="false"/> (the default, as before: the driver never closed the connection it was
+    /// given) when the caller or <c>Naravel.Redis</c> owns it. The leak of a connection the driver opened itself is fixed because <c>AddRedisDriver</c> now borrows it from <c>Naravel.Redis</c>.
+    /// </param>
+    public RedisQueueDriver(IConnectionMultiplexer mux, TimeSpan visibilityTimeout, bool ownsConnection = false)
     {
+        _ownsConnection = ownsConnection;
         _mux = mux;
         _visibilityTimeout = visibilityTimeout;
+    }
+
+    /// <summary>Disposes the connection when the driver owns it; a borrowed connection is left to its owner.</summary>
+    public void Dispose()
+    {
+        if (_ownsConnection)
+        {
+            _mux.Dispose();
+        }
+
+        GC.SuppressFinalize(this);
     }
 
     private IDatabase Db => _mux.GetDatabase();
@@ -232,16 +253,20 @@ public class RedisQueueDriver : IQueueDriver
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the "redis" driver for every configured store whose "Driver" is "redis". Each matching
-    /// store needs its own "ConnectionString" and gets its own <see cref="StackExchange.Redis.ConnectionMultiplexer"/> -
-    /// two stores can safely point at two different Redis servers. Reads "VisibilityTimeoutSeconds" (default 300).
+    /// Registers the "redis" driver for every configured store whose "Driver" is "redis". A store names a shared connection with "Connection" (a <c>Redis:Stores</c> name) or, as before,
+    /// carries its own "ConnectionString"; equal strings share one connection, which <c>Naravel.Redis</c> owns and disposes. Reads "VisibilityTimeoutSeconds" (default 300).
     /// </summary>
     public static IServiceCollection AddRedisDriver(this IServiceCollection services, IConfiguration configuration, string sectionName = "NaravelQueue")
-        => services.AddQueueDriver(configuration, "redis", (_, store) =>
+    {
+        services.AddNaravelRedis(configuration);
+        return services.AddQueueDriver(configuration, "redis", (provider, store) =>
         {
-            var connectionString = store.GetRequired("ConnectionString");
+            var redis = provider.GetRequiredService<RedisManager>();
+            var connection = store["Connection"] is { Length: > 0 } name
+                ? redis.Connection(name)
+                : redis.FromConnectionString(store.GetRequired("ConnectionString"));
             var visibilitySeconds = double.Parse(store.GetOrDefault("VisibilityTimeoutSeconds", "300"));
-            var mux = ConnectionMultiplexer.Connect(connectionString);
-            return new RedisQueueDriver(mux, TimeSpan.FromSeconds(visibilitySeconds));
+            return new RedisQueueDriver(connection.Multiplexer, TimeSpan.FromSeconds(visibilitySeconds), ownsConnection: false);
         }, sectionName);
+    }
 }
