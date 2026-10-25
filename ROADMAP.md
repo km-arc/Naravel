@@ -32,7 +32,7 @@ needs the EN+FA PDR.
 | R00 | Queue correctness: job type registry + type guard, chain options, docs, CI baseline | - | - | DONE (2026-10-05; build succeeded, 208/208 tests) |
 | R01 | Driver integration tests (env-gated, CI service containers), Redis/Kafka fixes, benchmarks | R00 | - (OD-01) | DONE (2026-10-05; 202/205 tests passed with Redis + SQLite exercised; RabbitMQ/Kafka/Memcached skipped locally; roadmap check passed) |
 | R02 | Filesystem on Foundation + API parity (legacy Stage 2, PDR-008) | R00 | PDR | DONE (2026-10-04; build clean, 172/172 tests) |
-| R03 | Naravel.Redis shared connections (PDR-010) | R01 | PDR | BLOCKED (awaiting PDR approval: PDR-010 written, owner decisions D1-D4 open) |
+| R03 | Naravel.Redis shared connections (PDR-010) | R01 | PDR | TODO |
 | R04 | RateLimiter on Cache (Cache/locks already done; PDR-007 addendum) | R01 | PDR | DONE (2026-10-06; Release restore/build/test, 225 passed, 7 skipped; roadmap check passed) |
 | R05 | Http.Middleware + routing completion (legacy 4b) | R04 | GO | DONE (2026-10-06; Release restore/build/test, 233 passed, 7 skipped; routing benchmark and roadmap check passed) |
 | R06 | Events (PDR-011) | R00 | PDR | DONE (2026-10-07; Release restore/build/test, 243 passed, 8 skipped; Events benchmark 137.8 ns/24 B; roadmap check passed) |
