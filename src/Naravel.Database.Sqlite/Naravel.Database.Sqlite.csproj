@@ -11,7 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Naravel.Database\Naravel.Database.csproj" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
-    <!-- Microsoft.Data.Sqlite brings lib.e_sqlite3 2.1.11 (CVE-2025-6965); the central version pins the patched 2.1.13. -->
+    <!-- Microsoft.Data.Sqlite brings lib.e_sqlite3 2.1.11 (CVE-2025-6965); the central version pins the patched 2.1.14. -->
     <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" />
   </ItemGroup>
 

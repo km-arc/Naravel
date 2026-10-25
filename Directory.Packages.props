@@ -7,24 +7,25 @@
     <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.13" />
-    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.13" />
     <!-- Naravel.Encryption (PDR-021 A1 E6): the facade references the full Data Protection package. 10.0.13 was the highest stable 10.0.x on nuget.org on 2026-10-24
          and is the first whose System.Security.Cryptography.Xml dependency has no advisory (10.0.12 carries GHSA-7hqp-7c5m-4vq6, GHSA-r955-8q5j-3h83 and
          GHSA-c399-9853-6jmj). It needs Microsoft.Extensions.* abstractions of at least 10.0.13, so the five packages above it in this block were raised to 10.0.13.
          OWNER TO CONFIRM this version before merge (as with Cronos); the NuGet audit in CI is the arbiter. -->
     <PackageVersion Include="Microsoft.AspNetCore.DataProtection" Version="10.0.13" />
-    <!-- Cron expression parser for Naravel.Scheduling (PDR-017 D3). 0.11.0 confirmed to exist on NuGet by the owner (2026-10-24); 0.11.1, 0.12.0 and 0.13.0 also exist and were not evaluated. -->
-    <PackageVersion Include="Cronos" Version="0.11.0" />
+    <!-- 2026-10-25: every package below was raised to the latest stable version without a NuGet vulnerability or deprecation flag (read from nuget.org). Deliberate exceptions: FluentAssertions stays on 7.x (8.x needs a paid commercial licence); xunit stays on 2.9.3 (deprecated in favour of xunit.v3, a package and API migration of every test project, AUDIT D-65); SQLitePCLRaw.lib.e_sqlite3 stays on the 2.1 line (3.x is a different major that Microsoft.Data.Sqlite 10 does not use); Npgsql, Dapper, MySqlConnector, Microsoft.Data.SqlClient, Newtonsoft.Json, RabbitMQ.Client, BenchmarkDotNet, PublicApiAnalyzers, coverlet.collector were already the latest. -->
+    <!-- Cron expression parser for Naravel.Scheduling (PDR-017 D3). 0.11.0 was confirmed by the owner (2026-10-24); 0.13.0 (latest stable, 2026-10-25) adds previous-occurrence queries and is raised on the owner request to use the latest stable of every package. -->
+    <PackageVersion Include="Cronos" Version="0.13.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.13" />
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.13" />
     
     <!-- Database & Infrastructure -->
-    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
-    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.13" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.13" />
+    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.14" />
     <!-- Dapper: row materialization for Naravel.Database (PDR-022; Apache-2.0). 2.1.89 was the highest stable release on NuGet on 2026-10-17. -->
     <PackageVersion Include="Dapper" Version="2.1.89" />
     <!-- Microsoft.Data.Sqlite: Naravel.Database.Sqlite (PDR-022; MIT). 10.0.13 was the highest stable 10.0.x on 2026-10-17. It brings SQLitePCLRaw.lib.e_sqlite3 2.1.11
@@ -37,35 +38,35 @@
     <PackageVersion Include="MySqlConnector" Version="2.6.2" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.1.1" />
-    <PackageVersion Include="StackExchange.Redis" Version="2.13.17" />
-    <PackageVersion Include="EnyimMemcachedCore" Version="3.5.1" />
+    <PackageVersion Include="StackExchange.Redis" Version="3.4.20" />
+    <PackageVersion Include="EnyimMemcachedCore" Version="3.5.2" />
     <!-- MessagePack is not used by Naravel source. Naravel.Cache.Memcached references it directly to pin the version that
          EnyimMemcachedCore 3.5.1 serializes cached values with: its transitive 2.5.x range is below the patched 3.1.x line (3.1.9 fixes GHSA-qhrr-8q5h-9q3h)
          (CHANGELOG, package audit). Do not bump or remove it without running the env-gated
          MemcachedSerializerRoundTripTests (NARAVEL_TEST_MEMCACHED; part of the CI services job). -->
-    <PackageVersion Include="MessagePack" Version="3.1.9" />
+    <PackageVersion Include="MessagePack" Version="3.1.12" />
     <!-- MailKit: optional SMTP transport (Naravel.Mail.Smtp only; MIT). 4.16.0 fixed CVE-2026-41319 (STARTTLS response injection); never pin below it. -->
-    <PackageVersion Include="MailKit" Version="4.18.1" />
+    <PackageVersion Include="MailKit" Version="4.18.2" />
     <!-- MimeKit (via MailKit) pulls System.Security.Cryptography.Pkcs 10.0.0, which has two advisories (CVE-2026-70162 and
          CVE-2026-84008, denial of service) fixed in 10.0.13. Naravel.Mail.Smtp references it directly to raise the transitive
          version. Remove the pin once MimeKit's own minimum is at least 10.0.13. -->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageVersion Include="RabbitMQ.Client" Version="7.2.2" />
-    <PackageVersion Include="Confluent.Kafka" Version="2.15.1" />
-    <PackageVersion Include="AWSSDK.S3" Version="3.7.300" />
+    <PackageVersion Include="Confluent.Kafka" Version="2.16.0" />
+    <PackageVersion Include="AWSSDK.S3" Version="4.0.104.6" />
     
 
     <!-- Test-only -->
-    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0" />
     <PackageVersion Include="coverlet.collector" Version="10.1.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.0" />
-    <PackageVersion Include="FluentAssertions" Version="7.2.0" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
+    <PackageVersion Include="FluentAssertions" Version="7.2.2" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
   </ItemGroup>
 </Project>
