@@ -4,6 +4,7 @@ using Naravel.Cache.Abstractions;
 using Naravel.Cache.Redis;
 using Naravel.Foundation;
 using Naravel.Queue.Drivers;
+using Naravel.Queue.Extensions;
 using Naravel.Queue.Redis;
 using StackExchange.Redis;
 
@@ -31,7 +32,11 @@ public sealed class SharedConnectionMigrationTests
     {
         var (provider, opener) = Build(
             new() { ["Cache:Stores:app:Driver"] = "redis", ["Cache:Stores:app:ConnectionString"] = "host:6379" },
-            (services, configuration) => services.AddNaravelRedisCache(configuration));
+            (services, configuration) =>
+            {
+                services.AddNaravelCache(configuration);
+                services.AddNaravelRedisCache(configuration);
+            });
 
         Store(provider, "app");
         Lock(provider, "app");
@@ -48,7 +53,11 @@ public sealed class SharedConnectionMigrationTests
                 ["Cache:Stores:one:Driver"] = "redis", ["Cache:Stores:one:ConnectionString"] = "host:6379", ["Cache:Stores:one:Prefix"] = "a",
                 ["Cache:Stores:two:Driver"] = "redis", ["Cache:Stores:two:ConnectionString"] = "host:6379", ["Cache:Stores:two:Prefix"] = "b"
             },
-            (services, configuration) => services.AddNaravelRedisCache(configuration));
+            (services, configuration) =>
+            {
+                services.AddNaravelCache(configuration);
+                services.AddNaravelRedisCache(configuration);
+            });
 
         Store(provider, "one");
         Store(provider, "two");
@@ -69,7 +78,9 @@ public sealed class SharedConnectionMigrationTests
             },
             (services, configuration) =>
             {
+                services.AddNaravelCache(configuration);
                 services.AddNaravelRedisCache(configuration);
+                services.AddQueue(configuration);
                 services.AddRedisDriver(configuration);
             });
 
@@ -84,7 +95,11 @@ public sealed class SharedConnectionMigrationTests
     {
         var (provider, opener) = Build(
             new() { ["Cache:Stores:app:Driver"] = "redis", ["Cache:Stores:app:ConnectionString"] = "host:6379" },
-            (services, configuration) => services.AddNaravelRedisCache(configuration));
+            (services, configuration) =>
+            {
+                services.AddNaravelCache(configuration);
+                services.AddNaravelRedisCache(configuration);
+            });
         ((IDisposable)Store(provider, "app")).Dispose();
         ((IDisposable)Lock(provider, "app")).Dispose();
 
@@ -99,7 +114,11 @@ public sealed class SharedConnectionMigrationTests
     {
         var (provider, _) = Build(
             new() { ["Cache:Stores:app:Driver"] = "redis" },
-            (services, configuration) => services.AddNaravelRedisCache(configuration));
+            (services, configuration) =>
+            {
+                services.AddNaravelCache(configuration);
+                services.AddNaravelRedisCache(configuration);
+            });
 
         var act = () => Store(provider, "app");
 

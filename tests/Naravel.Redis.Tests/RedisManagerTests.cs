@@ -153,6 +153,7 @@ public sealed class RedisManagerTests
         var old = redis.Connection("main");
 
         configuration["Redis:Stores:main:ConnectionString"] = "moved-host:6379";
+        configuration.Reload();
         var current = redis.Connection("main");
 
         current.Should().NotBeSameAs(old);
@@ -170,6 +171,7 @@ public sealed class RedisManagerTests
         var first = redis.Connection("main");
 
         configuration["Unrelated:Key"] = "value";
+        configuration.Reload();
 
         redis.Connection("main").Should().BeSameAs(first);
         opener.Opened.Should().ContainSingle();
