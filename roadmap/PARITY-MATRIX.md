@@ -166,7 +166,7 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 ## R18 — Encryption
 
 - Laravel surface: `Illuminate\Encryption\Encrypter`, `Crypt`, `ShouldBeEncrypted` queue jobs.
-- Naravel: future thin facade over ASP.NET Core Data Protection plus an optional Queue adapter.
+- Naravel: `Naravel.Encryption` (thin facade over ASP.NET Core Data Protection) plus the optional `Naravel.Queue.Encryption` adapter (implemented, R18).
 - Value: one-line encrypt/decrypt and encrypted job payloads without custom cryptography.
 - Native baseline: `IDataProtector` / `IDataProtectionProvider`; never implement cryptographic primitives.
 - API reference: [Illuminate Encryption](https://api.laravel.com/docs/13.x/Illuminate/Encryption/Encrypter.html).

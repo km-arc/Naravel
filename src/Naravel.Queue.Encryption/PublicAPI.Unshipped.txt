@@ -1,0 +1,8 @@
+#nullable enable
+Microsoft.Extensions.DependencyInjection.QueueEncryptionServiceCollectionExtensions
+Naravel.Queue.Encryption.IShouldBeEncrypted
+Naravel.Queue.Encryption.QueueEncryptionOptions
+Naravel.Queue.Encryption.QueueEncryptionOptions.AcceptPlaintextForMarkedJobs.get -> bool
+Naravel.Queue.Encryption.QueueEncryptionOptions.AcceptPlaintextForMarkedJobs.set -> void
+Naravel.Queue.Encryption.QueueEncryptionOptions.QueueEncryptionOptions() -> void
+static Microsoft.Extensions.DependencyInjection.QueueEncryptionServiceCollectionExtensions.AddNaravelQueueEncryption(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Naravel.Queue.Encryption.QueueEncryptionOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

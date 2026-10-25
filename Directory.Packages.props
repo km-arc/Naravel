@@ -4,14 +4,19 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Microsoft Extensions -->
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.13" />
+    <!-- Naravel.Encryption (PDR-021 A1 E6): the facade references the full Data Protection package. 10.0.13 was the highest stable 10.0.x on nuget.org on 2026-10-24
+         and is the first whose System.Security.Cryptography.Xml dependency has no advisory (10.0.12 carries GHSA-7hqp-7c5m-4vq6, GHSA-r955-8q5j-3h83 and
+         GHSA-c399-9853-6jmj). It needs Microsoft.Extensions.* abstractions of at least 10.0.13, so the five packages above it in this block were raised to 10.0.13.
+         OWNER TO CONFIRM this version before merge (as with Cronos); the NuGet audit in CI is the arbiter. -->
+    <PackageVersion Include="Microsoft.AspNetCore.DataProtection" Version="10.0.13" />
     <!-- Cron expression parser for Naravel.Scheduling (PDR-017 D3). 0.11.0 confirmed to exist on NuGet by the owner (2026-10-24); 0.11.1, 0.12.0 and 0.13.0 also exist and were not evaluated. -->
     <PackageVersion Include="Cronos" Version="0.11.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.12" />
     

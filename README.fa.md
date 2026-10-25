@@ -137,6 +137,17 @@ await notifications.SendAsync(user, new InvoiceReady(7), ["log"], cancellationTo
 
 جزئیات: [docs/fa/notifications.md](docs/fa/notifications.md) و [docs/en/notifications.md](docs/en/notifications.md).
 
+### Naravel.Encryption
+
+یک facade نازک `Encrypt` / `Decrypt` روی ASP.NET Core Data Protection (بدون رمزنگاری سفارشی)، مقدارهای تایپ‌شده، جداسازی با `ForPurpose` و `DecryptException`. `Naravel.Queue.Encryption` payload جاب‌های علامت‌دار با `IShouldBeEncrypted` را رمزشده ذخیره می‌کند؛ نوع جاب همچنان فقط با alias registry انتخاب می‌شود. **تولیدکننده و worker باید key ring و نام برنامهٔ Data Protection را به‌اشتراک بگذارند.** نگاه کنید به [docs/en/encryption.md](docs/en/encryption.md) و [docs/fa/encryption.md](docs/fa/encryption.md).
+
+```csharp
+builder.Services.AddNaravelEncryption();
+var token = encrypter.Encrypt("secret");
+var text = encrypter.Decrypt(token);
+// اختیاری Naravel.Queue.Encryption: services.AddNaravelQueueEncryption(); class MyJob : Job, IShouldBeEncrypted
+```
+
 ### Naravel.Scheduling
 
 کارهای نام‌دار طبق یک برنامه، که یک hosted service درون میزبان شما اجرا می‌کند: بدون خط cron و بدون دستور برای شروع. فرکانس‌ها و فیلترها مثل Laravel خوانده می‌شوند (`EveryFiveMinutes`، `DailyAt`، `Weekdays`، `Cron`) و دو محافظ بین چند نمونه روی قفل‌های کش کار می‌کنند: `WithoutOverlapping` و `OnOneServer` (اگر درایور قفل مشترک نباشد راه‌اندازی شکست می‌خورد). هر اجرا دامنه‌ی DI تازه می‌گیرد؛ `SchedulerFake` برنامه را در زمان‌هایی که انتخاب می‌کنید اجرا می‌کند. نیمه‌ی Artisan بسته نیست: دستورها یک دستورالعمل مستند با `System.CommandLine` هستند (PDR-017).
@@ -242,6 +253,8 @@ var next = await db.Posts.CursorPaginateAsync(k => k.By(p => p.CreatedAt).Then(p
 | `Naravel.Notifications` | `builder.Services.AddNaravelNotifications();` |
 | `Naravel.Notifications.Mail` | `builder.Services.AddMailNotificationChannel<TNotification>(address, mailable);` |
 | `Naravel.Notifications.Queue` | `builder.Services.AddNaravelNotificationQueue();` |
+| `Naravel.Encryption` | `builder.Services.AddNaravelEncryption();` |
+| `Naravel.Queue.Encryption` | `builder.Services.AddNaravelQueueEncryption();` |
 | `Naravel.Scheduling` | `builder.Services.AddNaravelScheduling(schedule => schedule.Call("name", handler).EveryFiveMinutes());` |
 | `Naravel.Database` | `builder.Services.AddNaravelDatabase(configuration);` |
 | `Naravel.Database.Sqlite` | `builder.Services.AddNaravelSqliteDatabase(configuration);` |
