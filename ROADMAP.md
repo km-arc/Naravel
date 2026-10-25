@@ -43,7 +43,7 @@ needs the EN+FA PDR.
 | R11 | Session (PDR-015) | R04, R05 | PDR | DECLINED (PDR-015 approved 2026-10-25: native `ISession` over `IDistributedCache` is enough; the recipe is in docs/en and docs/fa session.md; roadmap check passed; no code was added, so there was nothing to build or test) |
 | R12 | Auth-lite route middleware (legacy 4c, PDR-016) | R05, R11 | PDR | DECLINED (PDR-016 approved 2026-10-25: native `RequireAuthorization` through `NaravelRoute.Configure` is enough and the built-in `guest` alias stays; the recipe is in docs/en and docs/fa auth.md; roadmap check passed; no code was added, so there was nothing to build or test) |
 | R13 | Console + Scheduling (PDR-017) | R04, R05, R07 | PDR | DOING |
-| R14 | Broadcasting (PDR-018) | R06, R07 | PDR | BLOCKED (awaiting PDR approval: PDR-018 written, thin layer over SignalR, owner decisions D1-D5 open) |
+| R14 | Broadcasting (PDR-018) | R06, R07 | PDR | DOING |
 | R15 | Hashing (PDR-019) | - | PDR | DECLINED (PDR-019 approved 2026-10-19: native `PasswordHasher<TUser>` is enough; the recipe is in docs/en and docs/fa hashing.md; roadmap check passed; no code was added, so there was nothing to build or test) |
 | R16 | Pagination (PDR-020) | - | PDR | DONE (2026-10-19; PDR-020 approved; tasks T01-T04 merged except T04 in review; build, tests and benchmark NOT RUN locally (no .NET SDK), CI is the verification and the first benchmark baseline is still open; roadmap check passed) |
 | R17 | Release hardening + re-audit | R01, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19, R20, R21, R22, R23, R24, R25, R26 | owner approvals | TODO |

@@ -2,7 +2,7 @@
 
 **داوری با اولویت .NET بومی:** SignalR از قبل پیام‌های بلادرنگ را می‌رساند: `IHubContext<TaskHub>` به‌علاوه‌ی `Clients.Group("orders.7").SendAsync("OrderShipped", payload)` یک خط است، `[Authorize]` روی hub هست، و backplaneهای Redis و Azure SignalR داخلی‌اند. آنچه SignalR نمی‌دهد **قرارداد رویداد تایپ‌دار و مجوزدهی کانال** در Laravel است: کلاس رویدادی که بگوید به کدام کانال‌ها می‌رود، قاعده‌ای ثبت‌شده که تعیین کند چه کسی می‌تواند به `private-orders.{id}` بپیوندد، یک نقطه برای عوض کردن transport، و fake برای آزمون. **نتیجه‌ی پیشنهادی: پذیرفته، به‌صورت لایه‌ای نازک روی SignalR و هیچ چیزی که جای SignalR را بگیرد.**
 
-وضعیت: **پیشنهادی، منتظر تأیید مالک.**
+وضعیت: **تأییدشده ۲۰۲۶-۱۰-۲۵.**
 
 ## زمینه
 
@@ -37,7 +37,7 @@ await broadcaster.BroadcastAsync(new OrderShipped(7), cancellationToken);   // b
 1. بسته‌ی جدید `Naravel.Broadcasting` روی `Manager<,>` (driverها: `signalr`، `log`، `null`؛ شکل پیکربندی طبق PDR-004 و PDR-005) که مثل `Naravel.Routing` به shared framework ASP.NET Core ارجاع می‌دهد. backplane‌ی Redis گزینه‌ی بومی SignalR می‌ماند که برنامه پیکربندی می‌کند (خارج از دامنه).
 2. **`IBroadcastable`:** `Channels()` الزامی است؛ `BroadcastAs()` (پیش‌فرض: نام نوع) و `BroadcastWith()` (پیش‌فرض: رویداد سریالایزشده با `System.Text.Json`) اختیاری‌اند. **`IBroadcaster.BroadcastAsync(event, ct)`** به همه‌ی کانال‌های برگردانده‌شده می‌فرستد. یکپارچگی با Events صریح است و با dispatch دقیق‌نوع هم‌خوان: `AddBroadcastOn<TEvent>()` یک `IEventListener<TEvent>` ثبت می‌کند که broadcast می‌کند، پس کاربر می‌گوید کدام رویدادها بیرون می‌روند.
 3. **یک hub به نام `BroadcastHub`** که با `MapNaravelBroadcasting(path)` map می‌شود. clientها `Subscribe(channel)` را صدا می‌زنند. کانالی که با `private-` یا `presence-` شروع شود callbackهای مجوزدهی ثبت‌شده را اجرا می‌کند (`Channels.Authorize("private-orders.{id}", (user, id) => ...)` با placeholderهای سبک route) و **اگر هیچ callbackی تطبیق نکند رد می‌شود:** کانال private ثبت‌نشده رد می‌شود، نه مجاز. کانال‌های عمومی قاعده نمی‌خواهند. callback `ClaimsPrincipal` احراز‌شده را می‌گیرد و hub برای کانال‌های private و presence احراز هویت را الزامی می‌کند.
-4. **Presence** (فهرست اعضا) در نسخه‌ی اول **نیست**؛ ردیابی اتصال می‌خواهد که به backplane بستگی دارد. در backlog ثبت می‌شود.
+4. **Presence (تصمیم D4، گزینه‌ی C):** کانال `presence-` فهرست اعضایی دارد که در **cache مشترک** نگه داشته می‌شود (`ICacheStore` و `ICacheLock` از `Naravel.Cache`)، پس هر نمونه همان اعضا را می‌بیند. قاعده‌ای که با `Channels.AuthorizePresence` ثبت شود یک `PresenceMember` (شناسه‌ی کاربر و info کوچک) یا برای رد کردن `null` برمی‌گرداند. عضو یعنی کاربر: چند اتصال یک کاربر یک عضو است. `Subscribe` فهرست را برمی‌گرداند؛ بقیه `MemberJoined` و `MemberLeft` می‌گیرند. هر تغییر یک خواندن-و-نوشتن روی یک ورودی برای هر کانال است، زیر قفل per-channel؛ هر نمونه ورودی اتصال‌های خودش را هر یک‌سوم `PresenceEntryTtl` (۹۰ ثانیه) تازه می‌کند، پس ورودی‌های نمونه‌ی مرده (بدون `MemberLeft`) منقضی می‌شوند. `IPresence.MembersAsync` فهرست را از کد سرور می‌خواند. با قفل غیرمشترک ماژول یک هشدار لاگ می‌کند.
 5. **قرارداد تحویل، در مستندات اعلام می‌شود:** حداکثر یک‌بار، بدون replay، بدون صف پایدار. نسخه‌ی اول درون‌خطی (inline) می‌فرستد؛ broadcasting از طریق `Naravel.Queue` (پیش‌فرض Laravel) یک adapter‌ی اختیاری برای بعد است و بخشی از این PDR نیست.
 6. **رفتار در شکست:** استثنای transport به فراخواننده‌ی `BroadcastAsync` می‌رسد (بلعیده نمی‌شود)؛ فرستادن به کانالی که شنونده ندارد خطا نیست.
 7. **S3:** `BroadcastFake` پخش‌ها را ضبط می‌کند (رویداد، کانال‌ها، نام، payload) با assertion مثل fakeهای دیگر؛ یک `Meter` به نام `Naravel.Broadcasting` با شمارنده‌ی `naravel.broadcasting.broadcasts` که فقط با `driver` و `outcome` برچسب می‌خورد (هرگز نام کانالی که شناسه‌ی کاربر دارد، payload یا توکن) و یک `ActivitySource`.
@@ -56,8 +56,8 @@ await broadcaster.BroadcastAsync(new OrderShipped(7), cancellationToken);   // b
 - **D1:** پذیرش لایه‌ی نازک (توصیه‌شده)، یا `DECLINED` با دستورالعمل (گزینه‌ی ۱).
 - **D2:** کانال‌های ثبت‌نشده‌ی `private-`/`presence-` **رد شوند** (توصیه‌شده: امن به‌طور پیش‌فرض)، یا مجاز باشند.
 - **D3:** یکپارچگی صریح رویداد با `AddBroadcastOn<TEvent>()` (توصیه‌شده)، یا فقط `BroadcastAsync` مستقیم.
-- **D4:** نسخه‌ی اول بدون presence (توصیه‌شده)، یا با فهرست اعضای درون‌پردازه‌ای.
-- **D5:** فعلاً تحویل درون‌خطی و حداکثر یک‌بار؛ adapter‌ی صف بعداً (توصیه‌شده).
+- **D4:** presence. گزینه‌ها: A بدون فهرست اعضا در نسخه‌ی اول، B فهرست درون‌پردازه‌ای (با چند نمونه بی‌صدا غلط است) و C فهرست در cache مشترک (تصمیم: C).
+- **D5:** فعلاً تحویل درون‌خطی و حداکثر یک‌بار؛ adapter‌ی صف بعداً (تصمیم: A).
 
 ## قراردادها و کیفیت (در صورت پذیرش)
 
@@ -65,4 +65,10 @@ callbackهای مجوزدهی پیش از هر پیوستن به group اجرا 
 
 ## تأیید
 
-هنوز تأیید نشده. پس از تأیید، مرحله‌ی پیاده‌سازی و مرحله‌ی اعتبارسنجی اجرا می‌شوند.
+مالک در ۲۰۲۶-۱۰-۲۵ تصمیم گرفت: D1 تا D3 مطابق پیشنهاد، **D4 گزینه‌ی C** و **D5 گزینه‌ی A**.
+
+- **D1** ساخت `Naravel.Broadcasting` نازک: قرارداد رویداد تایپ‌دار، مجوزدهی کانال و fake همان چیزهایی است که SignalR ندارد.
+- **D2** کانال‌های `private-` و `presence-` ثبت‌نشده رد می‌شوند، چون پیوستن بدون بررسی به group به هر client اجازه می‌دهد به هر group گوش دهد.
+- **D3** `AddBroadcastOn<TEvent>()` صریح، چون `Naravel.Events` با نوع دقیق dispatch می‌کند.
+- **D4 گزینه‌ی C:** فهرست اعضای presence در cache مشترک. توصیه‌ی من A (بدون فهرست) بود؛ مالک C را برگزید چون فهرست را همین حالا می‌خواهد و فهرست درون‌پردازه‌ای (B) با چند نمونه بی‌صدا غلط است. هزینه‌اش طراحی بند ۴ است: قفل per-channel، heartbeat، و انقضای ورودی‌ها بعد از crash بدون `MemberLeft`.
+- **D5 گزینه‌ی A:** تحویل درون‌خطی و حداکثر یک‌بار. فراخواننده شکست transport را می‌بیند؛ adapter‌ی صف در صورت نیاز بسته‌ای جدا و بعدی است.

@@ -134,7 +134,7 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 ## R14 — Broadcasting
 
 - Laravel surface: `Illuminate\Contracts\Broadcasting\Factory` and broadcaster channels.
-- Naravel: future Broadcasting module after Events/Queue.
+- Naravel: `Naravel.Broadcasting` (PDR-018): `IBroadcastable`, channel rules, presence member lists in the shared cache, `signalr`/`log`/`null` drivers, `BroadcastFake`; see `docs/en|fa/broadcasting.md`.
 - Value: typed real-time event delivery behind provider-specific transports.
 - Native baseline: ASP.NET Core SignalR.
 - API reference: [Illuminate Broadcasting](https://api.laravel.com/docs/13.x/Illuminate/Contracts/Broadcasting/Factory.html).
@@ -242,7 +242,7 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 | Namespace | Disposition | Where |
 |---|---|---|
 | Auth | Native (`RequireAuthorization`; recipe, no package; PDR-016 `DECLINED`, `guest` alias kept) | R12 |
-| Broadcasting | Adapt over SignalR | R14 |
+| Broadcasting | Adapted (`Naravel.Broadcasting` over SignalR; PDR-018) | R14 |
 | Bus (chains, batches) | Part of Queue | R00, R07 |
 | Cache | Done (+RateLimiter open) | R04 |
 | Concurrency | Native (`Task.WhenAll`, `Parallel`) | - |
