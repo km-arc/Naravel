@@ -389,12 +389,19 @@ Checked against the RabbitMQ [quorum queue](https://www.rabbitmq.com/docs/quorum
   `x-max-priority` applies to classic queues only and is ignored by quorum queues; strict quorum priorities exist
   from RabbitMQ 4.3.
 
-**Current limitation:** the driver declares `netqueue.ready.<queue>` as a classic queue with `x-max-priority`, and
-declares it again on every operation. Because the type cannot be changed by policy, and RabbitMQ rejects
-re-declaring an existing queue with different arguments, an operator cannot turn this queue into a quorum queue,
-and so cannot use `delivery-limit`, without driver support. A configurable queue type is not implemented and
-needs its own decision (AUDIT D-27). Until then, crash redelivery on RabbitMQ is unbounded and uncounted, as described
-above. Kafka has no broker-side redelivery limit; the committed offset is the only state.
+**Queue type.** By default the driver declares `netqueue.ready.<queue>` as a classic queue with `x-max-priority`, as
+before. Set `QueueType` to `Quorum` on the store (and optionally `DeliveryLimit`) to declare it as a quorum queue:
+
+```json
+"rabbit": { "Driver": "rabbitmq", "HostName": "localhost", "QueueType": "Quorum", "DeliveryLimit": 5 }
+```
+
+A quorum ready queue drops message priorities (RabbitMQ ignores `x-max-priority` there) and is dead-lettered to
+`netqueue.failed.<queue>` when a message exceeds the delivery limit, so crash redelivery becomes bounded and the
+message is kept for inspection. RabbitMQ fixes the queue type at declaration and rejects a re-declaration with
+different arguments, so an existing classic queue must be drained and deleted before you switch (the driver
+fails with `PRECONDITION_FAILED` otherwise). `DeliveryLimit` needs `Quorum`. The delay and failed queues stay
+classic. Kafka has no broker-side redelivery limit; the committed offset is the only state.
 
 #### Kafka: no delayed delivery
 
@@ -457,11 +464,9 @@ to `true`; only the Kafka driver returns `false`.
   (`<groupId>-<queue>`), so an idle consumer of one queue cannot stall another queue. **Upgrade note (pre-1.0):**
   the new group ids start from the earliest retained offset, so messages that were already acknowledged under the old
   shared group id may be processed again; drain Kafka queues before upgrading.
-  **Blocking poll (D-21):** `PopAsync` calls the synchronous `IConsumer.Consume` with a 200 ms timeout, so an idle poll
-  occupies one thread-pool thread for up to 200 ms per queue (pops on the same queue are serialized, so concurrent workers
-  wait on an async gate, not on extra threads). The timeout is not cancellable: stopping a worker is observed between
-  polls, i.e. within about 200 ms. This is a known limitation of the current implementation; an asynchronous consume loop
-  is a separate change that needs its own PDR and is not planned in this release.
+  **Polling (D-21, closed):** `PopAsync` no longer blocks a thread. It polls the consumer with a zero timeout and awaits
+  a 20 ms delay between polls for up to 200 ms, so an idle poll holds no thread and a cancelled token (worker stop)
+  takes effect within about 20 ms. Pops on the same queue are still serialized by an async gate.
 - **RabbitMQ**: uses RabbitMQ.Client 7 async operations and a separate channel for each in-flight
   delivery so acknowledgements stay on their originating channel. A long-delay message can hold
   back shorter ones queued after it. Existing ready queues created without `x-max-priority` must be

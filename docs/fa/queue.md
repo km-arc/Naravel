@@ -386,12 +386,19 @@ jobهایی که `MaxAttempts` را تمام کنند علاوه بر آن به 
 - نوع صف هنگام declare تعیین می‌شود (`x-queue-type`) و با policy قابل تنظیم یا تغییر نیست. `x-max-priority` فقط
   برای classic queue است و quorum queue آن را نادیده می‌گیرد؛ اولویت سخت‌گیرانهٔ quorum از RabbitMQ 4.3 وجود دارد.
 
-**محدودیت فعلی:** درایور `netqueue.ready.<queue>` را به‌صورت classic queue با `x-max-priority` declare می‌کند و در هر
-عملیات دوباره declare می‌کند. چون نوع صف با policy تغییر نمی‌کند و RabbitMQ اجازهٔ declare دوبارهٔ صف موجود با
-آرگومان‌های متفاوت را نمی‌دهد، اپراتور بدون پشتیبانی درایور نمی‌تواند این صف را به quorum تبدیل کند و در نتیجه
-نمی‌تواند از `delivery-limit` استفاده کند. نوع صف قابل‌پیکربندی پیاده نشده و تصمیم جداگانه می‌خواهد (AUDIT D-27). تا آن
-زمان، تحویل مجدد پس از کرش در RabbitMQ بی‌سقف و شمرده‌نشده است، همان‌طور که بالا آمد. Kafka سقف تحویل مجدد سمت
-broker ندارد؛ offset commit‌شده تنها وضعیت است.
+**نوع صف.** به‌طور پیش‌فرض درایور مثل قبل `netqueue.ready.<queue>` را classic queue با `x-max-priority` declare می‌کند.
+برای quorum queue روی store مقدار `QueueType` را `Quorum` بگذارید (و در صورت نیاز `DeliveryLimit`):
+
+```json
+"rabbit": { "Driver": "rabbitmq", "HostName": "localhost", "QueueType": "Quorum", "DeliveryLimit": 5 }
+```
+
+صف آمادهٔ quorum اولویت پیام را حذف می‌کند (RabbitMQ آنجا `x-max-priority` را نادیده می‌گیرد) و پیامی که از سقف تحویل
+بگذرد به `netqueue.failed.<queue>` dead-letter می‌شود؛ پس تحویل مجدد پس از کرش سقف دارد و پیام برای بررسی نگه داشته
+می‌شود. RabbitMQ نوع صف را هنگام declare ثابت می‌کند و declare دوباره با آرگومان متفاوت را رد می‌کند؛ بنابراین قبل از
+تغییر باید صف classic موجود خالی و حذف شود (وگرنه خطای `PRECONDITION_FAILED` می‌گیرید). `DeliveryLimit` فقط با `Quorum`
+معتبر است. صف‌های delay و failed همچنان classic می‌مانند. Kafka سقف تحویل مجدد سمت broker ندارد؛ offset commit‌شده
+تنها وضعیت است.
 
 #### Kafka: بدون تحویل با تأخیر
 
@@ -451,10 +458,9 @@ Redis، Database و RabbitMQ فوراً B و C را اجرا می‌کنند و 
   یک صف نمی‌تواند صف دیگر را متوقف کند. **نکتهٔ ارتقا (پیش از 1.0):** group idهای جدید از قدیمی‌ترین offset باقی‌مانده شروع
   می‌کنند، بنابراین پیام‌هایی که قبلاً با group id مشترک قدیمی ack شده‌اند ممکن است دوباره پردازش شوند؛ پیش از ارتقا صف‌های Kafka را
   خالی کنید.
-  **poll مسدودکننده (D-21):** `PopAsync` متد همگام `IConsumer.Consume` را با timeout دویست میلی‌ثانیه صدا می‌زند؛ بنابراین یک poll
-  بیکار تا ۲۰۰ms یک thread از thread-pool را برای هر صف اشغال می‌کند (popهای یک صف سریالی‌اند، پس workerهای هم‌زمان روی یک gate
-  async منتظر می‌مانند و thread اضافه مصرف نمی‌شود). این timeout قابل لغو نیست: توقف worker بین pollها، یعنی حدود ۲۰۰ms
-  بعد، دیده می‌شود. این یک محدودیت شناخته‌شدهٔ پیاده‌سازی فعلی است؛ حلقهٔ consume ناهمگام یک تغییر جداست که PDR مستقل می‌خواهد و در این نسخه برنامه‌ریزی نشده است.
+  **poll (D-21، بسته شد):** `PopAsync` دیگر thread را مسدود نمی‌کند. consumer را با timeout صفر poll می‌کند و بین pollها تا
+  ۲۰۰ms هر بار ۲۰ms به‌صورت async منتظر می‌ماند؛ بنابراین poll بیکار هیچ threadی را نگه نمی‌دارد و لغو توکن (توقف worker)
+  حدود ۲۰ms بعد اثر می‌کند. popهای یک صف همچنان با gate async سریالی می‌مانند.
 - **RabbitMQ**: از عملیات async در RabbitMQ.Client 7 و channel جدا برای هر delivery در حال اجرا استفاده
   می‌کند تا acknowledgement روی channel اصلی همان delivery انجام شود. پیام با تأخیر طولانی می‌تواند
   پیام‌های کوتاه‌تر بعد از خودش را معطل کند. پیش از ارتقا، ready queueهایی که بدون `x-max-priority`

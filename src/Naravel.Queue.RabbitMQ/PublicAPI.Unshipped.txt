@@ -10,3 +10,7 @@ Naravel.Queue.RabbitMQ.RabbitMqQueueDriver.ReleaseAsync(Naravel.Queue.Drivers.Qu
 Naravel.Queue.RabbitMQ.RabbitMqQueueDriver.SizeAsync(string! queue, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
 Naravel.Queue.RabbitMQ.ServiceCollectionExtensions
 static Naravel.Queue.RabbitMQ.ServiceCollectionExtensions.AddRabbitMqDriver(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "NaravelQueue") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+Naravel.Queue.RabbitMQ.RabbitMqQueueType
+Naravel.Queue.RabbitMQ.RabbitMqQueueType.Classic = 0 -> Naravel.Queue.RabbitMQ.RabbitMqQueueType
+Naravel.Queue.RabbitMQ.RabbitMqQueueType.Quorum = 1 -> Naravel.Queue.RabbitMQ.RabbitMqQueueType
+Naravel.Queue.RabbitMQ.RabbitMqQueueDriver.RabbitMqQueueDriver(string! hostName, int port, string? userName, string? password, string? virtualHost, Naravel.Queue.RabbitMQ.RabbitMqQueueType queueType, int? deliveryLimit) -> void
