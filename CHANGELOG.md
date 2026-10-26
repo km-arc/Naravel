@@ -4,6 +4,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 
 ## [Unreleased] - 0.1.0-preview
 
+### Release notes (R17)
+- First preview release of Naravel: database query builder, routing, queue, cache, filesystem, events, mail, notifications, encryption, pagination, broadcasting, scheduling and Redis, all lock-step at `0.1.0-preview`. Hashing, session and auth-lite were declined in favour of native .NET (recipes in the docs).
+- Known limits are listed in `roadmap/AUDIT.md` (open rows D-17, D-21, D-22, D-23, D-26, D-27), each deferred with an owner note. XML documentation is incomplete and `CS1591` stays suppressed.
+- Pre-1.0: breaking changes stay allowed if listed here (OD-09); revisit at the first stable release.
+
 ### Removed
 - Docs: removed the orphan `docs/en/querybuilder.md` (no Persian twin, described APIs that do not exist). Use `docs/en/database.md` / `docs/fa/database.md`. Closes AUDIT D-57.
 
