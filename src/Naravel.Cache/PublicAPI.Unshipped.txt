@@ -89,6 +89,23 @@ Naravel.Cache.Tagging.TaggedCacheStore.SetAsync<T>(string! key, T value, System.
 Naravel.Cache.Tagging.TaggedCacheStore.TaggedCacheStore(Naravel.Cache.Abstractions.ICacheStore! inner, System.Collections.Generic.IEnumerable<string!>! tags) -> void
 Naravel.Cache.Tagging.TaggedCacheStore.TryGetAsync<T>(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<(bool Found, T? Value)>!
 Naravel.Cache.Tagging.TaggingExtensions
+Naravel.Cache.Testing.CacheFake
+Naravel.Cache.Testing.CacheFake.AssertEmpty() -> void
+Naravel.Cache.Testing.CacheFake.AssertHas(string! key) -> void
+Naravel.Cache.Testing.CacheFake.AssertHas<T>(string! key) -> T
+Naravel.Cache.Testing.CacheFake.AssertMissing(string! key) -> void
+Naravel.Cache.Testing.CacheFake.CacheFake(string! name = "fake", System.TimeProvider? timeProvider = null) -> void
+Naravel.Cache.Testing.CacheFake.DecrementAsync(string! key, long by, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Testing.CacheFake.ExistsAsync(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Cache.Testing.CacheFake.FlushAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.Testing.CacheFake.IncrementAsync(string! key, long by, System.TimeSpan ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Testing.CacheFake.IncrementAsync(string! key, long by, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Cache.Testing.CacheFake.Keys.get -> System.Collections.Generic.IReadOnlyCollection<string!>!
+Naravel.Cache.Testing.CacheFake.Name.get -> string!
+Naravel.Cache.Testing.CacheFake.RemoveAsync(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Cache.Testing.CacheFake.Reset() -> void
+Naravel.Cache.Testing.CacheFake.SetAsync<T>(string! key, T value, System.TimeSpan? ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.Testing.CacheFake.TryGetAsync<T>(string! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<(bool Found, T? Value)>!
 Naravel.Cache.Testing.RateLimiterFake
 Naravel.Cache.Testing.RateLimiterFake.AssertAttempted(string! limiter, string! subjectKey) -> void
 Naravel.Cache.Testing.RateLimiterFake.AttemptAsync(string! limiter, string! subjectKey, long maxAttempts, System.TimeSpan window, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Naravel.Cache.RateLimiting.RateLimitDecision>!

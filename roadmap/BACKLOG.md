@@ -21,5 +21,4 @@ Do not implement these in an active stage unless its owner-approved scope explic
 | Mail attachments and inline images | Deferred from R09 (PDR-013a); owner kept the previous priority on 2026-10-14 | Needs PDR-013b: how files are referenced in the queue payload (path, storage disk and name, never raw bytes), size limits, and MailKit `BodyBuilder` mapping. |
 | Mail template rendering (`IMailRenderer` implementations) | Not built (PDR-013 leaves the engine to the app) | Document Razor/Scriban options; revisit after R17. |
 | bcrypt / Argon2id hashing (verify Laravel `$2y$` hashes, Argon2id policy) | Not built; PDR-019 proposes the native `IPasswordHasher` recipe | Needs its own PDR for a third-party dependency (OD-01/OD-02); revisit only for an owner-approved Laravel-migration or policy need. |
-| Shared `IStorageDriver` contract suite and reusable `ICacheStore`/`IStorageDriver` fakes (D-22, D-23) | Deferred at R17 (2026-10-26) | Extract a contract suite across Local and S3, then ship the fakes. |
 | XML documentation completeness (D-17) | Deferred at R17 | Document public members progressively; then remove the global `CS1591` suppression. |

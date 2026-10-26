@@ -16,6 +16,9 @@
     <ProjectReference Include="..\..\src\Naravel.Filesystem\Naravel.Filesystem.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\Shared\ServiceFactAttribute.cs" Link="ServiceFactAttribute.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <Using Include="Xunit" />
     <Using Include="FluentAssertions" />
   </ItemGroup>
