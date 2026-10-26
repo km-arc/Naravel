@@ -40,8 +40,8 @@ Events وابستگی به Queue ندارد و نه assembly scan انجام م�
 
 محدودیت‌های adapter که باید بدانید:
 
-- dispatch روی connection پیش‌فرض Queue و queue با نام `default` انجام می‌شود. workerی اجرا کنید که همان connection و queue را مصرف می‌کند؛ adapter فعلاً گزینهٔ connection، queue، اولویت یا تأخیر برای هر listener ندارد.
-- رویداد با تنظیمات پیش‌فرض `System.Text.Json` (مبتنی بر reflection) serialize می‌شود؛ پس رویدادها را کوچک و قابل serialize نگه دارید.
+- به‌طور پیش‌فرض dispatch روی connection پیش‌فرض Queue و queue با نام `default` انجام می‌شود؛ پس workerی اجرا کنید که همان‌ها را مصرف می‌کند. برای مسیر دیگر، گزینه‌های dispatch بدهید: `AddQueuedEventListener<OrderPaid, SendReceipt>("order-paid.receipt", o => o.OnConnection("redis").OnQueue("mail").WithMaxAttempts(5))`. این action برای هر dispatch روی یک `DispatchOptions` تازه اجرا می‌شود و چیزی بین dispatchها مشترک نیست.
+- به‌طور پیش‌فرض رویداد با `System.Text.Json` مبتنی بر reflection serialize می‌شود. برای trimming و Native AOT به‌جای آن metadata تولیدشده با source generator بدهید: `AddQueuedEventListener<OrderPaid, SendReceipt>("order-paid.receipt", MyJsonContext.Default.OrderPaid)` (در صورت نیاز با action گزینه‌های dispatch). در هر دو حالت رویدادها را کوچک و قابل serialize نگه دارید.
 - listener صف‌شده بعداً و با یک `EventDispatchContext` تازه اجرا می‌شود: نمی‌تواند انتشار را متوقف کند، کدِ dispatch‌کننده منتظر آن نمی‌ماند و exceptionهای آن از قواعد retry و failed-job در Queue پیروی می‌کنند، نه سیاست نخستین exception. اجرا at-least-once است؛ listenerها را idempotent بنویسید.
 - listenerی که `IQueuedEventListener<TEvent>` را پیاده‌سازی کرده اما با `AddQueuedEventListener` ثبت نشده، چون alias ندارد در زمان dispatch با `InvalidOperationException` شکست می‌خورد.
 
