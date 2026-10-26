@@ -3,6 +3,7 @@
     <PackageId>Naravel.Queue.Encryption</PackageId>
     <Description>Optional Naravel.Queue adapter that encrypts the payload of jobs marked IShouldBeEncrypted with ASP.NET Core Data Protection. Unmarked jobs keep the existing wire format.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

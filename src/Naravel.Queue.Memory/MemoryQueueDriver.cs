@@ -21,18 +21,22 @@ public class MemoryQueueDriver : IQueueDriver
 
     private readonly string _connectionName;
 
+    /// <summary>Creates an in-process driver whose state is private to this instance.</summary>
+    /// <param name="connectionName">The configured store name this driver serves.</param>
     public MemoryQueueDriver(string connectionName) => _connectionName = connectionName;
 
     private string Key(string queue) => $"{_connectionName}::{queue}";
     private List<QueuedMessage> GetQueue(string queue) => Queues.GetOrAdd(Key(queue), _ => new List<QueuedMessage>());
     private object GetLock(string queue) => Locks.GetOrAdd(Key(queue), _ => new object());
 
+    /// <inheritdoc />
     public Task PushAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         lock (GetLock(message.Queue)) { GetQueue(message.Queue).Add(message); }
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
     public Task<QueuedMessage?> PopAsync(string queue, CancellationToken cancellationToken = default)
     {
         var now = DateTimeOffset.UtcNow;
@@ -49,12 +53,14 @@ public class MemoryQueueDriver : IQueueDriver
         }
     }
 
+    /// <inheritdoc />
     public Task AckAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         lock (GetLock(message.Queue)) { GetQueue(message.Queue).RemoveAll(m => m.Id == message.Id); }
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
     public Task ReleaseAsync(QueuedMessage message, TimeSpan delay, CancellationToken cancellationToken = default)
     {
         lock (GetLock(message.Queue))
@@ -69,6 +75,7 @@ public class MemoryQueueDriver : IQueueDriver
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
     public Task FailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         lock (GetLock(message.Queue)) { GetQueue(message.Queue).RemoveAll(m => m.Id == message.Id); }
@@ -76,12 +83,14 @@ public class MemoryQueueDriver : IQueueDriver
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
     public Task<long> SizeAsync(string queue, CancellationToken cancellationToken = default)
     {
         lock (GetLock(queue)) { return Task.FromResult((long)GetQueue(queue).Count); }
     }
 }
 
+/// <summary>Registration extension methods for the in-process "memory" queue driver.</summary>
 public static class ServiceCollectionExtensions
 {
     /// <summary>

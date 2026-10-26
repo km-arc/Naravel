@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Naravel.Foundation</RootNamespace>
+    <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
   </PropertyGroup>
 
   <ItemGroup>

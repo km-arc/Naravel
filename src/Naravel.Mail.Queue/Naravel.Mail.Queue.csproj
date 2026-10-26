@@ -3,6 +3,7 @@
     <PackageId>Naravel.Mail.Queue</PackageId>
     <Description>Optional Naravel.Mail adapter that delivers mail through Naravel.Queue: QueueAsync stores only the built message data.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
