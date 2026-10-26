@@ -75,6 +75,29 @@ public class KafkaQueueDriver : IQueueDriver, IDisposable
     private static string TopicFor(string queue) => $"netqueue-{queue}";
     private static string FailedTopicFor(string queue) => $"netqueue-{queue}-failed";
 
+    // How long one PopAsync waits for a record before reporting "nothing available".
+    private static readonly TimeSpan PollWindow = TimeSpan.FromMilliseconds(200);
+    private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(20);
+
+    /// <summary>
+    /// Waits up to <paramref name="window"/> for one record without blocking a thread: it polls with a zero timeout
+    /// and awaits a short delay between polls, so cancellation takes effect within one interval (AUDIT D-21).
+    /// </summary>
+    private static async Task<ConsumeResult<string, string>?> PollAsync(IConsumer<string, string> consumer, TimeSpan window, CancellationToken cancellationToken)
+    {
+        var deadline = DateTime.UtcNow + window;
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var result = consumer.Consume(TimeSpan.Zero);
+            if (result is not null) return result;
+
+            var remaining = deadline - DateTime.UtcNow;
+            if (remaining <= TimeSpan.Zero) return null;
+            await Task.Delay(remaining < PollInterval ? remaining : PollInterval, cancellationToken);
+        }
+    }
+
     private KafkaConsumerState GetConsumer(string queue) => _consumers.GetOrAdd(queue, q =>
     {
         var consumer = new ConsumerBuilder<string, string>(new ConsumerConfig
@@ -113,7 +136,7 @@ public class KafkaQueueDriver : IQueueDriver, IDisposable
             if (state.BufferedMessages.Count == 0)
             {
                 ConsumeResult<string, string>? result;
-                try { result = state.Consumer.Consume(TimeSpan.FromMilliseconds(200)); }
+                try { result = await PollAsync(state.Consumer, PollWindow, cancellationToken); }
                 catch (ConsumeException) { return null; }
                 if (result is null || result.IsPartitionEOF) return null;
 
