@@ -378,6 +378,23 @@ public sealed class KafkaQueueProviderTests : QueueDriverContractTests
     public Task Shared_contract() => RunContractAsync();
 
     [ServiceFact("NARAVEL_TEST_KAFKA")]
+    public async Task Pop_on_an_empty_queue_honours_cancellation_without_waiting_for_the_poll_window()
+    {
+        var driver = CreateDriver();
+        try
+        {
+            var queue = QueueName($"cancel-{Guid.NewGuid():N}");
+            using var cancel = new CancellationTokenSource();
+            await cancel.CancelAsync();
+
+            // A token that is already cancelled must surface at once, not after a 200 ms blocking poll.
+            var pop = () => driver.PopAsync(queue, cancel.Token);
+            await pop.Should().ThrowAsync<OperationCanceledException>();
+        }
+        finally { (driver as IDisposable)?.Dispose(); }
+    }
+
+    [ServiceFact("NARAVEL_TEST_KAFKA")]
     public async Task Idle_consumer_of_another_queue_does_not_stall_a_new_queue()
     {
         var driver = CreateDriver();

@@ -457,11 +457,9 @@ to `true`; only the Kafka driver returns `false`.
   (`<groupId>-<queue>`), so an idle consumer of one queue cannot stall another queue. **Upgrade note (pre-1.0):**
   the new group ids start from the earliest retained offset, so messages that were already acknowledged under the old
   shared group id may be processed again; drain Kafka queues before upgrading.
-  **Blocking poll (D-21):** `PopAsync` calls the synchronous `IConsumer.Consume` with a 200 ms timeout, so an idle poll
-  occupies one thread-pool thread for up to 200 ms per queue (pops on the same queue are serialized, so concurrent workers
-  wait on an async gate, not on extra threads). The timeout is not cancellable: stopping a worker is observed between
-  polls, i.e. within about 200 ms. This is a known limitation of the current implementation; an asynchronous consume loop
-  is a separate change that needs its own PDR and is not planned in this release.
+  **Polling (D-21, closed):** `PopAsync` no longer blocks a thread. It polls the consumer with a zero timeout and awaits
+  a 20 ms delay between polls for up to 200 ms, so an idle poll holds no thread and a cancelled token (worker stop)
+  takes effect within about 20 ms. Pops on the same queue are still serialized by an async gate.
 - **RabbitMQ**: uses RabbitMQ.Client 7 async operations and a separate channel for each in-flight
   delivery so acknowledgements stay on their originating channel. A long-delay message can hold
   back shorter ones queued after it. Existing ready queues created without `x-max-priority` must be
