@@ -3,6 +3,7 @@
     <PackageId>Naravel.Cache.Redis</PackageId>
     <Description>Redis cache and distributed-lock providers for Naravel.Cache.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
