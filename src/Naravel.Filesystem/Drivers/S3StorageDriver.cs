@@ -71,6 +71,7 @@ public sealed class S3StorageDriver : IStorageDriver, IDisposable
         }
     }
 
+    /// <inheritdoc />
     public async Task<byte[]> GetAsync(string path, CancellationToken cancellationToken = default)
     {
         await using var stream = await GetStreamAsync(path, cancellationToken);
@@ -79,12 +80,14 @@ public sealed class S3StorageDriver : IStorageDriver, IDisposable
         return ms.ToArray();
     }
 
+    /// <inheritdoc />
     public async Task<Stream> GetStreamAsync(string path, CancellationToken cancellationToken = default)
     {
         var response = await _s3Client.GetObjectAsync(_bucketName, path, cancellationToken);
         return response.ResponseStream;
     }
 
+    /// <inheritdoc />
     public async Task PutAsync(string path, Stream contents, CancellationToken cancellationToken = default)
     {
         var request = new PutObjectRequest
@@ -96,6 +99,7 @@ public sealed class S3StorageDriver : IStorageDriver, IDisposable
         await _s3Client.PutObjectAsync(request, cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task PutAsync(string path, byte[] contents, CancellationToken cancellationToken = default)
     {
         using var stream = new MemoryStream(contents);

@@ -7,7 +7,9 @@ namespace Naravel.Queue.Batching;
 public class QueueBatch
 {
     public string Id { get; init; } = Guid.NewGuid().ToString("N");
+    /// <summary>Gets or sets the total jobs.</summary>
     public int TotalJobs { get; init; }
+    /// <summary>Gets the pending jobs.</summary>
     public int PendingJobs => TotalJobs - CompletedJobs - FailedJobs - CancelledJobs;
     /// <summary>Number of jobs that completed successfully.</summary>
     public int CompletedJobs { get; set; }
@@ -97,6 +99,7 @@ public sealed class BatchCallbackRegistry
 
     private readonly ConcurrentDictionary<string, IHandler> _handlers = new(StringComparer.Ordinal);
 
+    /// <summary>Registers t payload.</summary>
     public void Register<TPayload>(string alias, Func<QueueBatch, TPayload, CancellationToken, Task> callback)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(alias);
@@ -105,6 +108,7 @@ public sealed class BatchCallbackRegistry
             throw new InvalidOperationException($"A batch callback is already registered as '{alias}'.");
     }
 
+    /// <inheritdoc />
     public async Task InvokeAsync(
         IEnumerable<BatchCallbackReference> callbacks,
         QueueBatch batch,
@@ -126,9 +130,13 @@ public sealed class BatchCallbackRegistry
 /// </summary>
 public interface IBatchRepository
 {
+    /// <summary>Registers.</summary>
     Task RegisterAsync(QueueBatch batch, BatchOptions options, CancellationToken cancellationToken);
+    /// <summary>Gets.</summary>
     Task<QueueBatch?> GetAsync(string batchId, CancellationToken cancellationToken);
+    /// <summary>Determines whether it is cancelled.</summary>
     Task<bool> IsCancelledAsync(string batchId, CancellationToken cancellationToken);
+    /// <summary>Performs the cancel operation.</summary>
     Task CancelAsync(string batchId, CancellationToken cancellationToken);
     Task MarkJobCompletedAsync(string batchId, CancellationToken cancellationToken);
     Task MarkJobFailedAsync(string batchId, Exception exception, CancellationToken cancellationToken);
