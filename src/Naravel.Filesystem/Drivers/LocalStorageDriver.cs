@@ -1,10 +1,12 @@
 namespace Naravel.Filesystem.Drivers;
 
+/// <summary>Stores files under a root directory on the local disk; paths that resolve outside the root are rejected.</summary>
 public class LocalStorageDriver : IStorageDriver
 {
     private readonly string _rootPath;
     private readonly string _baseUrl;
 
+    /// <summary>Initializes a new instance of the <see cref="LocalStorageDriver"/> class.</summary>
     public LocalStorageDriver(string rootPath, string baseUrl = "/storage")
     {
         _rootPath = Path.GetFullPath(rootPath);
@@ -31,18 +33,21 @@ public class LocalStorageDriver : IStorageDriver
         return full;
     }
 
+    /// <inheritdoc />
     public Task<bool> ExistsAsync(string path, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult(File.Exists(GetFullPath(path)));
     }
 
+    /// <inheritdoc />
     public async Task<byte[]> GetAsync(string path, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         return await File.ReadAllBytesAsync(GetFullPath(path), cancellationToken);
     }
 
+    /// <inheritdoc />
     public Task<Stream> GetStreamAsync(string path, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -53,6 +58,7 @@ public class LocalStorageDriver : IStorageDriver
         return Task.FromResult<Stream>(new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true));
     }
 
+    /// <inheritdoc />
     public async Task PutAsync(string path, Stream contents, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -65,12 +71,14 @@ public class LocalStorageDriver : IStorageDriver
         await contents.CopyToAsync(fileStream, cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task PutAsync(string path, byte[] contents, CancellationToken cancellationToken = default)
     {
         using var stream = new MemoryStream(contents);
         await PutAsync(path, stream, cancellationToken);
     }
 
+    /// <inheritdoc />
     public Task DeleteAsync(string path, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -79,6 +87,7 @@ public class LocalStorageDriver : IStorageDriver
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
     public Task CopyAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -91,6 +100,7 @@ public class LocalStorageDriver : IStorageDriver
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
     public Task MoveAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -103,12 +113,14 @@ public class LocalStorageDriver : IStorageDriver
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
     public Task<long> SizeAsync(string path, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult(new FileInfo(GetFullPath(path)).Length);
     }
 
+    /// <inheritdoc />
     public Task<string> GetUrlAsync(string path, TimeSpan? expiration = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

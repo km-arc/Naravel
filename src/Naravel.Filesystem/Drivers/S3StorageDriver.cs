@@ -3,12 +3,14 @@ namespace Naravel.Filesystem.Drivers;
 using Amazon.S3;
 using Amazon.S3.Model;
 
+/// <summary>Stores files as objects in an S3-compatible bucket.</summary>
 public sealed class S3StorageDriver : IStorageDriver, IDisposable
 {
     private readonly IAmazonS3 _s3Client;
     private readonly string _bucketName;
     private readonly string _serviceUrl;
 
+    /// <summary>Initializes a new instance of the <see cref="S3StorageDriver"/> class.</summary>
     public S3StorageDriver(string key, string secret, string bucket, string? endpoint, string? region = null)
         : this(new AmazonS3Client(key, secret, CreateConfig(endpoint, region)), bucket, endpoint ?? "https://s3.amazonaws.com")
     {
@@ -52,8 +54,10 @@ public sealed class S3StorageDriver : IStorageDriver, IDisposable
         return config;
     }
 
+    /// <summary>Disposes the underlying S3 client.</summary>
     public void Dispose() => _s3Client.Dispose();
 
+    /// <inheritdoc />
     public async Task<bool> ExistsAsync(string path, CancellationToken cancellationToken = default)
     {
         try
@@ -98,12 +102,14 @@ public sealed class S3StorageDriver : IStorageDriver, IDisposable
         await PutAsync(path, stream, cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task DeleteAsync(string path, CancellationToken cancellationToken = default)
     {
         var request = new DeleteObjectRequest { BucketName = _bucketName, Key = path };
         await _s3Client.DeleteObjectAsync(request, cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task CopyAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken = default)
     {
         var request = new CopyObjectRequest
@@ -116,18 +122,21 @@ public sealed class S3StorageDriver : IStorageDriver, IDisposable
         await _s3Client.CopyObjectAsync(request, cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task MoveAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken = default)
     {
         await CopyAsync(sourcePath, destinationPath, cancellationToken);
         await DeleteAsync(sourcePath, cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task<long> SizeAsync(string path, CancellationToken cancellationToken = default)
     {
         var metadata = await _s3Client.GetObjectMetadataAsync(_bucketName, path, cancellationToken);
         return metadata.ContentLength;
     }
 
+    /// <inheritdoc />
     public Task<string> GetUrlAsync(string path, TimeSpan? expiration = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
