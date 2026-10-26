@@ -35,8 +35,8 @@ Queued listeners are published through `IJobDispatcher`; the worker resolves the
 
 Adapter limits to know about:
 
-- Dispatch uses the default Queue connection and the `default` queue. Run a worker that consumes that connection and queue; the adapter has no per-listener connection, queue, priority, or delay options yet.
-- The event is serialized with default `System.Text.Json` options (reflection based), so keep events small and serializable.
+- By default dispatch uses the default Queue connection and the `default` queue, so run a worker that consumes them. To route a listener elsewhere, pass dispatch options: `AddQueuedEventListener<OrderPaid, SendReceipt>("order-paid.receipt", o => o.OnConnection("redis").OnQueue("mail").WithMaxAttempts(5))`. The action runs on a fresh `DispatchOptions` for every dispatch, so nothing is shared between dispatches.
+- By default the event is serialized with reflection-based `System.Text.Json`. For trimming and Native AOT, pass source-generated metadata instead: `AddQueuedEventListener<OrderPaid, SendReceipt>("order-paid.receipt", MyJsonContext.Default.OrderPaid)` (optionally followed by the dispatch options action). Keep events small and serializable either way.
 - A queued listener runs later with a fresh `EventDispatchContext`: it cannot stop propagation, the dispatching code does not wait for it, and its exceptions follow Queue retry and failed-job rules rather than the first-exception policy. Execution is at-least-once, so make listeners idempotent.
 - A listener that implements `IQueuedEventListener<TEvent>` but was not registered with `AddQueuedEventListener` throws `InvalidOperationException` at dispatch because it has no alias.
 

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -50,6 +51,44 @@ public static class NaravelEventsQueueServiceCollectionExtensions
     /// </remarks>
     public static IServiceCollection AddQueuedEventListener<TEvent, TListener>(this IServiceCollection services, string alias)
         where TListener : class, IQueuedEventListener<TEvent>
+        => AddListener<TEvent, TListener>(services, alias, null, null);
+
+    /// <summary>
+    /// Registers a typed listener for queued execution under an explicit alias, with its own dispatch options
+    /// (connection, queue, delay, attempts, priority).
+    /// </summary>
+    /// <typeparam name="TEvent">The event type handled by the listener.</typeparam>
+    /// <typeparam name="TListener">A DI-resolved queued listener type.</typeparam>
+    /// <param name="services">The application service collection.</param>
+    /// <param name="alias">Stable identifier stored in queued messages.</param>
+    /// <param name="configureDispatch">Applied to a fresh <see cref="DispatchOptions"/> for every dispatch of this listener.</param>
+    /// <remarks><para><b>Laravel equivalent:</b> the <c>$connection</c>, <c>$queue</c> and <c>$delay</c> properties of a queued listener.</para></remarks>
+    public static IServiceCollection AddQueuedEventListener<TEvent, TListener>(this IServiceCollection services, string alias, Action<DispatchOptions> configureDispatch)
+        where TListener : class, IQueuedEventListener<TEvent>
+    {
+        ArgumentNullException.ThrowIfNull(configureDispatch);
+        return AddListener<TEvent, TListener>(services, alias, null, configureDispatch);
+    }
+
+    /// <summary>
+    /// Registers a typed listener whose event payload is (de)serialized with source-generated metadata, so the
+    /// adapter needs no reflection for it and works with trimming and Native AOT.
+    /// </summary>
+    /// <typeparam name="TEvent">The event type handled by the listener.</typeparam>
+    /// <typeparam name="TListener">A DI-resolved queued listener type.</typeparam>
+    /// <param name="services">The application service collection.</param>
+    /// <param name="alias">Stable identifier stored in queued messages.</param>
+    /// <param name="typeInfo">Source-generated metadata for <typeparamref name="TEvent"/>.</param>
+    /// <param name="configureDispatch">Optional per-dispatch options, as in the other overload.</param>
+    public static IServiceCollection AddQueuedEventListener<TEvent, TListener>(this IServiceCollection services, string alias, JsonTypeInfo<TEvent> typeInfo, Action<DispatchOptions>? configureDispatch = null)
+        where TListener : class, IQueuedEventListener<TEvent>
+    {
+        ArgumentNullException.ThrowIfNull(typeInfo);
+        return AddListener<TEvent, TListener>(services, alias, typeInfo, configureDispatch);
+    }
+
+    private static IServiceCollection AddListener<TEvent, TListener>(IServiceCollection services, string alias, JsonTypeInfo<TEvent>? typeInfo, Action<DispatchOptions>? configureDispatch)
+        where TListener : class, IQueuedEventListener<TEvent>
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(alias);
@@ -63,7 +102,7 @@ public static class NaravelEventsQueueServiceCollectionExtensions
                 typeof(TListener),
                 async (provider, payload, cancellationToken) =>
                 {
-                    var evt = JsonSerializer.Deserialize<TEvent>(payload);
+                    var evt = typeInfo is null ? JsonSerializer.Deserialize<TEvent>(payload) : JsonSerializer.Deserialize(payload, typeInfo);
                     if (evt is null)
                     {
                         throw new InvalidDataException($"Queued event payload for alias '{alias}' was null.");
@@ -71,7 +110,9 @@ public static class NaravelEventsQueueServiceCollectionExtensions
 
                     var listener = provider.GetRequiredService<TListener>();
                     await listener.HandleAsync(evt, new EventDispatchContext(), cancellationToken).ConfigureAwait(false);
-                })));
+                },
+                evt => typeInfo is null ? JsonSerializer.Serialize((TEvent)evt!) : JsonSerializer.Serialize((TEvent)evt!, typeInfo),
+                configureDispatch)));
 
         return services;
     }
@@ -119,14 +160,14 @@ internal sealed class QueueEventListenerInvoker(
             return listener.HandleAsync(evt, context, cancellationToken);
         }
 
-        var alias = registry.GetAlias(typeof(TEvent), listener.GetType());
+        var registration = registry.Get(typeof(TEvent), listener.GetType());
         var job = new QueuedEventListenerJob
         {
-            ListenerAlias = alias,
-            EventPayload = JsonSerializer.Serialize(evt)
+            ListenerAlias = registration.Alias,
+            EventPayload = registration.Serialize(evt!)
         };
 
-        return dispatcher.DispatchAsync(job, cancellationToken: cancellationToken);
+        return dispatcher.DispatchAsync(job, registration.ConfigureDispatch, cancellationToken);
     }
 }
 
@@ -139,7 +180,9 @@ internal sealed record QueuedEventListenerRegistration(
     string Alias,
     Type EventType,
     Type ListenerType,
-    Func<IServiceProvider, string, CancellationToken, Task> Execute);
+    Func<IServiceProvider, string, CancellationToken, Task> Execute,
+    Func<object, string> Serialize,
+    Action<DispatchOptions>? ConfigureDispatch);
 
 internal sealed class QueuedEventListenerRegistry
 {
@@ -168,9 +211,9 @@ internal sealed class QueuedEventListenerRegistry
         _byListener = listeners;
     }
 
-    public string GetAlias(Type eventType, Type listenerType)
+    public QueuedEventListenerRegistration Get(Type eventType, Type listenerType)
         => _byListener.TryGetValue((eventType, listenerType), out var registration)
-            ? registration.Alias
+            ? registration
             : throw new InvalidOperationException(
                 $"Queued listener '{listenerType}' for event '{eventType}' has no explicit queue alias registration.");
 
