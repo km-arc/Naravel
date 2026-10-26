@@ -62,7 +62,7 @@ jobs:
         run: |
           # GitHub shows only ten annotations per step, so put every distinct compiler error into ONE annotation.
           if [ -f build.log ]; then
-            summary=$(grep -E ': error [A-Z]+[0-9]+' build.log | sed -E 's#^.*/(src|tests)/#\1/#; s# \[/.*$##' | sort -u | head -400 | sed ':a;N;$!ba;s/\n/%0A/g')
+            summary=$(grep -E ': error [A-Z]+[0-9]+' build.log | sed -E 's# \[/[^]]*\]$##; s#^/[^ ]*/(src|tests)/#\1/#' | sort -u | head -400 | sed ':a;N;$!ba;s/\n/%0A/g')
             if [ -n "$summary" ]; then echo "::error title=Build errors::$summary"; fi
           fi
 
