@@ -134,7 +134,13 @@ jobs:
 
       - name: Audit vulnerable packages
         if: matrix.os == 'ubuntu-latest'
-        run: dotnet list Naravel.slnx package --vulnerable --include-transitive
+        run: |
+          dotnet list Naravel.slnx package --vulnerable --include-transitive | tee vulnerable.txt
+          if grep -q "has the following vulnerable packages" vulnerable.txt; then echo "::error::Vulnerable packages found"; exit 1; fi
+
+      - name: Pack every packable project (package validation on)
+        if: matrix.os == 'ubuntu-latest'
+        run: dotnet pack Naravel.slnx -c Release --no-build -o ./nupkgs-check
 
   services:
     name: Provider integration tests
