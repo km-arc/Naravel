@@ -3,6 +3,7 @@
     <PackageId>Naravel.Notifications.Mail</PackageId>
     <Description>Optional Naravel.Notifications adapter: a "mail" channel that delivers a notification through Naravel.Mail.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
