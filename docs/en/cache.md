@@ -214,3 +214,19 @@ Memory state is not shared across app instances. Redis is the distributed option
 `tests/Naravel.Cache.Tests` includes a shared store contract for Memory, Redis and Memcached, covering atomic increments with first-write-only TTL. Rate-limiter tests cover fixed-window boundaries, clearing, named-store isolation, cancellation, Fake behavior and Meter/Activity output. Set
 `NARAVEL_TEST_REDIS=host:port` or `NARAVEL_TEST_MEMCACHED=host:port` to run the corresponding live
 provider test; without the variable, xUnit skips it. CI runs both against service containers.
+
+## Test fake
+
+`Naravel.Cache.Testing.CacheFake` is an in-memory `ICacheStore` for application tests. Inject it where `ICacheStore` is expected and assert on what is cached; no Redis, no Memcached and no `IMemoryCache`.
+
+```csharp
+var clock = new ManualClock();                 // your TimeProvider subclass
+var cache = new CacheFake(timeProvider: clock);
+await sut.RememberProfileAsync(42);
+
+cache.AssertHas<Profile>("profile:42");
+clock.Advance(TimeSpan.FromMinutes(11));       // expiry follows the clock, so no sleeping
+cache.AssertMissing("profile:42");
+```
+
+It follows the Memory store (typed values, first-write-only TTL on `IncrementAsync(key, by, ttl)`), keeps no tags or locks, and passes the same shared store contract. `Keys`, `AssertHas`, `AssertMissing`, `AssertEmpty` and `Reset` are its inspection API. Closes AUDIT D-23 for the cache half.

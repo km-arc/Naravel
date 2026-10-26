@@ -59,6 +59,23 @@ Naravel.Filesystem.IStorageDriver.SizeAsync(string! path, System.Threading.Cance
 Naravel.Filesystem.StorageManager
 Naravel.Filesystem.StorageManager.Disk(string? name = null) -> Naravel.Filesystem.IStorageDriver!
 Naravel.Filesystem.StorageManager.StorageManager(System.IServiceProvider! provider, Naravel.Foundation.IDriverRegistry<Naravel.Filesystem.IStorageDriver!>! registry, Microsoft.Extensions.Options.IOptionsMonitor<Naravel.Filesystem.FilesystemOptions!>! options) -> void
+Naravel.Filesystem.Testing.StorageFake
+Naravel.Filesystem.Testing.StorageFake.AssertCount(int expectedCount) -> void
+Naravel.Filesystem.Testing.StorageFake.AssertExists(string! path) -> byte[]!
+Naravel.Filesystem.Testing.StorageFake.AssertMissing(string! path) -> void
+Naravel.Filesystem.Testing.StorageFake.CopyAsync(string! sourcePath, string! destinationPath, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.Testing.StorageFake.DeleteAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.Testing.StorageFake.ExistsAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Filesystem.Testing.StorageFake.Files.get -> System.Collections.Generic.IReadOnlyDictionary<string!, byte[]!>!
+Naravel.Filesystem.Testing.StorageFake.GetAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<byte[]!>!
+Naravel.Filesystem.Testing.StorageFake.GetStreamAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.IO.Stream!>!
+Naravel.Filesystem.Testing.StorageFake.GetUrlAsync(string! path, System.TimeSpan? expiration = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
+Naravel.Filesystem.Testing.StorageFake.MoveAsync(string! sourcePath, string! destinationPath, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.Testing.StorageFake.PutAsync(string! path, byte[]! contents, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.Testing.StorageFake.PutAsync(string! path, System.IO.Stream! contents, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Filesystem.Testing.StorageFake.Reset() -> void
+Naravel.Filesystem.Testing.StorageFake.SizeAsync(string! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Naravel.Filesystem.Testing.StorageFake.StorageFake(string! baseUrl = "/storage") -> void
 const Naravel.Filesystem.FilesystemOptions.Position = "Filesystem" -> string!
 static Microsoft.Extensions.DependencyInjection.FilesystemServiceCollectionExtensions.AddNaravelFilesystem(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "Filesystem") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static Microsoft.Extensions.DependencyInjection.FilesystemServiceCollectionExtensions.AddNaravelFilesystem(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Naravel.Filesystem.FilesystemOptions!>! configureOptions) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

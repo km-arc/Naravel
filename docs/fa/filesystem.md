@@ -119,10 +119,26 @@ var scratch = manager.Disk("scratch");
 
 manager مالک driverهایی است که factory برمی‌گرداند و هنگام dispose شدن manager آن‌ها را آزاد می‌کند. از برگرداندن singleton متعلق به container استفاده نکنید، مگر اینکه manager اجازهٔ آزادسازی آن را داشته باشد.
 
+## Fake برای تست و قرارداد مشترک
+
+`Naravel.Filesystem.Testing.StorageFake` یک `IStorageDriver` درون‌حافظه برای تست برنامه است. آن را جایی تزریق کنید که `IStorageDriver` انتظار می‌رود، یا با `StorageManager.Extend` به‌عنوان دیسک ثبت کنید و روی فایل‌ها assert بزنید:
+
+```csharp
+var storage = new StorageFake();
+await sut.SaveAvatarAsync(storage, userId: 1);
+
+storage.AssertExists("avatars/1.png");
+storage.AssertCount(1);
+```
+
+رفتارش مثل درایور local است: فایل ناموجود `FileNotFoundException` می‌دهد، حذف فایل ناموجود بی‌اثر است، copy و move مقصد را جایگزین می‌کنند و مسیری که از ریشه خارج شود `UnauthorizedAccessException` می‌دهد. `GetUrlAsync` مقدار `{baseUrl}/{path}` را برمی‌گرداند و انقضا را نادیده می‌گیرد.
+
+فایل `tests/Naravel.Filesystem.Tests/StorageDriverContractTests.cs` یک قرارداد دارد که درایور local، `StorageFake` و S3 هر سه اجرا می‌کنند: نوشتن و خواندن (bytes، stream، محتوای خالی و باینری)، جایگزینی، URL، copy، move، حذف idempotent و exception برای هر خواندن از فایل ناموجود. نوع exception برای فایل ناموجود بین درایورها فرق دارد و جزو قرارداد نیست. با `NARAVEL_TEST_S3=endpoint;accessKey;secretKey;bucket` قرارداد روی یک سرویس زندهٔ سازگار با S3 اجرا می‌شود (اگر bucket نباشد ساخته می‌شود)؛ بدون این متغیر xUnit آن را Skip می‌کند. AUDIT D-22 و، همراه با `CacheFake`، D-23 را می‌بندد.
+
 ## امنیت و محدودیت‌ها
 
 - مسیرهای local نسبت به ریشهٔ دیسک هستند. تلاش برای خروج از ریشه با `UnauthorizedAccessException` رد می‌شود؛ هنگام تغییر مسیرها تست‌های regression را حفظ کنید.
 - مهاجرت به Foundation کلیدهای تنظیمات را از `DefaultDisk`/`Disks` به `Default`/`Stores` تغییر داده و APIهای قدیمی `IStorageManager` و factory را حذف کرده است. هنگام مهاجرت، مصرف‌کننده‌ها را به‌روزرسانی کنید.
-- انتخاب region در S3، endpoint و آزادسازی client تست واحد دارند، اما این پروژه تست یکپارچه با AWS/S3 زنده اجرا نمی‌کند.
+- انتخاب region در S3، endpoint و آزادسازی client تست واحد دارند. قرارداد مشترک storage با `NARAVEL_TEST_S3` روی سرویس زندهٔ سازگار با S3 قابل اجراست، اما CI چنین سرویسی بالا نمی‌آورد، پس به‌طور پیش‌فرض تست زندهٔ S3 اجرا نمی‌شود.
 - درایور local endpoint عمومی HTTP ایجاد نمی‌کند. static files یا endpoint مجاز دانلود را جداگانه در ASP.NET Core تنظیم کنید.
 - عملیات Filesystem سیستم Laravel برای امضای URL، visibility/policy یا abstraction ابری فراتر از driverهای مستندشده را ارائه نمی‌کند.

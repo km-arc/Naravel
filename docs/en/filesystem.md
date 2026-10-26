@@ -119,10 +119,26 @@ var scratch = manager.Disk("scratch");
 
 The manager owns drivers returned by factories and disposes them when the manager is disposed. Do not return an unrelated container-owned singleton from a factory unless the manager is allowed to dispose it.
 
+## Test fake and shared contract
+
+`Naravel.Filesystem.Testing.StorageFake` is an in-memory `IStorageDriver` for application tests. Inject it where `IStorageDriver` is expected, or register it as a disk with `StorageManager.Extend`, then assert on the files:
+
+```csharp
+var storage = new StorageFake();
+await sut.SaveAvatarAsync(storage, userId: 1);
+
+storage.AssertExists("avatars/1.png");
+storage.AssertCount(1);
+```
+
+It behaves like the local driver: a missing file throws `FileNotFoundException`, deleting a missing file is a no-op, copy and move replace the destination, and a path that leaves the root throws `UnauthorizedAccessException`. `GetUrlAsync` returns `{baseUrl}/{path}` and ignores the expiry.
+
+`tests/Naravel.Filesystem.Tests/StorageDriverContractTests.cs` holds one contract that the local driver, `StorageFake` and S3 all run: put and read back (bytes, stream, empty and binary content), replace, URL, copy, move, idempotent delete, and an exception for every read of a missing file. The kind of exception for a missing file differs between drivers and is not part of the contract. Set `NARAVEL_TEST_S3=endpoint;accessKey;secretKey;bucket` to run it against a live S3-compatible service (the bucket is created when absent); without the variable xUnit skips it. Closes AUDIT D-22 and, with `CacheFake`, D-23.
+
 ## Security and limitations
 
 - Local paths are disk-root-relative. Attempts to escape the configured root are rejected with `UnauthorizedAccessException`; keep the regression tests when changing path handling.
 - The migration to Foundation changed the configuration keys from `DefaultDisk`/`Disks` to `Default`/`Stores` and removed the old `IStorageManager` and factory APIs. Update callers during migration.
-- S3 region selection, endpoint configuration and client disposal have unit coverage, but no live AWS/S3 integration test is run by this project.
+- S3 region selection, endpoint configuration and client disposal have unit coverage. The shared storage contract can run against a live S3-compatible service (`NARAVEL_TEST_S3`), but CI does not start one, so no live S3 test runs by default.
 - The local driver does not create a public HTTP endpoint. Configure ASP.NET Core static files or an authorized download endpoint separately.
 - Filesystem operations do not provide Laravel's URL signing, visibility/policy system, or cloud-provider abstraction beyond the drivers documented here.

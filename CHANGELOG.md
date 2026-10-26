@@ -6,7 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 
 ### Release notes (R17)
 - First preview release of Naravel: database query builder, routing, queue, cache, filesystem, events, mail, notifications, encryption, pagination, broadcasting, scheduling and Redis, all lock-step at `0.1.0-preview`. Hashing, session and auth-lite were declined in favour of native .NET (recipes in the docs).
-- Known limits are listed in `roadmap/AUDIT.md` (open rows D-17, D-22, D-23), each deferred with an owner note. XML documentation is incomplete and `CS1591` stays suppressed.
+- Known limits are listed in `roadmap/AUDIT.md` (open row D-17), deferred with an owner note. XML documentation is incomplete and `CS1591` stays suppressed.
 - Pre-1.0: breaking changes stay allowed if listed here (OD-09); revisit at the first stable release.
 
 ### Removed
@@ -20,6 +20,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 - Dependencies: every package raised to the latest stable version without a NuGet vulnerability or deprecation flag, including StackExchange.Redis 3.4.20 and AWSSDK.S3 4.0.104.6 (new majors). FluentAssertions stays on 7.x (8.x is commercially licensed) and xunit on 2.x (v3 is a migration). Details and the full list: AUDIT D-65.
 
 ### Added
+- Test fakes (AUDIT D-23): `CacheFake` (`Naravel.Cache.Testing`, an in-memory `ICacheStore` with `AssertHas`/`AssertMissing`/`AssertEmpty` and an injectable `TimeProvider`) and `StorageFake` (`Naravel.Filesystem.Testing`, an in-memory `IStorageDriver` with `AssertExists`/`AssertMissing`/`AssertCount`).
+- Filesystem: one shared `IStorageDriver` contract suite runs on the local driver and `StorageFake`, and on a live S3-compatible service when `NARAVEL_TEST_S3` is set (AUDIT D-22).
 - RabbitMQ: `QueueType` (`Classic` default, or `Quorum`) and `DeliveryLimit` per store; a quorum ready queue bounds crash redelivery and dead-letters to the failed queue (AUDIT D-27 closed; docs EN/FA `queue.md`).
 - R14 (PDR-018): `PresenceRedisTests` run the presence list on a real Redis with two connections that stand for two servers: members written by one are read by the other, one user on both servers is one member, 30 parallel joins lose no member, and entries expire. Env-gated by `NARAVEL_TEST_REDIS`; the CI `services` job gets a step for them (results land in the provider summary). Not run locally (no .NET SDK, no Redis); CI is the check.
 - R13 closed (PDR-017): the row is `DONE` with the CI evidence the owner gave (green on main, run 40225281995, the merge of PR #136). `NEXT` moves to R14. No code changed.

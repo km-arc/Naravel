@@ -211,3 +211,19 @@ dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*Memo
 `tests/Naravel.Cache.Tests` قرارداد مشترک store را برای Memory، Redis و Memcached اجرا می‌کند و increment اتمیک با TTL اولیه را می‌سنجد. تست‌های limiter مرز پنجره، clear، جدایی storeهای نام‌دار، cancellation، Fake و خروجی Meter/Activity را پوشش می‌دهند. برای اجرای
 تست زندهٔ provider موردنظر، `NARAVEL_TEST_REDIS=host:port` یا `NARAVEL_TEST_MEMCACHED=host:port` را
 تنظیم کنید؛ در غیر این صورت xUnit تست را Skip می‌کند. CI هر دو را با service container اجرا می‌کند.
+
+## Fake برای تست
+
+`Naravel.Cache.Testing.CacheFake` یک `ICacheStore` درون‌حافظه برای تست برنامه است. آن را جایی تزریق کنید که `ICacheStore` انتظار می‌رود و روی چیزهایی که cache شده assert بزنید؛ بدون Redis، Memcached و `IMemoryCache`.
+
+```csharp
+var clock = new ManualClock();                 // زیرکلاسی از TimeProvider
+var cache = new CacheFake(timeProvider: clock);
+await sut.RememberProfileAsync(42);
+
+cache.AssertHas<Profile>("profile:42");
+clock.Advance(TimeSpan.FromMinutes(11));       // انقضا از ساعت پیروی می‌کند، پس sleep لازم نیست
+cache.AssertMissing("profile:42");
+```
+
+رفتارش مثل store حافظه است (مقدار typed، و TTL فقط در اولین نوشتن برای `IncrementAsync(key, by, ttl)`)، tag و lock ندارد و همان قرارداد مشترک store را پاس می‌کند. API بررسی آن `Keys`، `AssertHas`، `AssertMissing`، `AssertEmpty` و `Reset` است. نیمهٔ cache از AUDIT D-23 را می‌بندد.
