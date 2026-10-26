@@ -24,9 +24,20 @@ namespace Naravel.Queue.RabbitMQ;
 ///
 /// Attempts: a worker-initiated retry acknowledges the delivery and republishes the message with the updated
 /// attempt count. Crash redelivery (unacknowledged deliveries that the broker requeues when the channel or
-/// connection closes) is at-least-once and is NOT counted. The ready queue is a classic queue, so quorum-queue
-/// features such as delivery-limit are not available (see docs/en/queue.md, "Attempt accounting by driver").
+/// connection closes) is at-least-once and is NOT counted by the driver. By default the ready queue is a classic queue.
+/// With <see cref="RabbitMqQueueType.Quorum"/> it is a quorum queue, and an optional delivery limit lets the broker
+/// dead-letter a message that keeps being redelivered into "netqueue.failed.q" (see docs/en/queue.md,
+/// "Attempt accounting by driver").
 /// </summary>
+public enum RabbitMqQueueType
+{
+    /// <summary>A classic queue with message priorities (the default; nothing changes for existing queues).</summary>
+    Classic,
+
+    /// <summary>A quorum queue: replicated, with an optional broker-side delivery limit, and no priorities.</summary>
+    Quorum
+}
+
 public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
 {
     private sealed record Delivery(IChannel Channel, ulong Tag);
@@ -34,10 +45,23 @@ public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
     private readonly ConnectionFactory _factory;
     private readonly SemaphoreSlim _connectionGate = new(1, 1);
     private readonly ConcurrentDictionary<string, Delivery> _deliveries = new();
+    private readonly RabbitMqQueueType _queueType;
+    private readonly int? _deliveryLimit;
     private IConnection? _connection;
 
     public RabbitMqQueueDriver(string hostName, int port, string? userName, string? password, string? virtualHost)
+        : this(hostName, port, userName, password, virtualHost, RabbitMqQueueType.Classic, null)
     {
+    }
+
+    /// <summary>Creates the driver with an explicit ready-queue type. The delivery limit applies to quorum queues only.</summary>
+    public RabbitMqQueueDriver(string hostName, int port, string? userName, string? password, string? virtualHost, RabbitMqQueueType queueType, int? deliveryLimit)
+    {
+        if (deliveryLimit is < 1) throw new ArgumentOutOfRangeException(nameof(deliveryLimit), "The delivery limit must be at least 1.");
+        if (deliveryLimit is not null && queueType != RabbitMqQueueType.Quorum)
+            throw new ArgumentException("A delivery limit needs the quorum queue type.", nameof(deliveryLimit));
+        _queueType = queueType;
+        _deliveryLimit = deliveryLimit;
         _factory = new ConnectionFactory
         {
             HostName = hostName,
@@ -69,11 +93,28 @@ public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
         return await connection.CreateChannelAsync(cancellationToken: cancellationToken);
     }
 
-    private static async Task EnsureTopologyAsync(IChannel channel, string queue, CancellationToken cancellationToken)
+    /// <summary>The arguments the ready queue is declared with. The queue type is fixed at declaration time.</summary>
+    internal static Dictionary<string, object?> ReadyQueueArguments(string queue, RabbitMqQueueType queueType, int? deliveryLimit)
+    {
+        if (queueType == RabbitMqQueueType.Classic) return new Dictionary<string, object?> { ["x-max-priority"] = 9 };
+
+        // Quorum queues ignore x-max-priority. A message that exceeds the delivery limit is dead-lettered
+        // (default exchange, routing key = the failed queue) so it is kept instead of being dropped.
+        var arguments = new Dictionary<string, object?>
+        {
+            ["x-queue-type"] = "quorum",
+            ["x-dead-letter-exchange"] = "",
+            ["x-dead-letter-routing-key"] = $"netqueue.failed.{queue}"
+        };
+        if (deliveryLimit is { } limit) arguments["x-delivery-limit"] = limit;
+        return arguments;
+    }
+
+    private async Task EnsureTopologyAsync(IChannel channel, string queue, CancellationToken cancellationToken)
     {
         await channel.ExchangeDeclareAsync("netqueue.direct", ExchangeType.Direct, durable: true, cancellationToken: cancellationToken);
         await channel.QueueDeclareAsync($"netqueue.ready.{queue}", durable: true, exclusive: false, autoDelete: false,
-            arguments: new Dictionary<string, object?> { ["x-max-priority"] = 9 }, cancellationToken: cancellationToken);
+            arguments: ReadyQueueArguments(queue, _queueType, _deliveryLimit), cancellationToken: cancellationToken);
         await channel.QueueBindAsync($"netqueue.ready.{queue}", "netqueue.direct", queue, cancellationToken: cancellationToken);
         await channel.QueueDeclareAsync($"netqueue.delay.{queue}", durable: true, exclusive: false, autoDelete: false,
             arguments: new Dictionary<string, object?>
@@ -198,7 +239,8 @@ public static class ServiceCollectionExtensions
 {
     /// <summary>
     /// Registers the "rabbitmq" driver for every configured store whose "Driver" is "rabbitmq".
-    /// Reads that store's own "HostName"/"Port"/"UserName"/"Password"/"VirtualHost".
+    /// Reads that store's own "HostName"/"Port"/"UserName"/"Password"/"VirtualHost", plus "QueueType" ("Classic" by
+    /// default, or "Quorum") and, for quorum queues, "DeliveryLimit".
     /// Note: the connection is shared per store, and each in-flight delivery holds its own channel so
     /// its acknowledgement stays on the channel that fetched it.
     /// </summary>
@@ -210,6 +252,8 @@ public static class ServiceCollectionExtensions
             var user = store["UserName"];
             var pass = store["Password"];
             var vhost = store["VirtualHost"];
-            return new RabbitMqQueueDriver(host, port, user, pass, vhost);
+            var type = Enum.Parse<RabbitMqQueueType>(store.GetOrDefault("QueueType", "Classic"), ignoreCase: true);
+            int? limit = int.TryParse(store["DeliveryLimit"], out var parsed) ? parsed : null;
+            return new RabbitMqQueueDriver(host, port, user, pass, vhost, type, limit);
         }, sectionName);
 }

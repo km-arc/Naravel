@@ -386,12 +386,19 @@ jobهایی که `MaxAttempts` را تمام کنند علاوه بر آن به 
 - نوع صف هنگام declare تعیین می‌شود (`x-queue-type`) و با policy قابل تنظیم یا تغییر نیست. `x-max-priority` فقط
   برای classic queue است و quorum queue آن را نادیده می‌گیرد؛ اولویت سخت‌گیرانهٔ quorum از RabbitMQ 4.3 وجود دارد.
 
-**محدودیت فعلی:** درایور `netqueue.ready.<queue>` را به‌صورت classic queue با `x-max-priority` declare می‌کند و در هر
-عملیات دوباره declare می‌کند. چون نوع صف با policy تغییر نمی‌کند و RabbitMQ اجازهٔ declare دوبارهٔ صف موجود با
-آرگومان‌های متفاوت را نمی‌دهد، اپراتور بدون پشتیبانی درایور نمی‌تواند این صف را به quorum تبدیل کند و در نتیجه
-نمی‌تواند از `delivery-limit` استفاده کند. نوع صف قابل‌پیکربندی پیاده نشده و تصمیم جداگانه می‌خواهد (AUDIT D-27). تا آن
-زمان، تحویل مجدد پس از کرش در RabbitMQ بی‌سقف و شمرده‌نشده است، همان‌طور که بالا آمد. Kafka سقف تحویل مجدد سمت
-broker ندارد؛ offset commit‌شده تنها وضعیت است.
+**نوع صف.** به‌طور پیش‌فرض درایور مثل قبل `netqueue.ready.<queue>` را classic queue با `x-max-priority` declare می‌کند.
+برای quorum queue روی store مقدار `QueueType` را `Quorum` بگذارید (و در صورت نیاز `DeliveryLimit`):
+
+```json
+"rabbit": { "Driver": "rabbitmq", "HostName": "localhost", "QueueType": "Quorum", "DeliveryLimit": 5 }
+```
+
+صف آمادهٔ quorum اولویت پیام را حذف می‌کند (RabbitMQ آنجا `x-max-priority` را نادیده می‌گیرد) و پیامی که از سقف تحویل
+بگذرد به `netqueue.failed.<queue>` dead-letter می‌شود؛ پس تحویل مجدد پس از کرش سقف دارد و پیام برای بررسی نگه داشته
+می‌شود. RabbitMQ نوع صف را هنگام declare ثابت می‌کند و declare دوباره با آرگومان متفاوت را رد می‌کند؛ بنابراین قبل از
+تغییر باید صف classic موجود خالی و حذف شود (وگرنه خطای `PRECONDITION_FAILED` می‌گیرید). `DeliveryLimit` فقط با `Quorum`
+معتبر است. صف‌های delay و failed همچنان classic می‌مانند. Kafka سقف تحویل مجدد سمت broker ندارد؛ offset commit‌شده
+تنها وضعیت است.
 
 #### Kafka: بدون تحویل با تأخیر
 
