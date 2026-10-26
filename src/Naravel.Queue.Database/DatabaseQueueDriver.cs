@@ -16,14 +16,17 @@ public class DatabaseQueueDriver<TContext> : IQueueDriver where TContext : DbCon
     private readonly IDbContextFactory<TContext> _contextFactory;
 
     private readonly TimeSpan _visibilityTimeout;
+    /// <inheritdoc />
     public TimeSpan? VisibilityTimeout => _visibilityTimeout;
 
+    /// <summary>Initializes the driver with a context factory and an optional visibility timeout (default five minutes).</summary>
     public DatabaseQueueDriver(IDbContextFactory<TContext> contextFactory, TimeSpan? visibilityTimeout = null)
     {
         _contextFactory = contextFactory;
         _visibilityTimeout = visibilityTimeout ?? TimeSpan.FromMinutes(5);
     }
 
+    /// <inheritdoc />
     public async Task PushAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
@@ -31,6 +34,7 @@ public class DatabaseQueueDriver<TContext> : IQueueDriver where TContext : DbCon
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task<QueuedMessage?> PopAsync(string queue, CancellationToken cancellationToken = default)
     {
         await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
@@ -74,12 +78,14 @@ public class DatabaseQueueDriver<TContext> : IQueueDriver where TContext : DbCon
         return null;
     }
 
+    /// <inheritdoc />
     public async Task AckAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
         await Owned(db, message).ExecuteDeleteAsync(cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task ReleaseAsync(QueuedMessage message, TimeSpan delay, CancellationToken cancellationToken = default)
     {
         await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
@@ -93,6 +99,7 @@ public class DatabaseQueueDriver<TContext> : IQueueDriver where TContext : DbCon
                 .SetProperty(j => j.Error, message.Error), cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task FailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
         => await TryFailAsync(message, cancellationToken);
 
@@ -121,6 +128,7 @@ public class DatabaseQueueDriver<TContext> : IQueueDriver where TContext : DbCon
         return reservationId is null ? query : query.Where(j => j.ReservationId == reservationId);
     }
 
+    /// <inheritdoc />
     public async Task<long> SizeAsync(string queue, CancellationToken cancellationToken = default)
     {
         await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);

@@ -16,6 +16,7 @@ public sealed class CacheRateLimiter : IRateLimiter
     private readonly LockManager _lockManager;
     private readonly string? _storeName;
 
+    /// <summary>Creates a rate limiter that uses the given cache and lock managers and an optional named store.</summary>
     public CacheRateLimiter(CacheManager cacheManager, LockManager lockManager, string? storeName = null)
     {
         _cacheManager = cacheManager;
@@ -23,6 +24,7 @@ public sealed class CacheRateLimiter : IRateLimiter
         _storeName = storeName;
     }
 
+    /// <inheritdoc />
     public async Task<RateLimitDecision> AttemptAsync(
         string limiter,
         string subjectKey,
@@ -80,6 +82,7 @@ public sealed class CacheRateLimiter : IRateLimiter
         return decision;
     }
 
+    /// <inheritdoc />
     public async Task ClearAsync(string limiter, string subjectKey, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(limiter);

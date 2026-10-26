@@ -14,6 +14,7 @@ using Naravel.Queue.Worker;
 
 namespace Naravel.Queue.Extensions;
 
+/// <summary>Dependency injection registration extensions for Naravel.Queue.</summary>
 public static class ServiceCollectionExtensions
 {
     /// <summary>

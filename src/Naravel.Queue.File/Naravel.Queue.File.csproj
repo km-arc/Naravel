@@ -4,6 +4,7 @@
     <RootNamespace>Naravel.Queue.File</RootNamespace>
     <Description>File-based queue driver for Naravel.Queue - durable, zero external services required, JSON files on disk.</Description>
     <PackageTags>queue;jobs;background-jobs;laravel;naravel;file</PackageTags>
+      <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
   </PropertyGroup>
 
   <ItemGroup>

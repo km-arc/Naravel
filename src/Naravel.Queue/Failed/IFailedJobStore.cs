@@ -11,9 +11,13 @@ namespace Naravel.Queue.Failed;
 /// </summary>
 public interface IFailedJobStore
 {
+    /// <summary>Records a failed message together with the exception that caused the failure.</summary>
     Task RecordAsync(QueuedMessage message, Exception exception, CancellationToken cancellationToken);
+    /// <summary>Lists all recorded failed messages.</summary>
     Task<IReadOnlyList<QueuedMessage>> ListAsync(CancellationToken cancellationToken);
+    /// <summary>Removes the failed message with the given id and returns whether it existed.</summary>
     Task<bool> ForgetAsync(string id, CancellationToken cancellationToken);
+    /// <summary>Removes all recorded failed messages and returns how many were removed.</summary>
     Task<int> FlushAsync(CancellationToken cancellationToken);
 }
 
@@ -23,6 +27,7 @@ public class InMemoryFailedJobStore : IFailedJobStore
 {
     private readonly ConcurrentDictionary<string, QueuedMessage> _failed = new();
 
+    /// <inheritdoc />
     public Task RecordAsync(QueuedMessage message, Exception exception, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -31,18 +36,21 @@ public class InMemoryFailedJobStore : IFailedJobStore
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
     public Task<IReadOnlyList<QueuedMessage>> ListAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult<IReadOnlyList<QueuedMessage>>(_failed.Values.Select(Clone).ToList());
     }
 
+    /// <inheritdoc />
     public Task<bool> ForgetAsync(string id, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult(_failed.TryRemove(id, out _));
     }
 
+    /// <inheritdoc />
     public Task<int> FlushAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

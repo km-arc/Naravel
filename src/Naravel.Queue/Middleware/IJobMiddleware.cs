@@ -10,5 +10,6 @@ namespace Naravel.Queue.Middleware;
 /// </summary>
 public interface IJobMiddleware
 {
+    /// <summary>Runs this middleware around the job, calling <paramref name="next"/> to continue the pipeline.</summary>
     Task InvokeAsync(JobContext context, Func<Task> next);
 }

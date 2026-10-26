@@ -13,10 +13,13 @@ public sealed class RateLimiterFake : IRateLimiter
     private readonly ConcurrentQueue<(string Limiter, string Subject)> _attempts = new();
     private readonly TimeProvider _timeProvider;
 
+    /// <summary>Creates a fake limiter that reads time from the given provider, or the system clock when none is supplied.</summary>
     public RateLimiterFake(TimeProvider? timeProvider = null) => _timeProvider = timeProvider ?? TimeProvider.System;
 
+    /// <summary>Gets every attempt recorded so far, in the order it was made.</summary>
     public IReadOnlyList<(string Limiter, string Subject)> Attempts => _attempts.ToArray();
 
+    /// <inheritdoc />
     public Task<RateLimitDecision> AttemptAsync(
         string limiter,
         string subjectKey,
@@ -51,6 +54,7 @@ public sealed class RateLimiterFake : IRateLimiter
         }
     }
 
+    /// <inheritdoc />
     public Task ClearAsync(string limiter, string subjectKey, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -58,6 +62,9 @@ public sealed class RateLimiterFake : IRateLimiter
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Gets the number of attempts counted in the current window for a limiter and subject, or zero when no live window exists.
+    /// </summary>
     public long GetAttemptCount(string limiter, string subjectKey)
     {
         lock (_gate)
@@ -66,12 +73,14 @@ public sealed class RateLimiterFake : IRateLimiter
                 : 0;
     }
 
+    /// <summary>Throws when no attempt was recorded for the given limiter and subject.</summary>
     public void AssertAttempted(string limiter, string subjectKey)
     {
         if (!_attempts.Contains((limiter, subjectKey)))
             throw new InvalidOperationException($"No rate-limit attempt was recorded for '{limiter}'.");
     }
 
+    /// <summary>Clears all windows and recorded attempts.</summary>
     public void Reset()
     {
         lock (_gate) _windows.Clear();

@@ -8,6 +8,7 @@ namespace Naravel.Queue.Jobs;
 /// </summary>
 public sealed class JobContext
 {
+    /// <summary>Initializes a new instance of the <see cref="JobContext"/> class.</summary>
     public JobContext(IServiceProvider services, QueuedMessage message)
     {
         Services = services;
@@ -20,10 +21,15 @@ public sealed class JobContext
     /// <summary>The raw queued message/envelope this job came from.</summary>
     public QueuedMessage Message { get; }
 
+    /// <summary>Gets the identifier of the queued message.</summary>
     public string JobId => Message.Id;
+    /// <summary>Gets the name of the queue the message was taken from.</summary>
     public string QueueName => Message.Queue;
+    /// <summary>Gets the one-based number of the current attempt.</summary>
     public int Attempt => Message.Attempts + 1;
+    /// <summary>Gets the maximum number of attempts allowed for the message.</summary>
     public int MaxAttempts => Message.MaxAttempts;
+    /// <summary>Gets a value indicating whether the current attempt is the last allowed attempt.</summary>
     public bool IsLastAttempt => Attempt >= MaxAttempts;
 
     /// <summary>Arbitrary jobs to run right after this one succeeds. Set via IJobDispatcher.Chain(...).</summary>

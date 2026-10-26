@@ -4,6 +4,7 @@
     <Description>EF Core interop for Naravel.Database: a DbContext and the query builder share one connection and one transaction.</Description>
     <PackageTags>database;query-builder;ef-core;entity-framework;laravel;naravel</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

@@ -3,6 +3,7 @@
     <PackageId>Naravel.Cache</PackageId>
     <Description>Named cache stores, tagging, scoping and locks for Naravel, built on Naravel.Foundation.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

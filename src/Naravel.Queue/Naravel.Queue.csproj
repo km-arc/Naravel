@@ -7,6 +7,7 @@
     <PackageTags>queue;jobs;background-jobs;worker;laravel;naravel</PackageTags>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+      <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
   </PropertyGroup>
 
   <ItemGroup>

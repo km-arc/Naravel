@@ -9,6 +9,7 @@ using Naravel.Queue.Batching;
 
 namespace Naravel.Queue.Database;
 
+/// <summary>Extension methods that register the database-backed queue services.</summary>
 public static class ServiceCollectionExtensions
 {
     /// <summary>Registers an EF Core-backed persistent batch repository using the application's context factory.</summary>
