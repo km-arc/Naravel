@@ -53,6 +53,7 @@ public interface IQueueDriver
 /// <summary>Small helpers shared by driver factories when reading their store's config section.</summary>
 public static class ConfigurationSectionExtensions
 {
+    /// <summary>Returns the non-blank setting <paramref name="key"/> from the section and throws <see cref="InvalidOperationException"/> when it is missing.</summary>
     public static string GetRequired(this IConfigurationSection section, string key)
     {
         var value = section[key];
@@ -62,6 +63,7 @@ public static class ConfigurationSectionExtensions
         return value;
     }
 
+    /// <summary>Returns the setting <paramref name="key"/> from the section, or <paramref name="defaultValue"/> when it is missing or blank.</summary>
     public static string GetOrDefault(this IConfigurationSection section, string key, string defaultValue)
         => string.IsNullOrWhiteSpace(section[key]) ? defaultValue : section[key]!;
 }

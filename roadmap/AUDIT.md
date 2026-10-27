@@ -7,10 +7,10 @@ each open finding must be owned by a roadmap stage.
 
 | ID | Finding | Evidence / impact | Owner |
 |---|---|---|---|
-| D-17 | Public XML documentation completeness is not enforced. | R01 now treats compiler warnings as errors for `src/**` and sets SDK SourceLink properties in CI; however `CS1591` remains suppressed and package validation is not enabled, so missing XML docs still need a dedicated hardening decision. | Deferred (R17, 2026-10-26): ~555 of ~1,700 public members have no XML summary, and the compiler is not available to check a mass edit. `CS1591` stays suppressed for 0.1.0-preview; document members progressively, then drop the suppression. Owner: owner, post-0.1. |
 
 ## Resolved / historical notes
 
+- D-17 closed (2026-10-27, R17.T02): every package under `src/` now documents its public API and the global `CS1591` suppression is gone (it remains only for tests and samples). Warnings are errors under `src/`, so CI fails on any new undocumented public member.
 - D-04 closed (2026-10-26, R17.T01): R07 and R08 are DONE (failed-job store and retry, middleware, chains, batches, worker controls).
 - D-05 closed (2026-10-26, R17.T01): R03 is DONE (`Naravel.Redis`, one shared connection manager, Cache.Redis and Queue.Redis migrated).
 - D-08 closed (2026-10-26, R17.T01): R09-R16 are all DONE or DECLINED (R11, R12, R15 DECLINED by approved PDRs).

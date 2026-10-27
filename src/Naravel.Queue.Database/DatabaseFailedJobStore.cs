@@ -11,9 +11,11 @@ public sealed class DatabaseFailedJobStore<TContext> : IFailedJobStore where TCo
 {
     private readonly IDbContextFactory<TContext> _contextFactory;
 
+    /// <summary>Initializes the store with the context factory used to open database contexts.</summary>
     public DatabaseFailedJobStore(IDbContextFactory<TContext> contextFactory)
         => _contextFactory = contextFactory;
 
+    /// <inheritdoc />
     public async Task RecordAsync(QueuedMessage message, Exception exception, CancellationToken cancellationToken)
     {
         await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
@@ -31,6 +33,7 @@ public sealed class DatabaseFailedJobStore<TContext> : IFailedJobStore where TCo
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<QueuedMessage>> ListAsync(CancellationToken cancellationToken)
     {
         await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
@@ -43,12 +46,14 @@ public sealed class DatabaseFailedJobStore<TContext> : IFailedJobStore where TCo
         }).ToList();
     }
 
+    /// <inheritdoc />
     public async Task<bool> ForgetAsync(string id, CancellationToken cancellationToken)
     {
         await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
         return await db.Set<FailedJobRecord>().Where(record => record.Id == id).ExecuteDeleteAsync(cancellationToken) > 0;
     }
 
+    /// <inheritdoc />
     public async Task<int> FlushAsync(CancellationToken cancellationToken)
     {
         await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);

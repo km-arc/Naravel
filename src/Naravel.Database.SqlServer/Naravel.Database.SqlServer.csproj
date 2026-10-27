@@ -4,7 +4,6 @@
     <Description>SQL Server driver for Naravel.Database, built on Microsoft.Data.SqlClient.</Description>
     <PackageTags>database;query-builder;sqlserver;laravel;naravel</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

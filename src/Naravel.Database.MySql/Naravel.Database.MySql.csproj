@@ -4,7 +4,6 @@
     <Description>MySQL driver for Naravel.Database, built on MySqlConnector.</Description>
     <PackageTags>database;query-builder;mysql;laravel;naravel</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

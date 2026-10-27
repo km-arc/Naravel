@@ -3,7 +3,6 @@
     <PackageId>Naravel.Events.Queue</PackageId>
     <Description>Optional Naravel.Events adapter for running selected event listeners through Naravel.Queue.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

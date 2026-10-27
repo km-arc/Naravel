@@ -16,7 +16,6 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
     <!-- Vulnerability auditing is ON for direct and transitive packages. Do not disable it per project. -->
     <NuGetAudit>true</NuGetAudit>
     <NuGetAuditMode>all</NuGetAuditMode>
@@ -27,6 +26,10 @@
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
+  </PropertyGroup>
+  <!-- Missing XML comments (CS1591) are errors for every package under /src/ (AUDIT D-17 closed) and silent elsewhere (tests, samples). -->
+  <PropertyGroup Condition="!($([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('/src/')) Or $([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('\src\')))">
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition="$([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('/src/')) Or $([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('\src\'))">
     <EnablePackageValidation>true</EnablePackageValidation>

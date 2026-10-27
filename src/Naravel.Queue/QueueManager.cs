@@ -23,6 +23,7 @@ namespace Naravel.Queue;
 /// </remarks>
 public sealed class QueueManager : Manager<IQueueDriver, QueueOptions>
 {
+    /// <summary>Initializes a new instance of the <see cref="QueueManager"/> class.</summary>
     public QueueManager(IServiceProvider provider, IDriverRegistry<IQueueDriver> registry, IOptionsMonitor<QueueOptions> options)
         : base(provider, registry, options)
     {

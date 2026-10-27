@@ -3,7 +3,6 @@
     <PackageId>Naravel.Redis</PackageId>
     <Description>Named, shared Redis connections for Naravel modules: one StackExchange.Redis multiplexer per name, owned and disposed by one manager.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

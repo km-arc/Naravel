@@ -11,12 +11,14 @@ public sealed class DatabaseBatchRepository<TContext> : IBatchRepository where T
     private readonly IDbContextFactory<TContext> _contextFactory;
     private readonly BatchCallbackRegistry _callbacks;
 
+    /// <summary>Initializes the repository with the context factory and the registry used to resolve batch callbacks.</summary>
     public DatabaseBatchRepository(IDbContextFactory<TContext> contextFactory, BatchCallbackRegistry callbacks)
     {
         _contextFactory = contextFactory;
         _callbacks = callbacks;
     }
 
+    /// <inheritdoc />
     public async Task RegisterAsync(QueueBatch batch, BatchOptions options, CancellationToken cancellationToken)
     {
         EnsurePersistable(options);
@@ -34,6 +36,7 @@ public sealed class DatabaseBatchRepository<TContext> : IBatchRepository where T
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task<QueueBatch?> GetAsync(string batchId, CancellationToken cancellationToken)
     {
         await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
@@ -42,6 +45,7 @@ public sealed class DatabaseBatchRepository<TContext> : IBatchRepository where T
         return record is null ? null : ToBatch(record);
     }
 
+    /// <inheritdoc />
     public async Task<bool> IsCancelledAsync(string batchId, CancellationToken cancellationToken)
     {
         await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
@@ -51,6 +55,7 @@ public sealed class DatabaseBatchRepository<TContext> : IBatchRepository where T
             .SingleOrDefaultAsync(cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task CancelAsync(string batchId, CancellationToken cancellationToken)
     {
         await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
@@ -58,15 +63,19 @@ public sealed class DatabaseBatchRepository<TContext> : IBatchRepository where T
             .ExecuteUpdateAsync(update => update.SetProperty(batch => batch.IsCancelled, true), cancellationToken);
     }
 
+    /// <inheritdoc />
     public Task MarkJobCompletedAsync(string batchId, CancellationToken cancellationToken)
         => IncrementAsync(batchId, completed: true, failed: false, cancelled: false, cancellationToken);
 
+    /// <inheritdoc />
     public Task MarkJobFailedAsync(string batchId, Exception exception, CancellationToken cancellationToken)
         => IncrementAsync(batchId, completed: false, failed: true, cancelled: false, cancellationToken);
 
+    /// <inheritdoc />
     public Task MarkJobCancelledAsync(string batchId, CancellationToken cancellationToken)
         => IncrementAsync(batchId, completed: false, failed: false, cancelled: true, cancellationToken);
 
+    /// <inheritdoc />
     public async Task ResumePendingCallbacksAsync(CancellationToken cancellationToken)
     {
         await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);

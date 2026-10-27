@@ -5,6 +5,7 @@ using Naravel.Queue.Extensions;
 
 namespace Naravel.Queue.File;
 
+/// <summary>Registration extension methods for the file-based queue driver.</summary>
 public static class ServiceCollectionExtensions
 {
     /// <summary>

@@ -4,7 +4,6 @@
     <Description>PostgreSQL driver for Naravel.Database, built on Npgsql.</Description>
     <PackageTags>database;query-builder;postgres;postgresql;laravel;naravel</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

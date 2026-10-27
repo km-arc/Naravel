@@ -35,6 +35,7 @@ public class QueueWorkerService : BackgroundService
     private DateTimeOffset _startedAt;
     private int _jobsClaimed;
 
+    /// <summary>Initializes a new instance of the <see cref="QueueWorkerService"/> class with its options and the queue, serialization, dispatch, batch and failed-job services it needs.</summary>
     public QueueWorkerService(
         QueueWorkerOptions options,
         QueueManager manager,
@@ -67,6 +68,7 @@ public class QueueWorkerService : BackgroundService
         return base.StartAsync(cancellationToken);
     }
 
+    /// <summary>Resumes pending batch callbacks, then runs <see cref="QueueWorkerOptions.Concurrency"/> polling loops until the host stops or a worker limit is reached.</summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _startedAt = DateTimeOffset.UtcNow;

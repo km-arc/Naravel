@@ -16,6 +16,7 @@ public sealed class RedisBatchRepository : IBatchRepository
     private readonly RedisKey _index;
     private readonly BatchCallbackRegistry _callbacks;
 
+    /// <summary>Initializes a new instance of the <see cref="RedisBatchRepository"/> class that stores batch state under keys starting with <paramref name="keyPrefix"/>.</summary>
     public RedisBatchRepository(IConnectionMultiplexer multiplexer, BatchCallbackRegistry callbacks, string keyPrefix = "netqueue:batches")
     {
         _database = multiplexer.GetDatabase();
@@ -40,6 +41,7 @@ public sealed class RedisBatchRepository : IBatchRepository
         return 1
         """;
 
+    /// <inheritdoc />
     public async Task RegisterAsync(QueueBatch batch, BatchOptions options, CancellationToken cancellationToken)
     {
         EnsurePersistable(options);
@@ -64,6 +66,7 @@ public sealed class RedisBatchRepository : IBatchRepository
         await _database.SetAddAsync(_index, batch.Id);
     }
 
+    /// <inheritdoc />
     public async Task<QueueBatch?> GetAsync(string batchId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -82,6 +85,7 @@ public sealed class RedisBatchRepository : IBatchRepository
         };
     }
 
+    /// <inheritdoc />
     public async Task<bool> IsCancelledAsync(string batchId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -89,21 +93,26 @@ public sealed class RedisBatchRepository : IBatchRepository
         return value == "1";
     }
 
+    /// <inheritdoc />
     public async Task CancelAsync(string batchId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         await _database.HashSetAsync(BatchKey(batchId), "IsCancelled", "1");
     }
 
+    /// <inheritdoc />
     public Task MarkJobCompletedAsync(string batchId, CancellationToken cancellationToken)
         => IncrementAsync(batchId, "CompletedJobs", cancellationToken);
 
+    /// <inheritdoc />
     public Task MarkJobFailedAsync(string batchId, Exception exception, CancellationToken cancellationToken)
         => IncrementAsync(batchId, "FailedJobs", cancellationToken);
 
+    /// <inheritdoc />
     public Task MarkJobCancelledAsync(string batchId, CancellationToken cancellationToken)
         => IncrementAsync(batchId, "CancelledJobs", cancellationToken);
 
+    /// <inheritdoc />
     public async Task ResumePendingCallbacksAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -184,6 +193,7 @@ public sealed class RedisBatchRepository : IBatchRepository
     }
 }
 
+/// <summary>Dependency injection registration for the Redis batch repository.</summary>
 public static class RedisBatchRepositoryServiceCollectionExtensions
 {
     /// <summary>Uses the selected Redis queue connection for persistent batch state.</summary>

@@ -5,6 +5,7 @@ namespace Naravel.Queue.Jobs;
 /// </summary>
 public interface IJob
 {
+    /// <summary>Executes the job with the given runtime context.</summary>
     Task HandleAsync(JobContext context, CancellationToken cancellationToken);
 }
 
@@ -14,6 +15,7 @@ public interface IJob
 /// </summary>
 public interface IFailedJobHandler
 {
+    /// <summary>Called when the job has failed permanently.</summary>
     Task FailedAsync(JobContext context, Exception exception, CancellationToken cancellationToken);
 }
 
@@ -38,7 +40,9 @@ public abstract class Job : IJob, IFailedJobHandler
     /// <summary>Optional execution timeout. Null uses the worker's configured timeout.</summary>
     public virtual TimeSpan? Timeout => null;
 
+    /// <inheritdoc />
     public abstract Task HandleAsync(JobContext context, CancellationToken cancellationToken);
 
+    /// <inheritdoc />
     public virtual Task FailedAsync(JobContext context, Exception exception, CancellationToken cancellationToken) => Task.CompletedTask;
 }

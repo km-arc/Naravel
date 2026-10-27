@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Naravel.Queue.Database;
 
+/// <summary>Extension methods that map the queue tables onto an EF Core model.</summary>
 public static class QueueModelBuilderExtensions
 {
     /// <summary>
@@ -32,6 +33,7 @@ public static class QueueModelBuilderExtensions
         return modelBuilder;
     }
 
+    /// <summary>Maps <see cref="FailedJobRecord"/> to the failed-jobs table, using the given table name.</summary>
     public static ModelBuilder ConfigureQueueFailedJobs(this ModelBuilder modelBuilder, string tableName = "QueueFailedJobs")
     {
         modelBuilder.Entity<FailedJobRecord>(b =>
@@ -46,6 +48,7 @@ public static class QueueModelBuilderExtensions
         return modelBuilder;
     }
 
+    /// <summary>Maps <see cref="QueueBatchRecord"/> to the batches table, using the given table name.</summary>
     public static ModelBuilder ConfigureQueueBatches(this ModelBuilder modelBuilder, string tableName = "QueueBatches")
     {
         modelBuilder.Entity<QueueBatchRecord>(b =>

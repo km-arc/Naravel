@@ -4,7 +4,6 @@
     <Description>SQLite driver for Naravel.Database, built on Microsoft.Data.Sqlite.</Description>
     <PackageTags>database;query-builder;sqlite;laravel;naravel</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
