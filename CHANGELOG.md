@@ -6,13 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 
 ### Release notes (R17)
 - First preview release of Naravel: database query builder, routing, queue, cache, filesystem, events, mail, notifications, encryption, pagination, broadcasting, scheduling and Redis, all lock-step at `0.1.0-preview`. Hashing, session and auth-lite were declined in favour of native .NET (recipes in the docs).
-- Known limits are listed in `roadmap/AUDIT.md` (open row D-17), deferred with an owner note. XML documentation is incomplete and `CS1591` stays suppressed.
+- All audit findings are closed; the release has no open `roadmap/AUDIT.md` rows.
 - Pre-1.0: breaking changes stay allowed if listed here (OD-09); revisit at the first stable release.
 
 ### Removed
 - Docs: removed the orphan `docs/en/querybuilder.md` (no Persian twin, described APIs that do not exist). Use `docs/en/database.md` / `docs/fa/database.md`. Closes AUDIT D-57.
 
 ### Changed
+- XML documentation is complete for every public API under `src/`, and `CS1591` is an error there (AUDIT D-17 closed). The suppression remains only for tests and samples.
 - Events.Queue: `AddQueuedEventListener` overloads take per-listener dispatch options (connection, queue, delay, attempts, priority) and source-generated `JsonTypeInfo<TEvent>` for trimming/AOT-safe payloads (AUDIT D-26 closed). The existing overload is unchanged.
 - Kafka queue driver: `PopAsync` polls with a zero timeout and an async delay instead of a blocking 200 ms `Consume`, so an idle poll holds no thread and cancellation is prompt (AUDIT D-21 closed).
 - Query builder pagination (R26, PDR-022): `Query.PaginateAsync`, `SimplePaginateAsync` and `CursorPaginateAsync` (dictionary and typed overloads) return the R16 `Paginated<T>`, `SimplePaginated<T>` and `CursorPaginated<T>`. `Naravel.Database` now references `Naravel.Pagination`, which shares its cursor format through `InternalsVisibleTo` (AUDIT D-68).

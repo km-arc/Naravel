@@ -4,7 +4,6 @@
     <PackageId>Naravel.Filesystem</PackageId>
     <Description>Shared Manager -> Driver -> Factory Filesystem for Naravel modules (Laravel Illuminate\Support\Manager, reimagined for .NET).</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

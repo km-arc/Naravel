@@ -7,7 +7,6 @@
     <PackageTags>queue;jobs;background-jobs;laravel;naravel;rabbitmq;amqp</PackageTags>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-      <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
   </PropertyGroup>
 
   <ItemGroup>

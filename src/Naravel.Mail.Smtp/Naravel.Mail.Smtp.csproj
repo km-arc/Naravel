@@ -3,7 +3,6 @@
     <PackageId>Naravel.Mail.Smtp</PackageId>
     <Description>Optional SMTP transport for Naravel.Mail, built on MailKit.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

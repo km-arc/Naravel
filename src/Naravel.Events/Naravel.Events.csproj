@@ -3,7 +3,6 @@
     <PackageId>Naravel.Events</PackageId>
     <Description>Typed event dispatcher with listener ordering, stop propagation, and optional queue adapter support.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

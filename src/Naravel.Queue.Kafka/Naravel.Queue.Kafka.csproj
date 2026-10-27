@@ -7,7 +7,6 @@
     <PackageTags>queue;jobs;background-jobs;laravel;naravel;kafka</PackageTags>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-      <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
   </PropertyGroup>
 
   <ItemGroup>

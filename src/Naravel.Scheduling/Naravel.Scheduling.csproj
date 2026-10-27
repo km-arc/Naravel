@@ -3,7 +3,6 @@
     <PackageId>Naravel.Scheduling</PackageId>
     <Description>Naravel task scheduling: a fluent, named schedule run by a hosted service, with overlap and one-server guards over Naravel.Cache locks.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

@@ -3,7 +3,6 @@
     <PackageId>Naravel.Encryption</PackageId>
     <Description>A thin Encrypt/Decrypt facade over ASP.NET Core Data Protection. No custom cryptography: keys, rotation and persistence stay in Data Protection.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

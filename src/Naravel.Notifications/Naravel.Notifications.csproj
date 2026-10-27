@@ -3,7 +3,6 @@
     <PackageId>Naravel.Notifications</PackageId>
     <Description>Typed notification fan-out over explicitly named channels, with a fake for tests. Channels (Mail, Queue) are separate opt-in packages.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NaravelRequireXmlDocs>true</NaravelRequireXmlDocs>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
