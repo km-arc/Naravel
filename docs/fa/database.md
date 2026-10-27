@@ -1,5 +1,7 @@
 # پایگاه داده (Query Builder)
 
+> **تفاوت موتورها:** یک فراخوانی روی همهٔ موتورها یک معنی ندارد؛ پیش از تکیه بر قابلیت حمل [database-dialects.md](database-dialects.md) را بخوانید.
+
 `Naravel.Database` یک query builder به سبک Laravel برای .NET است: اتصال‌های نام‌دار، سازندهٔ روان (fluent) و SQL با پارامتر برای SQLite، MySQL، PostgreSQL و SQL Server. EF Core همچنان ابزار موجودیت‌ها و migration است؛ این بسته برای مسیر «فقط یک کوئری اجرا کن» است، با Dapper برای اجرای سریع و **بدون SqlKata**.
 
 تصمیم‌ها: [PDR-022](../pdr/fa/PDR-022-database-query-builder.md). نسخهٔ انگلیسی: [docs/en/database.md](../en/database.md).

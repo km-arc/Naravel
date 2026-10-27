@@ -1,7 +1,7 @@
 # Query builder coverage ledger (PDR-022)
 
 Source: the Laravel "Database: Query Builder" page. Every method group is assigned to exactly one stage so "all methods" is checkable.
-This file lists **ownership only**; the status of a stage lives in [ROADMAP.md](../ROADMAP.md). C# names are PascalCase with an `Async`
+"Laravel-compatible" is claimed only for the tested subset; per-engine differences are in [docs/en/database-dialects.md](../docs/en/database-dialects.md). This file lists **ownership only**; the status of a stage lives in [ROADMAP.md](../ROADMAP.md). C# names are PascalCase with an `Async`
 suffix on anything that executes. A method that is deliberately not ported says so and why.
 
 | Laravel group | Methods | Stage |

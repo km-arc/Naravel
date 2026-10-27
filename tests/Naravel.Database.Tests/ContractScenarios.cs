@@ -443,6 +443,26 @@ internal static class ContractScenarios
             await c.Db.Table(c.Writes).UpsertAsync(Row("w_s2", 22, "bb"), ["name"]);
             (await c.Db.Table(c.Writes).Where("name", "w_s2").ValueAsync<string>("tag")).Should().Be("bb", "no update list overwrites every column");
         }),
+        new("write_upsert_key_semantics_differ_by_dialect", async c =>
+        {
+            // "tag" has no unique index; "name" does. MySQL ignores uniqueBy and reacts to ANY unique key of the table, so the
+            // collision on "name" updates the existing row. SQLite and PostgreSQL need a unique index behind uniqueBy ("tag" has
+            // none), and SQL Server's merge on "tag" finds no match and then violates the unique "name": all three refuse.
+            IReadOnlyDictionary<string, object?> Row(int votes, string tag) => new Dictionary<string, object?> { ["name"] = "w_key_sem", ["votes"] = votes, ["tag"] = tag };
+            await c.Db.Table(c.Writes).InsertAsync(Row(1, "t1"));
+
+            var upsert = () => c.Db.Table(c.Writes).UpsertAsync(Row(2, "t2"), ["tag"]);
+            if (c.Dialect == DatabaseDialect.MySql)
+            {
+                await upsert();
+                (await c.Db.Table(c.Writes).Where("name", "w_key_sem").ValueAsync<long>("votes")).Should().Be(2, "MySQL updates the row found through the unique name, whatever uniqueBy says");
+            }
+            else
+            {
+                await upsert.Should().ThrowAsync<Exception>("uniqueBy must be backed by a unique index; here it is not");
+                (await c.Db.Table(c.Writes).Where("name", "w_key_sem").ValueAsync<long>("votes")).Should().Be(1, "the refused upsert changed nothing");
+            }
+        }),
         new("write_upsert_batch_split_over_limits", async c =>
         {
             var rows = Enumerable.Range(1, 1200).Select(i => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?> { ["name"] = "w_t" + i, ["votes"] = i, ["tag"] = "t" }).ToArray();
