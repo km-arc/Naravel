@@ -9,6 +9,16 @@ using RabbitMQ.Client;
 
 namespace Naravel.Queue.RabbitMQ;
 
+/// <summary>The type of queue the driver declares for each ready queue; fixed by RabbitMQ when the queue is first declared.</summary>
+public enum RabbitMqQueueType
+{
+    /// <summary>A classic queue with message priorities (the default; nothing changes for existing queues).</summary>
+    Classic,
+
+    /// <summary>A quorum queue: replicated, with an optional broker-side delivery limit, and no priorities.</summary>
+    Quorum
+}
+
 /// <summary>
 /// RabbitMQ-backed driver. Topology per queue name "q":
 ///   exchange "netqueue.direct" (direct)         - routes by queue name
@@ -29,15 +39,6 @@ namespace Naravel.Queue.RabbitMQ;
 /// dead-letter a message that keeps being redelivered into "netqueue.failed.q" (see docs/en/queue.md,
 /// "Attempt accounting by driver").
 /// </summary>
-public enum RabbitMqQueueType
-{
-    /// <summary>A classic queue with message priorities (the default; nothing changes for existing queues).</summary>
-    Classic,
-
-    /// <summary>A quorum queue: replicated, with an optional broker-side delivery limit, and no priorities.</summary>
-    Quorum
-}
-
 public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
 {
     private sealed record Delivery(IChannel Channel, ulong Tag);
@@ -49,6 +50,7 @@ public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
     private readonly int? _deliveryLimit;
     private IConnection? _connection;
 
+    /// <summary>Creates a driver that uses classic ready queues.</summary>
     public RabbitMqQueueDriver(string hostName, int port, string? userName, string? password, string? virtualHost)
         : this(hostName, port, userName, password, virtualHost, RabbitMqQueueType.Classic, null)
     {
@@ -203,6 +205,7 @@ public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
         await PushAsync(message, cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task FailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         if (_deliveries.TryRemove(message.Id, out var delivery))
@@ -217,6 +220,7 @@ public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
         await channel.BasicPublishAsync("", $"netqueue.failed.{message.Queue}", false, new BasicProperties(), body, cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task<long> SizeAsync(string queue, CancellationToken cancellationToken = default)
     {
         await using var channel = await OpenChannelAsync(cancellationToken);
@@ -225,6 +229,7 @@ public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
         return status.MessageCount;
     }
 
+    /// <summary>Closes every in-flight channel and the shared connection.</summary>
     public async ValueTask DisposeAsync()
     {
         foreach (var delivery in _deliveries.Values)
@@ -239,6 +244,7 @@ public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
     }
 }
 
+/// <summary>Registration extension methods for the RabbitMQ queue driver.</summary>
 public static class ServiceCollectionExtensions
 {
     /// <summary>
