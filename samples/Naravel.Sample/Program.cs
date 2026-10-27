@@ -1,3 +1,4 @@
+using Naravel.Sample.App.Demos;
 using Naravel.Sample.Config;
 using Naravel.Sample.Routes;
 
@@ -10,11 +11,13 @@ QueueSampleConfig.Configure(builder.Services, builder.Configuration);
 EventsSampleConfig.Configure(builder.Services);
 RoutingSampleConfig.Configure(builder.Services);
 DatabaseSampleConfig.Configure(builder.Services, builder.Configuration);
+ModulesSampleConfig.Configure(builder.Services, builder.Configuration);
 
 var app = builder.Build();
 
 app.UseNaravelRouting();
 WebRoutes.Map(app);
+ModuleDemoEndpoints.Map(app);
 app.MapControllers();
 
 app.Run();
