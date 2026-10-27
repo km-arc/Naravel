@@ -36,6 +36,49 @@ The format is PBKDF2 with HMAC-SHA512, a 16-byte random salt and a 32-byte key, 
 
 Raising the count later is safe: old hashes still verify, `SuccessRehashNeeded` tells you to store a new one, and users are upgraded at their next login.
 
+## Complete example
+
+Registration and login with a rehash on sign-in. `IUserStore` is your own data access; the endpoints return `401` for both an unknown user and a wrong password.
+
+```csharp
+public sealed class AppUser
+{
+    public string Email { get; set; } = "";
+    public string PasswordHash { get; set; } = "";
+}
+public sealed record Credentials(string Email, string Password);
+
+// Program.cs (IUserStore stands for your own data access)
+builder.Services.Configure<PasswordHasherOptions>(o => o.IterationCount = 250_000);
+builder.Services.AddSingleton<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
+
+app.MapPost("/register", async (Credentials body, IPasswordHasher<AppUser> hasher, IUserStore users, CancellationToken ct) =>
+{
+    var user = new AppUser { Email = body.Email };
+    user.PasswordHash = hasher.HashPassword(user, body.Password);          // Hash::make
+    await users.AddAsync(user, ct);
+    return Results.Created($"/users/{user.Email}", null);
+});
+
+app.MapPost("/login", async (Credentials body, IPasswordHasher<AppUser> hasher, IUserStore users, CancellationToken ct) =>
+{
+    var user = await users.FindByEmailAsync(body.Email, ct);
+    if (user is null)
+        return Results.Unauthorized();                                      // same answer as a wrong password
+
+    var result = hasher.VerifyHashedPassword(user, user.PasswordHash, body.Password);
+    if (result == PasswordVerificationResult.Failed)
+        return Results.Unauthorized();
+
+    if (result == PasswordVerificationResult.SuccessRehashNeeded)           // Hash::needsRehash
+    {
+        user.PasswordHash = hasher.HashPassword(user, body.Password);
+        await users.UpdateAsync(user, ct);
+    }
+    return Results.Ok();                                                    // then sign the user in (see auth.md)
+});
+```
+
 ## What this does not cover
 
 - **Argon2id and bcrypt.** OWASP ranks Argon2id first and PBKDF2 as the choice when FIPS-140 is required. Neither Argon2id nor bcrypt is in the .NET base library; using them means a third-party package, which needs its own PDR in this project. That includes verifying existing Laravel `$2y$` hashes after a migration: until such a package is approved, keep the old hashes and rehash each user to the Identity format at their next login with a small adapter of your own.

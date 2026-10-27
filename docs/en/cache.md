@@ -174,6 +174,36 @@ instances share a backend whose lock implementation provides the required coordi
 are process-local; Memcached lock release has a read/delete race, so Redis is the safer choice for
 critical shared quotas.
 
+Complete example: throttle a login endpoint to 5 attempts per minute per IP and account. `IAuthService` and `LoginRequest` stand for your own code.
+
+```csharp
+using Naravel.Cache.RateLimiting;
+
+// Program.cs: a shared Redis store, so every instance counts the same attempts.
+builder.Services.AddNaravelCache(builder.Configuration).AddNaravelRedisCache(builder.Configuration);
+builder.Services.AddNaravelRateLimiter("redis");
+
+app.MapPost("/login", async (LoginRequest body, HttpContext http, IRateLimiter limiter, IAuthService auth, CancellationToken ct) =>
+{
+    var subject = $"{http.Connection.RemoteIpAddress}:{body.Email.ToLowerInvariant()}";   // one bucket per IP and account
+
+    var decision = await limiter.AttemptAsync("login", subject, 5, TimeSpan.FromMinutes(1), ct);
+    if (!decision.Allowed)
+    {
+        http.Response.Headers.RetryAfter = ((int)Math.Ceiling(decision.RetryAfter.TotalSeconds)).ToString();
+        return Results.StatusCode(StatusCodes.Status429TooManyRequests);
+    }
+
+    if (!await auth.CheckAsync(body.Email, body.Password, ct))
+        return Results.Unauthorized();                       // the failed attempt stays counted
+
+    await limiter.ClearAsync("login", subject, ct);          // RateLimiter::clear after a successful sign-in
+    return Results.Ok();
+});
+```
+
+`Remaining` tells you how many attempts are left in the window, for example to send an `X-RateLimit-Remaining` header.
+
 `ICacheStore.IncrementAsync(key, by, ttl)` atomically increments a counter and only applies TTL when
 the key is created. Redis performs increment and first-expiry assignment in one Lua operation; Memory
 coordinates with its per-key lock; Memcached uses atomic add followed by atomic increment. Later

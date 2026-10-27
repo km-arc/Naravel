@@ -34,6 +34,64 @@ app.MapNaravel(r =>
 | `password.confirm` | policy‌ای که claim‌ی ورود اخیر را بطلبد، که endpoint تأیید شما تنظیم می‌کند |
 | گروه‌های مسیر با میان‌افزار | `MapGroup("/admin").RequireAuthorization()` |
 
+## مثال کامل
+
+ورود با کوکی، صفحهٔ ورود با `guest`، یک policy برای هر route، بررسی مبتنی بر منبع و یک group بومی. `Credentials` و `IPostStore` نوع‌های خودتان هستند؛ `Claim`، `ClaimsPrincipal` و `ClaimsIdentity` از `System.Security.Claims` می‌آیند. `Configure` برای هر route جداست؛ برای یک قاعده روی چند route از `app.MapGroup(...)` استفاده کنید.
+
+```csharp
+// Program.cs
+builder.Services.AddAuthentication("cookie").AddCookie("cookie", o => { o.LoginPath = "/login"; o.AccessDeniedPath = "/denied"; });
+builder.Services.AddAuthorization(o =>
+{
+    o.AddPolicy("verified", p => p.RequireClaim("email_verified", "true"));
+    o.AddPolicy("editor",   p => p.RequireRole("editor"));
+});
+
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseNaravelRouting();                                   // this order
+
+app.MapNaravel(r =>
+{
+    r.Get("/login", () => Results.Ok("login form")).Middleware("guest");            // guest (403 for a signed-in user)
+
+    r.Post("/login", async (Credentials body, HttpContext http) =>
+    {
+        // check the password first (see hashing.md), then sign in with the claims your policies read
+        var claims = new[] { new Claim(ClaimTypes.Name, body.Email), new Claim("email_verified", "true") };
+        await http.SignInAsync("cookie", new ClaimsPrincipal(new ClaimsIdentity(claims, "cookie")));
+        return Results.Redirect("/dashboard");
+    }).Middleware("guest");
+
+    r.Get("/dashboard", (ClaimsPrincipal user) => Results.Ok($"hello {user.Identity!.Name}"))
+        .Configure(b => b.RequireAuthorization());                                   // auth
+
+    r.Get("/billing", () => Results.Ok("billing"))
+        .Configure(b => b.RequireAuthorization("verified"));                         // auth + verified
+
+    r.Post("/posts/{id}", (string id) => Results.Ok(id))
+        .Configure(b => b.RequireAuthorization("editor"));                           // can:update
+
+    r.Post("/logout", async (HttpContext http) =>
+    {
+        await http.SignOutAsync("cookie");
+        return Results.Redirect("/login");
+    });
+});
+
+// Resource-based check inside a handler (Laravel: can:update,post). Needs a policy named "can-edit-post".
+app.MapPut("/posts/{id}", async (string id, ClaimsPrincipal user, IAuthorizationService authz, IPostStore posts) =>
+{
+    var post = await posts.FindAsync(id);
+    if (post is null) return Results.NotFound();
+    return (await authz.AuthorizeAsync(user, post, "can-edit-post")).Succeeded ? Results.Ok() : Results.Forbid();
+});
+
+// Many routes with the same rule: use a native group.
+var admin = app.MapGroup("/admin").RequireAuthorization("editor");
+admin.MapGet("/stats", () => Results.Ok("stats"));
+```
+
 ## 401 یا 403 یا redirect
 
 scheme احراز هویت پیکربندی‌شده تصمیم می‌گیرد، نه Naravel: scheme‌ی cookie به مسیر ورود redirect می‌کند (challenge) یا به مسیر دسترسی-ممنوع (forbid)، و scheme‌ی bearer با `WWW-Authenticate` پاسخ 401 یا 403 می‌دهد. به همین دلیل alias‌ی `auth` وجود ندارد: aliasی که خودش `context.User` را بررسی کند مسیر مجوزدهی دومی با کدهای وضعیت خودش می‌شد، بیرون از challenge‌ی scheme و ارزیاب policy، و در OpenAPI دیده نمی‌شد.

@@ -36,6 +36,49 @@ if (result == PasswordVerificationResult.SuccessRehashNeeded) hash = hasher.Hash
 
 بالا بردن تعداد در آینده امن است: هش‌های قدیمی همچنان تأیید می‌شوند، `SuccessRehashNeeded` می‌گوید هش تازه ذخیره کنید و کاربران در ورود بعدی ارتقا می‌یابند.
 
+## مثال کامل
+
+ثبت‌نام و ورود همراه با rehash هنگام ورود. `IUserStore` دسترسی به دادهٔ خودتان است؛ endpointها هم برای کاربر ناشناس و هم برای رمز اشتباه `401` برمی‌گردانند.
+
+```csharp
+public sealed class AppUser
+{
+    public string Email { get; set; } = "";
+    public string PasswordHash { get; set; } = "";
+}
+public sealed record Credentials(string Email, string Password);
+
+// Program.cs (IUserStore stands for your own data access)
+builder.Services.Configure<PasswordHasherOptions>(o => o.IterationCount = 250_000);
+builder.Services.AddSingleton<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
+
+app.MapPost("/register", async (Credentials body, IPasswordHasher<AppUser> hasher, IUserStore users, CancellationToken ct) =>
+{
+    var user = new AppUser { Email = body.Email };
+    user.PasswordHash = hasher.HashPassword(user, body.Password);          // Hash::make
+    await users.AddAsync(user, ct);
+    return Results.Created($"/users/{user.Email}", null);
+});
+
+app.MapPost("/login", async (Credentials body, IPasswordHasher<AppUser> hasher, IUserStore users, CancellationToken ct) =>
+{
+    var user = await users.FindByEmailAsync(body.Email, ct);
+    if (user is null)
+        return Results.Unauthorized();                                      // same answer as a wrong password
+
+    var result = hasher.VerifyHashedPassword(user, user.PasswordHash, body.Password);
+    if (result == PasswordVerificationResult.Failed)
+        return Results.Unauthorized();
+
+    if (result == PasswordVerificationResult.SuccessRehashNeeded)           // Hash::needsRehash
+    {
+        user.PasswordHash = hasher.HashPassword(user, body.Password);
+        await users.UpdateAsync(user, ct);
+    }
+    return Results.Ok();                                                    // then sign the user in (see auth.md)
+});
+```
+
 ## آنچه این صفحه پوشش نمی‌دهد
 
 - **Argon2id و bcrypt.** OWASP الگوریتم Argon2id را اول می‌گذارد و PBKDF2 را وقتی ترجیح می‌دهد که FIPS-140 لازم باشد. نه Argon2id و نه bcrypt در کتابخانهٔ پایهٔ .NET نیستند؛ استفاده از آن‌ها بستهٔ شخص ثالث می‌خواهد که در این پروژه PDR جدا لازم دارد. این شامل تأیید هش‌های موجود `$2y$` لاراول بعد از مهاجرت هم هست: تا زمانی که چنین بسته‌ای تأیید نشده، هش‌های قدیمی را نگه دارید و با یک adapter کوچک خودتان هر کاربر را در ورود بعدی به قالب Identity دوباره هش کنید.

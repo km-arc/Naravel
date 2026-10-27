@@ -40,6 +40,73 @@ Adapter limits to know about:
 - A queued listener runs later with a fresh `EventDispatchContext`: it cannot stop propagation, the dispatching code does not wait for it, and its exceptions follow Queue retry and failed-job rules rather than the first-exception policy. Execution is at-least-once, so make listeners idempotent.
 - A listener that implements `IQueuedEventListener<TEvent>` but was not registered with `AddQueuedEventListener` throws `InvalidOperationException` at dispatch because it has no alias.
 
+## Complete example
+
+One event, a DI listener that can stop propagation, a queued listener and a request-scoped `Listen` callback. `IOrderReadStore` and `IMailer` stand for your own services. A runnable version is in `samples/Naravel.Sample` (`/events`).
+
+```csharp
+// 1. The event: a small serializable record (ids and scalars only).
+public sealed record OrderPaid(string OrderId, string Email, decimal Total);
+
+// 2. A DI listener. It runs inside DispatchAsync, in registration order.
+public sealed class UpdateOrderReadModel(IOrderReadStore store) : IEventListener<OrderPaid>
+{
+    public async Task HandleAsync(OrderPaid evt, EventDispatchContext context, CancellationToken cancellationToken = default)
+    {
+        await store.MarkPaidAsync(evt.OrderId, evt.Total, cancellationToken);
+        if (evt.Total > 10_000m)
+            context.Stop();                       // later listeners and Listen callbacks do not run
+    }
+}
+
+// 3. A queued listener: dispatch only enqueues a job, the worker calls HandleAsync later (at-least-once).
+public sealed class SendReceipt(IMailer mailer) : IQueuedEventListener<OrderPaid>
+{
+    public Task HandleAsync(OrderPaid evt, EventDispatchContext context, CancellationToken cancellationToken = default)
+        => mailer.SendReceiptAsync(evt.Email, evt.OrderId, cancellationToken);   // make it idempotent
+}
+
+// 4. Program.cs
+builder.Services.AddNaravelEventsQueue();                                          // also registers the dispatcher
+builder.Services.AddScoped<IEventListener<OrderPaid>, UpdateOrderReadModel>();
+builder.Services.AddQueuedEventListener<OrderPaid, SendReceipt>("order-paid.receipt");
+
+// 5. Dispatch from an endpoint, and add a request-scoped callback.
+app.MapPost("/orders/{id}/pay", async (string id, string email, decimal total, IEventDispatcher events, CancellationToken ct) =>
+{
+    using var audit = events.Listen<OrderPaid>((evt, _, _) =>
+    {
+        Console.WriteLine($"audit: {evt.OrderId}");      // runs after the DI listeners, then is unsubscribed on Dispose
+        return Task.CompletedTask;
+    });
+
+    await events.DispatchAsync(new OrderPaid(id, email, total), ct);
+    return Results.Accepted();
+});
+```
+
+Order of execution for a total of 120: `UpdateOrderReadModel`, then the `Listen` callback; `SendReceipt` runs later in the queue worker (run a worker on the default connection and the `default` queue). For a total above 10,000 the first listener stops propagation, so nothing else runs.
+
+## Testing a dispatcher call
+
+```csharp
+[Fact]
+public async Task Paying_an_order_dispatches_OrderPaid()
+{
+    var fake = new EventFake();                                  // replaces IEventDispatcher in the test
+    var handler = new PayOrderHandler(fake);                     // your code under test
+
+    await handler.PayAsync("o-1", "ali@example.com", 120m);
+
+    var evt = fake.AssertDispatched<OrderPaid>();                // throws if none was dispatched
+    Assert.Equal("o-1", evt.OrderId);
+    fake.AssertDispatched<OrderPaid>(expectedCount: 1);          // exact count
+    fake.Reset();
+}
+```
+
+`EventFake` records events and does not run listeners, so test listeners by calling `HandleAsync` directly.
+
 ## Observability and testing
 
 `Meter` and `ActivitySource` are both named `Naravel.Events`. `Naravel.Events.Testing.EventFake` records dispatched events and supports type/count assertions and reset; it does not execute listeners. `AddNaravelEvents()` uses `TryAdd`, so an application can replace `IEventDispatcher` explicitly.

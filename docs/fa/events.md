@@ -45,6 +45,73 @@ Events وابستگی به Queue ندارد و نه assembly scan انجام م�
 - listener صف‌شده بعداً و با یک `EventDispatchContext` تازه اجرا می‌شود: نمی‌تواند انتشار را متوقف کند، کدِ dispatch‌کننده منتظر آن نمی‌ماند و exceptionهای آن از قواعد retry و failed-job در Queue پیروی می‌کنند، نه سیاست نخستین exception. اجرا at-least-once است؛ listenerها را idempotent بنویسید.
 - listenerی که `IQueuedEventListener<TEvent>` را پیاده‌سازی کرده اما با `AddQueuedEventListener` ثبت نشده، چون alias ندارد در زمان dispatch با `InvalidOperationException` شکست می‌خورد.
 
+## مثال کامل
+
+یک رویداد، یک listener در DI که می‌تواند انتشار را متوقف کند، یک listener صف‌شده و یک callback از نوع `Listen` در محدودهٔ درخواست. `IOrderReadStore` و `IMailer` نمایندهٔ سرویس‌های خودتان هستند. نسخهٔ قابل اجرا در `samples/Naravel.Sample` (صفحهٔ `/events`) است.
+
+```csharp
+// 1. The event: a small serializable record (ids and scalars only).
+public sealed record OrderPaid(string OrderId, string Email, decimal Total);
+
+// 2. A DI listener. It runs inside DispatchAsync, in registration order.
+public sealed class UpdateOrderReadModel(IOrderReadStore store) : IEventListener<OrderPaid>
+{
+    public async Task HandleAsync(OrderPaid evt, EventDispatchContext context, CancellationToken cancellationToken = default)
+    {
+        await store.MarkPaidAsync(evt.OrderId, evt.Total, cancellationToken);
+        if (evt.Total > 10_000m)
+            context.Stop();                       // later listeners and Listen callbacks do not run
+    }
+}
+
+// 3. A queued listener: dispatch only enqueues a job, the worker calls HandleAsync later (at-least-once).
+public sealed class SendReceipt(IMailer mailer) : IQueuedEventListener<OrderPaid>
+{
+    public Task HandleAsync(OrderPaid evt, EventDispatchContext context, CancellationToken cancellationToken = default)
+        => mailer.SendReceiptAsync(evt.Email, evt.OrderId, cancellationToken);   // make it idempotent
+}
+
+// 4. Program.cs
+builder.Services.AddNaravelEventsQueue();                                          // also registers the dispatcher
+builder.Services.AddScoped<IEventListener<OrderPaid>, UpdateOrderReadModel>();
+builder.Services.AddQueuedEventListener<OrderPaid, SendReceipt>("order-paid.receipt");
+
+// 5. Dispatch from an endpoint, and add a request-scoped callback.
+app.MapPost("/orders/{id}/pay", async (string id, string email, decimal total, IEventDispatcher events, CancellationToken ct) =>
+{
+    using var audit = events.Listen<OrderPaid>((evt, _, _) =>
+    {
+        Console.WriteLine($"audit: {evt.OrderId}");      // runs after the DI listeners, then is unsubscribed on Dispose
+        return Task.CompletedTask;
+    });
+
+    await events.DispatchAsync(new OrderPaid(id, email, total), ct);
+    return Results.Accepted();
+});
+```
+
+ترتیب اجرا برای مبلغ 120: ابتدا `UpdateOrderReadModel`، بعد callback مربوط به `Listen`؛ `SendReceipt` بعداً در worker صف اجرا می‌شود (workerی روی connection پیش‌فرض و queue با نام `default` اجرا کنید). برای مبلغ بالاتر از 10,000 listener اول انتشار را متوقف می‌کند و چیز دیگری اجرا نمی‌شود.
+
+## تست فراخوانی dispatcher
+
+```csharp
+[Fact]
+public async Task Paying_an_order_dispatches_OrderPaid()
+{
+    var fake = new EventFake();                                  // replaces IEventDispatcher in the test
+    var handler = new PayOrderHandler(fake);                     // your code under test
+
+    await handler.PayAsync("o-1", "ali@example.com", 120m);
+
+    var evt = fake.AssertDispatched<OrderPaid>();                // throws if none was dispatched
+    Assert.Equal("o-1", evt.OrderId);
+    fake.AssertDispatched<OrderPaid>(expectedCount: 1);          // exact count
+    fake.Reset();
+}
+```
+
+`EventFake` رویدادها را فقط ثبت می‌کند و listener اجرا نمی‌کند؛ پس listenerها را با فراخوانی مستقیم `HandleAsync` تست کنید.
+
 ## مشاهده‌پذیری و تست
 
 نام `Meter` و `ActivitySource` هر دو `Naravel.Events` است. `Naravel.Events.Testing.EventFake` رویدادها را ثبت می‌کند
