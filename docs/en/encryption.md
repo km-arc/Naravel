@@ -66,6 +66,71 @@ services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvid
 services.AddNaravelEncryption();
 ```
 
+## Complete example
+
+A typed secret stored encrypted per tenant, an invite token that rejects tampering, and a test with the in-memory Data Protection provider. `IIntegrationStore` is your own data access.
+
+```csharp
+using Naravel.Encryption;
+
+public sealed record ApiCredentials(string Key, string Secret);
+
+// Program.cs: the key ring is shared and persisted (see "Read this first").
+builder.Services.AddDataProtection().SetApplicationName("my-shop").PersistKeysToFileSystem(new DirectoryInfo("/shared/keys"));
+builder.Services.AddNaravelEncryption();
+
+// 1. Store a typed secret encrypted: the database column holds only the token.
+public sealed class IntegrationService(IEncrypter encrypter, IIntegrationStore store)
+{
+    private readonly IEncrypter _secrets = encrypter.ForPurpose("integrations");     // a fixed name, never user input
+
+    public Task SaveAsync(int tenantId, ApiCredentials credentials, CancellationToken ct) =>
+        store.SetTokenAsync(tenantId, _secrets.Encrypt(credentials), ct);              // Crypt::encrypt
+
+    public async Task<ApiCredentials?> LoadAsync(int tenantId, CancellationToken ct)
+    {
+        var token = await store.GetTokenAsync(tenantId, ct);
+        return token is not null && _secrets.TryDecrypt(token, out var json)           // no exception for a bad value
+            ? System.Text.Json.JsonSerializer.Deserialize<ApiCredentials>(json!)
+            : null;
+    }
+}
+
+// 2. An opaque value for a link or a cookie. Anyone who tampers with it gets a DecryptException.
+app.MapGet("/invite/{token}", (string token, IEncrypter encrypter) =>
+{
+    try
+    {
+        var email = encrypter.ForPurpose("invites").Decrypt(token);                   // Crypt::decryptString
+        return Results.Ok(new { email });
+    }
+    catch (DecryptException)
+    {
+        return Results.BadRequest("invalid or expired invite");                       // the message never contains the input
+    }
+});
+
+app.MapPost("/invite", (string email, IEncrypter encrypter) =>
+    Results.Ok(new { token = encrypter.ForPurpose("invites").Encrypt(email) }));      // URL-safe text
+```
+
+```csharp
+// 3. Test: a real in-memory Data Protection provider, no fake cryptography.
+[Fact]
+public void Invite_token_round_trips_and_purposes_are_isolated()
+{
+    var services = new ServiceCollection();
+    services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvider());
+    services.AddNaravelEncryption();
+    var encrypter = services.BuildServiceProvider().GetRequiredService<IEncrypter>();
+
+    var token = encrypter.ForPurpose("invites").Encrypt("ada@example.com");
+
+    encrypter.ForPurpose("invites").Decrypt(token).Should().Be("ada@example.com");
+    encrypter.ForPurpose("billing").TryDecrypt(token, out _).Should().BeFalse();       // another purpose cannot read it
+}
+```
+
 ## Observability
 
 `Meter` `Naravel.Encryption`, counter `naravel.encryption.operations`, tags `operation` (`encrypt`, `decrypt`) and `outcome` (`ok`, `invalid`). Values, tokens, purposes and key data are never tagged.

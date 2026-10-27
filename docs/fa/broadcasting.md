@@ -85,6 +85,48 @@ connection.on("MemberLeft",   e => ...);   // { channel, member } وقتی آخ�
 
 `BroadcastFake` یک `IBroadcaster` است که آنچه فرستاده شد را ضبط می‌کند: به‌جای نمونهٔ واقعی ثبتش کنید و `AssertBroadcast(predicate)`، `AssertBroadcastCount(n)` یا `AssertNothingBroadcast()` را صدا بزنید. برای آزمون مجوزدهی، مثل آزمون‌های خود این بسته، `Microsoft.AspNetCore.TestHost` و `Microsoft.AspNetCore.SignalR.Client` را روی `MapNaravelBroadcasting` به کار ببرید. فهرست presence روی Redis واقعی هم، با دو اتصال که جای دو سرور هستند، آزمون می‌شود (`PresenceRedisTests`)؛ این آزمون‌ها فقط وقتی `NARAVEL_TEST_REDIS` تنظیم باشد اجرا می‌شوند، که job ‏`services` در CI تنظیم می‌کند.
 
+## مثال کامل
+
+رویدادی با کانال خصوصی و قاعدهٔ authorization، dispatch از یک endpoint، کلاینت مرورگر و یک تست با `BroadcastFake`. `ShipOrderHandler` کد خودتان است که `IBroadcaster` می‌گیرد.
+
+```csharp
+// 1. The event lists its channels. A "private-" channel needs an authorization rule.
+public sealed record OrderShipped(int OrderId, string Carrier) : IBroadcastable
+{
+    public IEnumerable<string> Channels() => [$"private-orders.{OrderId}"];
+}
+
+// 2. Program.cs
+builder.Services.AddNaravelBroadcasting(builder.Configuration,
+    o => o.Channels.Authorize("private-orders.{id}", (user, id) => user.FindFirst("order")?.Value == id));
+builder.Services.AddBroadcastOn<OrderShipped>();             // broadcast it when Naravel.Events dispatches it
+app.UseAuthentication(); app.UseAuthorization();
+app.MapNaravelBroadcasting("/hubs/broadcast");
+
+// 3. Send it: through the events dispatcher (opted in above) or straight through IBroadcaster.
+app.MapPost("/orders/{id:int}/ship", async (int id, IEventDispatcher events, CancellationToken ct) =>
+{
+    await events.DispatchAsync(new OrderShipped(id, "DHL"), ct);
+    return Results.Accepted();
+});
+// or: await broadcaster.BroadcastAsync(new OrderShipped(id, "DHL"), ct);   // IBroadcaster, inline and at most once
+```
+
+```js
+// 4. Browser (@microsoft/signalr): the user must hold the "order" claim for id 7.
+const connection = new signalR.HubConnectionBuilder().withUrl("/hubs/broadcast").build();
+connection.on("OrderShipped", message => console.log("shipped", message));
+await connection.start();
+await connection.invoke("Subscribe", "private-orders.7");
+```
+
+```csharp
+// 5. Test: register the fake in place of the real broadcaster.
+var fake = new BroadcastFake();
+await new ShipOrderHandler(fake).ShipAsync(7);
+fake.AssertBroadcastCount(1);
+```
+
 ## تله‌متری
 
 Meter و activity source به نام `Naravel.Broadcasting`؛ شمارندهٔ `naravel.broadcasting.broadcasts` که فقط با `driver` و `outcome` (`succeeded`، `failed`، `cancelled`) برچسب می‌خورد. نام کانال، payload و توکن هرگز برچسب یا مقدار لاگ نمی‌شوند.

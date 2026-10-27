@@ -37,6 +37,46 @@ Changing a connection string in configuration makes the next `Connection(name)` 
 
 There is no fake of the Redis protocol: it would fake behaviour (scripts, expiry) the server defines. The seam is a `Func<string, IConnectionMultiplexer>` registered in DI before `AddNaravelRedis`; tests use it to count connections or return a stand-in. Tests against a real server stay env-gated (`NARAVEL_TEST_REDIS`).
 
+## Complete example
+
+One shared connection used by your own code, a second named connection, and a run-time connection. The cache and the queue keep borrowing the same `main` connection.
+
+```csharp
+// Program.cs: one Redis server, borrowed by the cache, the queue and your own code.
+builder.Services.AddNaravelRedis(builder.Configuration);        // reads Redis:Default and Redis:Stores (see the quickstart JSON)
+
+app.MapPost("/visits", async (RedisManager redis, CancellationToken ct) =>
+{
+    var db = redis.Connection().Multiplexer.GetDatabase();      // the real StackExchange.Redis IDatabase
+    var count = await db.StringIncrementAsync("visits");
+    return Results.Ok(new { count });
+});
+
+// A second, named connection (for example another database or server), declared in configuration:
+//   "Redis": { "Default": "main", "Stores": { "main": { "ConnectionString": "localhost:6379" },
+//                                              "sessions": { "ConnectionString": "localhost:6379,defaultDatabase=2" } } }
+app.MapGet("/sessions/{id}", async (string id, RedisManager redis) =>
+{
+    var db = redis.Connection("sessions").Multiplexer.GetDatabase();
+    var value = await db.StringGetAsync($"session:{id}");
+    return value.HasValue ? Results.Ok(value.ToString()) : Results.NotFound();
+});
+
+// A connection added at run time (Laravel: Redis::extend). Do not dispose the multiplexer yourself: the manager owns it.
+var redis = app.Services.GetRequiredService<RedisManager>();
+redis.Extend("reports", provider => new ReportsRedisConnection(provider));   // your IRedisConnection implementation
+```
+
+Test seam (see "Testing" above):
+
+```csharp
+// Count connections without a server: register a stand-in before AddNaravelRedis.
+var opened = 0;
+services.AddSingleton<Func<string, IConnectionMultiplexer>>(_ => { opened++; return stub; });   // stub: your own IConnectionMultiplexer stand-in
+services.AddNaravelRedis(configuration);
+// ... resolve two stores that point at the same server, then: opened.Should().Be(1);
+```
+
 ## Observability
 
 None of its own: the client exposes its own counters. Connection strings and passwords are never logged, named or put in exception messages by Naravel; an implicit connection is named `implicit-` plus a hash.

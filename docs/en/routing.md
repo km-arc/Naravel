@@ -170,6 +170,72 @@ Rules worth knowing:
 - Terminable callbacks run after the response is sent; when several exist their order is not guaranteed.
 - Class-name strings (`'App\Http\Middleware\X'`) are not supported; use an alias or a type.
 
+## Complete example
+
+One setup block (an alias with an argument, a middleware group, a throttle policy, a global pattern and a model binding) and the routes that use it. `IBookStore` is your own data access. The `auth` alias used in the snippets above is not built in; register your own the same way as `role` here.
+
+```csharp
+// 1. A route middleware with an argument: "role:admin".
+public sealed class RequireRole : IRouteMiddleware
+{
+    public async Task InvokeAsync(HttpContext context, RequestDelegate next, MiddlewareArguments arguments)
+    {
+        var role = arguments.At(0) ?? "user";
+        if (context.Request.Headers["X-Role"] != role)
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;      // short-circuit
+            return;
+        }
+        await next(context);
+    }
+}
+
+public sealed record Book(int Id, string Title);
+
+// 2. Program.cs: aliases, a group, a throttle policy and a model binding, declared once.
+builder.Services.AddNaravelRouting(o =>
+{
+    o.Middleware.Alias<RequireRole>("role");
+    o.Middleware.Group("api", "bindings", "throttle:60,1");
+    o.ConfigureThrottlePolicy("login", 5, TimeSpan.FromMinutes(1));
+    o.Pattern("id", "[0-9]+");
+    o.Bind<Book>("book", async (value, ctx) => await ctx.RequestServices.GetRequiredService<IBookStore>().FindAsync(int.Parse(value)));   // null -> 404
+});
+
+var app = builder.Build();
+app.UseNaravelRouting();
+
+// 3. Routes: a group with a prefix, a name prefix and middleware; a resource; named URLs.
+app.MapNaravel(r =>
+{
+    r.Get("/", () => "home").Name("home");
+    r.Post("/login", (HttpContext c) => Results.Ok()).Middleware("throttle:login");
+
+    r.Prefix("api").Name("api.").Middleware("api").Group(api =>
+    {
+        api.Get("books/{book}", (HttpContext c) => c.GetRouteModel<Book>("book")).Name("books.show");     // GET /api/books/{book}
+
+        api.ApiResource("authors", new ResourceHandlers
+        {
+            Index   = () => Results.Ok(new[] { "Ada", "Alan" }),
+            Show    = (string author) => Results.Ok(author),
+            Destroy = (string author) => Results.NoContent(),
+        });                                                                                                  // names: api.authors.index, ...
+
+        api.Prefix("admin").Name("admin.").Middleware("role:admin").Group(admin =>
+            admin.Get("stats", () => Results.Ok("stats")).Name("stats"));                                    // GET /api/admin/stats, 403 without X-Role: admin
+    });
+
+    r.Get("/links", (IUrlGenerator urls) => Results.Ok(new
+    {
+        book  = urls.Route("api.books.show", new { book = 7 }),                                              // "/api/books/7"
+        stats = urls.Route("api.admin.stats"),
+    })).Name("links");
+
+    r.Fallback(() => Results.NotFound());
+});
+```
+
 ## Native middleware
 
 CORS, proxy headers, host filtering, request-size limits and cookie encryption are native ASP.NET Core features and are not re-implemented (see PDR-009). Auth- and Session-backed middleware, Redis-backed throttling, `route:list`, and maintenance CLI commands belong to later modules.

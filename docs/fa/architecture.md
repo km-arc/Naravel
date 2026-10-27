@@ -37,6 +37,69 @@ DriverNotRegisteredException، ManagerOptionsExtensions.GetStore
 ## Thread safety
 همهٔ اعضای عمومی thread-safe هستند. وضعیت با یک lock کوتاه محافظت می‌شود و هیچ factory‌ای زیر lock اجرا نمی‌شود.
 
+## مثال کامل: یک ماژول کوچک
+
+ماژول `Greeter` با دو driver، ساخته‌شده به همان شکلی که هر ماژول Naravel ساخته می‌شود. `ShoutingGreeter` یک `IGreeter` سوم است که خودتان می‌نویسید. چک‌لیست در [module-authoring-guide.md](module-authoring-guide.md) است.
+
+```csharp
+// 1. Contract and options.
+public interface IGreeter { string Greet(string name); }
+
+public sealed class GreeterOptions : ManagerOptions { }          // Default + Stores come from the base class
+
+// 2. The manager: all resolving, caching, Extend, reload and disposal come from Foundation.
+public sealed class GreeterManager(IServiceProvider sp, IDriverRegistry<IGreeter> registry, IOptionsMonitor<GreeterOptions> options)
+    : Manager<IGreeter, GreeterOptions>(sp, registry, options);
+
+// 3. Two drivers. Each reads only its own store section.
+public sealed class PoliteGreeter(string title) : IGreeter
+{
+    public string Greet(string name) => $"Good day, {title} {name}.";
+}
+public sealed class CasualGreeter : IGreeter
+{
+    public string Greet(string name) => $"Hey {name}!";
+}
+
+// 4. Registration (the AddNaravelXxx wrapper a module ships).
+public static IServiceCollection AddNaravelGreeter(this IServiceCollection services, IConfiguration configuration)
+{
+    services.AddNaravelManager<GreeterManager, IGreeter, GreeterOptions>(configuration.GetSection("Greeter"));
+    services.AddNaravelDriver<IGreeter>("casual", _ => new CasualGreeter());
+    services.AddNaravelDriver<IGreeter>("polite", sp =>
+    {
+        var store = sp.GetRequiredService<IOptionsMonitor<GreeterOptions>>().CurrentValue.GetStore("polite");
+        return new PoliteGreeter(store["Title"] ?? "Dr.");
+    });
+    return services;
+}
+```
+
+```json
+{ "Greeter": { "Default": "polite", "Stores": { "polite": { "Title": "Prof." }, "casual": { } } } }
+```
+
+```csharp
+// 5. Use it.
+app.MapGet("/hello/{name}", (string name, GreeterManager greeters) => greeters.Driver().Greet(name));          // default: polite
+app.MapGet("/hey/{name}",   (string name, GreeterManager greeters) => greeters.Driver("casual").Greet(name));   // by name
+
+// 6. Replace or add a driver at run time (Laravel: Manager::extend). Thread-safe; re-registering a name retires the cached instance.
+greeters.Extend("shouting", _ => new ShoutingGreeter());
+
+// 7. Test it: the same Extend, no configuration file.
+[Fact]
+public void Extend_adds_a_driver_after_the_host_is_built()
+{
+    using var provider = new ServiceCollection().AddNaravelGreeter(configuration).BuildServiceProvider();
+    var greeters = provider.GetRequiredService<GreeterManager>();
+
+    greeters.Extend("shouting", _ => new ShoutingGreeter());
+
+    greeters.Driver("shouting").Greet("Ali").Should().Be("ALI!");
+}
+```
+
 ## وابستگی‌ها
 `Microsoft.Extensions.DependencyInjection.Abstractions`، `Microsoft.Extensions.Options`،
 `Microsoft.Extensions.Options.ConfigurationExtensions`، `Microsoft.Extensions.Configuration.Abstractions`. هیچ وابستگی به ماژول‌ها ندارد.

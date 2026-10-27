@@ -173,6 +173,46 @@ fake.AssertNothingQueued();
 | `Mail:Mailers:<name>:Driver` | `log`، `array` یا driver یک بستهٔ نصب‌شده. | - |
 | `Mail:Mailers:<name>:*` | تنظیمات مخصوص driver. تغییر آن فقط همان transport را دوباره می‌سازد؛ کلیدهای نامرتبط هرگز. | - |
 
+## مثال کامل
+
+یک mailable، سرویسی که آن را می‌فرستد، ثبت در DI و یک تست با `MailFake`. `SignupRequest` نوع درخواست خودتان است.
+
+```csharp
+public sealed class WelcomeMail(string name) : Mailable
+{
+    public override MailMessage Build(MailBuilder mail) =>
+        mail.Subject("Welcome").Text($"Hi {name}").Html($"<p>Hi {name}</p>").Build();   // pure: no I/O, no clock
+}
+
+public sealed class SignupService(IMailer mailer)
+{
+    public Task RegisterAsync(string email, string name, CancellationToken ct = default) =>
+        mailer.To(email).SendAsync(new WelcomeMail(name), ct);
+}
+
+// Program.cs: Mail:Default = "log" in development, so nothing is delivered; switch the transport in configuration for production.
+builder.Services.AddNaravelMail(builder.Configuration);
+builder.Services.AddScoped<SignupService>();
+
+app.MapPost("/signup", async (SignupRequest body, SignupService signup, CancellationToken ct) =>
+{
+    await signup.RegisterAsync(body.Email, body.Name, ct);
+    return Results.Accepted();
+});
+
+// Test
+[Fact]
+public async Task Register_sends_a_welcome_mail()
+{
+    var fake = new MailFake { DefaultFrom = "app@example.com" };
+    await new SignupService(fake).RegisterAsync("ada@example.com", "Ada");
+
+    fake.AssertSent(m => m.To.Contains("ada@example.com") && m.Subject == "Welcome");
+    fake.AssertSentCount(1);
+    fake.AssertNothingQueued();
+}
+```
+
 ## مشاهده‌پذیری
 
 `Meter` و `ActivitySource` هر دو `Naravel.Mail` نام دارند. شمارنده‌های `naravel.mail.sent` و `naravel.mail.failed` یک tag به نام `transport` (نام پیکربندی‌شده) دارند. activity با نام `mail.send` همان نام را دارد. گیرنده‌ها، موضوع و متن هرگز در telemetry نمی‌آیند.

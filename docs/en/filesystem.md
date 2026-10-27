@@ -119,6 +119,70 @@ var scratch = manager.Disk("scratch");
 
 The manager owns drivers returned by factories and disposes them when the manager is disposed. Do not return an unrelated container-owned singleton from a factory unless the manager is allowed to dispose it.
 
+## Complete example
+
+Upload, download, delete and archive with minimal APIs, and a test with `StorageFake`. `AvatarService` is your own code that takes an `IStorageDriver`.
+
+```csharp
+// Program.cs: "local" is the default disk, "archive" is S3 (see Configuration).
+builder.Services.AddNaravelFilesystem(builder.Configuration);
+
+// Upload: the key is generated, never taken from the client.
+app.MapPost("/documents", async (IFormFile file, IStorageDriver storage, CancellationToken ct) =>
+{
+    var key = $"{Guid.NewGuid():N}/{Path.GetFileName(file.FileName)}";
+    await using var contents = file.OpenReadStream();
+    await storage.PutAsync(key, contents, ct);
+    return Results.Created($"/documents/{key}", new { key });
+}).DisableAntiforgery();
+
+// Download and delete.
+app.MapGet("/documents/{*key}", async (string key, IStorageDriver storage, CancellationToken ct) =>
+    await storage.ExistsAsync(key, ct)
+        ? Results.File(await storage.GetStreamAsync(key, ct), "application/octet-stream", Path.GetFileName(key))
+        : Results.NotFound());
+
+app.MapDelete("/documents/{*key}", async (string key, IStorageDriver storage, CancellationToken ct) =>
+{
+    await storage.DeleteAsync(key, ct);                      // deleting a missing file is a no-op
+    return Results.NoContent();
+});
+
+// Move a document to the archive disk and hand out a link that expires in 10 minutes.
+app.MapPost("/documents/{*key}/archive", async (string key, StorageManager storage, CancellationToken ct) =>
+{
+    var local = storage.Disk("local");
+    var archive = storage.Disk("archive");
+
+    await using (var contents = await local.GetStreamAsync(key, ct))
+        await archive.PutAsync(key, contents, ct);
+    await local.DeleteAsync(key, ct);
+
+    var url = await archive.GetUrlAsync(key, TimeSpan.FromMinutes(10), ct);   // presigned: the expiry only applies to S3
+    return Results.Ok(new { url });
+});
+```
+
+```csharp
+// Test: the same IStorageDriver, in memory.
+public sealed class AvatarService(IStorageDriver storage)
+{
+    public Task SaveAsync(int userId, byte[] png, CancellationToken ct = default) =>
+        storage.PutAsync($"avatars/{userId}.png", png, ct);
+}
+
+[Fact]
+public async Task Save_writes_the_avatar()
+{
+    var storage = new StorageFake();
+
+    await new AvatarService(storage).SaveAsync(1, [1, 2, 3]);
+
+    storage.AssertExists("avatars/1.png");
+    storage.AssertCount(1);
+}
+```
+
 ## Test fake and shared contract
 
 `Naravel.Filesystem.Testing.StorageFake` is an in-memory `IStorageDriver` for application tests. Inject it where `IStorageDriver` is expected, or register it as a disk with `StorageManager.Extend`, then assert on the files:

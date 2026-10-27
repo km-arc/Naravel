@@ -170,6 +170,72 @@ public sealed class EnsureAge : IRouteMiddleware
 - callbackهای terminable بعد از ارسال پاسخ اجرا می‌شوند؛ اگر چندتا باشند ترتیبشان تضمین‌شده نیست.
 - رشتهٔ نام کلاس (`'App\Http\Middleware\X'`) پشتیبانی نمی‌شود؛ alias یا type بدهید.
 
+## مثال کامل
+
+یک بلوک راه‌اندازی (alias با آرگومان، گروه middleware، سیاست throttle، pattern سراسری و model binding) و مسیرهایی که از آن استفاده می‌کنند. `IBookStore` دسترسی به دادهٔ خودتان است. alias با نام `auth` که در قطعه‌های بالا آمده داخلی نیست؛ alias خودتان را مثل `role` در همین مثال ثبت کنید.
+
+```csharp
+// 1. A route middleware with an argument: "role:admin".
+public sealed class RequireRole : IRouteMiddleware
+{
+    public async Task InvokeAsync(HttpContext context, RequestDelegate next, MiddlewareArguments arguments)
+    {
+        var role = arguments.At(0) ?? "user";
+        if (context.Request.Headers["X-Role"] != role)
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;      // short-circuit
+            return;
+        }
+        await next(context);
+    }
+}
+
+public sealed record Book(int Id, string Title);
+
+// 2. Program.cs: aliases, a group, a throttle policy and a model binding, declared once.
+builder.Services.AddNaravelRouting(o =>
+{
+    o.Middleware.Alias<RequireRole>("role");
+    o.Middleware.Group("api", "bindings", "throttle:60,1");
+    o.ConfigureThrottlePolicy("login", 5, TimeSpan.FromMinutes(1));
+    o.Pattern("id", "[0-9]+");
+    o.Bind<Book>("book", async (value, ctx) => await ctx.RequestServices.GetRequiredService<IBookStore>().FindAsync(int.Parse(value)));   // null -> 404
+});
+
+var app = builder.Build();
+app.UseNaravelRouting();
+
+// 3. Routes: a group with a prefix, a name prefix and middleware; a resource; named URLs.
+app.MapNaravel(r =>
+{
+    r.Get("/", () => "home").Name("home");
+    r.Post("/login", (HttpContext c) => Results.Ok()).Middleware("throttle:login");
+
+    r.Prefix("api").Name("api.").Middleware("api").Group(api =>
+    {
+        api.Get("books/{book}", (HttpContext c) => c.GetRouteModel<Book>("book")).Name("books.show");     // GET /api/books/{book}
+
+        api.ApiResource("authors", new ResourceHandlers
+        {
+            Index   = () => Results.Ok(new[] { "Ada", "Alan" }),
+            Show    = (string author) => Results.Ok(author),
+            Destroy = (string author) => Results.NoContent(),
+        });                                                                                                  // names: api.authors.index, ...
+
+        api.Prefix("admin").Name("admin.").Middleware("role:admin").Group(admin =>
+            admin.Get("stats", () => Results.Ok("stats")).Name("stats"));                                    // GET /api/admin/stats, 403 without X-Role: admin
+    });
+
+    r.Get("/links", (IUrlGenerator urls) => Results.Ok(new
+    {
+        book  = urls.Route("api.books.show", new { book = 7 }),                                              // "/api/books/7"
+        stats = urls.Route("api.admin.stats"),
+    })).Name("links");
+
+    r.Fallback(() => Results.NotFound());
+});
+```
+
 ## middlewareهای بومی
 
 CORS، هدرهای proxy، host filtering، محدودیت اندازهٔ request و رمزنگاری cookie قابلیت‌های بومی ASP.NET Core هستند و دوباره پیاده نمی‌شوند (نگاه کنید به PDR-009). middlewareهای وابسته به Auth/Session، throttle مبتنی بر Redis، `route:list` و فرمان‌های CLI مربوط به maintenance به ماژول‌های بعدی تعلق دارند.
