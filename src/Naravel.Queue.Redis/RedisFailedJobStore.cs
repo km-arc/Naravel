@@ -14,12 +14,14 @@ public sealed class RedisFailedJobStore : IFailedJobStore
     private readonly IDatabase _database;
     private readonly RedisKey _key;
 
+    /// <summary>Initializes a new instance of the <see cref="RedisFailedJobStore"/> class that stores records in the Redis hash <paramref name="key"/>.</summary>
     public RedisFailedJobStore(IConnectionMultiplexer multiplexer, string key = "netqueue:failed-jobs")
     {
         _database = multiplexer.GetDatabase();
         _key = key;
     }
 
+    /// <inheritdoc />
     public async Task RecordAsync(QueuedMessage message, Exception exception, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -27,6 +29,7 @@ public sealed class RedisFailedJobStore : IFailedJobStore
         await _database.HashSetAsync(_key, message.Id, JsonSerializer.Serialize(message));
     }
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<QueuedMessage>> ListAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -34,12 +37,14 @@ public sealed class RedisFailedJobStore : IFailedJobStore
         return records.Select(record => JsonSerializer.Deserialize<QueuedMessage>((string)record.Value!)!).ToList();
     }
 
+    /// <inheritdoc />
     public async Task<bool> ForgetAsync(string id, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         return await _database.HashDeleteAsync(_key, id);
     }
 
+    /// <inheritdoc />
     public async Task<int> FlushAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -49,6 +54,7 @@ public sealed class RedisFailedJobStore : IFailedJobStore
     }
 }
 
+/// <summary>Dependency injection registration for the Redis failed-job store.</summary>
 public static class FailedJobStoreServiceCollectionExtensions
 {
     /// <summary>Uses the selected Redis queue connection for persistent failed-job records.</summary>

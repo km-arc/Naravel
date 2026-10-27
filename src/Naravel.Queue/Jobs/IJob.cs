@@ -5,6 +5,7 @@ namespace Naravel.Queue.Jobs;
 /// </summary>
 public interface IJob
 {
+    /// <summary>Executes the job with the given runtime context.</summary>
     Task HandleAsync(JobContext context, CancellationToken cancellationToken);
 }
 

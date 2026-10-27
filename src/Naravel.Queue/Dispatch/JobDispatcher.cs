@@ -8,8 +8,11 @@ using Naravel.Queue.Serialization;
 namespace Naravel.Queue.Dispatch;
 
 /// <summary>Wire format for a single link in a chain, stored inside QueuedMessage.ChainedJobPayload.</summary>
+/// <param name="JobType">The serializer type name used to reconstruct the job.</param>
+/// <param name="Payload">The serialized job payload.</param>
 public record ChainLink(string JobType, string Payload);
 
+/// <summary>Default <see cref="IJobDispatcher"/> that serializes jobs into <see cref="QueuedMessage"/> envelopes and pushes them to the selected queue connection.</summary>
 public class JobDispatcher : IJobDispatcher
 {
     private readonly QueueManager _manager;
@@ -18,6 +21,7 @@ public class JobDispatcher : IJobDispatcher
     private readonly IBatchRepository _batchRepository;
     private readonly IUniqueJobGate? _uniqueGate;
 
+    /// <summary>Initializes a new instance of the <see cref="JobDispatcher"/> class from the queue manager, serializer, job type registry, batch repository and optional unique-job gate.</summary>
     public JobDispatcher(
         QueueManager manager,
         IJobSerializer serializer,
@@ -32,6 +36,7 @@ public class JobDispatcher : IJobDispatcher
         _batchRepository = batchRepository;
     }
 
+    /// <inheritdoc />
     public async Task<string?> DispatchAsync(IJob job, Action<DispatchOptions>? configure = null, CancellationToken cancellationToken = default)
     {
         var options = BuildOptions(job, configure);
@@ -66,6 +71,7 @@ public class JobDispatcher : IJobDispatcher
         return message.Id;
     }
 
+    /// <inheritdoc />
     public JobChain Chain(params IJob[] jobs)
     {
         RejectUniqueJobs(jobs, "a chain");
@@ -81,6 +87,7 @@ public class JobDispatcher : IJobDispatcher
                 "jobs");
     }
 
+    /// <inheritdoc />
     public async Task<string> DispatchChainAsync(IReadOnlyList<IJob> remainingJobs, Action<DispatchOptions>? configure, CancellationToken cancellationToken)
     {
         if (remainingJobs.Count == 0)
@@ -104,6 +111,7 @@ public class JobDispatcher : IJobDispatcher
         return message.Id;
     }
 
+    /// <inheritdoc />
     public async Task<QueueBatch> BatchAsync(
         IEnumerable<IJob> jobs,
         Action<DispatchOptions>? configure = null,

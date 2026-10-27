@@ -6,7 +6,7 @@ using Naravel.Filesystem;
 using Naravel.Filesystem.Drivers;
 using Naravel.Foundation;
 
-/// <summary>Extension methods for filesystem service collection.</summary>
+/// <summary>Dependency-injection extensions that register the filesystem storage manager.</summary>
 public static class FilesystemServiceCollectionExtensions
 {
     /// <summary>Registers the filesystem manager and its configured local/S3 stores.</summary>

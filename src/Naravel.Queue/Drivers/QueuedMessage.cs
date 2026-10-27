@@ -7,6 +7,7 @@ namespace Naravel.Queue.Drivers;
 /// </summary>
 public class QueuedMessage
 {
+    /// <summary>Unique identifier of the message, generated as a GUID without hyphens.</summary>
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
 
     /// <summary>Logical queue name (e.g. "default", "emails", "high").</summary>
@@ -21,13 +22,16 @@ public class QueuedMessage
     /// <summary>Serialized job payload (JSON by default).</summary>
     public string Payload { get; set; } = default!;
 
+    /// <summary>Number of attempts already made to process this message.</summary>
     public int Attempts { get; set; } = 0;
 
+    /// <summary>Maximum number of attempts before the message is considered permanently failed.</summary>
     public int MaxAttempts { get; set; } = 3;
 
     /// <summary>0 = normal. Higher numbers are dequeued first (range 0-9 is guaranteed to be honored by every driver).</summary>
     public int Priority { get; set; } = 0;
 
+    /// <summary>Time at which the message was created.</summary>
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     /// <summary>The job will not be handed out by PopAsync before this time (used for delayed dispatch and retries).</summary>

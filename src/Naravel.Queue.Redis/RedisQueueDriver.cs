@@ -16,11 +16,11 @@ namespace Naravel.Queue.Redis;
 ///   ready:{0..9}   LIST   id                                          - one list per priority bucket, 9 = highest
 ///   reserved       ZSET   id, score = reservation deadline (unix ms)  - jobs currently being worked on
 ///   failed         LIST   json envelopes that exhausted all attempts
-///
+/// 
 /// PopAsync first promotes any due delayed jobs and reclaims any reserved jobs whose visibility
 /// timeout expired (e.g. because the worker crashed) back onto the ready lists - a bonus feature
 /// on top of what Laravel's own redis driver does out of the box.
-///
+/// 
 /// Fencing: every Pop stamps the message with a fresh <c>ReservationId</c>. Ack/Release/Fail only act while the stored
 /// token still matches, and a reclaim clears it, so a worker whose reservation expired cannot delete or re-queue the
 /// copy that another worker now owns. Messages without a token keep the previous unfenced behaviour.
@@ -30,6 +30,7 @@ public class RedisQueueDriver : IQueueDriver, IDisposable
     private readonly bool _ownsConnection;
     private readonly IConnectionMultiplexer _mux;
     private readonly TimeSpan _visibilityTimeout;
+    /// <inheritdoc />
     public TimeSpan? VisibilityTimeout => _visibilityTimeout;
 
     /// <summary>Creates the driver.</summary>
@@ -169,6 +170,7 @@ public class RedisQueueDriver : IQueueDriver, IDisposable
         return 1
         """;
 
+    /// <inheritdoc />
     public async Task PushAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -179,6 +181,7 @@ public class RedisQueueDriver : IQueueDriver, IDisposable
             [message.Id, JsonSerializer.Serialize(message), message.AvailableAt.ToUnixTimeMilliseconds(), nowMs]);
     }
 
+    /// <inheritdoc />
     public async Task<QueuedMessage?> PopAsync(string queue, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -194,6 +197,7 @@ public class RedisQueueDriver : IQueueDriver, IDisposable
         return JsonSerializer.Deserialize<QueuedMessage>((string)result!);
     }
 
+    /// <inheritdoc />
     public async Task AckAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -202,6 +206,7 @@ public class RedisQueueDriver : IQueueDriver, IDisposable
             [ReservedKey(message.Queue), MessagesKey(message.Queue)], [message.Id, message.ReservationId ?? string.Empty]);
     }
 
+    /// <inheritdoc />
     public async Task ReleaseAsync(QueuedMessage message, TimeSpan delay, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -215,6 +220,7 @@ public class RedisQueueDriver : IQueueDriver, IDisposable
             [message.Id, envelope, message.AvailableAt.ToUnixTimeMilliseconds(), message.AvailableAt.ToUnixTimeMilliseconds(), nowMs, reservationId]);
     }
 
+    /// <inheritdoc />
     public async Task FailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
         => await TryFailAsync(message, cancellationToken);
 
@@ -240,6 +246,7 @@ public class RedisQueueDriver : IQueueDriver, IDisposable
         finally { message.ReservationId = reservationId; }
     }
 
+    /// <inheritdoc />
     public async Task<long> SizeAsync(string queue, CancellationToken cancellationToken = default)
     {
         var db = Db;
@@ -250,6 +257,7 @@ public class RedisQueueDriver : IQueueDriver, IDisposable
     }
 }
 
+/// <summary>Dependency injection registration for the Redis queue driver.</summary>
 public static class ServiceCollectionExtensions
 {
     /// <summary>

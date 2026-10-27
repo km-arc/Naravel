@@ -33,6 +33,7 @@ public sealed class QueueFake : IJobDispatcher
         return Task.FromResult<string?>(Guid.NewGuid().ToString("N"));
     }
 
+    /// <inheritdoc />
     public JobChain Chain(params IJob[] jobs)
     {
         RejectUniqueJobs(jobs, "a chain");
@@ -46,6 +47,7 @@ public sealed class QueueFake : IJobDispatcher
             throw new ArgumentException($"{unique.GetType().Name} implements IUniqueJob and cannot be part of {container}.", "jobs");
     }
 
+    /// <inheritdoc />
     public Task<string> DispatchChainAsync(
         IReadOnlyList<IJob> remainingJobs,
         Action<DispatchOptions>? configure,
@@ -64,6 +66,7 @@ public sealed class QueueFake : IJobDispatcher
         return Task.FromResult(Guid.NewGuid().ToString("N"));
     }
 
+    /// <inheritdoc />
     public Task<QueueBatch> BatchAsync(
         IEnumerable<IJob> jobs,
         Action<DispatchOptions>? configure = null,
@@ -80,6 +83,7 @@ public sealed class QueueFake : IJobDispatcher
         return Task.FromResult(new QueueBatch { TotalJobs = batchJobs.Length, AllowFailures = options.AllowFailures });
     }
 
+    /// <summary>Returns the first dispatched job of type <typeparamref name="TJob"/> and throws when none was dispatched.</summary>
     public TJob AssertDispatched<TJob>() where TJob : class, IJob
     {
         lock (_gate)
@@ -109,6 +113,7 @@ public sealed class QueueFake : IJobDispatcher
         }
     }
 
+    /// <summary>Returns every job of type <typeparamref name="TJob"/> found in a recorded chain (excluding chain heads) and throws when there is none.</summary>
     public IReadOnlyList<TJob> AssertChained<TJob>() where TJob : class, IJob
     {
         lock (_gate)
@@ -120,6 +125,7 @@ public sealed class QueueFake : IJobDispatcher
         }
     }
 
+    /// <summary>Clears all recorded dispatches, chains and held unique keys.</summary>
     public void Reset()
     {
         lock (_gate)

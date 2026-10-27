@@ -6,7 +6,7 @@ public class LocalStorageDriver : IStorageDriver
     private readonly string _rootPath;
     private readonly string _baseUrl;
 
-    /// <summary>Initializes a new instance of the <see cref="LocalStorageDriver"/> class.</summary>
+    /// <summary>Creates a driver rooted at the given directory (created if missing) that builds public URLs under the given base URL.</summary>
     public LocalStorageDriver(string rootPath, string baseUrl = "/storage")
     {
         _rootPath = Path.GetFullPath(rootPath);

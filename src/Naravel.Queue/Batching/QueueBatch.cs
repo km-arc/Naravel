@@ -6,10 +6,11 @@ namespace Naravel.Queue.Batching;
 /// <summary>A handle representing a group of jobs dispatched together. Mirrors Laravel's Bus::batch().</summary>
 public class QueueBatch
 {
+    /// <summary>Unique identifier of the batch, generated as a GUID without hyphens.</summary>
     public string Id { get; init; } = Guid.NewGuid().ToString("N");
-    /// <summary>Gets or sets the total jobs.</summary>
+    /// <summary>Gets the total number of jobs in the batch.</summary>
     public int TotalJobs { get; init; }
-    /// <summary>Gets the pending jobs.</summary>
+    /// <summary>Gets the number of jobs that have not yet completed, failed or been cancelled.</summary>
     public int PendingJobs => TotalJobs - CompletedJobs - FailedJobs - CancelledJobs;
     /// <summary>Number of jobs that completed successfully.</summary>
     public int CompletedJobs { get; set; }
@@ -21,6 +22,7 @@ public class QueueBatch
     public bool AllowFailures { get; set; }
     /// <summary>Whether the batch has been cancelled or stopped after a failure.</summary>
     public bool IsCancelled { get; set; }
+    /// <summary>Gets a value indicating whether every job in the batch has completed, failed or been cancelled.</summary>
     public bool IsFinished => CompletedJobs + FailedJobs + CancelledJobs >= TotalJobs;
 }
 
@@ -62,12 +64,17 @@ public class BatchOptions
         return this;
     }
 
+    /// <summary>Gets the callbacks registered with <see cref="Then{TPayload}"/>.</summary>
     public IReadOnlyList<BatchCallbackReference> ThenCallbacks => _then;
+    /// <summary>Gets the callbacks registered with <see cref="Catch{TPayload}"/>.</summary>
     public IReadOnlyList<BatchCallbackReference> CatchCallbacks => _catch;
+    /// <summary>Gets the callbacks registered with <see cref="Finally{TPayload}"/>.</summary>
     public IReadOnlyList<BatchCallbackReference> FinallyCallbacks => _finally;
 }
 
 /// <summary>Serializable alias and JSON payload for a registered batch callback.</summary>
+/// <param name="Alias">The alias under which the callback is registered in <see cref="BatchCallbackRegistry"/>.</param>
+/// <param name="Payload">The JSON-serialized payload passed to the callback.</param>
 /// <remarks>Laravel callbacks are delegates; Naravel intentionally persists no delegate or CLR type name.</remarks>
 public sealed record BatchCallbackReference(string Alias, string Payload)
 {
@@ -99,7 +106,7 @@ public sealed class BatchCallbackRegistry
 
     private readonly ConcurrentDictionary<string, IHandler> _handlers = new(StringComparer.Ordinal);
 
-    /// <summary>Registers t payload.</summary>
+    /// <summary>Registers a callback under <paramref name="alias"/> that receives the batch and a payload deserialized as <typeparamref name="TPayload"/>.</summary>
     public void Register<TPayload>(string alias, Func<QueueBatch, TPayload, CancellationToken, Task> callback)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(alias);
@@ -108,7 +115,7 @@ public sealed class BatchCallbackRegistry
             throw new InvalidOperationException($"A batch callback is already registered as '{alias}'.");
     }
 
-    /// <inheritdoc />
+    /// <summary>Invokes the registered handler for each callback reference in order, throwing when an alias is not registered.</summary>
     public async Task InvokeAsync(
         IEnumerable<BatchCallbackReference> callbacks,
         QueueBatch batch,
@@ -130,20 +137,25 @@ public sealed class BatchCallbackRegistry
 /// </summary>
 public interface IBatchRepository
 {
-    /// <summary>Registers.</summary>
+    /// <summary>Starts tracking a batch together with its failure behavior and callbacks.</summary>
     Task RegisterAsync(QueueBatch batch, BatchOptions options, CancellationToken cancellationToken);
-    /// <summary>Gets.</summary>
+    /// <summary>Returns the batch with the given id, or <see langword="null"/> if it is unknown.</summary>
     Task<QueueBatch?> GetAsync(string batchId, CancellationToken cancellationToken);
-    /// <summary>Determines whether it is cancelled.</summary>
+    /// <summary>Returns whether the batch has been cancelled or stopped after a failure.</summary>
     Task<bool> IsCancelledAsync(string batchId, CancellationToken cancellationToken);
-    /// <summary>Performs the cancel operation.</summary>
+    /// <summary>Marks the batch as cancelled so its remaining jobs are skipped.</summary>
     Task CancelAsync(string batchId, CancellationToken cancellationToken);
+    /// <summary>Records that one job of the batch completed successfully.</summary>
     Task MarkJobCompletedAsync(string batchId, CancellationToken cancellationToken);
+    /// <summary>Records that one job of the batch failed permanently.</summary>
     Task MarkJobFailedAsync(string batchId, Exception exception, CancellationToken cancellationToken);
+    /// <summary>Records that one job of the batch was skipped because the batch was cancelled.</summary>
     Task MarkJobCancelledAsync(string batchId, CancellationToken cancellationToken);
+    /// <summary>Re-runs completion callbacks for batches that finished but whose callbacks were not yet delivered.</summary>
     Task ResumePendingCallbacksAsync(CancellationToken cancellationToken);
 }
 
+/// <summary>In-process <see cref="IBatchRepository"/> that keeps batch state in memory and runs callbacks in the process that records the final job.</summary>
 public class InMemoryBatchRepository : IBatchRepository
 {
     private class Entry
@@ -156,9 +168,11 @@ public class InMemoryBatchRepository : IBatchRepository
     private readonly ConcurrentDictionary<string, Entry> _batches = new();
     private readonly BatchCallbackRegistry _callbacks;
 
+    /// <summary>Initializes a new instance of the <see cref="InMemoryBatchRepository"/> class using the given callback registry, or an empty one when <see langword="null"/>.</summary>
     public InMemoryBatchRepository(BatchCallbackRegistry? callbacks = null)
         => _callbacks = callbacks ?? new BatchCallbackRegistry();
 
+    /// <inheritdoc />
     public Task RegisterAsync(QueueBatch batch, BatchOptions options, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -167,18 +181,21 @@ public class InMemoryBatchRepository : IBatchRepository
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
     public Task<QueueBatch?> GetAsync(string batchId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult(_batches.TryGetValue(batchId, out var entry) ? entry.Batch : null);
     }
 
+    /// <inheritdoc />
     public Task<bool> IsCancelledAsync(string batchId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult(_batches.TryGetValue(batchId, out var entry) && entry.Batch.IsCancelled);
     }
 
+    /// <inheritdoc />
     public Task CancelAsync(string batchId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -187,6 +204,7 @@ public class InMemoryBatchRepository : IBatchRepository
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
     public async Task MarkJobCompletedAsync(string batchId, CancellationToken cancellationToken)
     {
         if (!_batches.TryGetValue(batchId, out var entry)) return;
@@ -204,6 +222,7 @@ public class InMemoryBatchRepository : IBatchRepository
         if (finished) await InvokeTerminalCallbacksAsync(entry, cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task MarkJobFailedAsync(string batchId, Exception exception, CancellationToken cancellationToken)
     {
         if (!_batches.TryGetValue(batchId, out var entry)) return;
@@ -224,6 +243,7 @@ public class InMemoryBatchRepository : IBatchRepository
         if (finished) await InvokeTerminalCallbacksAsync(entry, cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task MarkJobCancelledAsync(string batchId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -245,6 +265,7 @@ public class InMemoryBatchRepository : IBatchRepository
         }
     }
 
+    /// <inheritdoc />
     public Task ResumePendingCallbacksAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

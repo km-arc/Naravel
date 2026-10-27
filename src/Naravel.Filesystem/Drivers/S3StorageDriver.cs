@@ -10,7 +10,7 @@ public sealed class S3StorageDriver : IStorageDriver, IDisposable
     private readonly string _bucketName;
     private readonly string _serviceUrl;
 
-    /// <summary>Initializes a new instance of the <see cref="S3StorageDriver"/> class.</summary>
+    /// <summary>Creates a driver that talks to an S3-compatible bucket using the given credentials, optional custom endpoint and optional region.</summary>
     public S3StorageDriver(string key, string secret, string bucket, string? endpoint, string? region = null)
         : this(new AmazonS3Client(key, secret, CreateConfig(endpoint, region)), bucket, endpoint ?? "https://s3.amazonaws.com")
     {
