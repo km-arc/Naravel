@@ -135,6 +135,11 @@ jobs:
               print(f"| {project} | {values.get('total', '0')} | {values.get('passed', '0')} | {values.get('failed', '0')} | {skipped} |")
           PY
 
+      - name: Report executed and skipped tests
+        if: always()
+        shell: bash
+        run: python3 .github/scripts/test-report.py "Unit tests (${{ matrix.os }})" TestResults >> "$GITHUB_STEP_SUMMARY" || true
+
       - name: Upload test and coverage results
         if: always()
         uses: actions/upload-artifact@v4
@@ -314,6 +319,11 @@ jobs:
               print(f"| {suite} | {values.get('total', '0')} | {values.get('passed', '0')} | {values.get('failed', '0')} | {skipped} |")
           PY
 
+      - name: Report executed and skipped tests
+        if: always()
+        shell: bash
+        run: python3 .github/scripts/test-report.py "Provider integration tests" TestResults/Providers >> "$GITHUB_STEP_SUMMARY" || true
+
       - name: Upload provider test and coverage results
         if: always()
         uses: actions/upload-artifact@v4
@@ -392,18 +402,18 @@ jobs:
               # tmpfs data and relaxed flushing: this is a throwaway test database.
               docker run -d --name naravel-db -p 3306:3306 --tmpfs /var/lib/mysql:rw \
                 -e MYSQL_ROOT_PASSWORD=naravel -e MYSQL_DATABASE=naravel \
-                mysql:8.4 --skip-log-bin --innodb-flush-log-at-trx-commit=2
+                mysql:8.4.6 --skip-log-bin --innodb-flush-log-at-trx-commit=2
               ;;
             postgres)
               docker run -d --name naravel-db -p 5432:5432 --tmpfs /var/lib/postgresql/data:rw \
                 -e POSTGRES_PASSWORD=naravel -e POSTGRES_DB=naravel \
-                postgres:17-alpine -c fsync=off -c synchronous_commit=off -c full_page_writes=off
+                postgres:17.6-alpine -c fsync=off -c synchronous_commit=off -c full_page_writes=off
               ;;
             sqlserver)
               # SQL Server cannot be tuned much; this leg sets the wall time of the job.
               docker run -d --name naravel-db -p 1433:1433 \
                 -e ACCEPT_EULA=Y -e 'MSSQL_SA_PASSWORD=Naravel_Passw0rd!' -e MSSQL_PID=Developer \
-                mcr.microsoft.com/mssql/server:2022-latest
+                mcr.microsoft.com/mssql/server:2022-CU19-ubuntu-22.04
               ;;
           esac
 
@@ -487,6 +497,11 @@ jobs:
               raise SystemExit(1)
           PY
 
+      - name: Report executed and skipped tests
+        if: always()
+        shell: bash
+        run: python3 .github/scripts/test-report.py "Database (${{ matrix.db }})" "TestResults/Database/${{ matrix.db }}" >> "$GITHUB_STEP_SUMMARY" || true
+
       - name: Annotate failed tests
         if: failure()
         shell: bash
@@ -528,12 +543,22 @@ jobs:
           path: TestResults/Database/**/*.trx
           if-no-files-found: warn
 
+  # Service images must be exact versions: a floating tag can turn a green main red with no code change.
+  pins:
+    name: Service image pins
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Reject floating image tags
+        run: python3 .github/scripts/check-image-pins.py
+
   # The one check branch protection needs. A database job skipped by the path filter counts as success; any failure,
   # cancellation or missing result fails it, so a filtered job can never block a merge by being absent.
   ci-ok:
     name: ci-ok
     if: always()
-    needs: [fast, services, changes, database]
+    needs: [fast, services, changes, database, pins]
     runs-on: ubuntu-latest
     steps:
       - name: Check every required job
