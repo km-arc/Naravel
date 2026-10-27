@@ -53,6 +53,9 @@ public class KafkaQueueDriver : IQueueDriver, IDisposable
 
     private sealed record BufferedKafkaMessage(QueuedMessage Message, TopicPartitionOffset Offset, long Sequence);
 
+    /// <summary>Creates a driver that produces to and consumes from the given Kafka cluster.</summary>
+    /// <param name="bootstrapServers">The Kafka bootstrap servers.</param>
+    /// <param name="groupId">The consumer-group prefix; each queue uses its own group "{groupId}-{queue}".</param>
     public KafkaQueueDriver(string bootstrapServers, string groupId)
     {
         _bootstrapServers = bootstrapServers;
@@ -112,6 +115,7 @@ public class KafkaQueueDriver : IQueueDriver, IDisposable
         return new KafkaConsumerState(consumer);
     });
 
+    /// <inheritdoc />
     public async Task PushAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         if (message.AvailableAt - DateTimeOffset.UtcNow > DelayTolerance)
@@ -127,6 +131,7 @@ public class KafkaQueueDriver : IQueueDriver, IDisposable
             cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task<QueuedMessage?> PopAsync(string queue, CancellationToken cancellationToken = default)
     {
         var state = GetConsumer(queue);
@@ -189,11 +194,13 @@ public class KafkaQueueDriver : IQueueDriver, IDisposable
         return true;
     }
 
+    /// <inheritdoc />
     public Task AckAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         return CommitOriginalOffsetAsync(message, cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task ReleaseAsync(QueuedMessage message, TimeSpan delay, CancellationToken cancellationToken = default)
     {
         // PDR-012a: the delay is deliberately ignored; a future AvailableAt would block the partition head-of-line.
@@ -205,6 +212,7 @@ public class KafkaQueueDriver : IQueueDriver, IDisposable
         await CommitOriginalOffsetAsync(message, cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task FailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         await _producer.ProduceAsync(FailedTopicFor(message.Queue),
@@ -236,9 +244,11 @@ public class KafkaQueueDriver : IQueueDriver, IDisposable
         }
     }
 
+    /// <inheritdoc />
     public Task<long> SizeAsync(string queue, CancellationToken cancellationToken = default)
         => Task.FromResult(-1L); // not cheaply available; use Kafka consumer-lag tooling instead
 
+    /// <summary>Disposes the producer and every per-queue consumer.</summary>
     public void Dispose()
     {
         _producer.Flush(TimeSpan.FromSeconds(5));
@@ -290,6 +300,7 @@ internal sealed class KafkaOffsetCommitTracker
     }
 }
 
+/// <summary>Registration extension methods for the Kafka queue driver.</summary>
 public static class ServiceCollectionExtensions
 {
     /// <summary>

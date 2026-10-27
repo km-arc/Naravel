@@ -126,6 +126,7 @@ public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
             cancellationToken: cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task PushAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         await using var channel = await OpenChannelAsync(cancellationToken);
@@ -151,6 +152,7 @@ public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
             cancellationToken: cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task<QueuedMessage?> PopAsync(string queue, CancellationToken cancellationToken = default)
     {
         var channel = await OpenChannelAsync(cancellationToken);
@@ -176,6 +178,7 @@ public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
         }
     }
 
+    /// <inheritdoc />
     public async Task AckAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -184,6 +187,7 @@ public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
         finally { await delivery.Channel.DisposeAsync(); }
     }
 
+    /// <inheritdoc />
     public async Task ReleaseAsync(QueuedMessage message, TimeSpan delay, CancellationToken cancellationToken = default)
     {
         // RabbitMQ has no "put this specific message back with a new delay" primitive - acknowledge the

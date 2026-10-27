@@ -26,8 +26,12 @@ public class FileQueueDriver : IQueueDriver
 {
     private readonly string _basePath;
     private readonly TimeSpan _visibilityTimeout;
+    /// <summary>Gets how long a reserved job stays invisible before another worker may reclaim it.</summary>
     public TimeSpan? VisibilityTimeout => _visibilityTimeout;
 
+    /// <summary>Creates a driver that keeps its queues as files under <paramref name="basePath"/> (created if missing).</summary>
+    /// <param name="basePath">The directory that holds the queue folders.</param>
+    /// <param name="visibilityTimeout">The reservation timeout; five minutes when omitted.</param>
     public FileQueueDriver(string basePath, TimeSpan? visibilityTimeout = null)
     {
         _basePath = basePath;
@@ -87,6 +91,7 @@ public class FileQueueDriver : IQueueDriver
 
     private static string PendingFileName(QueuedMessage m) => $"{SortKey(m)}_{m.Id}.json";
 
+    /// <inheritdoc />
     public async Task PushAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         var path = Path.Combine(Dir(message.Queue, "pending"), PendingFileName(message));
@@ -111,6 +116,7 @@ public class FileQueueDriver : IQueueDriver
         finally { gate.Release(); }
     }
 
+    /// <inheritdoc />
     public Task<QueuedMessage?> PopAsync(string queue, CancellationToken cancellationToken = default)
         => WithGateAsync(queue, () => PopCoreAsync(queue, cancellationToken), cancellationToken);
 
@@ -210,6 +216,7 @@ public class FileQueueDriver : IQueueDriver
         }
     }
 
+    /// <inheritdoc />
     public Task AckAsync(QueuedMessage message, CancellationToken cancellationToken = default)
         => WithGateAsync(message.Queue, async () => { await AckCoreAsync(message, cancellationToken); return 0; }, cancellationToken);
 
@@ -219,6 +226,7 @@ public class FileQueueDriver : IQueueDriver
         if (file != null) await DeleteWithRetryAsync(file, cancellationToken);
     }
 
+    /// <inheritdoc />
     public Task ReleaseAsync(QueuedMessage message, TimeSpan delay, CancellationToken cancellationToken = default)
         => WithGateAsync(message.Queue, async () => { await ReleaseCoreAsync(message, delay, cancellationToken); return 0; }, cancellationToken);
 
@@ -236,6 +244,7 @@ public class FileQueueDriver : IQueueDriver
         if (reservedFile != null) await DeleteWithRetryAsync(reservedFile, cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task FailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
         => await TryFailAsync(message, cancellationToken);
 
@@ -255,6 +264,7 @@ public class FileQueueDriver : IQueueDriver
         return true;
     }
 
+    /// <inheritdoc />
     public Task<long> SizeAsync(string queue, CancellationToken cancellationToken = default)
     {
         try { return Task.FromResult((long)Directory.EnumerateFiles(Dir(queue, "pending"), "*.json").Count()); }
