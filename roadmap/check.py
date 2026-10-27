@@ -45,12 +45,14 @@ def main() -> int:
                 f"tracked build artifacts found (bin/, obj/, BenchmarkDotNet.Artifacts/, .vscode/): {generated_files}"
             )
 
-    next_match = re.search(r"(?m)^NEXT:\s*(R\d{2})\s*$", roadmap)
+    next_match = re.search(r"(?m)^NEXT:\s*(R\d{2}|none)\s*$", roadmap)
     if not next_match:
-        errors.append("ROADMAP.md must contain exactly one NEXT: R## pointer.")
+        errors.append("ROADMAP.md must contain exactly one NEXT: R## (or none) pointer.")
         next_id = None
+        next_is_none = False
     else:
-        next_id = next_match.group(1)
+        next_is_none = next_match.group(1) == "none"
+        next_id = None if next_is_none else next_match.group(1)
     if len(re.findall(r"(?m)^NEXT:", roadmap)) != 1:
         errors.append("ROADMAP.md must contain one and only one NEXT pointer.")
 
@@ -116,6 +118,10 @@ def main() -> int:
     for stage_id in rows:
         visit(stage_id)
 
+    if next_is_none:
+        unfinished = [stage for stage, (_, status) in rows.items() if not status.startswith(("DONE", "DECLINED"))]
+        if unfinished:
+            errors.append(f"NEXT is none but these stages are not DONE/DECLINED: {', '.join(unfinished)}")
     if next_id and next_id not in rows:
         errors.append(f"NEXT points to unknown stage {next_id}")
     elif next_id and rows[next_id][1].startswith("DONE"):

@@ -13,7 +13,7 @@ Stage template: [roadmap/STAGE-TEMPLATE.md](roadmap/STAGE-TEMPLATE.md).
 3. Do the tasks in order. Each task has an **Accept:** line = the verifiable condition. Tick `- [x]` only when it holds.
 4. A stage may take several passes: tick finished tasks, set status `DOING`, keep `NEXT`. Never start another stage.
 5. When every task is ticked: run the *Definition of done*, set status `DONE (date, verification)`, set `NEXT` to the first
-   stage in **Default order** that is not `DONE`/`DECLINED` and whose dependencies are all `DONE`/`DECLINED`, then stop.
+   stage in **Default order** that is not `DONE`/`DECLINED` and whose dependencies are all `DONE`/`DECLINED`, then stop. When every stage is `DONE`/`DECLINED`, set `NEXT: none` (the roadmap is complete).
 6. Report: what changed, what was verified, what was **NOT RUN** and why. Never claim an unrun test passed.
 
 ## NEXT
