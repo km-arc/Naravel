@@ -1,6 +1,6 @@
 # Naravel Sample
 
-The sample combines a queue demo, an events demo, a database (query builder) demo, and an executable showcase of `Naravel.Routing`.
+The sample combines a queue demo, an events demo, a database (query builder) demo, an executable showcase of `Naravel.Routing`, and small demos of Cache with the rate limiter, Encryption, Mail, Notifications and Scheduling.
 
 Run it with:
 
@@ -38,6 +38,21 @@ The database demo at `/database` uses an in-memory SQLite database (`Database:Co
 - `GET /database/people/3` uses `FindAsync`; `GET /database/log` shows the queries recorded by the opt-in `QueryLog` (it keeps bound values, so use it in development only).
 
 To run the same demo on another server, change the connection to `{ "Driver": "mysql" | "pgsql" | "sqlserver", "ConnectionString": "..." }` and register the matching `AddNaravel...Database` call in `config/DatabaseSampleConfig.cs`; the demo's SQL text is the builder's, but the `create table` statement in `app/Data/PeopleSeeder.cs` is SQLite syntax and needs the server's column types. See `docs/en/database.md`.
+
+The module demos need no server: the cache is in memory, mail uses the `log` transport and encryption uses Data Protection's default key ring. They are plain minimal-API endpoints in `app/Demos/ModuleDemoEndpoints.cs`, registered in `config/ModulesSampleConfig.cs`. Try them with `curl` (add `-X POST` or `-X DELETE` where shown):
+
+| Demo | Call | What to look at |
+|---|---|---|
+| Cache | `GET /cache/settings` twice, then `DELETE /cache/settings` | `RememberAsync` loads once for 30 seconds; the load number only changes after the delete or the ttl. |
+| Rate limiter | `POST /cache/attempt?subject=ali` four times | 3 attempts per 30 seconds; the 4th answers `429` with `Retry-After`. `DELETE /cache/attempt?subject=ali` resets the bucket. |
+| Encryption | `GET /encryption/text?value=hello`, `/encryption/typed`, `/encryption/purpose` | Round trip of text and of a typed value; a value written under the purpose `billing` cannot be read by the default encrypter. |
+| Mail | `POST /mail/welcome?name=Ali` | The `log` transport writes the message to the console of `dotnet run`; nothing is delivered. Set `Mail:Default` to a real transport to send. |
+| Notifications | `POST /notifications/invoice?id=7` | One notification through the channels `log` and `trace`, in that order. |
+| Scheduling | wait about a minute, then `GET /demos/trace` | The `sample-heartbeat` task runs once a minute with `WithoutOverlapping`. |
+
+`GET /demos/trace` returns the last 50 lines the mail, notification and scheduler demos wrote. It is an in-memory list for the sample only.
+
+For Redis-backed limiting with several instances, register `AddNaravelRedisCache` and call `AddNaravelRateLimiter("redis")`; see `docs/en/cache.md`.
 
 Protected examples accept the request header `X-Sample-Key: naravel-demo`. The role example additionally expects `X-Sample-Role: admin`. The domain-scoped examples require the host `tenant.example.test`.
 

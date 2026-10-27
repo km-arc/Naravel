@@ -104,6 +104,59 @@ catch (InvalidCursorException) { return BadRequest(); }
 
 R16.T04 records a measured comparison; until then no numbers are claimed.
 
+## Complete example
+
+Three list endpoints over one EF Core context: length-aware, simple and cursor. The JSON of each is the Laravel shape shown above.
+
+```csharp
+using Naravel.Pagination;
+
+public sealed class Post
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
+}
+public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
+{
+    public DbSet<Post> Posts => Set<Post>();
+}
+
+// Program.cs: AppDb is a normal EF Core context (provider of your choice).
+builder.Services.AddDbContext<AppDb>(o => o.UseSqlite("Data Source=app.db"));
+
+// Length-aware: GET /posts?page=2&perPage=10  (page comes from you; Naravel does not read the request)
+app.MapGet("/posts", async (AppDb db, HttpRequest request, int page = 1, int perPage = 15, CancellationToken ct) =>
+{
+    var result = await db.Posts.OrderBy(p => p.Id).PaginateAsync(page, perPage, ct);
+    return Results.Ok(result
+        .WithPath("/posts")
+        .WithQuery(request.Query.Where(q => q.Key != "page").Select(q => KeyValuePair.Create(q.Key, (string?)q.Value))));
+});
+
+// Simple: one statement, no total. Good for "older / newer" buttons.
+app.MapGet("/posts/simple", async (AppDb db, int page = 1, CancellationToken ct) =>
+    Results.Ok((await db.Posts.OrderBy(p => p.Id).SimplePaginateAsync(page, 15, ct)).WithPath("/posts/simple")));
+
+// Cursor: keyset paging for a feed. Keys together must be unique, so end with the primary key.
+app.MapGet("/posts/feed", async (AppDb db, string? cursor, CancellationToken ct) =>
+{
+    try
+    {
+        var feed = await db.Posts.CursorPaginateAsync(
+            k => k.By(p => p.CreatedAt, descending: true).Then(p => p.Id), 15, cursor, ct);
+        return Results.Ok(feed.WithPath("/posts/feed"));
+    }
+    catch (InvalidCursorException)
+    {
+        return Results.BadRequest("invalid cursor");           // a client edited or truncated it
+    }
+});
+
+// Shape the rows without a second query (Laravel: through).
+// var dto = page.Map(p => new PostDto(p.Id, p.Title));
+```
+
 ## Not ported
 
 - Reading the page from the current HTTP request, and `links()` HTML rendering: build the links with `WithPath`/`WithQuery`, render in your view.

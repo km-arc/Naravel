@@ -31,6 +31,42 @@ app.MapGet("/cart", (HttpContext c) => c.Session.GetInt32("items") ?? 0);
 | `session()->regenerate()` / `invalidate()` | `Session.Clear()` و ورود دوباره؛ cookie احراز هویت بلیت خودش را دارد |
 | `session()->token()`، `@csrf` | `AddAntiforgery` |
 
+## مثال کامل
+
+یک شمارندهٔ سبد خرید، یک پیام یک‌بارمصرف و یک بازنشانی، با معادل Laravel هر خط.
+
+```csharp
+// Program.cs
+builder.Services.AddDistributedMemoryCache();                  // use AddStackExchangeRedisCache(...) with more than one instance
+builder.Services.AddSession(o => o.IdleTimeout = TimeSpan.FromMinutes(30));
+var app = builder.Build();
+app.UseSession();                                              // before UseNaravelRouting and the endpoints
+
+app.MapPost("/cart/add", (HttpContext c) =>
+{
+    var items = (c.Session.GetInt32("items") ?? 0) + 1;        // session()->get('items', 0)
+    c.Session.SetInt32("items", items);                        // session()->put
+    return Results.Ok(new { items });
+});
+
+app.MapGet("/cart", (HttpContext c) => Results.Ok(new { items = c.Session.GetInt32("items") ?? 0 }));
+
+app.MapGet("/notice", (HttpContext c) =>                       // session()->pull('notice')
+{
+    var notice = c.Session.GetString("notice");
+    c.Session.Remove("notice");
+    return Results.Ok(new { notice });
+});
+
+app.MapPost("/cart/clear", (HttpContext c) =>
+{
+    c.Session.Clear();                                         // session()->flush()
+    return Results.NoContent();
+});
+```
+
+کوکی را در هر درخواست برگردانید (مرورگر خودکار این کار را می‌کند؛ با `curl` از `-c jar -b jar` استفاده کنید).
+
 ## flash data برای minimal APIها
 
 `TempData` به MVC یا Razor Pages نیاز دارد. minimal API با چند خط flash data یک‌درخواستی می‌گیرد. این قطعه‌کدی برای کپی است، نه API پشتیبانی‌شده، و این مخزن آن را کامپایل نمی‌کند.

@@ -173,6 +173,36 @@ var decision = await limiter.AttemptAsync("login", subjectKey, 5, TimeSpan.FromM
 instanceها backend مشترک داشته باشند و lock آن هماهنگی لازم را فراهم کند. lock حافظه‌ای فقط در همان
 process کار می‌کند؛ release در Memcached race خواندن/حذف دارد، پس برای سهمیهٔ مشترک حساس Redis مناسب‌تر است.
 
+مثال کامل: محدودکردن endpoint ورود به ۵ تلاش در دقیقه برای هر IP و حساب. `IAuthService` و `LoginRequest` نمایندهٔ کد خودتان هستند.
+
+```csharp
+using Naravel.Cache.RateLimiting;
+
+// Program.cs: a shared Redis store, so every instance counts the same attempts.
+builder.Services.AddNaravelCache(builder.Configuration).AddNaravelRedisCache(builder.Configuration);
+builder.Services.AddNaravelRateLimiter("redis");
+
+app.MapPost("/login", async (LoginRequest body, HttpContext http, IRateLimiter limiter, IAuthService auth, CancellationToken ct) =>
+{
+    var subject = $"{http.Connection.RemoteIpAddress}:{body.Email.ToLowerInvariant()}";   // one bucket per IP and account
+
+    var decision = await limiter.AttemptAsync("login", subject, 5, TimeSpan.FromMinutes(1), ct);
+    if (!decision.Allowed)
+    {
+        http.Response.Headers.RetryAfter = ((int)Math.Ceiling(decision.RetryAfter.TotalSeconds)).ToString();
+        return Results.StatusCode(StatusCodes.Status429TooManyRequests);
+    }
+
+    if (!await auth.CheckAsync(body.Email, body.Password, ct))
+        return Results.Unauthorized();                       // the failed attempt stays counted
+
+    await limiter.ClearAsync("login", subject, ct);          // RateLimiter::clear after a successful sign-in
+    return Results.Ok();
+});
+```
+
+`Remaining` تعداد تلاش‌های باقی‌ماندهٔ پنجره را می‌دهد؛ مثلاً برای ارسال هدر `X-RateLimit-Remaining`.
+
 `ICacheStore.IncrementAsync(key, by, ttl)` counter را اتمیک افزایش می‌دهد و TTL را فقط هنگام ایجاد کلید
 می‌گذارد. Redis افزایش و ثبت expiry اولیه را در یک عملیات Lua انجام می‌دهد؛ Memory از lock همان کلید و
 Memcached از add اتمیک و سپس increment اتمیک استفاده می‌کند. incrementهای بعدی مرز پنجرهٔ ثابت را جابه‌جا نمی‌کنند.

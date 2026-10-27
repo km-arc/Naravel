@@ -18,6 +18,11 @@
     <ProjectReference Include="..\..\src\Naravel.Queue.Kafka\Naravel.Queue.Kafka.csproj" />
     <ProjectReference Include="..\..\src\Naravel.Database\Naravel.Database.csproj" />
     <ProjectReference Include="..\..\src\Naravel.Database.Sqlite\Naravel.Database.Sqlite.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Cache\Naravel.Cache.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Encryption\Naravel.Encryption.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Mail\Naravel.Mail.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Notifications\Naravel.Notifications.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Scheduling\Naravel.Scheduling.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -76,6 +76,53 @@ If the host was stopped or paused, the missed minutes are **skipped, not replaye
 
 `Scheduler.List()` returns the name, the frequency text and the next due minute of every task (Laravel: `schedule:list`). Filters are not evaluated. It is a method, so any command, endpoint or health page can print it.
 
+## Complete example
+
+Three tasks that use the common guards (one server, no overlap, time zone, window, flag, hooks), and a test of the weekday rule. The three services are yours; the Redis cache gives the guards a lock that all instances share.
+
+```csharp
+// Program.cs: a web app (or a worker) with three tasks. Digest, Cleanup and FeedPoller are your own services.
+var tehran = TimeZoneInfo.FindSystemTimeZoneById("Asia/Tehran");
+
+builder.Services.AddNaravelRedisCache(builder.Configuration);        // a lock that every instance shares
+builder.Services.AddNaravelScheduling(schedule =>
+{
+    // 1. Once per day on exactly one instance, on weekdays at 08:00 Tehran time. Failures go to your alert.
+    schedule.Call("daily-digest", (sp, ct) => sp.GetRequiredService<Digest>().SendAsync(ct))
+        .DailyAt(8, 0).Weekdays().InTimeZone(tehran)
+        .OnOneServer()
+        .OnSuccess(() => { Console.WriteLine("digest sent"); return Task.CompletedTask; })
+        .OnFailure(ex => { Console.Error.WriteLine($"digest failed: {ex.Message}"); return Task.CompletedTask; });
+
+    // 2. Every five minutes, never two runs at once, only inside office hours and only while the flag is on.
+    schedule.Call("feed-poll", (sp, ct) => sp.GetRequiredService<FeedPoller>().PollAsync(ct))
+        .EveryFiveMinutes()
+        .Between(new TimeOnly(8, 0), new TimeOnly(18, 0)).InTimeZone(tehran)
+        .When(() => builder.Configuration.GetValue<bool>("Feeds:Enabled"))
+        .WithoutOverlapping();
+
+    // 3. Nightly cleanup with a cron expression (03:30 every day).
+    schedule.Call("nightly-cleanup", (sp, ct) => sp.GetRequiredService<Cleanup>().RunAsync(ct))
+        .Cron("30 3 * * *").OnOneServer();
+});
+```
+
+```csharp
+// Test: no host, no timer, no waiting.
+[Fact]
+public async Task Digest_runs_on_weekdays_only()
+{
+    var fake = new SchedulerFake(schedule =>
+        schedule.Call("daily-digest", (sp, ct) => Task.CompletedTask).DailyAt(8, 0).Weekdays());
+
+    fake.IsDue("daily-digest", new DateTimeOffset(2026, 10, 26, 8, 0, 0, TimeSpan.Zero)).Should().BeTrue();    // Monday
+    fake.IsDue("daily-digest", new DateTimeOffset(2026, 10, 24, 8, 0, 0, TimeSpan.Zero)).Should().BeFalse();   // Saturday
+
+    await fake.RunAtAsync(new DateTimeOffset(2026, 10, 26, 8, 0, 0, TimeSpan.Zero));
+    fake.AssertRan("daily-digest");
+}
+```
+
 ## Settings
 
 ```csharp

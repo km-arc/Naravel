@@ -98,6 +98,68 @@ fake.AssertNothingSent();                               // after Reset(), or whe
 
 Register it with `services.AddSingleton<INotificationSender>(fake)`. It applies the same argument checks as the real sender (empty or duplicate channel names throw), so a bad call fails in the test too; it records the **requested** channel names and runs no channel. To test a channel itself, call `SendAsync` on it directly, or register it with the real sender and an `array` mail transport.
 
+## Complete example
+
+Three channels (mail, SMS, log) for one notification, an endpoint that reports which channel failed, and a test with `NotificationFake`. `User`, `IUserRepository` and `ISmsClient` are your own types.
+
+```csharp
+public sealed record User(int Id, string Name, string Email, string Phone);
+public sealed record InvoiceReady(int InvoiceId, decimal Amount);
+
+// Mail: the Mailable is built from the notification. Build must be pure.
+public sealed class InvoiceMail(InvoiceReady n) : Mailable
+{
+    public override MailMessage Build(MailBuilder mail) =>
+        mail.Subject($"Invoice {n.InvoiceId}").Text($"Amount due: {n.Amount}").Build();
+}
+
+// SMS: a channel class. ISmsClient is your own provider wrapper.
+public sealed class SmsChannel(ISmsClient sms) : INotificationChannel<InvoiceReady>
+{
+    public string Name => "sms";
+
+    public Task SendAsync(NotificationContext context, InvoiceReady n, CancellationToken cancellationToken) =>
+        sms.SendAsync(context.GetRecipient<User>().Phone, $"Invoice {n.InvoiceId} is ready", cancellationToken);
+}
+
+// Program.cs
+builder.Services.AddNaravelMail(builder.Configuration);
+builder.Services.AddNaravelNotifications();
+builder.Services.AddMailNotificationChannel<InvoiceReady>(
+    address: c => c.GetRecipient<User>().Email,
+    mailable: n => new InvoiceMail(n));
+builder.Services.AddNotificationChannel<InvoiceReady, SmsChannel>();
+builder.Services.AddLogNotificationChannel<InvoiceReady>("log");
+
+app.MapPost("/invoices/{id:int}/notify", async (int id, IUserRepository users, INotificationSender notifications, CancellationToken ct) =>
+{
+    var user = await users.CurrentAsync(ct);
+    try
+    {
+        await notifications.SendAsync(user, new InvoiceReady(id, 120m), ["mail", "sms", "log"], ct);   // in this order
+        return Results.Accepted();
+    }
+    catch (NotificationDeliveryException ex)                  // a channel threw: later channels were not tried
+    {
+        return Results.Problem($"{ex.Channel} failed after: {string.Join(", ", ex.DeliveredChannels)}", statusCode: 502);
+    }
+});
+
+// Test
+[Fact]
+public async Task Notify_sends_through_three_channels()
+{
+    var fake = new NotificationFake();
+    var user = new User(1, "Ada", "ada@example.com", "+98900000000");
+
+    await fake.SendAsync(user, new InvoiceReady(7, 120m), ["mail", "sms", "log"]);
+
+    var sent = fake.AssertSent<InvoiceReady>();
+    sent.Recipient.Should().BeSameAs(user);
+    sent.Channels.Should().Equal("mail", "sms", "log");
+}
+```
+
 ## Observability
 
 `Meter` and `ActivitySource` are both named `Naravel.Notifications`.
