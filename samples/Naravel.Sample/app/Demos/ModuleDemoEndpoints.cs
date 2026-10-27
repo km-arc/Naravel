@@ -1,3 +1,4 @@
+using Naravel.Cache;
 using Naravel.Cache.Abstractions;
 using Naravel.Cache.RateLimiting;
 using Naravel.Encryption;
