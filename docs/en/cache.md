@@ -206,8 +206,19 @@ app.MapPost("/login", async (LoginRequest body, HttpContext http, IRateLimiter l
 
 `ICacheStore.IncrementAsync(key, by, ttl)` atomically increments a counter and only applies TTL when
 the key is created. Redis performs increment and first-expiry assignment in one Lua operation; Memory
-coordinates with its per-key lock; Memcached uses atomic add followed by atomic increment. Later
+coordinates with its per-key lock; Memcached uses atomic add followed by atomic increment (which carries the same TTL, so a key that expires between the two calls is recreated with an expiry and never becomes a permanent counter). Later
 increments never slide the fixed-window boundary.
+
+**Local versus distributed.** The limit is shared by exactly the processes that share the counter **and** the lock:
+
+| Backend | Counter and lock shared across replicas | What the limit means with N replicas |
+|---|---|---|
+| Redis | yes (atomic Lua increment, `SET NX` lock) | one limit for all replicas |
+| Memcached | yes, but its lock release has a read/delete race | one limit; a rare double admit is possible, and an evicted key resets the window |
+| Memory | **no** (per process) | **each replica admits the full limit**, so the effective limit is N times higher |
+| route `throttle` middleware | **no** (`System.Threading.RateLimiting`, per process) | same as Memory |
+
+Failure behaviour: if the lock cannot be taken within 5 seconds, `AttemptAsync` throws `TimeoutException` (it neither admits nor rejects, so decide in the caller whether to fail open or closed); a backend outage surfaces the backend's exception. The counter and lock are not rolled back if your own work after an allowed attempt fails.
 
 A fixed window can admit up to **2x the configured limit** in a short interval across an adjacent-window
 boundary (for example, the full limit just before expiry and another full limit just after reset). This is

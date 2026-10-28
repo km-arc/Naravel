@@ -43,6 +43,19 @@ public class CacheRateLimiterTests
     }
 
     [Fact]
+    public async Task Concurrent_attempts_in_one_process_admit_exactly_the_limit()
+    {
+        using var provider = BuildProvider("memory");
+        var limiter = provider.GetRequiredService<IRateLimiter>();
+
+        var decisions = await Task.WhenAll(Enumerable.Range(0, 60)
+            .Select(_ => Task.Run(() => limiter.AttemptAsync("burst", "subject", 10, TimeSpan.FromMinutes(1)))));
+
+        decisions.Count(d => d.Allowed).Should().Be(10);
+        decisions.Where(d => d.Allowed).Select(d => d.Remaining).Should().BeEquivalentTo(Enumerable.Range(0, 10).Select(i => (long)i));
+    }
+
+    [Fact]
     public async Task Clear_removes_the_current_window()
     {
         using var provider = BuildProvider("memory");
