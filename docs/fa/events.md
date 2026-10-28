@@ -58,10 +58,13 @@ builder.Services.AddScoped<IEventListener<OrderPaid>, UpdateOrderReadModel>();
 
 // Only needed for queued listeners (Naravel.Events.Queue + Naravel.Queue + a driver):
 builder.Services.AddQueue(builder.Configuration).AddMemoryDriver(builder.Configuration);
+// usings: Naravel.Queue.Extensions (AddQueue, AddQueueWorker) and Naravel.Queue.Memory (AddMemoryDriver)
 builder.Services.AddNaravelEventsQueue();
 builder.Services.AddQueuedEventListener<OrderPaid, SendReceipt>("order-paid.receipt");
 builder.Services.AddQueueWorker();
 ```
+
+مثال کامل بالا به صورت تست اجرا می‌شود: `tests/Naravel.Events.Tests/DocsExampleTests.cs` (listener درون‌خطی، listener صف‌شده روی worker، `context.Stop()` و `EventFake`). هر تغییری در یکی را در دیگری هم اعمال کنید.
 
 ```json
 {
