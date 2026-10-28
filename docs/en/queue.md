@@ -325,6 +325,20 @@ the job again. Set `Job.Timeout` for a per-job limit; the worker uses the smalle
 `QueueWorkerOptions.JobTimeout`. Cancellation is cooperative; handlers that ignore their token may
 continue running.
 
+### Dispatch and the database transaction (transactional enqueue)
+
+`IJobDispatcher.DispatchAsync` pushes immediately, so a job is **not** part of your database transaction: if the process dies after the commit and before the dispatch, the job is lost; if you dispatch first and the transaction rolls back, the job runs for data that does not exist. With the Database queue you can close both gaps (PDR-023): add the job to your own `DbContext` and let one `SaveChanges` commit both.
+
+```csharp
+services.AddTransactionalEnqueue();                       // Naravel.Queue.Database
+
+db.Orders.Add(order);
+enqueuer.Enqueue(db, new SendReceiptJob(order.Id));       // tracked only; nothing is sent yet
+await db.SaveChangesAsync();                              // the order and the job commit together, or neither
+```
+
+The context must map the jobs table (`ConfigureQueueJobs`). The same holds inside an explicit transaction or the EF adapter's shared connection. The existing database worker is the relay. Limits: `IUniqueJob` is rejected (its gate is in the cache), chains and batches are not supported, `Connection` is ignored (a worker must consume the `database` connection), and delivery is still at-least-once, so keep jobs idempotent as below. For Redis, Kafka and RabbitMQ there is no outbox yet: dispatch after the commit and accept the documented gap.
+
 ### Idempotent jobs
 
 Delivery is at-least-once, so a job that changes money, stock or any external state must be safe to run twice. Naravel does **not** ship an idempotency-key store or a stored job result. Two features look similar and are not:

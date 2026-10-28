@@ -312,3 +312,6 @@ Naravel.Queue.Jobs.IUniqueJob.UniqueKey.get -> string!
 Naravel.Queue.Jobs.IUniqueJob.UniqueUntilProcessing.get -> bool
 Naravel.Queue.Testing.QueueFake.AssertDispatchedCount<TJob>(int expected) -> void
 Naravel.Queue.Testing.QueueFake.AssertNotDispatched<TJob>() -> void
+Naravel.Queue.Dispatch.IJobMessageFactory
+Naravel.Queue.Dispatch.IJobMessageFactory.CreateMessage(Naravel.Queue.Jobs.IJob! job, System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure = null) -> Naravel.Queue.Drivers.QueuedMessage!
+Naravel.Queue.Dispatch.JobDispatcher.CreateMessage(Naravel.Queue.Jobs.IJob! job, System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure = null) -> Naravel.Queue.Drivers.QueuedMessage!

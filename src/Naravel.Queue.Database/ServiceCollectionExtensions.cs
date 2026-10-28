@@ -32,6 +32,15 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>Registers <see cref="DatabaseJobEnqueuer"/> for transactional enqueue (PDR-023). Needs <c>AddQueue</c> (it provides the message factory).</summary>
+    /// <param name="services">The service collection.</param>
+    /// <returns>The same collection.</returns>
+    public static IServiceCollection AddTransactionalEnqueue(this IServiceCollection services)
+    {
+        services.TryAddSingleton<DatabaseJobEnqueuer>();
+        return services;
+    }
+
     /// <summary>
     /// Registers the "database" driver against the given DbContext type, for every configured store whose
     /// "Driver" is "database". You must separately register
