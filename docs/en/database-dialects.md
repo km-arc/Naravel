@@ -25,7 +25,10 @@ Persian version: [docs/fa/database-dialects.md](../fa/database-dialects.md). Met
 | `UpdateOrInsertAsync` | two statements, **not atomic** | same | same | same |
 | Row locks (`LockForUpdate`, `SharedLock`) | **refused** | supported | supported | supported |
 | `WhereFullText` | **refused** | executed | executed | **compile-only**, never run |
-| JSON contains a whole array | **refused** | supported | supported | **refused** |
+| JSON contains a whole array, object, `Guid`, `DateTime`, `DateTimeOffset`, `char` or enum value | **`NotSupportedException`** | supported (serialised to JSON) | supported (serialised to JSON) | **`NotSupportedException`** |
+| JSON contains a scalar (string, number, bool) | element of the array (or an object's value) at the path, compared **typed** (`1` does not match `"1"`) | `json_contains`: element of the array at the path | `@>`: element of the array at the path | element of the array (or an object's value) at the path, compared **as text** (`"1"` can match `1`) |
+| JSON contains with a `null` value | `ArgumentNullException` | same | same | same |
+| JSON contains with no path (`WhereJsonContains("col", v)`) | searches the whole document | same | same | same |
 | `WhereLike` case sensitivity | differs from the other engines (the case-sensitive scenario is not run on SQLite) | executed | executed | executed |
 | `Having` on a select alias | supported | supported | **refused by the engine** | **refused by the engine** |
 | `DateTimeOffset` value | stored | **not round-tripped** | stored | stored |

@@ -13,6 +13,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 - Docs: removed the orphan `docs/en/querybuilder.md` (no Persian twin, described APIs that do not exist). Use `docs/en/database.md` / `docs/fa/database.md`. Closes AUDIT D-57.
 
 ### Changed
+- JSON contains contract: documented which values `WhereJsonContains` accepts per engine (scalar types, `Guid`/`DateTime`/enum refused on SQLite and SQL Server, `null` rejected everywhere, typed vs text comparison) and added offline positive and negative tests (`JsonContainsContractTests`). No behaviour change.
 - Query builder: published the per-dialect contract ([docs/en/database-dialects.md](docs/en/database-dialects.md), Persian twin) with the capability matrix, error contract and the "not run on" ledger; the Laravel-compatibility claim is limited to the tested subset. New offline hostile-input tests (`QueryHostileInputTests`) and an executed upsert key-semantics scenario (MySQL reacts to any unique key).
 - XML documentation is complete for every public API under `src/`, and `CS1591` is an error there (AUDIT D-17 closed). The suppression remains only for tests and samples.
 - Events.Queue: `AddQueuedEventListener` overloads take per-listener dispatch options (connection, queue, delay, attempts, priority) and source-generated `JsonTypeInfo<TEvent>` for trimming/AOT-safe payloads (AUDIT D-26 closed). The existing overload is unchanged.

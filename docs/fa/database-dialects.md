@@ -17,7 +17,7 @@
 - `*ReturningAsync`: در MySQL `NotSupportedException`؛ SQLite و PostgreSQL `returning`، SQL Server `output inserted`؛ روی دسته‌های تقسیم‌شده `InvalidOperationException`.
 - `UpdateOrInsertAsync`: دو دستور است و **اتمیک نیست**.
 - قفل ردیف: در SQLite رد می‌شود. `WhereFullText`: در SQLite رد می‌شود؛ در SQL Server فقط compile-only.
-- JSON contains برای آرایهٔ کامل: در SQLite و SQL Server رد می‌شود. مقایسهٔ بولین JSON و `DateTimeOffset` در MySQL پشتیبانی کامل ندارد.
+- JSON contains برای آرایه، شیء، `Guid`، `DateTime`، `DateTimeOffset`، `char` یا enum: در SQLite و SQL Server `NotSupportedException`؛ مقدار `null` روی هر موتور `ArgumentNullException`؛ مقایسهٔ اسکالر در SQLite با نوع (`1` با `"1"` یکی نیست) و در SQL Server به‌صورت متن (`"1"` می‌تواند با `1` یکی شود). مقایسهٔ بولین JSON و `DateTimeOffset` در MySQL پشتیبانی کامل ندارد.
 - `Having` روی نام مستعار select: PostgreSQL و SQL Server (خودِ موتور) نمی‌پذیرند.
 - حساسیت `WhereLike` به حروف: در SQLite با سه موتور دیگر فرق دارد (سناریوی حساس به حروف روی SQLite اجرا نمی‌شود).
 
