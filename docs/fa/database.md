@@ -190,6 +190,115 @@ query.GetBindings(); // [true, 18, true]
 
 **تفاوت‌های دیالکت که خودکار مدیریت می‌شوند:** quoting (`"x"` و `` `x` `` و `[x]`)، `limit`/`offset` در برابر `top (n)` و `offset ... fetch` در SQL Server (وقتی `Offset` هست، SQL Server `OrderBy` می‌خواهد و خطا همین را می‌گوید)، و offset بدون limit (`limit -1` در SQLite و یک limit بیشینه در MySQL).
 
+## یک تراکنش برای EF Core و query builder
+
+نوشتن با EF Core و نوشتن با query builder می‌توانند با هم commit یا rollback شوند، چون builder می‌تواند روی اتصال خود `DbContext` و تراکنش جاری آن اجرا شود (`Naravel.Database.EntityFrameworkCore`). کاربرد معمول: change tracking و entityها در EF Core، و یک عبارت اتمیک مثل `Balance = Balance - @amount` یا یک دستور دسته‌ای در builder، همه در یک واحد کار.
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+using Naravel.Database.EntityFrameworkCore;      // adds dbContext.Query("table")
+
+public sealed class Account
+{
+    public int Id { get; set; }
+    public long Balance { get; set; }            // minor units (cents): integers keep the arithmetic exact on every provider
+}
+
+public sealed class TransferRecord
+{
+    public int Id { get; set; }
+    public int FromId { get; set; }
+    public int ToId { get; set; }
+    public long Amount { get; set; }
+    public DateTimeOffset At { get; set; }
+}
+
+public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+{
+    public DbSet<Account> Accounts => Set<Account>();           // table "Accounts" (EF's default name)
+    public DbSet<TransferRecord> Transfers => Set<TransferRecord>();
+}
+
+public sealed class TransferService(AppDbContext db)
+{
+    public async Task TransferAsync(int fromId, int toId, long amount, CancellationToken ct)
+    {
+        // EF Core owns the transaction. The builder only joins it and never commits or rolls it back.
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        // Query builder: one guarded, atomic statement,
+        // UPDATE Accounts SET Balance = Balance - @amount WHERE Id = @id AND Balance >= @amount
+        var debited = await db.Query("Accounts")
+            .Where("Id", fromId)
+            .Where("Balance", ">=", amount)
+            .DecrementAsync("Balance", amount, cancellationToken: ct);
+        if (debited == 0)
+            throw new InvalidOperationException("Unknown account or insufficient funds.");   // no Commit: disposing rolls back
+
+        var credited = await db.Query("Accounts")
+            .Where("Id", toId)
+            .IncrementAsync("Balance", amount, cancellationToken: ct);
+        if (credited == 0)
+            throw new InvalidOperationException("Unknown destination account.");
+
+        // EF Core: a tracked entity, saved on the same connection and in the same transaction.
+        db.Transfers.Add(new TransferRecord { FromId = fromId, ToId = toId, Amount = amount, At = DateTimeOffset.UtcNow });
+        await db.SaveChangesAsync(ct);
+
+        await transaction.CommitAsync(ct);       // the two builder updates and the EF insert become visible together
+    }
+}
+```
+
+```csharp
+// Program.cs: only EF Core needs registering for dbContext.Query(...)
+builder.Services.AddDbContext<AppDbContext>(o => o.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+builder.Services.AddScoped<TransferService>();
+```
+
+If you also want the builder's queries to reach your `IQueryListener`s and the query log, register Naravel's database as usual and use `IDatabase.Using(context)` instead; it returns an `IDatabase` (builder and raw SQL) bound to the context's connection and transaction:
+
+```csharp
+public sealed class AuditService(AppDbContext db, IDatabase naravel)
+{
+    public async Task RecordAsync(string what, CancellationToken ct)
+    {
+        var borrowed = naravel.Using(db);        // same connection and current transaction as `db`
+        await borrowed.Table("AuditLog").InsertAsync(new Dictionary<string, object?> { ["What"] = what }, ct);
+    }
+}
+```
+
+Test it against an in-memory SQLite database. Keep one connection open: the context and the builder must run on that same connection.
+
+```csharp
+[Fact]
+public async Task A_transfer_that_fails_changes_nothing()
+{
+    await using var connection = new SqliteConnection("DataSource=:memory:");
+    await connection.OpenAsync();
+    await using var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(connection).Options);
+    await db.Database.EnsureCreatedAsync();
+    db.Accounts.AddRange(new Account { Id = 1, Balance = 50 }, new Account { Id = 2, Balance = 0 });
+    await db.SaveChangesAsync();
+
+    var service = new TransferService(db);
+    await Assert.ThrowsAsync<InvalidOperationException>(() => service.TransferAsync(1, 2, 80, CancellationToken.None));
+
+    Assert.Equal(50, (await db.Accounts.AsNoTracking().SingleAsync(a => a.Id == 1)).Balance);
+    Assert.Empty(await db.Transfers.AsNoTracking().ToListAsync());
+}
+```
+
+قواعدی که این الگو را درست نگه می‌دارند:
+
+- **تراکنش را روی context شروع و تمام کنید** (`db.Database.BeginTransactionAsync()` و `CommitAsync`). builder فقط به تراکنشی که هنگام اجرای هر دستور جاری است *می‌پیوندد*؛ پس آن را **پیش از** اولین فراخوانی builder شروع کنید. builder هیچ تراکنشی را که خودش شروع نکرده commit یا rollback نمی‌کند، و `TransactionAsync` / `BeginTransactionAsync` روی `IDatabase` قرض‌گرفته `InvalidOperationException` می‌دهند.
+- **builder از change tracking در EF رد می‌شود.** entity‌ای که از قبل `Account` لود کرده‌اید، تا وقتی دوباره لودش نکنید (`ReloadAsync`) یا با `AsNoTracking()` نخوانید، به‌روزرسانی builder را نمی‌بیند.
+- **از نام جدول و ستونی که EF می‌سازد استفاده کنید** (به‌طور پیش‌فرض نام property مربوط به `DbSet` و نام propertyها). entityها، migrationها و change tracking در EF Core می‌مانند.
+- با **execution strategy تکرارشونده** (مثلاً `EnableRetryOnFailure` در SQL Server) EF می‌خواهد تراکنش دستی داخل `db.Database.CreateExecutionStrategy().ExecuteAsync(...)` اجرا شود، که کل بلوک را دوباره اجرا می‌کند: بلوک باید قابل تکرار باشد.
+- پول را به‌صورت عدد صحیح در کوچک‌ترین واحد ذخیره کنید. SQLite نوع decimal ندارد، پس حساب decimal در SQL آنجا دقیق نیست.
+- providerهای پشتیبانی‌شده: SQLite، SQL Server، PostgreSQL (Npgsql) و MySQL.
+
 ## چگونه کار می‌کند و چرا
 
 **چرا همه‌جا یک سبک `@pN`.** درایورهای SQLite، MySQL، PostgreSQL و SQL Server همه پارامتر نام‌دار می‌پذیرند و Dapper با نام bind می‌کند؛ پس یک سبک، هر چهار grammar را یکسان و هر تست را مقایسهٔ ساده‌ی رشته نگه می‌دارد. سبک `?` موقعیتی برای هر درایور نشانگر جدا می‌خواست.
