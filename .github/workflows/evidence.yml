@@ -28,6 +28,15 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Show the analyzer properties of one project
+        shell: bash
+        run: |
+          dotnet restore Naravel.slnx
+          out=$(dotnet build src/Naravel.Queue.RabbitMQ/Naravel.Queue.RabbitMQ.csproj -c Release --no-restore \
+            -p:IsAotCompatible=true -p:EnableTrimAnalyzer=true -p:EnableAotAnalyzer=true \
+            -getProperty:IsAotCompatible,EnableTrimAnalyzer,EnableAotAnalyzer,TargetFramework,SuppressTrimAnalysisWarnings -getItem:Analyzer 2>&1 | head -c 6000 | sed ':a;N;$!ba;s/\n/%0A/g') || true
+          echo "::notice title=AOT properties::$out"
+
       - name: Build src with the trim, AOT and single-file analyzers (warnings only)
         shell: bash
         run: |
@@ -98,6 +107,13 @@ jobs:
             echo
             for f in BenchmarkDotNet.Artifacts/results/*-report-github.md; do [ -f "$f" ] && { echo "#### $(basename "$f" -report-github.md)"; cat "$f"; echo; }; done
           } > bench-summary.md
+          # One short annotation per benchmark class (the table rows only), so each stays far below the annotation size limit.
+          for f in BenchmarkDotNet.Artifacts/results/*-report-github.md; do
+            [ -f "$f" ] || continue
+            name=$(basename "$f" -report-github.md | sed 's/.*\.//')
+            rows=$(grep '^|' "$f" | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::notice title=Bench $name::$rows"
+          done
           cat bench-summary.md >> "$GITHUB_STEP_SUMMARY"
           msg=$(head -c 60000 bench-summary.md | sed ':a;N;$!ba;s/\n/%0A/g')
           echo "::notice title=Benchmark results::$msg"
