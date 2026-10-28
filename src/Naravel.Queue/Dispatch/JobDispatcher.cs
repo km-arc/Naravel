@@ -13,7 +13,7 @@ namespace Naravel.Queue.Dispatch;
 public record ChainLink(string JobType, string Payload);
 
 /// <summary>Default <see cref="IJobDispatcher"/> that serializes jobs into <see cref="QueuedMessage"/> envelopes and pushes them to the selected queue connection.</summary>
-public class JobDispatcher : IJobDispatcher
+public class JobDispatcher : IJobDispatcher, IJobMessageFactory
 {
     private readonly QueueManager _manager;
     private readonly IJobSerializer _serializer;
@@ -136,6 +136,13 @@ public class JobDispatcher : IJobDispatcher
         }
 
         return batch;
+    }
+
+    /// <inheritdoc />
+    public QueuedMessage CreateMessage(IJob job, Action<DispatchOptions>? configure = null)
+    {
+        ArgumentNullException.ThrowIfNull(job);
+        return BuildMessage(job, BuildOptions(job, configure));
     }
 
     private static DispatchOptions BuildOptions(IJob job, Action<DispatchOptions>? configure)

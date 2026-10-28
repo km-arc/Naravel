@@ -135,7 +135,7 @@ public class DatabaseQueueDriver<TContext> : IQueueDriver where TContext : DbCon
         return await db.Set<JobRecord>().LongCountAsync(j => j.Queue == queue && j.FailedAt == null, cancellationToken);
     }
 
-    private static JobRecord ToRecord(QueuedMessage m) => new()
+    internal static JobRecord ToRecord(QueuedMessage m) => new()
     {
         Id = m.Id,
         Queue = m.Queue,

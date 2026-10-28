@@ -112,3 +112,7 @@ static Naravel.Queue.Database.ServiceCollectionExtensions.AddDatabaseFailedJobSt
 Naravel.Queue.Database.QueueSchema
 static Naravel.Queue.Database.QueueSchema.EnsureSqliteSchemaAsync(Microsoft.EntityFrameworkCore.DbContext! context, Microsoft.Extensions.Hosting.IHostEnvironment! environment, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 static Naravel.Queue.Database.QueueSchema.SqliteScript.get -> string!
+Naravel.Queue.Database.DatabaseJobEnqueuer
+Naravel.Queue.Database.DatabaseJobEnqueuer.DatabaseJobEnqueuer(Naravel.Queue.Dispatch.IJobMessageFactory! factory) -> void
+Naravel.Queue.Database.DatabaseJobEnqueuer.Enqueue(Microsoft.EntityFrameworkCore.DbContext! context, Naravel.Queue.Jobs.IJob! job, System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure = null) -> string!
+static Naravel.Queue.Database.ServiceCollectionExtensions.AddTransactionalEnqueue(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

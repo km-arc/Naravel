@@ -324,6 +324,20 @@ idempotent باشند. ادامهٔ زنجیره قبل از ack شدن job فع
 `QueueWorkerOptions.JobTimeout` را اعمال می‌کند. Cancellation تعاونی است؛ handlerی که token را نادیده
 بگیرد ممکن است به اجرا ادامه دهد.
 
+### dispatch و تراکنش پایگاه داده (درج تراکنشی)
+
+`IJobDispatcher.DispatchAsync` بلافاصله می‌فرستد؛ پس job بخشی از تراکنش پایگاه دادهٔ شما **نیست**: اگر فرایند بعد از commit و پیش از dispatch بمیرد job گم می‌شود؛ اگر اول dispatch کنید و تراکنش rollback شود، job برای داده‌ای که وجود ندارد اجرا می‌شود. با صف Database می‌توان هر دو را بست (PDR-023): job را به `DbContext` خودتان اضافه کنید و یک `SaveChanges` هر دو را commit کند.
+
+```csharp
+services.AddTransactionalEnqueue();                       // Naravel.Queue.Database
+
+db.Orders.Add(order);
+enqueuer.Enqueue(db, new SendReceiptJob(order.Id));       // فقط ردیابی می‌شود؛ هنوز ارسال نشده
+await db.SaveChangesAsync();                              // سفارش و job با هم commit می‌شوند، یا هیچ‌کدام
+```
+
+context باید جدول jobها را map کرده باشد (`ConfigureQueueJobs`). داخل تراکنش صریح یا اتصال مشترک آداپتر EF هم همین‌طور است. workerِ Database نقش relay را دارد. محدودیت‌ها: `IUniqueJob` رد می‌شود (gate آن در cache است)، chain و batch پشتیبانی نمی‌شوند، `Connection` نادیده گرفته می‌شود (worker باید connection به نام `database` را مصرف کند) و تحویل همچنان at-least-once است؛ پس jobها idempotent بمانند. برای Redis، Kafka و RabbitMQ هنوز outbox وجود ندارد: بعد از commit dispatch کنید و شکاف مستندشده را بپذیرید.
+
 ### Jobهای idempotent
 
 تحویل at-least-once است؛ پس jobی که پول، موجودی یا هر وضعیت بیرونی را تغییر می‌دهد باید بتواند دو بار اجرا شود، بی‌آنکه آسیبی بزند. Naravel **ذخیره‌ی idempotency-key یا نتیجه‌ی ذخیره‌شده‌ی job ندارد**. دو قابلیت شبیه آن هستند ولی آن نیستند:

@@ -30,6 +30,8 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton(_ => new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         services.TryAddSingleton<IJobSerializer, JsonJobSerializer>();
         services.TryAddSingleton<IJobDispatcher, JobDispatcher>();
+        services.TryAddSingleton<IJobMessageFactory>(sp => sp.GetRequiredService<IJobDispatcher>() as IJobMessageFactory
+            ?? throw new InvalidOperationException("The registered IJobDispatcher does not implement IJobMessageFactory; register an IJobMessageFactory yourself to use transactional enqueue."));
         services.TryAddSingleton<IFailedJobStore, InMemoryFailedJobStore>();
         services.TryAddSingleton<FailedJobManager>();
         services.TryAddSingleton<BatchCallbackRegistry>();
