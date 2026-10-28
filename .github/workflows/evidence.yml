@@ -28,15 +28,6 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Show the analyzer properties of one project
-        shell: bash
-        run: |
-          dotnet restore Naravel.slnx
-          out=$(dotnet build src/Naravel.Queue.RabbitMQ/Naravel.Queue.RabbitMQ.csproj -c Release --no-restore \
-            -p:IsAotCompatible=true -p:EnableTrimAnalyzer=true -p:EnableAotAnalyzer=true \
-            -getProperty:IsAotCompatible,EnableTrimAnalyzer,EnableAotAnalyzer,TargetFramework,SuppressTrimAnalysisWarnings -getItem:Analyzer 2>&1 | head -c 6000 | sed ':a;N;$!ba;s/\n/%0A/g') || true
-          echo "::notice title=AOT properties::$out"
-
       - name: Build src with the trim, AOT and single-file analyzers (warnings only)
         shell: bash
         run: |
@@ -44,7 +35,8 @@ jobs:
           dotnet restore Naravel.slnx
           # Global properties override Directory.Build.props, so TreatWarningsAsErrors=false keeps the build going and every
           # IL2xxx/IL3xxx warning is collected instead of stopping at the first.
-          dotnet build Naravel.slnx -c Release --no-restore --no-incremental \
+          # No --no-restore: the ILLink analyzer pack is only restored when these properties are set at restore time.
+          dotnet build Naravel.slnx -c Release --no-incremental \
             -p:IsAotCompatible=true -p:EnableTrimAnalyzer=true -p:EnableAotAnalyzer=true -p:EnableSingleFileAnalyzer=true \
             -p:TreatWarningsAsErrors=false -p:WarningsAsErrors= 2>&1 | tee aot.log || true
 
