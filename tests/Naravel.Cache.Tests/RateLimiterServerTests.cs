@@ -19,7 +19,7 @@ public abstract class RateLimiterServerTests
     protected abstract string Driver { get; }
     protected abstract string EnvironmentVariable { get; }
 
-    private ServiceProvider Replica(string prefix)
+    protected ServiceProvider Replica(string prefix)
     {
         var endpoint = Environment.GetEnvironmentVariable(EnvironmentVariable)!;
         var values = new Dictionary<string, string?>
@@ -40,7 +40,7 @@ public abstract class RateLimiterServerTests
         return services.BuildServiceProvider();
     }
 
-    private static string NewPrefix() => "rl-test:" + Guid.NewGuid().ToString("N");
+    protected static string NewPrefix() => "rl-test:" + Guid.NewGuid().ToString("N");
 
     protected async Task Two_replicas_share_one_limit_under_concurrency()
     {
