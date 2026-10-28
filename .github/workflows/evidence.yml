@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: evidence-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   aot-inventory:
@@ -42,6 +42,7 @@ jobs:
       - name: Summarise
         shell: bash
         run: |
+          set +e +o pipefail
           diag="IL lines: $(grep -cE 'IL[23][0-9]{3}' aot.log || true); all warnings: $(grep -c 'warning ' aot.log || true); errors: $(grep -c ' error ' aot.log || true)%0A$(grep -E 'Warning\(s\)|Error\(s\)|Build succeeded|Build FAILED' aot.log | tail -4 | sed ':a;N;$!ba;s/\n/%0A/g')%0A$(grep -E 'IL[23][0-9]{3}' aot.log | head -5 | cut -c1-300 | sed ':a;N;$!ba;s/\n/%0A/g')%0A$(grep -E 'warning ' aot.log | sed -E 's/.*warning ([A-Z]+[0-9]+).*/\1/' | sort | uniq -c | sort -rn | head -8 | sed ':a;N;$!ba;s/\n/%0A/g')"
           echo "::notice title=AOT diag::$diag"
           grep -E 'warning IL[23][0-9]{3}' aot.log | grep '/src/' \
