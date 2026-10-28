@@ -149,7 +149,7 @@ app.MapDelete("/documents/{*key}", async (string key, IStorageDriver storage, Ca
 });
 
 // Move a document to the archive disk and hand out a link that expires in 10 minutes.
-app.MapPost("/documents/{*key}/archive", async (string key, StorageManager storage, CancellationToken ct) =>
+app.MapPost("/archive/{*key}", async (string key, StorageManager storage, CancellationToken ct) =>
 {
     var local = storage.Disk("local");
     var archive = storage.Disk("archive");
