@@ -148,7 +148,7 @@ Rules and limits:
 
 - At startup `AddQueueCoordination()` logs a warning when the Cache lock/store is Memory but the queue driver is not the Memory one, because that combination looks active while coordinating nothing across processes.
 - The lock is not part of the job's transaction. If a worker crashes after taking the lock, it stays until its lifetime ends.
-- Everything is **at-least-once**. The middleware reduce duplicates and overload; they do not make a job run exactly once, so jobs must stay idempotent.
+- Everything is **at-least-once**. The middleware reduce duplicates and overload; they do not make a job run exactly once, so jobs must stay idempotent (see [Idempotent jobs](queue.md#idempotent-jobs) for the pattern; `IUniqueJob` is not an idempotency store).
 - `AddQueueCoordination()` checks at startup that a Cache lock and store are registered and fails with a clear message if not.
 - On a driver that cannot delay (Kafka, see [PDR-012a](../pdr/en/PDR-012a-kafka-delay-and-retry.md)) a released job comes back immediately, so
   `WithoutOverlapping` and `RateLimited` would spin. Use a driver with delayed delivery for these middleware.
