@@ -52,6 +52,19 @@ public sealed class MemcachedProviderTests
     }
 
     [Fact]
+    public async Task Memcached_ttl_increment_keeps_the_expiration_when_the_key_expires_between_add_and_increment()
+    {
+        var client = DispatchProxy.Create<IMemcachedClient, MemcachedClientProxy>();
+        var proxy = (MemcachedClientProxy)(object)client;
+        proxy.AddResult = false;                                   // the key existed at add time, then expired before the increment
+        var store = new MemcachedCacheStore("memcached", client, "app");
+
+        (await store.IncrementAsync("rate", 1, TimeSpan.FromSeconds(30))).Should().Be(1);
+
+        proxy.LastIncrementExpiration.Should().Be(TimeSpan.FromSeconds(30));
+    }
+
+    [Fact]
     public async Task Memcached_lock_checks_token_before_removing_key()
     {
         var client = DispatchProxy.Create<IMemcachedClient, CacheProviderDispatchProxy>();
@@ -72,6 +85,8 @@ public sealed class MemcachedProviderTests
         public TimeSpan? LastExpiration { get; private set; }
         public string? LastAddKey { get; private set; }
         public TimeSpan? LastAddExpiration { get; private set; }
+        public bool AddResult { get; set; } = true;
+        public TimeSpan? LastIncrementExpiration { get; private set; }
 
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
@@ -97,7 +112,12 @@ public sealed class MemcachedProviderTests
             {
                 LastAddKey = args?[0]?.ToString();
                 LastAddExpiration = args is { Length: > 2 } && args[2] is TimeSpan expiration ? expiration : null;
-                return Task.FromResult(true);
+                return Task.FromResult(AddResult);
+            }
+            if (targetMethod?.Name == "Increment")
+            {
+                LastIncrementExpiration = args is { Length: > 3 } && args[3] is TimeSpan validFor ? validFor : null;
+                return args![1];                                   // the default value: the key did not exist any more
             }
             if (targetMethod?.Name == "GetValueAsync") return Task.FromResult(ReadValue);
             if (targetMethod?.Name == "RemoveAsync") return Task.FromResult(true);

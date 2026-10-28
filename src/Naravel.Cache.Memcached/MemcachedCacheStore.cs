@@ -107,7 +107,9 @@ public sealed class MemcachedCacheStore : ICacheStore
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(ttl, TimeSpan.Zero);
         var fullKey = Key(key);
         if (await _client.AddAsync(fullKey, Counter(by), ttl).ConfigureAwait(false)) return by;
-        return await Task.Run(() => (long)_client.Increment(fullKey, (ulong)by, (ulong)by), cancellationToken).ConfigureAwait(false);
+        // The key may expire between the add and the increment. Increment then creates it, and without a ttl the
+        // new counter would never expire (a permanently rejected rate-limit subject), so pass the same ttl here.
+        return await Task.Run(() => (long)_client.Increment(fullKey, (ulong)by, (ulong)by, ttl), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
