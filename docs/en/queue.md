@@ -325,6 +325,79 @@ the job again. Set `Job.Timeout` for a per-job limit; the worker uses the smalle
 `QueueWorkerOptions.JobTimeout`. Cancellation is cooperative; handlers that ignore their token may
 continue running.
 
+### Idempotent jobs
+
+Delivery is at-least-once, so a job that changes money, stock or any external state must be safe to run twice. Naravel does **not** ship an idempotency-key store or a stored job result. Two features look similar and are not:
+
+- `IUniqueJob` (see [queue-coordination](queue-coordination.md#unique-jobs-iuniquejob)) rejects a *second dispatch* while an identical job is pending or running. It does not stop a *redelivery* of the same message, and once the job finishes the key is free again.
+- `WithoutOverlapping` and the other coordination middleware reduce concurrent execution and duplicates, but they do not make a job run exactly once.
+
+The reliable pattern is to record a unique operation key **in the same database transaction as the business change**. A redelivered job finds the key and does nothing; two concurrent deliveries are separated by the unique key.
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Naravel.Queue.Jobs;
+
+// 1. A table whose primary key is the operation key. The unique key is what makes a second delivery harmless.
+public class ProcessedOperation
+{
+    public string Key { get; set; } = default!;
+    public DateTimeOffset ProcessedAt { get; set; }
+}
+// AppDbContext: public DbSet<ProcessedOperation> ProcessedOperations => Set<ProcessedOperation>();
+// OnModelCreating: modelBuilder.Entity<ProcessedOperation>().HasKey(x => x.Key);
+
+// 2. The job carries the caller's key (for example a client-generated transaction id).
+public class DepositJob : Job
+{
+    public string UserId { get; set; } = default!;
+    public decimal Amount { get; set; }
+    public string TransactionId { get; set; } = default!;
+
+    public DepositJob() { }                                    // required for deserialization
+    public DepositJob(string userId, decimal amount, string transactionId)
+        => (UserId, Amount, TransactionId) = (userId, amount, transactionId);
+
+    public override async Task HandleAsync(JobContext context, CancellationToken ct)
+    {
+        var db = context.Services.GetRequiredService<AppDbContext>();   // one scope per job execution
+        var key = $"deposit:{TransactionId}";
+
+        if (await db.ProcessedOperations.AnyAsync(x => x.Key == key, ct))
+            return;                                                      // a previous delivery already did the work
+
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        db.ProcessedOperations.Add(new ProcessedOperation { Key = key, ProcessedAt = DateTimeOffset.UtcNow });
+        await db.Users.Where(u => u.Id == UserId)
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.Balance, u => u.Balance + Amount), ct);   // atomic in the database
+        try
+        {
+            await db.SaveChangesAsync(ct);                               // inserts the key; the unique key rejects a duplicate
+            await tx.CommitAsync(ct);                                    // the key and the balance change commit together
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            // Another delivery of the same operation won the race; the transaction is rolled back, so nothing was applied twice.
+        }
+    }
+
+    // Provider specific: SQL Server error 2601/2627, PostgreSQL SQLSTATE 23505, SQLite constraint error.
+    private static bool IsUniqueViolation(DbUpdateException ex) => /* inspect ex.InnerException for your provider */ false;
+}
+
+// 3. Dispatch with a key the client generated once; retries of the same request reuse it.
+await dispatcher.DispatchAsync(new DepositJob("user-123", 100m, transactionId));
+```
+
+Notes:
+
+- The check before the transaction is only a fast path. The unique key is what guarantees correctness when two deliveries run at the same time.
+- Use an atomic update (`ExecuteUpdateAsync`, or a row lock) instead of "read the balance, add, save": that read-modify-write loses updates under concurrency.
+- Keep the key stable across retries of the same business operation (a client-supplied id), never a value generated inside the job.
+- Delete old `ProcessedOperation` rows after the longest period in which a duplicate can still arrive.
+- Calls to external systems (payment providers, mail) are outside your transaction: pass them the same operation key as their own idempotency key where they support one.
+
 #### Startup validation of the visibility timeout
 
 For drivers that reclaim expired reservations (Database, Redis, File) the worker checks the driver's

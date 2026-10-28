@@ -324,6 +324,79 @@ idempotent باشند. ادامهٔ زنجیره قبل از ack شدن job فع
 `QueueWorkerOptions.JobTimeout` را اعمال می‌کند. Cancellation تعاونی است؛ handlerی که token را نادیده
 بگیرد ممکن است به اجرا ادامه دهد.
 
+### Jobهای idempotent
+
+تحویل at-least-once است؛ پس jobی که پول، موجودی یا هر وضعیت بیرونی را تغییر می‌دهد باید بتواند دو بار اجرا شود، بی‌آنکه آسیبی بزند. Naravel **ذخیره‌ی idempotency-key یا نتیجه‌ی ذخیره‌شده‌ی job ندارد**. دو قابلیت شبیه آن هستند ولی آن نیستند:
+
+- `IUniqueJob` (نگاه کنید به [queue-coordination](queue-coordination.md#unique-jobs-iuniquejob)) تا وقتی job مشابه در صف یا در حال اجراست، *dispatch دوم* را رد می‌کند. جلوی *تحویل مجدد* همان پیام را نمی‌گیرد و بعد از پایان job کلید دوباره آزاد می‌شود.
+- `WithoutOverlapping` و بقیه‌ی middlewareهای coordination اجرای هم‌زمان و تکراری را کم می‌کنند، ولی job را «دقیقاً یک بار» نمی‌کنند.
+
+الگوی قابل‌اعتماد این است که یک کلید یکتای عملیات را **در همان تراکنش دیتابیسی که تغییر کسب‌وکار را انجام می‌دهد** ثبت کنید. job تحویل‌داده‌شده‌ی دوباره، کلید را می‌بیند و کاری نمی‌کند؛ دو تحویل هم‌زمان را هم کلید یکتا از هم جدا می‌کند.
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Naravel.Queue.Jobs;
+
+// 1. A table whose primary key is the operation key. The unique key is what makes a second delivery harmless.
+public class ProcessedOperation
+{
+    public string Key { get; set; } = default!;
+    public DateTimeOffset ProcessedAt { get; set; }
+}
+// AppDbContext: public DbSet<ProcessedOperation> ProcessedOperations => Set<ProcessedOperation>();
+// OnModelCreating: modelBuilder.Entity<ProcessedOperation>().HasKey(x => x.Key);
+
+// 2. The job carries the caller's key (for example a client-generated transaction id).
+public class DepositJob : Job
+{
+    public string UserId { get; set; } = default!;
+    public decimal Amount { get; set; }
+    public string TransactionId { get; set; } = default!;
+
+    public DepositJob() { }                                    // required for deserialization
+    public DepositJob(string userId, decimal amount, string transactionId)
+        => (UserId, Amount, TransactionId) = (userId, amount, transactionId);
+
+    public override async Task HandleAsync(JobContext context, CancellationToken ct)
+    {
+        var db = context.Services.GetRequiredService<AppDbContext>();   // one scope per job execution
+        var key = $"deposit:{TransactionId}";
+
+        if (await db.ProcessedOperations.AnyAsync(x => x.Key == key, ct))
+            return;                                                      // a previous delivery already did the work
+
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        db.ProcessedOperations.Add(new ProcessedOperation { Key = key, ProcessedAt = DateTimeOffset.UtcNow });
+        await db.Users.Where(u => u.Id == UserId)
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.Balance, u => u.Balance + Amount), ct);   // atomic in the database
+        try
+        {
+            await db.SaveChangesAsync(ct);                               // inserts the key; the unique key rejects a duplicate
+            await tx.CommitAsync(ct);                                    // the key and the balance change commit together
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            // Another delivery of the same operation won the race; the transaction is rolled back, so nothing was applied twice.
+        }
+    }
+
+    // Provider specific: SQL Server error 2601/2627, PostgreSQL SQLSTATE 23505, SQLite constraint error.
+    private static bool IsUniqueViolation(DbUpdateException ex) => /* inspect ex.InnerException for your provider */ false;
+}
+
+// 3. Dispatch with a key the client generated once; retries of the same request reuse it.
+await dispatcher.DispatchAsync(new DepositJob("user-123", 100m, transactionId));
+```
+
+نکته‌ها:
+
+- بررسی پیش از تراکنش فقط مسیر سریع است. وقتی دو تحویل هم‌زمان اجرا می‌شوند، درستی را کلید یکتا تضمین می‌کند.
+- به‌جای «موجودی را بخوان، جمع کن، ذخیره کن» از به‌روزرسانی اتمیک (`ExecuteUpdateAsync` یا قفل ردیف) استفاده کنید؛ آن الگو در هم‌زمانی به‌روزرسانی‌ها را از دست می‌دهد.
+- کلید باید برای تلاش‌های مجدد همان عملیات پایدار بماند (شناسه‌ای که کلاینت می‌دهد)، نه مقداری که داخل job ساخته می‌شود.
+- ردیف‌های قدیمی `ProcessedOperation` را بعد از بلندترین بازه‌ای که هنوز ممکن است تکراری برسد پاک کنید.
+- فراخوانی سیستم‌های بیرونی (درگاه پرداخت، ایمیل) خارج از تراکنش شماست: اگر idempotency-key خودشان را پشتیبانی می‌کنند، همان کلید عملیات را به آن‌ها بدهید.
+
 #### اعتبارسنجی visibility timeout هنگام راه‌اندازی
 
 برای driverهایی که reservation منقضی‌شده را reclaim می‌کنند (Database، Redis، File)، worker هنگام شروع

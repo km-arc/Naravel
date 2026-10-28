@@ -145,7 +145,7 @@ if (id is null)
 
 - `AddQueueCoordination()` هنگام شروع، اگر قفل/store از نوع Memory باشد ولی driver صف Memory نباشد، هشدار لاگ می‌دهد؛ چون این ترکیب فعال به نظر می‌رسد ولی میان پروسه‌ها هیچ هماهنگی‌ای نمی‌کند.
 - قفل بخشی از تراکنش job نیست. اگر worker بعد از گرفتن قفل کرش کند، قفل تا پایان عمرش می‌ماند.
-- همه‌چیز **at-least-once** است. این middlewareها تکرار و فشار را کم می‌کنند، ولی job را دقیقاً یک‌بار اجرا نمی‌کنند؛ پس jobها باید idempotent بمانند.
+- همه‌چیز **at-least-once** است. این middlewareها تکرار و فشار را کم می‌کنند، ولی job را دقیقاً یک‌بار اجرا نمی‌کنند؛ پس jobها باید idempotent بمانند (الگو را در [Jobهای idempotent](queue.md#jobهای-idempotent) ببینید؛ `IUniqueJob` ذخیره‌ی idempotency نیست).
 - `AddQueueCoordination()` هنگام راه‌اندازی بررسی می‌کند قفل و store مربوط به Cache ثبت شده باشند و در غیر این صورت با پیام روشن خطا می‌دهد.
 - روی driverی که نمی‌تواند تأخیر بدهد (Kafka، [PDR-012a](../pdr/fa/PDR-012a-kafka-delay-and-retry.md)) jobِ Release‌شده فوراً برمی‌گردد، پس
   `WithoutOverlapping` و `RateLimited` مدام دور خودشان می‌چرخند. برای این middlewareها driverی با تحویل تأخیری استفاده کنید.
