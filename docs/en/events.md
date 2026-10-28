@@ -2,6 +2,10 @@
 
 `Naravel.Events` provides typed, asynchronous event dispatch with explicit listener registration, deterministic ordering, and stop propagation.
 
+## What it is and when to use it
+
+Use `Naravel.Events` to decouple "something happened" from "what should happen next": the code that marks an order as paid dispatches an `OrderPaid` event, and independent listeners update a read model, send a receipt or write an audit record. It is the equivalent of Laravel's event dispatcher with the parts .NET already does better removed: listeners are ordinary DI services (no discovery by naming convention), event types are compile-time types (no string event names), and exceptions are ordinary exceptions. If a single class calls a single collaborator, call it directly; events pay off when several independent reactions share one trigger.
+
 ## Quickstart
 
 ```csharp
@@ -21,6 +25,72 @@ services.AddScoped<IEventListener<OrderPaid>, UpdateOrderReadModel>();
 The dispatcher is scoped and caches the resolved listener plan for each event type within that scope. This preserves scoped listener lifetimes. Dispatch accepts a `CancellationToken`; canceled work is propagated to the caller.
 
 Listeners and `Listen` callbacks are matched by the exact `TEvent` at the call site. `DispatchAsync<OrderPaid>(...)` does not notify listeners registered for a base type or interface, and a variable typed as `object` is dispatched as `object`. Register a listener for each concrete event type; one class can implement several `IEventListener<T>` interfaces.
+
+## A complete example
+
+```csharp
+// Events/OrderPaid.cs
+public sealed record OrderPaid(string OrderId, decimal Total);
+
+// Listeners/UpdateOrderReadModel.cs - runs inline, in the dispatching request
+public sealed class UpdateOrderReadModel(IOrderReadModel readModel) : IEventListener<OrderPaid>
+{
+    public Task HandleAsync(OrderPaid evt, EventDispatchContext context, CancellationToken cancellationToken = default) =>
+        readModel.MarkPaidAsync(evt.OrderId, evt.Total, cancellationToken);
+}
+
+// Listeners/SendReceipt.cs - queued: runs later on a worker
+public sealed class SendReceipt(IReceiptMailer mailer) : IQueuedEventListener<OrderPaid>
+{
+    public Task HandleAsync(OrderPaid evt, EventDispatchContext context, CancellationToken cancellationToken = default) =>
+        mailer.SendAsync(evt.OrderId, cancellationToken);
+}
+```
+
+```csharp
+// Program.cs
+builder.Services.AddNaravelEvents();
+builder.Services.AddScoped<IEventListener<OrderPaid>, UpdateOrderReadModel>();
+
+// Only needed for queued listeners (Naravel.Events.Queue + Naravel.Queue + a driver):
+builder.Services.AddQueue(builder.Configuration).AddMemoryDriver(builder.Configuration);
+builder.Services.AddNaravelEventsQueue();
+builder.Services.AddQueuedEventListener<OrderPaid, SendReceipt>("order-paid.receipt");
+builder.Services.AddQueueWorker();
+```
+
+```json
+{
+  "NaravelQueue": {
+    "Default": "events",
+    "Stores": { "events": { "Driver": "memory" } }
+  }
+}
+```
+
+```csharp
+// Somewhere that takes an IEventDispatcher (a controller, a service, a minimal API handler)
+app.MapPost("/orders/{id}/pay", async (string id, decimal total, IEventDispatcher events, CancellationToken ct) =>
+{
+    await events.DispatchAsync(new OrderPaid(id, total), ct);
+    return Results.Accepted();
+});
+```
+
+`UpdateOrderReadModel` runs inside the request, before `DispatchAsync` returns; if it throws, the exception reaches the caller and later listeners do not run. `SendReceipt` is published to the queue and returns immediately; the worker runs it later, at least once.
+
+To stop later listeners from a listener, call `context.Stop()`:
+
+```csharp
+public sealed class RejectFraudulentOrders : IEventListener<OrderPaid>
+{
+    public Task HandleAsync(OrderPaid evt, EventDispatchContext context, CancellationToken cancellationToken = default)
+    {
+        if (evt.Total > 100_000m) context.Stop(); // listeners registered after this one are skipped
+        return Task.CompletedTask;
+    }
+}
+```
 
 ## Queued listeners
 
@@ -110,3 +180,25 @@ public async Task Paying_an_order_dispatches_OrderPaid()
 ## Observability and testing
 
 `Meter` and `ActivitySource` are both named `Naravel.Events`. `Naravel.Events.Testing.EventFake` records dispatched events and supports type/count assertions and reset; it does not execute listeners. `AddNaravelEvents()` uses `TryAdd`, so an application can replace `IEventDispatcher` explicitly.
+
+### Testing code that dispatches events
+
+Inject `EventFake` where `IEventDispatcher` is expected, run the code under test, then assert on what was dispatched. The fake does not run listeners, so a test of the dispatching code needs no read model, mailer or queue:
+
+```csharp
+[Fact]
+public async Task Paying_an_order_dispatches_OrderPaid()
+{
+    var events = new EventFake();
+    var service = new CheckoutService(events);
+
+    await service.PayAsync("order-7", 42m, CancellationToken.None);
+
+    var evt = events.AssertDispatched<OrderPaid>();   // throws when none was dispatched
+    Assert.Equal("order-7", evt.OrderId);
+    events.AssertDispatched<OrderPaid>(1);            // exactly one
+    events.Reset();                                   // forget everything recorded so far
+}
+```
+
+Test a listener on its own by constructing it and calling `HandleAsync` with a new `EventDispatchContext`, then check `context.StopPropagation` if it may stop propagation.

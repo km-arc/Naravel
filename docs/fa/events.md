@@ -2,6 +2,10 @@
 
 `Naravel.Events` dispatch ناهمگام و تایپ‌شدهٔ رویداد را با ثبت صریح listener، ترتیب قطعی و توقف انتشار فراهم می‌کند.
 
+## چیست و کی استفاده شود
+
+از `Naravel.Events` وقتی استفاده کنید که می‌خواهید «اتفاقی افتاد» را از «بعدش چه شود» جدا کنید: کدی که سفارش را پرداخت‌شده علامت می‌زند رویداد `OrderPaid` را dispatch می‌کند و listenerهای مستقل، read model را به‌روز می‌کنند، رسید می‌فرستند یا رکورد audit می‌نویسند. این معادل event dispatcher لاراول است، بدون بخش‌هایی که .NET خودش بهتر انجام می‌دهد: listenerها سرویس‌های معمولی DI هستند (بدون کشف به‌کمک قرارداد نام‌گذاری)، نوع رویداد در زمان کامپایل تعیین می‌شود (بدون نام رشته‌ای) و exceptionها همان exceptionهای معمولی‌اند. اگر یک کلاس فقط یک همکار را صدا می‌زند، مستقیم صدایش بزنید؛ رویداد وقتی می‌ارزد که چند واکنش مستقل یک محرک مشترک داشته باشند.
+
 ## شروع سریع
 
 ```csharp
@@ -25,6 +29,72 @@ dispatcher scoped است و listener plan هر نوع رویداد را در ه�
 dispatch یک `CancellationToken` می‌گیرد و cancellation را به caller منتقل می‌کند.
 
 listenerها و callbackهای `Listen` بر اساس همان `TEvent` دقیقِ محل فراخوانی انتخاب می‌شوند. `DispatchAsync<OrderPaid>(...)` به listenerهایی که برای کلاس پایه یا interface ثبت شده‌اند خبر نمی‌دهد و متغیری که از نوع `object` است به‌عنوان `object` dispatch می‌شود. برای هر نوع رویداد مشخص یک listener ثبت کنید؛ یک کلاس می‌تواند چند interface از نوع `IEventListener<T>` را پیاده‌سازی کند.
+
+## یک مثال کامل
+
+```csharp
+// Events/OrderPaid.cs
+public sealed record OrderPaid(string OrderId, decimal Total);
+
+// Listeners/UpdateOrderReadModel.cs - runs inline, in the dispatching request
+public sealed class UpdateOrderReadModel(IOrderReadModel readModel) : IEventListener<OrderPaid>
+{
+    public Task HandleAsync(OrderPaid evt, EventDispatchContext context, CancellationToken cancellationToken = default) =>
+        readModel.MarkPaidAsync(evt.OrderId, evt.Total, cancellationToken);
+}
+
+// Listeners/SendReceipt.cs - queued: runs later on a worker
+public sealed class SendReceipt(IReceiptMailer mailer) : IQueuedEventListener<OrderPaid>
+{
+    public Task HandleAsync(OrderPaid evt, EventDispatchContext context, CancellationToken cancellationToken = default) =>
+        mailer.SendAsync(evt.OrderId, cancellationToken);
+}
+```
+
+```csharp
+// Program.cs
+builder.Services.AddNaravelEvents();
+builder.Services.AddScoped<IEventListener<OrderPaid>, UpdateOrderReadModel>();
+
+// Only needed for queued listeners (Naravel.Events.Queue + Naravel.Queue + a driver):
+builder.Services.AddQueue(builder.Configuration).AddMemoryDriver(builder.Configuration);
+builder.Services.AddNaravelEventsQueue();
+builder.Services.AddQueuedEventListener<OrderPaid, SendReceipt>("order-paid.receipt");
+builder.Services.AddQueueWorker();
+```
+
+```json
+{
+  "NaravelQueue": {
+    "Default": "events",
+    "Stores": { "events": { "Driver": "memory" } }
+  }
+}
+```
+
+```csharp
+// Somewhere that takes an IEventDispatcher (a controller, a service, a minimal API handler)
+app.MapPost("/orders/{id}/pay", async (string id, decimal total, IEventDispatcher events, CancellationToken ct) =>
+{
+    await events.DispatchAsync(new OrderPaid(id, total), ct);
+    return Results.Accepted();
+});
+```
+
+`UpdateOrderReadModel` داخل همان درخواست و پیش از برگشتن `DispatchAsync` اجرا می‌شود؛ اگر exception بدهد به فراخواننده می‌رسد و listenerهای بعدی اجرا نمی‌شوند. `SendReceipt` در صف منتشر می‌شود و فوراً برمی‌گردد؛ worker بعداً و دست‌کم یک بار آن را اجرا می‌کند.
+
+برای متوقف کردن listenerهای بعدی از داخل یک listener، `context.Stop()` را صدا بزنید:
+
+```csharp
+public sealed class RejectFraudulentOrders : IEventListener<OrderPaid>
+{
+    public Task HandleAsync(OrderPaid evt, EventDispatchContext context, CancellationToken cancellationToken = default)
+    {
+        if (evt.Total > 100_000m) context.Stop(); // listeners registered after this one are skipped
+        return Task.CompletedTask;
+    }
+}
+```
 
 ## Listenerهای صف
 
@@ -117,3 +187,25 @@ public async Task Paying_an_order_dispatches_OrderPaid()
 نام `Meter` و `ActivitySource` هر دو `Naravel.Events` است. `Naravel.Events.Testing.EventFake` رویدادها را ثبت می‌کند
 و assertion نوع/تعداد و reset دارد؛ listener اجرا نمی‌کند. `AddNaravelEvents()` از `TryAdd` استفاده می‌کند، پس برنامه
 می‌تواند `IEventDispatcher` را صریح جایگزین کند.
+
+### تست کدی که رویداد dispatch می‌کند
+
+`EventFake` را جایی تزریق کنید که `IEventDispatcher` انتظار می‌رود، کد مورد تست را اجرا کنید و روی رویدادهای dispatch‌شده assert بزنید. fake، listener اجرا نمی‌کند؛ پس تست کد dispatch‌کننده نیازی به read model، mailer یا صف ندارد:
+
+```csharp
+[Fact]
+public async Task Paying_an_order_dispatches_OrderPaid()
+{
+    var events = new EventFake();
+    var service = new CheckoutService(events);
+
+    await service.PayAsync("order-7", 42m, CancellationToken.None);
+
+    var evt = events.AssertDispatched<OrderPaid>();   // throws when none was dispatched
+    Assert.Equal("order-7", evt.OrderId);
+    events.AssertDispatched<OrderPaid>(1);            // exactly one
+    events.Reset();                                   // forget everything recorded so far
+}
+```
+
+یک listener را جداگانه با ساختن آن و صدا زدن `HandleAsync` همراه با یک `EventDispatchContext` تازه تست کنید، و اگر ممکن است انتشار را متوقف کند `context.StopPropagation` را بررسی کنید.
