@@ -42,6 +42,7 @@ jobs:
       - name: Summarise
         shell: bash
         run: |
+          echo "IL warnings anywhere in the log: $(grep -cE 'warning IL[23][0-9]{3}' aot.log || true)"
           grep -E 'warning IL[23][0-9]{3}' aot.log | grep '/src/' \
             | sed -E 's# \[/[^]]*\]$##; s#^/[^ ]*/src/#src/#' | sort -u > aot-warnings.txt || true
           total=$(wc -l < aot-warnings.txt)
@@ -50,11 +51,11 @@ jobs:
             echo
             echo '| Project | Warnings |'
             echo '|---|---:|'
-            cut -d/ -f2 aot-warnings.txt | sort | uniq -c | sort -rn | awk '{print "| " $2 " | " $1 " |"}'
+            { cut -d/ -f2 aot-warnings.txt | sort | uniq -c | sort -rn | awk '{print "| " $2 " | " $1 " |"}'; } || true
             echo
             echo '| Code | Count |'
             echo '|---|---:|'
-            grep -oE 'IL[23][0-9]{3}' aot-warnings.txt | sort | uniq -c | sort -rn | awk '{print "| " $2 " | " $1 " |"}'
+            { grep -oE 'IL[23][0-9]{3}' aot-warnings.txt | sort | uniq -c | sort -rn | awk '{print "| " $2 " | " $1 " |"}'; } || true
           } | tee -a "$GITHUB_STEP_SUMMARY" > aot-summary.md
           msg=$(head -c 60000 aot-summary.md | sed ':a;N;$!ba;s/\n/%0A/g')
           echo "::notice title=AOT inventory::$msg"
