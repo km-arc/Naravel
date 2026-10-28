@@ -1,0 +1,108 @@
+name: Benchmarks and AOT inventory
+
+# Report-only evidence (never a merge gate). Runs on demand and on pull requests that touch the benchmarks or this workflow.
+# Benchmark numbers from shared GitHub runners are indicative baselines, not throughput claims: the runner hardware varies.
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'benchmarks/**'
+      - '.github/workflows/evidence.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evidence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  aot-inventory:
+    name: Trim and AOT analyzer inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build src with the trim, AOT and single-file analyzers (warnings only)
+        shell: bash
+        run: |
+          set -o pipefail
+          dotnet restore Naravel.slnx
+          # Global properties override Directory.Build.props, so TreatWarningsAsErrors=false keeps the build going and every
+          # IL2xxx/IL3xxx warning is collected instead of stopping at the first.
+          dotnet build Naravel.slnx -c Release --no-restore --no-incremental \
+            -p:EnableTrimAnalyzer=true -p:EnableAotAnalyzer=true -p:EnableSingleFileAnalyzer=true \
+            -p:TreatWarningsAsErrors=false -p:WarningsAsErrors= 2>&1 | tee aot.log || true
+
+      - name: Summarise
+        shell: bash
+        run: |
+          grep -E 'warning IL[23][0-9]{3}' aot.log | grep '/src/' \
+            | sed -E 's# \[/[^]]*\]$##; s#^/[^ ]*/src/#src/#' | sort -u > aot-warnings.txt || true
+          total=$(wc -l < aot-warnings.txt)
+          {
+            echo "### Trim/AOT warnings in src: $total distinct"
+            echo
+            echo '| Project | Warnings |'
+            echo '|---|---:|'
+            cut -d/ -f2 aot-warnings.txt | sort | uniq -c | sort -rn | awk '{print "| " $2 " | " $1 " |"}'
+            echo
+            echo '| Code | Count |'
+            echo '|---|---:|'
+            grep -oE 'IL[23][0-9]{3}' aot-warnings.txt | sort | uniq -c | sort -rn | awk '{print "| " $2 " | " $1 " |"}'
+          } | tee -a "$GITHUB_STEP_SUMMARY" > aot-summary.md
+          msg=$(head -c 60000 aot-summary.md | sed ':a;N;$!ba;s/\n/%0A/g')
+          echo "::notice title=AOT inventory::$msg"
+          detail=$(head -c 60000 aot-warnings.txt | cut -c1-260 | sed ':a;N;$!ba;s/\n/%0A/g')
+          echo "::notice title=AOT warnings::$detail"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aot-inventory
+          path: |
+            aot-warnings.txt
+            aot-summary.md
+
+  benchmarks:
+    name: Benchmark baselines (ubuntu-latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Run every benchmark with a short job
+        shell: bash
+        run: |
+          dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- \
+            --filter '*' --job short --warmupCount 1 --iterationCount 3 --launchCount 1
+
+      - name: Summarise
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Benchmark baselines"
+            echo
+            echo "Runner: $(lscpu | grep 'Model name' | sed 's/.*: *//'), $(nproc) CPU, $(dotnet --version)"
+            echo
+            for f in BenchmarkDotNet.Artifacts/results/*-report-github.md; do [ -f "$f" ] && { echo "#### $(basename "$f" -report-github.md)"; cat "$f"; echo; }; done
+          } > bench-summary.md
+          cat bench-summary.md >> "$GITHUB_STEP_SUMMARY"
+          msg=$(head -c 60000 bench-summary.md | sed ':a;N;$!ba;s/\n/%0A/g')
+          echo "::notice title=Benchmark results::$msg"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-results
+          path: |
+            BenchmarkDotNet.Artifacts/results
+            bench-summary.md
