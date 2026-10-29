@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,7 +13,7 @@ public sealed class ResolvedMiddleware
     private readonly RouteMiddlewareDelegate? _delegate;
     private readonly Lazy<ObjectFactory>? _factory;
 
-    private ResolvedMiddleware(object identity, string displayName, Type? middlewareType, RouteMiddlewareDelegate? inline, MiddlewareArguments arguments)
+    private ResolvedMiddleware(object identity, string displayName, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type? middlewareType, RouteMiddlewareDelegate? inline, MiddlewareArguments arguments)
     {
         Identity = identity;
         DisplayName = displayName;
@@ -31,12 +32,12 @@ public sealed class ResolvedMiddleware
     public string DisplayName { get; }
 
     /// <summary>The middleware type, or <c>null</c> for delegate-based middleware.</summary>
-    public Type? Type { get; }
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] public Type? Type { get; }
 
     /// <summary>The arguments the middleware receives.</summary>
     public MiddlewareArguments Arguments { get; }
 
-    internal static ResolvedMiddleware ForType(Type type, IEnumerable<string> arguments, string displayName) =>
+    internal static ResolvedMiddleware ForType([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type type, IEnumerable<string> arguments, string displayName) =>
         new(type, displayName, type, null, new MiddlewareArguments(arguments));
 
     internal static ResolvedMiddleware ForDelegate(RouteMiddlewareDelegate inline, IEnumerable<string> arguments, object identity, string displayName) =>
