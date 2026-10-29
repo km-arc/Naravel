@@ -35,7 +35,7 @@ A browser client (`@microsoft/signalr`) connects to `/hubs/broadcast`, calls `co
 - A pattern matches the whole channel name. A placeholder such as `{id}` matches one or more characters except `.` (as in Laravel). The first registered rule that matches decides.
 - The single-placeholder form is `Authorize("private-orders.{id}", (user, id) => ...)`. `Authorize` is for `private-` patterns and `AuthorizePresence` for `presence-` patterns; the wrong prefix is refused when the rule is registered. For several placeholders, or a rule that awaits something (a database call), use `Authorize("private-teams.{team}.users.{user}", async (user, values, ct) => ...)`; `values` holds the placeholders by name and `ct` is cancelled when the connection closes. A rule is a delegate: capture what it needs when you register it.
 - Names use letters, digits and `_ . : -`, at most 128 characters. Anything else is refused by the hub and by `BroadcastAsync`.
-- A refusal is the same fixed `HubException("Subscription denied.")` for every cause, so a client cannot tell "no such rule" from "not allowed".
+- A refusal is the same fixed `HubException("Subscription denied.")` for every cause, so a client cannot tell "no such rule" from "not allowed". SignalR wraps the message for the client: on the wire the error text is `An unexpected error occurred invoking 'Subscribe' on the server. HubException: Subscription denied.`, so a client should test for the substring `Subscription denied.` rather than compare the whole string.
 
 ## Presence
 

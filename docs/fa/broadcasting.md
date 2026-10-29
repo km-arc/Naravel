@@ -35,7 +35,7 @@ client مرورگر (`@microsoft/signalr`) به `/hubs/broadcast` وصل می‌
 - الگو با کل نام کانال تطبیق می‌خورد. placeholder مثل `{id}` یک یا چند نویسه جز `.` را می‌پذیرد (مثل Laravel). اولین قاعدهٔ ثبت‌شده‌ای که تطبیق کند تصمیم می‌گیرد.
 - شکل تک‌placeholder: `Authorize("private-orders.{id}", (user, id) => ...)`. `Authorize` برای الگوهای `private-` و `AuthorizePresence` برای الگوهای `presence-` است؛ پیشوند اشتباه هنگام ثبت قاعده رد می‌شود. برای چند placeholder یا قاعده‌ای که چیزی را await می‌کند (فراخوانی پایگاه داده): `Authorize("private-teams.{team}.users.{user}", async (user, values, ct) => ...)`؛ `values` placeholderها را با نام دارد و `ct` وقتی اتصال بسته شود لغو می‌شود. قاعده یک delegate است: چیزهایی را که لازم دارد هنگام ثبت capture کنید.
 - نام‌ها حرف، رقم و `_ . : -` دارند، حداکثر ۱۲۸ نویسه. هر چیز دیگر را hub و `BroadcastAsync` رد می‌کنند.
-- رد شدن برای هر علتی همان `HubException("Subscription denied.")` ثابت است، پس client نمی‌تواند «قاعده‌ای نیست» را از «مجاز نیست» تشخیص دهد.
+- رد شدن برای هر علتی همان `HubException("Subscription denied.")` ثابت است، پس client نمی‌تواند «قاعده‌ای نیست» را از «مجاز نیست» تشخیص دهد. SignalR پیام را برای client می‌پیچد: روی سیم متن خطا `An unexpected error occurred invoking 'Subscribe' on the server. HubException: Subscription denied.` است، پس client باید وجود زیررشتهٔ `Subscription denied.` را بررسی کند و کل رشته را مقایسه نکند.
 
 ## Presence
 
