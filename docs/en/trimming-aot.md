@@ -24,3 +24,9 @@ Largest packages: `Naravel.Queue` 21, `Naravel.Queue.Redis` 18, `Naravel.Queue.D
 - Applications that publish with trimming or Native AOT must expect warnings and possible runtime failures from the packages above. JIT deployments are not affected.
 - The queue envelope (`QueuedMessage`) and the job payloads are the largest area: payloads are serialised by alias through the job type registry, which is reflection based by design (OD-07).
 - Plan: fix or annotate package by package, smallest first (`Naravel.Database`, `Naravel.Encryption`, `Naravel.Cache.Redis`, `Naravel.Pagination`), then set `IsAotCompatible` on a package only when its row in the next inventory is zero. The workflow becomes a gate per package at that point.
+
+## Progress
+
+- **Naravel.Encryption:** the two reflection-based overloads, `Encrypt<T>(T)` and `Decrypt<T>(string)`, now carry `RequiresUnreferencedCode` and `RequiresDynamicCode`. Trimmed or AOT applications use the `JsonTypeInfo` overloads, which already existed; the warning now appears at the call site instead of inside the package.
+- **Naravel.Database:** JSON scalars (string, bool, numbers) are serialised with source-generated metadata. A non-scalar value for the JSON contains or JSON update methods (MySQL and PostgreSQL) uses the default resolver: unchanged with reflection, and `NotSupportedException` under Native AOT instead of a silent failure.
+- **Naravel.Cache.Redis** is next and needs an API decision: `RedisCacheStore` serialises any `T`, so AOT support means letting the application pass a `JsonSerializerOptions` with its own resolver.
