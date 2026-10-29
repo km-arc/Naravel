@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 namespace Naravel.Routing;
 
 /// <summary>
@@ -13,14 +14,22 @@ namespace Naravel.Routing;
 /// </remarks>
 public sealed class MiddlewareOptions
 {
-    internal sealed record Target(Type? MiddlewareType, RouteMiddlewareDelegate? Inline);
+    internal sealed class Target(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type? middlewareType,
+        RouteMiddlewareDelegate? inline)
+    {
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+        public Type? MiddlewareType { get; } = middlewareType;
+
+        public RouteMiddlewareDelegate? Inline { get; } = inline;
+    }
 
     private readonly Dictionary<string, Target> _aliases = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<string>> _groups = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<Type> _priority = new();
 
     /// <summary>Registers (or replaces) an alias for a middleware type.</summary>
-    public MiddlewareOptions Alias(string name, Type type)
+    public MiddlewareOptions Alias(string name, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type type)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         MiddlewareTypes.Validate(type);

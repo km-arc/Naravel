@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
@@ -16,18 +17,26 @@ public interface IUrlGenerator
 {
     /// <summary>Returns the relative URL (path and query) of a named route.</summary>
     /// <exception cref="RouteNotFoundException">No route has that name, or required values are missing.</exception>
+    [RequiresUnreferencedCode("Reads the route values from the properties of an object with reflection. For trimming or Native AOT build the URL from a RouteValueDictionary through LinkGenerator.")]
+    [RequiresDynamicCode("Reads the route values from the properties of an object with reflection.")]
     string Route(string name, object? values = null);
 
     /// <summary>Returns the absolute URL of a named route using the scheme and host of <paramref name="context"/>.</summary>
     /// <exception cref="RouteNotFoundException">No route has that name, or required values are missing.</exception>
+    [RequiresUnreferencedCode("Reads the route values from the properties of an object with reflection. For trimming or Native AOT build the URL from a RouteValueDictionary through LinkGenerator.")]
+    [RequiresDynamicCode("Reads the route values from the properties of an object with reflection.")]
     string AbsoluteRoute(HttpContext context, string name, object? values = null);
 
     /// <summary>Returns a relative URL for a named route with a Data Protection signature.</summary>
     /// <exception cref="RouteNotFoundException">No route has that name, or required values are missing.</exception>
+    [RequiresUnreferencedCode("Reads the route values from the properties of an object with reflection. For trimming or Native AOT build the URL from a RouteValueDictionary through LinkGenerator.")]
+    [RequiresDynamicCode("Reads the route values from the properties of an object with reflection.")]
     string SignedRoute(string name, object? values = null);
 
     /// <summary>Returns a signed relative URL that expires at the specified time.</summary>
     /// <exception cref="RouteNotFoundException">No route has that name, or required values are missing.</exception>
+    [RequiresUnreferencedCode("Reads the route values from the properties of an object with reflection. For trimming or Native AOT build the URL from a RouteValueDictionary through LinkGenerator.")]
+    [RequiresDynamicCode("Reads the route values from the properties of an object with reflection.")]
     string TemporarySignedRoute(string name, DateTimeOffset expiresAt, object? values = null);
 }
 
