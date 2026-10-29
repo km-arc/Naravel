@@ -182,26 +182,26 @@ var batch = await dispatcher.BatchAsync(
     });
 ```
 
-    repository پیش‌فرض batch درون‌حافظه‌ای است. برای state مشترک میان workerها و ماندگار پس از restart،
-    `AddDatabaseBatchRepository<AppDbContext>()` یا `AddRedisBatchRepository("redis")` را ثبت کنید.
-    mapping مربوط به `ConfigureQueueJobs()` جدول `QueueBatches` را هم شامل می‌شود. repository پایدار
-    delegate ذخیره نمی‌کند؛ handler typed را زیر alias صریح ثبت و فقط payload JSON آن را پایدار کنید:
+repository پیش‌فرض batch درون‌حافظه‌ای است. برای state مشترک میان workerها و ماندگار پس از restart،
+`AddDatabaseBatchRepository<AppDbContext>()` یا `AddRedisBatchRepository("redis")` را ثبت کنید.
+mapping مربوط به `ConfigureQueueJobs()` جدول `QueueBatches` را هم شامل می‌شود. repository پایدار
+delegate ذخیره نمی‌کند؛ handler typed را زیر alias صریح ثبت و فقط payload JSON آن را پایدار کنید:
 
-    ```csharp
-    var callbacks = new BatchCallbackRegistry();
-    callbacks.Register<string>("mail.batch-finished", (batch, note, ct) => SendSummaryAsync(batch, note, ct));
-    builder.Services.AddSingleton(callbacks);
+```csharp
+var callbacks = new BatchCallbackRegistry();
+callbacks.Register<string>("mail.batch-finished", (batch, note, ct) => SendSummaryAsync(batch, note, ct));
+builder.Services.AddSingleton(callbacks);
 
-    await dispatcher.BatchAsync(jobs, batchConfigure: options =>
-      options.Then("mail.batch-finished", "invoice batch complete").Finally("mail.batch-finished", "finished"));
-    ```
+await dispatcher.BatchAsync(jobs, batchConfigure: options =>
+  options.Then("mail.batch-finished", "invoice batch complete").Finally("mail.batch-finished", "finished"));
+```
 
-    برای batch ناموفق از `Catch(alias, payload)` و برای هر دو نتیجه از `Finally(alias, payload)` استفاده
-    کنید. با `AllowFailures = true` jobهای باقی‌مانده پس از شکست دائمی ادامه می‌یابند؛ در غیر این صورت
-    batch لغو می‌شود و worker jobهای شروع‌نشده را بدون اجرا ack می‌کند. لغو صریح با
-    `IBatchRepository.CancelAsync(batchId, cancellationToken)` همین رفتار را دارد. callbackها هنگام crash
-    فرایند تضمین at-least-once دارند و باید idempotent باشند. شکست callback وضعیت آن را pending نگه
-    می‌دارد تا startup worker بعدی دوباره آن را اجرا کند.
+برای batch ناموفق از `Catch(alias, payload)` و برای هر دو نتیجه از `Finally(alias, payload)` استفاده
+کنید. با `AllowFailures = true` jobهای باقی‌مانده پس از شکست دائمی ادامه می‌یابند؛ در غیر این صورت
+batch لغو می‌شود و worker jobهای شروع‌نشده را بدون اجرا ack می‌کند. لغو صریح با
+`IBatchRepository.CancelAsync(batchId, cancellationToken)` همین رفتار را دارد. callbackها هنگام crash
+فرایند تضمین at-least-once دارند و باید idempotent باشند. شکست callback وضعیت آن را pending نگه
+می‌دارد تا startup worker بعدی دوباره آن را اجرا کند.
 
 ### `Extend` در زمان اجرا (درایوری که در startup شناخته‌شده نبود)
 
