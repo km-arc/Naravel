@@ -59,3 +59,27 @@ dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*Pagi
 ```
 
 `PaginationBenchmarks` (PDR-020 S2) reads one page of 20 rows from a 50 000 row in-memory SQLite table with `OFFSET` (`OffsetFirstPage`, `SimpleOffsetFirstPage`, `SimpleOffsetDeepPage`, `OffsetDeepPage`) and with a cursor (`KeysetFirstPage`, `KeysetDeepPage`); the deep page is page 2 000, and `SimpleOffsetDeepPage` is the baseline. The first-page rows are the control: the two styles should be about equal there, and the keyset deep page should stay close to its first page while the offset deep page grows with the offset. **No numbers are recorded yet:** the benchmark has not been run (the authoring environment has no .NET SDK). Record the first baseline here after running it on the CI or a developer machine. SQLite is the best case for `OFFSET` (no network, one process), so a gap here understates what a remote database shows.
+
+## CI runner baselines (2026-10-28)
+
+Measured by the report-only `evidence.yml` workflow (run 40758969223, `--job short`, 1 warmup and 3 iterations, one launch) on a GitHub-hosted `ubuntu-latest` runner: AMD EPYC 9V45, 4 logical cores, .NET SDK 10.0.403, runtime 10.0.14. Shared runners are noisy: two runs of the same code differed by up to 40% in time (the database benchmarks ran 29.9 us in one run and 42.9 us in another), so read the **allocations** (deterministic) and the **ratios** as the baseline and the times as an order of magnitude. Re-run with the workflow, or with the commands above, before comparing a change.
+
+| Benchmark | Mean | Allocated | Note |
+|---|---:|---:|---|
+| Query builder compile (`CompileBuilder`) | 0.95-1.8 us | 3,776 B | `CompileFloor` is a constant string, so its ratio column is meaningless |
+| Builder rows / typed on SQLite | 29.5-42.9 us | 9,552 / 7,880 B | about 5-6% over hand-written Dapper |
+| Hand-written Dapper / ADO.NET | 26.1-38.9 us | 3,976 / 2,976 B | the floor the builder is compared with |
+| Offset deep page / simple offset deep page | 446 / 374 us | 22.35 / 16.55 KB | keyset deep page 112 us, about 3.3x faster, 20 KB |
+| Offset first page / keyset first page | 87 / 111 us | 22.2 / 16.35 KB | first pages are noise-level; the deep page is the point |
+| Streaming: buffered `Get` / cursor | 62.8 / 49.7 ms | 15.81 / 14.81 MB | cursor 0.79x time, 0.94x allocation (50 000 rows) |
+| Writes: row by row / batch insert | 54.3 / 21.8 ms | 4.34 MB / 0.97 MB | batch 0.41x time, 0.22x allocation (1 000 rows) |
+| Memory queue push + pop + ack | 1.57 us | 1,144 B | |
+| Memory cache set + get | 720 ns | 688 B | |
+| Tagged cache get | 242 ns | 512 B | |
+| Memory rate limiter attempt | 6.1 us | 4,168 B | includes the in-process lock |
+| Failed job store record + list + forget | 8.2 us | 3,510 B | |
+| Reflection / source-generated JSON round trip | 413 / 205 ns | 208 / 88 B | source generation 0.5x time, 0.42x allocation |
+| Route middleware pipeline | 371 ns | 1.23 KB | |
+| Warm `Naravel.Events` dispatch | 127 ns | 24 B | |
+
+The older local baseline table above stays as the first reference; the allocation column agrees with it (queue 1,120 vs 1,144 B, cache 688 B, JSON 208 / 88 B, events 24 B).
