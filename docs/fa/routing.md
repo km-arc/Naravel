@@ -242,6 +242,7 @@ CORS، هدرهای proxy، host filtering، محدودیت اندازهٔ reque
 
 ## تست‌ها چه چیزی را پوشش می‌دهند (`tests/Naravel.Routing.Tests`)
 
+- «مثال کامل» راهنما (group با prefix و name و middleware، model binding، API resource، alias با آرگومان، policy محدودکننده و URLهای نام‌دار): `DocsExampleTests.cs`. تغییر یکی یعنی تغییر دیگری.
 - resolution (بدون HTTP): alias، آرگومان، group (تودرتو، چرخه، mutatorها)، حذف، حذف تکراری، اولویت، cache هر endpoint، attributeهای کنترلر.
 - end-to-end روی `TestServer`: verbها، گروه و پیشوند نام، ساخت URL، `Where` و الگوی سراسری (anchor)، domain، fallback، redirect، ترتیب middleware،
   قطع زنجیره، `WithoutMiddleware`، delegate درجا و alias، آداپتر `IMiddleware`، terminable، اولویت، endpoint و گروه بومی، attribute کنترلر
