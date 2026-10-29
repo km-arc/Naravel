@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
@@ -83,6 +84,8 @@ public static class NaravelRoutingApplicationBuilderExtensions
     /// Declares routes with the Laravel-style registrar. Routes are mapped when <paramref name="routes"/> returns; an unknown
     /// middleware alias or a <c>Where</c> for a missing parameter throws here, at startup.
     /// </summary>
+    [RequiresUnreferencedCode("Maps route handler delegates, which ASP.NET Core inspects with reflection. For trimming or Native AOT map endpoints with MapGet and the other typed Map methods and the Request Delegate Generator.")]
+    [RequiresDynamicCode("Maps route handler delegates, which ASP.NET Core compiles at run time.")]
     public static IEndpointRouteBuilder MapNaravel(this IEndpointRouteBuilder endpoints, Action<IRouteRegistrar> routes)
     {
         ArgumentNullException.ThrowIfNull(endpoints);
