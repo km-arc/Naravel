@@ -271,3 +271,5 @@ cache.AssertMissing("profile:42");
 ```
 
 It follows the Memory store (typed values, first-write-only TTL on `IncrementAsync(key, by, ttl)`), keeps no tags or locks, and passes the same shared store contract. `Keys`, `AssertHas`, `AssertMissing`, `AssertEmpty` and `Reset` are its inspection API. Closes AUDIT D-23 for the cache half.
+
+The snippets in this guide (basic operations, `RememberAsync`, scopes and tags, locks, the login throttle) are run against the Memory store by `tests/Naravel.Cache.Tests/DocsExampleTests.cs`. Change one, change the other. The Redis and Memcached variants are covered by the provider tests.

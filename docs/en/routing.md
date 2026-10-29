@@ -242,6 +242,7 @@ CORS, proxy headers, host filtering, request-size limits and cookie encryption a
 
 ## What the tests cover (`tests/Naravel.Routing.Tests`)
 
+- The guide's "Complete example" (group with prefix, name prefix and middleware, route model binding, API resource, an alias with an argument, a throttle policy, named URLs): `DocsExampleTests.cs`. Change one, change the other.
 - Resolution (no HTTP): aliases, arguments, groups (nesting, cycles, mutators), exclusion, de-duplication, priority, per-endpoint caching, controller attributes.
 - End to end on `TestServer`: verbs, groups and name prefixes, URL generation, `Where`/global patterns (anchoring), domains, fallback, redirects,
   middleware order, short-circuit, `WithoutMiddleware`, inline and aliased delegates, `IMiddleware` adapter, terminable, priority, native endpoints and groups,

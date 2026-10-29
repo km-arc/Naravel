@@ -257,3 +257,5 @@ cache.AssertMissing("profile:42");
 ```
 
 رفتارش مثل store حافظه است (مقدار typed، و TTL فقط در اولین نوشتن برای `IncrementAsync(key, by, ttl)`)، tag و lock ندارد و همان قرارداد مشترک store را پاس می‌کند. API بررسی آن `Keys`، `AssertHas`، `AssertMissing`، `AssertEmpty` و `Reset` است. نیمهٔ cache از AUDIT D-23 را می‌بندد.
+
+نمونه‌های این راهنما (عملیات پایه، `RememberAsync`، scope و tag، قفل و محدودکننده ورود) روی store حافظه توسط `tests/Naravel.Cache.Tests/DocsExampleTests.cs` اجرا می‌شوند. تغییر یکی یعنی تغییر دیگری. نسخه‌های Redis و Memcached را تست‌های provider پوشش می‌دهند.
