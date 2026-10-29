@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
@@ -67,6 +68,8 @@ internal sealed class Encrypter : IEncrypter
         }
     }
 
+    [RequiresUnreferencedCode("Reflection-based JSON serialization; use the overload that takes a JsonTypeInfo from a source-generated JsonSerializerContext when trimming or publishing with Native AOT.")]
+    [RequiresDynamicCode("Reflection-based JSON serialization; use the overload that takes a JsonTypeInfo from a source-generated JsonSerializerContext when publishing with Native AOT.")]
     public string Encrypt<T>(T value) => Encrypt(JsonSerializer.Serialize(value));
 
     public string Encrypt<T>(T value, JsonTypeInfo<T> typeInfo)
@@ -75,6 +78,8 @@ internal sealed class Encrypter : IEncrypter
         return Encrypt(JsonSerializer.Serialize(value, typeInfo));
     }
 
+    [RequiresUnreferencedCode("Reflection-based JSON serialization; use the overload that takes a JsonTypeInfo from a source-generated JsonSerializerContext when trimming or publishing with Native AOT.")]
+    [RequiresDynamicCode("Reflection-based JSON serialization; use the overload that takes a JsonTypeInfo from a source-generated JsonSerializerContext when publishing with Native AOT.")]
     public T Decrypt<T>(string payload) => FromJson(payload, json => JsonSerializer.Deserialize<T>(json));
 
     public T Decrypt<T>(string payload, JsonTypeInfo<T> typeInfo)
