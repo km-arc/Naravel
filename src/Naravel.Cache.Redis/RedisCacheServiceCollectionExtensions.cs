@@ -8,6 +8,9 @@ namespace Naravel.Cache.Redis;
 /// <summary>Registration of Redis cache and lock stores.</summary>
 public static class RedisCacheServiceCollectionExtensions
 {
+    /// <summary>The key of the optional <see cref="System.Text.Json.JsonSerializerOptions"/> that every Redis cache store uses for its JSON values (keyed service; register it for trimming or Native AOT).</summary>
+    public const string SerializerOptionsKey = "Naravel.Cache.Redis.Json";
+
     /// <summary>
     /// Registers every Redis store configured under the Cache section. A store names a shared connection with <c>Connection</c> (a <c>Redis:Stores</c> name) or, as before,
     /// carries its own <c>ConnectionString</c>; equal strings share one connection. The store and its lock use the same connection, which <c>Naravel.Redis</c> owns.
@@ -28,7 +31,8 @@ public static class RedisCacheServiceCollectionExtensions
                 Resolve(provider, store).Multiplexer,
                 store["Prefix"] ?? store.Key,
                 int.TryParse(store["Database"], out var database) ? database : -1,
-                ownsConnection: false),
+                ownsConnection: false,
+                serializerOptions: provider.GetKeyedService<System.Text.Json.JsonSerializerOptions>(SerializerOptionsKey)),
             (provider, store) => new RedisLock(
                 Resolve(provider, store).Multiplexer,
                 store["Prefix"] ?? store.Key,
