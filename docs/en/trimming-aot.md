@@ -27,6 +27,8 @@ Largest packages: `Naravel.Queue` 21, `Naravel.Queue.Redis` 18, `Naravel.Queue.D
 
 ## Progress
 
+Measured after these two changes (run 40861138651): **120** distinct warnings (from 126); `Naravel.Database` and `Naravel.Encryption` no longer appear in the inventory.
+
 - **Naravel.Encryption:** the two reflection-based overloads, `Encrypt<T>(T)` and `Decrypt<T>(string)`, now carry `RequiresUnreferencedCode` and `RequiresDynamicCode`. Trimmed or AOT applications use the `JsonTypeInfo` overloads, which already existed; the warning now appears at the call site instead of inside the package.
 - **Naravel.Database:** JSON scalars (string, bool, numbers) are serialised with source-generated metadata. A non-scalar value for the JSON contains or JSON update methods (MySQL and PostgreSQL) uses the default resolver: unchanged with reflection, and `NotSupportedException` under Native AOT instead of a silent failure.
 - **Naravel.Cache.Redis** is next and needs an API decision: `RedisCacheStore` serialises any `T`, so AOT support means letting the application pass a `JsonSerializerOptions` with its own resolver.
