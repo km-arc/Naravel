@@ -1,5 +1,7 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Naravel.Cache.Abstractions;
 using StackExchange.Redis;
 
@@ -32,8 +34,14 @@ public sealed class RedisCacheStore : ICacheStore, IDisposable
     /// <see langword="true"/> (the default, as before) when <see cref="Dispose"/> should dispose <paramref name="multiplexer"/>; <see langword="false"/> when the connection is
     /// borrowed from <c>Naravel.Redis</c>, which owns and disposes it.
     /// </param>
-    public RedisCacheStore(string name, IConnectionMultiplexer multiplexer, string prefix, int database = -1, bool ownsConnection = true)
+    /// <param name="serializerOptions">
+    /// Options for the JSON value format. <see langword="null"/> (the default, unchanged behaviour) uses the default reflection resolver. For trimming or Native AOT pass options
+    /// whose <see cref="JsonSerializerOptions.TypeInfoResolver"/> is a source-generated <c>JsonSerializerContext</c> covering every cached type; a type without metadata then throws
+    /// <see cref="NotSupportedException"/>. Changing the options changes the stored format, so keep them identical across all instances that share a store.
+    /// </param>
+    public RedisCacheStore(string name, IConnectionMultiplexer multiplexer, string prefix, int database = -1, bool ownsConnection = true, JsonSerializerOptions? serializerOptions = null)
     {
+        _serializerOptions = serializerOptions;
         _ownsConnection = ownsConnection;
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(multiplexer);
@@ -73,20 +81,29 @@ public sealed class RedisCacheStore : ICacheStore, IDisposable
         return EscapeGlob(normalizedPrefix) + "*";
     }
 
+    private readonly JsonSerializerOptions? _serializerOptions;
+
+    private JsonTypeInfo<T> TypeInfo<T>() => (JsonTypeInfo<T>)(_serializerOptions ?? DefaultOptions()).GetTypeInfo(typeof(T));
+
+    [UnconditionalSuppressMessage("Trimming", "IL2026",
+        Justification = "Without caller options the default reflection resolver is used exactly as before; when reflection is disabled (Native AOT) GetTypeInfo throws NotSupportedException, so a missing resolver fails loudly. Applications that trim or use AOT pass options with a source-generated resolver.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "See IL2026.")]
+    private static JsonSerializerOptions DefaultOptions() => JsonSerializerOptions.Default;
+
     /// <inheritdoc />
     public async Task<(bool Found, T? Value)> TryGetAsync<T>(string key, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var value = await _database.StringGetAsync(Key(key)).ConfigureAwait(false);
         if (!value.HasValue) return (false, default);
-        return (true, JsonSerializer.Deserialize<T>((string)value!));
+        return (true, JsonSerializer.Deserialize((string)value!, TypeInfo<T>()));
     }
 
     /// <inheritdoc />
     public async Task SetAsync<T>(string key, T value, TimeSpan? ttl, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var serialized = JsonSerializer.Serialize(value);
+        var serialized = JsonSerializer.Serialize(value, TypeInfo<T>());
         var expiration = ttl.HasValue ? new Expiration(ttl.Value) : Expiration.Default;
         await _database.StringSetAsync(Key(key), serialized, expiration).ConfigureAwait(false);
     }
