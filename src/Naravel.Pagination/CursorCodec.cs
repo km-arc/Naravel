@@ -1,5 +1,8 @@
 using System.Buffers.Text;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace Naravel.Pagination;
 
@@ -60,7 +63,7 @@ internal static class CursorCodec
             for (var i = 0; i < values.Count; i++)
             {
                 if (values[i] is null) throw new InvalidOperationException("A cursor key value is null; null key values are not supported.");
-                JsonSerializer.Serialize(writer, values[i], types[i]);
+                JsonSerializer.Serialize(writer, values[i], KeyTypeInfo(types[i]));
             }
 
             writer.WriteEndArray();
@@ -101,6 +104,14 @@ internal static class CursorCodec
             throw new InvalidCursorException("The cursor does not hold the expected position.", exception);
         }
     }
+
+    /// <summary>Metadata for a cursor key type: source-generated for the common key types (no reflection), the default resolver for any other type.</summary>
+    private static JsonTypeInfo KeyTypeInfo(Type type) => CursorJsonContext.Default.GetTypeInfo(type) ?? ReflectionTypeInfo(type);
+
+    [UnconditionalSuppressMessage("Trimming", "IL2026",
+        Justification = "Only key types missing from CursorJsonContext reach this path. With reflection enabled they serialise as before; when it is disabled (Native AOT) GetTypeInfo throws NotSupportedException, which the cursor reader reports as an invalid cursor and the writer surfaces to the caller.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "See IL2026.")]
+    private static JsonTypeInfo ReflectionTypeInfo(Type type) => JsonSerializerOptions.Default.GetTypeInfo(type);
 
     private static CursorDirection? ReadDirection(JsonElement element)
     {
@@ -143,10 +154,33 @@ internal static class CursorCodec
         var index = 0;
         foreach (var element in array.EnumerateArray())
         {
-            var value = element.ValueKind == JsonValueKind.Null ? null : JsonSerializer.Deserialize(element, types[index]);
+            var value = element.ValueKind == JsonValueKind.Null ? null : JsonSerializer.Deserialize(element, KeyTypeInfo(types[index]));
             values[index++] = value ?? throw new InvalidCursorException("The cursor holds a null key value.");
         }
 
         return new CursorValues(direction.Value, values);
     }
 }
+
+/// <summary>Source-generated metadata for the cursor key types most tables use.</summary>
+[JsonSerializable(typeof(string))]
+[JsonSerializable(typeof(bool))]
+[JsonSerializable(typeof(char))]
+[JsonSerializable(typeof(sbyte))]
+[JsonSerializable(typeof(byte))]
+[JsonSerializable(typeof(short))]
+[JsonSerializable(typeof(ushort))]
+[JsonSerializable(typeof(int))]
+[JsonSerializable(typeof(uint))]
+[JsonSerializable(typeof(long))]
+[JsonSerializable(typeof(ulong))]
+[JsonSerializable(typeof(float))]
+[JsonSerializable(typeof(double))]
+[JsonSerializable(typeof(decimal))]
+[JsonSerializable(typeof(Guid))]
+[JsonSerializable(typeof(DateTime))]
+[JsonSerializable(typeof(DateTimeOffset))]
+[JsonSerializable(typeof(DateOnly))]
+[JsonSerializable(typeof(TimeOnly))]
+[JsonSerializable(typeof(TimeSpan))]
+internal sealed partial class CursorJsonContext : JsonSerializerContext;

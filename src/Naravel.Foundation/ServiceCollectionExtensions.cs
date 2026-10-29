@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -34,7 +35,7 @@ public static class ServiceCollectionExtensions
     /// manager instead. Register built-in drivers with <see cref="AddNaravelDriver{TDriver}(IServiceCollection, string, Func{IServiceProvider, TDriver})"/>
     /// before the service provider is built.
     /// </remarks>
-    public static IServiceCollection AddNaravelManager<TManager, TDriver, TOptions>(
+    public static IServiceCollection AddNaravelManager<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TManager, TDriver, TOptions>(
         this IServiceCollection services,
         IConfiguration configuration)
         where TManager : Manager<TDriver, TOptions>
