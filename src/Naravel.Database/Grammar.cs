@@ -110,7 +110,36 @@ public abstract class Grammar
 
     private string Base(ParsedIdentifier identifier) => Wrap(new ParsedIdentifier(identifier.Segments, false, null));
 
-    internal static string JsonText(object value) => System.Text.Json.JsonSerializer.Serialize(value);
+    /// <summary>
+    /// A value as JSON text. Scalars (string, bool, numbers) use source-generated metadata and need no reflection. Any other value (an array or an
+    /// object for MySQL and PostgreSQL JSON contains or JSON updates) resolves its metadata through <see cref="System.Text.Json.JsonSerializerOptions.Default"/>:
+    /// that works as before when reflection is enabled, and under Native AOT it throws <see cref="NotSupportedException"/> instead of failing
+    /// silently, because the application has not supplied a source-generated resolver for its own type.
+    /// </summary>
+    internal static string JsonText(object value) => value switch
+    {
+        string v => System.Text.Json.JsonSerializer.Serialize(v, QueryJsonContext.Default.String),
+        bool v => System.Text.Json.JsonSerializer.Serialize(v, QueryJsonContext.Default.Boolean),
+        sbyte v => System.Text.Json.JsonSerializer.Serialize(v, QueryJsonContext.Default.SByte),
+        byte v => System.Text.Json.JsonSerializer.Serialize(v, QueryJsonContext.Default.Byte),
+        short v => System.Text.Json.JsonSerializer.Serialize(v, QueryJsonContext.Default.Int16),
+        ushort v => System.Text.Json.JsonSerializer.Serialize(v, QueryJsonContext.Default.UInt16),
+        int v => System.Text.Json.JsonSerializer.Serialize(v, QueryJsonContext.Default.Int32),
+        uint v => System.Text.Json.JsonSerializer.Serialize(v, QueryJsonContext.Default.UInt32),
+        long v => System.Text.Json.JsonSerializer.Serialize(v, QueryJsonContext.Default.Int64),
+        ulong v => System.Text.Json.JsonSerializer.Serialize(v, QueryJsonContext.Default.UInt64),
+        float v => System.Text.Json.JsonSerializer.Serialize(v, QueryJsonContext.Default.Single),
+        double v => System.Text.Json.JsonSerializer.Serialize(v, QueryJsonContext.Default.Double),
+        decimal v => System.Text.Json.JsonSerializer.Serialize(v, QueryJsonContext.Default.Decimal),
+        _ => JsonTextOfObject(value),
+    };
+
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026",
+        Justification = "Only non-scalar values reach this path. With reflection enabled the default resolver serialises them as before; when it is disabled (Native AOT) GetTypeInfo throws NotSupportedException, so a missing resolver fails loudly instead of silently dropping trimmed members.")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050",
+        Justification = "See IL2026: under Native AOT the metadata lookup throws NotSupportedException instead of generating code.")]
+    private static string JsonTextOfObject(object value) =>
+        System.Text.Json.JsonSerializer.Serialize(value, System.Text.Json.JsonSerializerOptions.Default.GetTypeInfo(value.GetType()));
 
     /// <summary>A scalar as text for engines whose JSON search compares text (SQL Server) and as a native value for SQLite.</summary>
     internal static bool IsJsonScalar(object value) => value is string or bool or sbyte or byte or short or ushort or int or uint or long or ulong or float or double or decimal;

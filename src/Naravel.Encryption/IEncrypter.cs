@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization.Metadata;
 
 namespace Naravel.Encryption;
@@ -31,6 +32,8 @@ public interface IEncrypter
     /// <summary>Encrypts a value as JSON (<c>System.Text.Json</c>). Laravel: <c>Crypt::encrypt</c>.</summary>
     /// <typeparam name="T">The value type.</typeparam>
     /// <param name="value">The value to protect.</param>
+    [RequiresUnreferencedCode("Reflection-based JSON serialization; use the overload that takes a JsonTypeInfo from a source-generated JsonSerializerContext when trimming or publishing with Native AOT.")]
+    [RequiresDynamicCode("Reflection-based JSON serialization; use the overload that takes a JsonTypeInfo from a source-generated JsonSerializerContext when publishing with Native AOT.")]
     string Encrypt<T>(T value);
 
     /// <summary>Encrypts a value as JSON with source-generated metadata, for trimming and AOT.</summary>
@@ -43,6 +46,8 @@ public interface IEncrypter
     /// <typeparam name="T">The value type.</typeparam>
     /// <param name="payload">The protected text.</param>
     /// <exception cref="DecryptException">The value cannot be decrypted, or it decrypts but is not valid JSON for <typeparamref name="T"/>.</exception>
+    [RequiresUnreferencedCode("Reflection-based JSON serialization; use the overload that takes a JsonTypeInfo from a source-generated JsonSerializerContext when trimming or publishing with Native AOT.")]
+    [RequiresDynamicCode("Reflection-based JSON serialization; use the overload that takes a JsonTypeInfo from a source-generated JsonSerializerContext when publishing with Native AOT.")]
     T Decrypt<T>(string payload);
 
     /// <summary>Decrypts a value written by <c>Encrypt&lt;T&gt;</c> with source-generated metadata.</summary>
