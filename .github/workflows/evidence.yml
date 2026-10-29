@@ -62,9 +62,34 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY" > aot-summary.md
           msg=$(head -c 60000 aot-summary.md | sed ':a;N;$!ba;s/\n/%0A/g')
           echo "::notice title=AOT inventory::$msg"
-          # One short annotation per project: a single big one is truncated by GitHub after a few lines.
-          for project in $(cut -d/ -f2 aot-warnings.txt | sort -u); do
-            detail=$(grep "^src/$project/" aot-warnings.txt | sed -E 's/ can break functionality.*//; s/Using member //' | cut -c1-240 | head -40 | sed ':a;N;$!ba;s/\n/%0A/g')
+
+      - name: Detail per project (1-8)
+        shell: bash
+        run: |
+          set +e +o pipefail
+          # GitHub shows at most ten annotations per step and about 4 KB per annotation, so projects are listed in slices.
+          for project in $(cut -d/ -f2 aot-warnings.txt | sort -u | sed -n '1,8p'); do
+            detail=$(grep "^src/$project/" aot-warnings.txt | sed -E 's/ can break functionality.*//; s/Using member //' | cut -c1-200 | head -30 | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::notice title=AOT $project::$detail"
+          done
+
+      - name: Detail per project (9-16)
+        shell: bash
+        run: |
+          set +e +o pipefail
+          # GitHub shows at most ten annotations per step and about 4 KB per annotation, so projects are listed in slices.
+          for project in $(cut -d/ -f2 aot-warnings.txt | sort -u | sed -n '9,16p'); do
+            detail=$(grep "^src/$project/" aot-warnings.txt | sed -E 's/ can break functionality.*//; s/Using member //' | cut -c1-200 | head -30 | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::notice title=AOT $project::$detail"
+          done
+
+      - name: Detail per project (17-24)
+        shell: bash
+        run: |
+          set +e +o pipefail
+          # GitHub shows at most ten annotations per step and about 4 KB per annotation, so projects are listed in slices.
+          for project in $(cut -d/ -f2 aot-warnings.txt | sort -u | sed -n '17,24p'); do
+            detail=$(grep "^src/$project/" aot-warnings.txt | sed -E 's/ can break functionality.*//; s/Using member //' | cut -c1-200 | head -30 | sed ':a;N;$!ba;s/\n/%0A/g')
             echo "::notice title=AOT $project::$detail"
           done
 

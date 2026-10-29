@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.DependencyInjection;
@@ -49,7 +50,9 @@ public static class NaravelEventsQueueServiceCollectionExtensions
     /// resolving a CLR type from queued data.</para>
     /// <para><b>Not ported on purpose:</b> assembly scanning and type names in serialized payloads.</para>
     /// </remarks>
-    public static IServiceCollection AddQueuedEventListener<TEvent, TListener>(this IServiceCollection services, string alias)
+    [RequiresUnreferencedCode("Serialises the event with reflection-based System.Text.Json. When trimming or publishing with Native AOT use the overload that takes a JsonTypeInfo<TEvent> from a source-generated JsonSerializerContext.")]
+    [RequiresDynamicCode("Serialises the event with reflection-based System.Text.Json. When publishing with Native AOT use the overload that takes a JsonTypeInfo<TEvent> from a source-generated JsonSerializerContext.")]
+    public static IServiceCollection AddQueuedEventListener<TEvent, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TListener>(this IServiceCollection services, string alias)
         where TListener : class, IQueuedEventListener<TEvent>
         => AddListener<TEvent, TListener>(services, alias, null, null);
 
@@ -63,7 +66,9 @@ public static class NaravelEventsQueueServiceCollectionExtensions
     /// <param name="alias">Stable identifier stored in queued messages.</param>
     /// <param name="configureDispatch">Applied to a fresh <see cref="DispatchOptions"/> for every dispatch of this listener.</param>
     /// <remarks><para><b>Laravel equivalent:</b> the <c>$connection</c>, <c>$queue</c> and <c>$delay</c> properties of a queued listener.</para></remarks>
-    public static IServiceCollection AddQueuedEventListener<TEvent, TListener>(this IServiceCollection services, string alias, Action<DispatchOptions> configureDispatch)
+    [RequiresUnreferencedCode("Serialises the event with reflection-based System.Text.Json. When trimming or publishing with Native AOT use the overload that takes a JsonTypeInfo<TEvent> from a source-generated JsonSerializerContext.")]
+    [RequiresDynamicCode("Serialises the event with reflection-based System.Text.Json. When publishing with Native AOT use the overload that takes a JsonTypeInfo<TEvent> from a source-generated JsonSerializerContext.")]
+    public static IServiceCollection AddQueuedEventListener<TEvent, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TListener>(this IServiceCollection services, string alias, Action<DispatchOptions> configureDispatch)
         where TListener : class, IQueuedEventListener<TEvent>
     {
         ArgumentNullException.ThrowIfNull(configureDispatch);
@@ -80,14 +85,17 @@ public static class NaravelEventsQueueServiceCollectionExtensions
     /// <param name="alias">Stable identifier stored in queued messages.</param>
     /// <param name="typeInfo">Source-generated metadata for <typeparamref name="TEvent"/>.</param>
     /// <param name="configureDispatch">Optional per-dispatch options, as in the other overload.</param>
-    public static IServiceCollection AddQueuedEventListener<TEvent, TListener>(this IServiceCollection services, string alias, JsonTypeInfo<TEvent> typeInfo, Action<DispatchOptions>? configureDispatch = null)
+    public static IServiceCollection AddQueuedEventListener<TEvent, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TListener>(this IServiceCollection services, string alias, JsonTypeInfo<TEvent> typeInfo, Action<DispatchOptions>? configureDispatch = null)
         where TListener : class, IQueuedEventListener<TEvent>
     {
         ArgumentNullException.ThrowIfNull(typeInfo);
         return AddListener<TEvent, TListener>(services, alias, typeInfo, configureDispatch);
     }
 
-    private static IServiceCollection AddListener<TEvent, TListener>(IServiceCollection services, string alias, JsonTypeInfo<TEvent>? typeInfo, Action<DispatchOptions>? configureDispatch)
+    [UnconditionalSuppressMessage("Trimming", "IL2026",
+        Justification = "The reflection-based branches run only when typeInfo is null, which only the public overloads marked RequiresUnreferencedCode pass; the JsonTypeInfo overload never reaches them.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "See IL2026.")]
+    private static IServiceCollection AddListener<TEvent, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TListener>(IServiceCollection services, string alias, JsonTypeInfo<TEvent>? typeInfo, Action<DispatchOptions>? configureDispatch)
         where TListener : class, IQueuedEventListener<TEvent>
     {
         ArgumentNullException.ThrowIfNull(services);

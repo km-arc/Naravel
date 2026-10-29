@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Naravel.Queue.Dispatch;
 
@@ -21,7 +20,7 @@ internal sealed class QueuedNotificationDispatcher(
                 $"The alias '{alias}' was registered for payload type {entry.PayloadType.Name}, not {typeof(TPayload).Name}.", nameof(payload));
         }
 
-        var job = new SendQueuedNotificationJob { Alias = alias, Payload = JsonSerializer.Serialize(payload) };
+        var job = new SendQueuedNotificationJob { Alias = alias, Payload = entry.Serialize(payload) };
         var placement = options.Value;
         return dispatcher.DispatchAsync(job, dispatch =>
         {

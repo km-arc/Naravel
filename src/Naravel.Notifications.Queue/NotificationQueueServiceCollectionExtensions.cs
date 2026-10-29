@@ -1,4 +1,6 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Naravel.Notifications;
 using Naravel.Notifications.Queue;
@@ -47,6 +49,8 @@ public static class NotificationQueueServiceCollectionExtensions
     /// <param name="services">The service collection.</param>
     /// <param name="alias">A stable alias that is stored in the queue; never rename it while jobs with it are queued.</param>
     /// <param name="send">Handles one payload; it gets the deserialized payload, the job's scope and the cancellation token.</param>
+    [RequiresUnreferencedCode("Serialises the payload with reflection-based System.Text.Json. When trimming or publishing with Native AOT use the overload that takes a JsonTypeInfo<TPayload>.")]
+    [RequiresDynamicCode("Serialises the payload with reflection-based System.Text.Json. When publishing with Native AOT use the overload that takes a JsonTypeInfo<TPayload>.")]
     public static IServiceCollection AddQueuedNotification<TPayload>(
         this IServiceCollection services,
         string alias,
@@ -61,7 +65,36 @@ public static class NotificationQueueServiceCollectionExtensions
             var payload = JsonSerializer.Deserialize<TPayload>(json)
                 ?? throw new InvalidOperationException($"The stored payload for '{alias}' is empty.");
             return send(payload, scope, cancellationToken);
-        }));
+        }, payload => JsonSerializer.Serialize((TPayload)payload)));
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the handler for <paramref name="alias"/> like the other overload, with the payload serialised through source-generated metadata, so it needs no reflection
+    /// (trimming and Native AOT).
+    /// </summary>
+    /// <typeparam name="TPayload">The plain payload type.</typeparam>
+    /// <param name="services">The service collection.</param>
+    /// <param name="alias">A stable alias that is stored in the queue; never rename it while jobs with it are queued.</param>
+    /// <param name="typeInfo">Metadata for <typeparamref name="TPayload"/> from a source-generated <c>JsonSerializerContext</c>.</param>
+    /// <param name="send">Handles one payload; it gets the deserialized payload, the job's scope and the cancellation token.</param>
+    public static IServiceCollection AddQueuedNotification<TPayload>(
+        this IServiceCollection services,
+        string alias,
+        JsonTypeInfo<TPayload> typeInfo,
+        Func<TPayload, IServiceProvider, CancellationToken, Task> send)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentException.ThrowIfNullOrWhiteSpace(alias);
+        ArgumentNullException.ThrowIfNull(typeInfo);
+        ArgumentNullException.ThrowIfNull(send);
+
+        services.AddSingleton(new QueuedNotificationEntry(alias, typeof(TPayload), (json, scope, cancellationToken) =>
+        {
+            var payload = JsonSerializer.Deserialize(json, typeInfo)
+                ?? throw new InvalidOperationException($"The stored payload for '{alias}' is empty.");
+            return send(payload, scope, cancellationToken);
+        }, payload => JsonSerializer.Serialize((TPayload)payload, typeInfo)));
         return services;
     }
 }
