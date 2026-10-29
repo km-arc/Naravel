@@ -3,7 +3,7 @@ using Naravel.Broadcasting;
 
 namespace Naravel.Broadcasting.Tests;
 
-/// <summary>The reflection-free <see cref="PresenceMember"/> constructor (trimming and Native AOT): information that is already JSON.</summary>
+/// <summary>The reflection-free <see cref="PresenceMember.FromJson"/> (trimming and Native AOT): information that is already JSON.</summary>
 public class PresenceMemberJsonTests
 {
     [Fact]
@@ -12,7 +12,7 @@ public class PresenceMemberJsonTests
         PresenceMember member;
         using (var document = JsonDocument.Parse("""{"name":"Ann","tags":[1,2]}"""))
         {
-            member = new PresenceMember("1", document.RootElement);
+            member = PresenceMember.FromJson("1", document.RootElement);
         }
 
         member.UserId.Should().Be("1");
@@ -24,7 +24,7 @@ public class PresenceMemberJsonTests
     {
         using var document = JsonDocument.Parse("\"" + new string('x', 2100) + "\"");
 
-        var element = () => new PresenceMember("1", document.RootElement);
+        var element = () => PresenceMember.FromJson("1", document.RootElement);
         var obj = () => new PresenceMember("1", new string('x', 2100));
 
         element.Should().Throw<ArgumentException>().WithParameterName("info");
@@ -36,7 +36,7 @@ public class PresenceMemberJsonTests
     {
         using var document = JsonDocument.Parse("{}");
 
-        var act = () => new PresenceMember(" ", document.RootElement);
+        var act = () => PresenceMember.FromJson(" ", document.RootElement);
 
         act.Should().Throw<ArgumentException>();
     }
@@ -46,7 +46,7 @@ public class PresenceMemberJsonTests
     {
         using var document = JsonDocument.Parse("""{"name":"Ann"}""");
 
-        var fromElement = new PresenceMember("1", document.RootElement);
+        var fromElement = PresenceMember.FromJson("1", document.RootElement);
         var fromObject = new PresenceMember("1", new { name = "Ann" });
 
         fromElement.Info!.Value.GetRawText().Should().Be(fromObject.Info!.Value.GetRawText());

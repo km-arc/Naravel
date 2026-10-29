@@ -33,10 +33,11 @@ public sealed class PresenceMember
     }
 
     /// <summary>Creates a member with information that is already JSON (no reflection; the safe choice for trimming and Native AOT).</summary>
-    /// <param name="userId">The user id.</param>
+    /// <param name="userId">The user id; connections with the same id are one member.</param>
     /// <param name="info">The member information; its JSON text may not exceed 2048 characters.</param>
-    /// <exception cref="ArgumentException">The information is too large.</exception>
-    public PresenceMember(string userId, JsonElement info)
+    /// <returns>The member.</returns>
+    /// <exception cref="ArgumentException">The user id is blank or the information is too large.</exception>
+    public static PresenceMember FromJson(string userId, JsonElement info)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
         if (info.GetRawText().Length > MaxInfoLength)
@@ -44,8 +45,7 @@ public sealed class PresenceMember
             throw new ArgumentException($"The member information is larger than {MaxInfoLength} characters.", nameof(info));
         }
 
-        UserId = userId;
-        Info = info.Clone();
+        return new PresenceMember(userId, (JsonElement?)info.Clone());
     }
 
     private PresenceMember(string userId, JsonElement? info)
