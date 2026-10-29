@@ -182,27 +182,27 @@ var batch = await dispatcher.BatchAsync(
     });
 ```
 
-    The default batch repository is in-memory. For state shared across workers and restarts, register
-    `AddDatabaseBatchRepository<AppDbContext>()` or `AddRedisBatchRepository("redis")`. The Database
-    `ConfigureQueueJobs()` mapping also includes the `QueueBatches` table. Persistent repositories do
-    not store delegates; register a typed handler under an explicit alias and persist only its JSON
-    payload:
+The default batch repository is in-memory. For state shared across workers and restarts, register
+`AddDatabaseBatchRepository<AppDbContext>()` or `AddRedisBatchRepository("redis")`. The Database
+`ConfigureQueueJobs()` mapping also includes the `QueueBatches` table. Persistent repositories do
+not store delegates; register a typed handler under an explicit alias and persist only its JSON
+payload:
 
-    ```csharp
-    var callbacks = new BatchCallbackRegistry();
-    callbacks.Register<string>("mail.batch-finished", (batch, note, ct) => SendSummaryAsync(batch, note, ct));
-    builder.Services.AddSingleton(callbacks);
+```csharp
+var callbacks = new BatchCallbackRegistry();
+callbacks.Register<string>("mail.batch-finished", (batch, note, ct) => SendSummaryAsync(batch, note, ct));
+builder.Services.AddSingleton(callbacks);
 
-    await dispatcher.BatchAsync(jobs, batchConfigure: options =>
-      options.Then("mail.batch-finished", "invoice batch complete").Finally("mail.batch-finished", "finished"));
-    ```
+await dispatcher.BatchAsync(jobs, batchConfigure: options =>
+  options.Then("mail.batch-finished", "invoice batch complete").Finally("mail.batch-finished", "finished"));
+```
 
-    Use `Catch(alias, payload)` for failed batches and `Finally(alias, payload)` for either outcome.
-    `AllowFailures = true` lets remaining jobs continue after a permanent failure; otherwise the batch
-    is cancelled and not-yet-started jobs are acknowledged without execution. Explicit cancellation
-    uses `IBatchRepository.CancelAsync(batchId, cancellationToken)`. Callbacks are at-least-once across
-    process crashes and should be idempotent. A callback failure leaves its completion state pending so
-    the next worker startup can retry it.
+Use `Catch(alias, payload)` for failed batches and `Finally(alias, payload)` for either outcome.
+`AllowFailures = true` lets remaining jobs continue after a permanent failure; otherwise the batch
+is cancelled and not-yet-started jobs are acknowledged without execution. Explicit cancellation
+uses `IBatchRepository.CancelAsync(batchId, cancellationToken)`. Callbacks are at-least-once across
+process crashes and should be idempotent. A callback failure leaves its completion state pending so
+the next worker startup can retry it.
 
 ### Runtime `Extend` (a driver not known at startup)
 
