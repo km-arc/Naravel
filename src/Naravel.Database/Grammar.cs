@@ -131,8 +131,15 @@ public abstract class Grammar
         float v => System.Text.Json.JsonSerializer.Serialize(v, QueryJsonContext.Default.Single),
         double v => System.Text.Json.JsonSerializer.Serialize(v, QueryJsonContext.Default.Double),
         decimal v => System.Text.Json.JsonSerializer.Serialize(v, QueryJsonContext.Default.Decimal),
-        _ => System.Text.Json.JsonSerializer.Serialize(value, System.Text.Json.JsonSerializerOptions.Default.GetTypeInfo(value.GetType())),
+        _ => JsonTextOfObject(value),
     };
+
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026",
+        Justification = "Only non-scalar values reach this path. With reflection enabled the default resolver serialises them as before; when it is disabled (Native AOT) GetTypeInfo throws NotSupportedException, so a missing resolver fails loudly instead of silently dropping trimmed members.")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050",
+        Justification = "See IL2026: under Native AOT the metadata lookup throws NotSupportedException instead of generating code.")]
+    private static string JsonTextOfObject(object value) =>
+        System.Text.Json.JsonSerializer.Serialize(value, System.Text.Json.JsonSerializerOptions.Default.GetTypeInfo(value.GetType()));
 
     /// <summary>A scalar as text for engines whose JSON search compares text (SQL Server) and as a native value for SQLite.</summary>
     internal static bool IsJsonScalar(object value) => value is string or bool or sbyte or byte or short or ushort or int or uint or long or ulong or float or double or decimal;
