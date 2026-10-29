@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -29,7 +30,7 @@ public static class NotificationServiceCollectionExtensions
     /// <typeparam name="TNotification">The notification type the channel delivers.</typeparam>
     /// <typeparam name="TChannel">The channel implementation, resolved from DI per scope.</typeparam>
     /// <param name="services">The service collection.</param>
-    public static IServiceCollection AddNotificationChannel<TNotification, TChannel>(this IServiceCollection services)
+    public static IServiceCollection AddNotificationChannel<TNotification, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TChannel>(this IServiceCollection services)
         where TChannel : class, INotificationChannel<TNotification>
     {
         ArgumentNullException.ThrowIfNull(services);

@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <!-- Compile-time configuration binding (no reflection) for the Configure<FilesystemOptions>(section) call. -->
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <TargetFramework>net10.0</TargetFramework>
     <PackageId>Naravel.Filesystem</PackageId>
     <Description>Shared Manager -> Driver -> Factory Filesystem for Naravel modules (Laravel Illuminate\Support\Manager, reimagined for .NET).</Description>

@@ -152,7 +152,7 @@ internal sealed class CursorKey<T, TKey> : CursorKey<T>
     // The value sits in a field of a constant holder, the shape of a captured variable, so EF Core sends it as a query parameter
     // and not as an inlined literal.
     private static Expression Right(object value) =>
-        Expression.Field(Expression.Constant(new ValueBox<TKey> { Value = (TKey)value }), nameof(ValueBox<TKey>.Value));
+        Expression.Field(Expression.Constant(new ValueBox<TKey> { Value = (TKey)value }), typeof(ValueBox<TKey>).GetField(nameof(ValueBox<TKey>.Value))!);
 }
 
 internal sealed class ValueBox<TValue>
