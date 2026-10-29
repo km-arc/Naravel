@@ -36,6 +36,18 @@ var card  = encrypter.Decrypt<CardInfo>(encrypter.Encrypt(new CardInfo("Ada", 42
 
 A value that cannot be decrypted (tampered, malformed, protected for another purpose, key missing) throws `DecryptException` with a fixed message that never contains the input or any plaintext. `TryDecrypt` returns `false` instead.
 
+**Trimming and Native AOT.** `Encrypt<T>(T)` and `Decrypt<T>(string)` use reflection-based JSON, so they carry `RequiresUnreferencedCode` and `RequiresDynamicCode`: in a project that enables the trim or AOT analyzers (`PublishAot`, `IsTrimmable`) every call site gets warning IL2026 and IL3050. Strings (`Encrypt(string)`, `Decrypt(string)`) are not affected. For typed values in such a project, pass the metadata of a source-generated context to the `JsonTypeInfo` overloads:
+
+```csharp
+[JsonSerializable(typeof(CardInfo))]
+public partial class AppJson : JsonSerializerContext;
+
+var token = encrypter.Encrypt(new CardInfo("Ada", 4242), AppJson.Default.CardInfo);
+var card  = encrypter.Decrypt(token, AppJson.Default.CardInfo);
+```
+
+The two forms read each other's tokens. See [Trimming and Native AOT](trimming-aot.md).
+
 ### Purposes
 
 `encrypter.ForPurpose("billing")` returns an encrypter isolated under its own purpose: it cannot read what the default encrypter or another purpose wrote. The default purpose is `Naravel.Encryption.v1`. Use fixed names, never user input.
