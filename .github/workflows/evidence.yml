@@ -62,8 +62,11 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY" > aot-summary.md
           msg=$(head -c 60000 aot-summary.md | sed ':a;N;$!ba;s/\n/%0A/g')
           echo "::notice title=AOT inventory::$msg"
-          detail=$(head -c 60000 aot-warnings.txt | cut -c1-260 | sed ':a;N;$!ba;s/\n/%0A/g')
-          echo "::notice title=AOT warnings::$detail"
+          # One short annotation per project: a single big one is truncated by GitHub after a few lines.
+          for project in $(cut -d/ -f2 aot-warnings.txt | sort -u); do
+            detail=$(grep "^src/$project/" aot-warnings.txt | sed -E 's/ can break functionality.*//; s/Using member //' | cut -c1-240 | head -40 | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::notice title=AOT $project::$detail"
+          done
 
       - uses: actions/upload-artifact@v4
         with:
