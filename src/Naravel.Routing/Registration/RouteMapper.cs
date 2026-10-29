@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Constraints;
@@ -7,6 +8,8 @@ namespace Naravel.Routing;
 
 internal static class RouteMapper
 {
+    [RequiresUnreferencedCode("Maps route handler delegates, which ASP.NET Core inspects with reflection. For trimming or Native AOT map endpoints with MapGet and the other typed Map methods and the Request Delegate Generator.")]
+    [RequiresDynamicCode("Maps route handler delegates, which ASP.NET Core compiles at run time.")]
     public static void Map(
         IEndpointRouteBuilder endpoints,
         IEnumerable<NaravelRoute> routes,
@@ -66,6 +69,6 @@ internal static class RouteMapper
 
         return policies.Count == 0
             ? parsed
-            : RoutePatternFactory.Parse(route.Uri, (object?)null, (object?)policies);
+            : RoutePatternFactory.Parse(route.Uri, (RouteValueDictionary?)null, policies);
     }
 }

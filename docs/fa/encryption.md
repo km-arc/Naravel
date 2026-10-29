@@ -36,6 +36,18 @@ var card  = encrypter.Decrypt<CardInfo>(encrypter.Encrypt(new CardInfo("Ada", 42
 
 مقداری که نتوان رمزگشایی‌اش کرد (دستکاری‌شده، نامعتبر، محافظت‌شده برای purpose دیگر، کلید گم‌شده) `DecryptException` با پیام ثابت می‌اندازد؛ پیام هرگز ورودی یا متن اصلی را ندارد. `TryDecrypt` به‌جای پرتاب، `false` برمی‌گرداند.
 
+**Trimming و Native AOT.** `Encrypt<T>(T)` و `Decrypt<T>(string)` از JSON مبتنی بر reflection استفاده می‌کنند و برای همین `RequiresUnreferencedCode` و `RequiresDynamicCode` دارند: در پروژه‌ای که analyzerهای trim یا AOT را روشن کرده (`PublishAot`، `IsTrimmable`) هر محل فراخوانی هشدار IL2026 و IL3050 می‌گیرد. رشته‌ها (`Encrypt(string)` و `Decrypt(string)`) تحت تأثیر نیستند. برای مقدار typed در چنین پروژه‌ای، metadata یک context تولیدشده با source generator را به overloadهای `JsonTypeInfo` بدهید:
+
+```csharp
+[JsonSerializable(typeof(CardInfo))]
+public partial class AppJson : JsonSerializerContext;
+
+var token = encrypter.Encrypt(new CardInfo("Ada", 4242), AppJson.Default.CardInfo);
+var card  = encrypter.Decrypt(token, AppJson.Default.CardInfo);
+```
+
+دو شکل توکن یکدیگر را می‌خوانند. [Trimming و Native AOT](trimming-aot.md) را ببینید.
+
 ### Purposeها
 
 `encrypter.ForPurpose("billing")` یک encrypter جدا با purpose خودش برمی‌گرداند: آنچه encrypter پیش‌فرض یا purpose دیگر نوشته را نمی‌تواند بخواند. purpose پیش‌فرض `Naravel.Encryption.v1` است. نام‌های ثابت بدهید، هرگز ورودی کاربر نه.

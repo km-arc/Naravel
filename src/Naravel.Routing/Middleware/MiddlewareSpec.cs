@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 namespace Naravel.Routing;
 
 /// <summary>
@@ -7,7 +8,7 @@ namespace Naravel.Routing;
 /// <remarks><b>Laravel equivalent:</b> the strings and class names passed to <c>->middleware()</c>.</remarks>
 public sealed class MiddlewareSpec
 {
-    private MiddlewareSpec(string? name, Type? type, RouteMiddlewareDelegate? inline, IReadOnlyList<string> arguments)
+    private MiddlewareSpec(string? name, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type? type, RouteMiddlewareDelegate? inline, IReadOnlyList<string> arguments)
     {
         Name = name;
         Type = type;
@@ -19,7 +20,7 @@ public sealed class MiddlewareSpec
     public string? Name { get; }
 
     /// <summary>The middleware type, for type references.</summary>
-    public Type? Type { get; }
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] public Type? Type { get; }
 
     /// <summary>The inline delegate, for inline references.</summary>
     public RouteMiddlewareDelegate? Inline { get; }
@@ -35,7 +36,7 @@ public sealed class MiddlewareSpec
     }
 
     /// <summary>Creates a reference by type. The type must implement <see cref="IRouteMiddleware"/> or ASP.NET Core's <c>IMiddleware</c>.</summary>
-    public static MiddlewareSpec OfType(Type type, params string[] arguments)
+    public static MiddlewareSpec OfType([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type type, params string[] arguments)
     {
         MiddlewareTypes.Validate(type);
         return new MiddlewareSpec(null, type, null, arguments);
