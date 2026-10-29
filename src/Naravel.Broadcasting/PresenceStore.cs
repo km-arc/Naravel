@@ -19,7 +19,7 @@ internal sealed class PresenceStore(
     private const string Prefix = "broadcasting:presence:";
     private int _warned;
 
-    private sealed class Entry
+    internal sealed class Entry
     {
         public string ConnectionId { get; set; } = "";
         public string UserId { get; set; } = "";
@@ -92,7 +92,7 @@ internal sealed class PresenceStore(
     {
         var (found, json) = await cache.TryGetAsync<string>(Key(channel), cancellationToken).ConfigureAwait(false);
         if (!found || string.IsNullOrEmpty(json)) return [];
-        var entries = JsonSerializer.Deserialize<List<Entry>>(json) ?? [];
+        var entries = JsonSerializer.Deserialize(json, PresenceJsonContext.Default.ListEntry) ?? [];
         entries.RemoveAll(e => e.ExpiresAt <= now);
         return entries;
     }
@@ -106,7 +106,7 @@ internal sealed class PresenceStore(
         }
 
         // The cache entry outlives its records, so a record is judged by its own ExpiresAt.
-        await cache.SetAsync(Key(channel), JsonSerializer.Serialize(entries), ttl * 2, cancellationToken).ConfigureAwait(false);
+        await cache.SetAsync(Key(channel), JsonSerializer.Serialize(entries, PresenceJsonContext.Default.ListEntry), ttl * 2, cancellationToken).ConfigureAwait(false);
     }
 
     private static IReadOnlyList<PresenceMember> ToMembers(List<Entry> entries)
