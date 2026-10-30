@@ -1,8 +1,8 @@
-using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Naravel.Queue.Drivers;
 using Naravel.Queue.Failed;
+using Naravel.Queue.Serialization;
 using StackExchange.Redis;
 
 namespace Naravel.Queue.Redis;
@@ -26,7 +26,7 @@ public sealed class RedisFailedJobStore : IFailedJobStore
     {
         cancellationToken.ThrowIfCancellationRequested();
         message.Error = exception.ToString();
-        await _database.HashSetAsync(_key, message.Id, JsonSerializer.Serialize(message));
+        await _database.HashSetAsync(_key, message.Id, QueueEnvelopeJson.Serialize(message));
     }
 
     /// <inheritdoc />
@@ -34,7 +34,7 @@ public sealed class RedisFailedJobStore : IFailedJobStore
     {
         cancellationToken.ThrowIfCancellationRequested();
         var records = await _database.HashGetAllAsync(_key);
-        return records.Select(record => JsonSerializer.Deserialize<QueuedMessage>((string)record.Value!)!).ToList();
+        return records.Select(record => QueueEnvelopeJson.Deserialize((string)record.Value!)!).ToList();
     }
 
     /// <inheritdoc />

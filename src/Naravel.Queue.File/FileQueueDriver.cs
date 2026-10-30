@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using Naravel.Queue.Drivers;
+using Naravel.Queue.Serialization;
 
 namespace Naravel.Queue.File;
 
@@ -95,7 +96,7 @@ public class FileQueueDriver : IQueueDriver
     public async Task PushAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         var path = Path.Combine(Dir(message.Queue, "pending"), PendingFileName(message));
-        await WriteAtomicAsync(path, JsonSerializer.Serialize(message), cancellationToken);
+        await WriteAtomicAsync(path, QueueEnvelopeJson.Serialize(message), cancellationToken);
     }
 
     // Workers inside one process serialize their reserve/reclaim/settle steps per queue folder. Windows reports file moves,
@@ -138,7 +139,7 @@ public class FileQueueDriver : IQueueDriver
             try
             {
                 var json = await System.IO.File.ReadAllTextAsync(file, cancellationToken);
-                message = JsonSerializer.Deserialize<QueuedMessage>(json)!;
+                message = QueueEnvelopeJson.Deserialize(json)!;
             }
             catch (IOException) { continue; }        // file vanished / being written - try the next one
             catch (UnauthorizedAccessException) { continue; } // Windows: file held by another worker mid-move/delete
@@ -162,7 +163,7 @@ public class FileQueueDriver : IQueueDriver
 
             message.ReservedAt = now;
             message.ReservationId = Guid.NewGuid().ToString("N");
-            await WriteAtomicAsync(dest, JsonSerializer.Serialize(message), cancellationToken);
+            await WriteAtomicAsync(dest, QueueEnvelopeJson.Serialize(message), cancellationToken);
             return message;
         }
 
@@ -197,13 +198,13 @@ public class FileQueueDriver : IQueueDriver
                     using (var reader = new StreamReader(stream, leaveOpen: true))
                     {
                         var json = await reader.ReadToEndAsync(cancellationToken);
-                        message = JsonSerializer.Deserialize<QueuedMessage>(json)!;
+                        message = QueueEnvelopeJson.Deserialize(json)!;
                     }
 
                     message.Attempts++;
                     message.ReservedAt = null;
                     message.ReservationId = null;
-                    var updated = JsonSerializer.SerializeToUtf8Bytes(message);
+                    var updated = QueueEnvelopeJson.SerializeToUtf8Bytes(message);
                     stream.SetLength(0);
                     stream.Position = 0;
                     await stream.WriteAsync(updated, cancellationToken);
@@ -279,7 +280,7 @@ public class FileQueueDriver : IQueueDriver
     {
         var reservationId = message.ReservationId;
         message.ReservationId = null;
-        try { return JsonSerializer.Serialize(message); }
+        try { return QueueEnvelopeJson.Serialize(message); }
         finally { message.ReservationId = reservationId; }
     }
 
@@ -293,7 +294,7 @@ public class FileQueueDriver : IQueueDriver
         try
         {
             var json = await System.IO.File.ReadAllTextAsync(file, cancellationToken);
-            var stored = JsonSerializer.Deserialize<QueuedMessage>(json);
+            var stored = QueueEnvelopeJson.Deserialize(json);
             return string.Equals(stored?.ReservationId, message.ReservationId, StringComparison.Ordinal) ? file : null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; } // being reclaimed or replaced right now: not ours

@@ -1,10 +1,10 @@
 using System.Collections.Concurrent;
-using System.Text.Json;
 using Confluent.Kafka;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Naravel.Queue.Drivers;
 using Naravel.Queue.Extensions;
+using Naravel.Queue.Serialization;
 
 namespace Naravel.Queue.Kafka;
 
@@ -127,7 +127,7 @@ public class KafkaQueueDriver : IQueueDriver, IDisposable
         }
 
         await _producer.ProduceAsync(TopicFor(message.Queue),
-            new Message<string, string> { Key = message.Id, Value = JsonSerializer.Serialize(message) },
+            new Message<string, string> { Key = message.Id, Value = QueueEnvelopeJson.Serialize(message) },
             cancellationToken);
     }
 
@@ -180,7 +180,7 @@ public class KafkaQueueDriver : IQueueDriver, IDisposable
 
     private bool BufferIfReady(KafkaConsumerState state, ConsumeResult<string, string> result)
     {
-        var message = JsonSerializer.Deserialize<QueuedMessage>(result.Message.Value)!;
+        var message = QueueEnvelopeJson.Deserialize(result.Message.Value)!;
         if (message.AvailableAt > DateTimeOffset.UtcNow) return false;
 
         if (!state.OffsetTrackers.TryGetValue(result.TopicPartition, out var tracker))
@@ -207,7 +207,7 @@ public class KafkaQueueDriver : IQueueDriver, IDisposable
         message.ReservedAt = null;
         message.AvailableAt = DateTimeOffset.UtcNow;
         await _producer.ProduceAsync(TopicFor(message.Queue),
-            new Message<string, string> { Key = message.Id, Value = JsonSerializer.Serialize(message) },
+            new Message<string, string> { Key = message.Id, Value = QueueEnvelopeJson.Serialize(message) },
             cancellationToken);
         await CommitOriginalOffsetAsync(message, cancellationToken);
     }
@@ -216,7 +216,7 @@ public class KafkaQueueDriver : IQueueDriver, IDisposable
     public async Task FailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         await _producer.ProduceAsync(FailedTopicFor(message.Queue),
-            new Message<string, string> { Key = message.Id, Value = JsonSerializer.Serialize(message) },
+            new Message<string, string> { Key = message.Id, Value = QueueEnvelopeJson.Serialize(message) },
             cancellationToken);
         await CommitOriginalOffsetAsync(message, cancellationToken);
     }
