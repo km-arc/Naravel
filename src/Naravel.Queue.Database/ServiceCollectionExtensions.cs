@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,7 +14,7 @@ namespace Naravel.Queue.Database;
 public static class ServiceCollectionExtensions
 {
     /// <summary>Registers an EF Core-backed persistent batch repository using the application's context factory.</summary>
-    public static IServiceCollection AddDatabaseBatchRepository<TContext>(this IServiceCollection services)
+    public static IServiceCollection AddDatabaseBatchRepository<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors | DynamicallyAccessedMemberTypes.PublicProperties)] TContext>(this IServiceCollection services)
         where TContext : DbContext
     {
         services.Replace(ServiceDescriptor.Singleton<IBatchRepository>(sp =>
@@ -24,7 +25,7 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>Registers an EF Core-backed persistent failed-job store using the application's context factory.</summary>
-    public static IServiceCollection AddDatabaseFailedJobStore<TContext>(this IServiceCollection services)
+    public static IServiceCollection AddDatabaseFailedJobStore<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors | DynamicallyAccessedMemberTypes.PublicProperties)] TContext>(this IServiceCollection services)
         where TContext : DbContext
     {
         services.Replace(ServiceDescriptor.Singleton<IFailedJobStore>(sp =>
@@ -55,7 +56,7 @@ public static class ServiceCollectionExtensions
     /// useful if you also gave them different <c>DbContext</c> types (two calls to this method with different
     /// <typeparamref name="TContext"/>). See docs/en/queue.md "Limitations".
     /// </remarks>
-    public static IServiceCollection AddDatabaseDriver<TContext>(this IServiceCollection services, IConfiguration configuration, string sectionName = "NaravelQueue")
+    public static IServiceCollection AddDatabaseDriver<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors | DynamicallyAccessedMemberTypes.PublicProperties)] TContext>(this IServiceCollection services, IConfiguration configuration, string sectionName = "NaravelQueue")
         where TContext : DbContext
         => services.AddQueueDriver(configuration, "database", (sp, store) =>
         {

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Naravel.Queue.Drivers;
 
@@ -11,7 +12,7 @@ namespace Naravel.Queue.Database;
 /// only actually claimed if its ReservedAt was still null at update time, so two workers racing for
 /// the same row cannot both succeed, without needing provider-specific locking hints.
 /// </summary>
-public class DatabaseQueueDriver<TContext> : IQueueDriver where TContext : DbContext
+public class DatabaseQueueDriver<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors | DynamicallyAccessedMemberTypes.PublicProperties)] TContext> : IQueueDriver where TContext : DbContext
 {
     private readonly IDbContextFactory<TContext> _contextFactory;
 
