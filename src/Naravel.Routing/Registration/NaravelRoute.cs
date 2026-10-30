@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Builder;
 
 namespace Naravel.Routing;
@@ -71,7 +72,7 @@ public sealed class NaravelRoute
     }
 
     /// <summary>Attaches a middleware type (must implement <see cref="IRouteMiddleware"/> or ASP.NET Core's <c>IMiddleware</c>).</summary>
-    public NaravelRoute Middleware(Type type, params string[] arguments)
+    public NaravelRoute Middleware([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type type, params string[] arguments)
     {
         _middleware.Add(MiddlewareSpec.OfType(type, arguments));
         return this;
@@ -92,7 +93,7 @@ public sealed class NaravelRoute
     }
 
     /// <summary>Excludes a middleware type.</summary>
-    public NaravelRoute WithoutMiddleware(Type type)
+    public NaravelRoute WithoutMiddleware([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type type)
     {
         _without.Add(MiddlewareSpec.OfType(type));
         return this;
