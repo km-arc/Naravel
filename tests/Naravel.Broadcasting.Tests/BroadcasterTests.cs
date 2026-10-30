@@ -63,7 +63,7 @@ public class BroadcasterTests
         monitor.CurrentValue.Default.Should().Be("log");
 
         configuration["Broadcasting:Default"] = "null";
-        configuration.Reload(); // raises the reload token the options monitor listens to
+        ((IConfigurationRoot)configuration).Reload(); // raises the reload token the options monitor listens to
 
         monitor.CurrentValue.Default.Should().Be("null");
     }
