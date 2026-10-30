@@ -32,7 +32,8 @@ public static class RedisServiceCollectionExtensions
         }
 
         var section = configuration.GetSection(sectionName);
-        services.AddNaravelManager<RedisManager, IRedisConnection, RedisOptions>(section);
+        services.Configure<RedisOptions>(section);
+        services.AddNaravelManager<RedisManager, IRedisConnection, RedisOptions>();
         services.TryAddSingleton<Func<string, IConnectionMultiplexer>>(_ => connectionString => ConnectionMultiplexer.Connect(connectionString));
 
         foreach (var store in section.GetSection("Stores").GetChildren())

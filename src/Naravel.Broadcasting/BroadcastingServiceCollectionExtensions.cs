@@ -50,7 +50,8 @@ public static class BroadcastingServiceCollectionExtensions
         AddConfiguredStores(services, configuration, sectionName, "log", CreateLog);
         AddConfiguredStores(services, configuration, sectionName, "null", _ => new NullBroadcastDriver());
 
-        services.AddNaravelManager<BroadcastManager, IBroadcastDriver, BroadcastingOptions>(configuration.GetSection(sectionName));
+        services.Configure<BroadcastingOptions>(configuration.GetSection(sectionName));
+        services.AddNaravelManager<BroadcastManager, IBroadcastDriver, BroadcastingOptions>();
         if (configure is not null) services.Configure(configure);
 
         services.TryAddSingleton<IBroadcaster>(provider => provider.GetRequiredService<BroadcastManager>().Broadcaster());
