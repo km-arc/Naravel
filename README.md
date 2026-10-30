@@ -30,7 +30,9 @@ var scratch = storage.Disk("scratch");
 Named Memory, Redis, and Memcached stores; `RememberAsync`; explicit user/tenant scopes; tag-version invalidation; token-owned locks; and a Cache-backed fixed-window rate limiter. Redis and Memcached are optional provider packages.
 
 ```csharp
-using Naravel.Cache.Abstractions;
+using Naravel.Cache;                // RememberAsync
+using Naravel.Cache.Abstractions;   // ICacheStore
+using Naravel.Cache.Redis;          // AddNaravelRedisCache
 
 builder.Services.AddNaravelCache(builder.Configuration)
     .AddNaravelRedisCache(builder.Configuration);
@@ -52,6 +54,7 @@ Async background jobs with named drivers, delayed and prioritized dispatch, retr
 using Naravel.Queue.Extensions;
 using Naravel.Queue.Dispatch;
 using Naravel.Queue.Jobs;
+using Naravel.Queue.Redis;   // AddRedisDriver
 
 builder.Services.AddQueue(builder.Configuration)
     .AddRedisDriver(builder.Configuration);
@@ -199,7 +202,7 @@ var authors = await db.Table("users")                       // joins, JSON paths
     .WhereLike("users.name", "a%")
     .Where("users.settings->theme", "dark")                  // JSON path, bound as a parameter
     .WhereExists(s => s.Table("comments").WhereColumn("comments.post_id", "posts.id"))
-    .When(onlyRecent, q => q.Latest("posts.created_at"))
+    .When(onlyRecent, q => q.Where("posts.created_at", ">=", DateTime.UtcNow.AddDays(-7)))
     .Select("users.name").GroupBy("users.name")
     .GetAsync(cancellationToken);
 ```
