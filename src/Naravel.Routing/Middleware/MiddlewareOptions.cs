@@ -38,7 +38,7 @@ public sealed class MiddlewareOptions
     }
 
     /// <summary>Registers (or replaces) an alias for a middleware type.</summary>
-    public MiddlewareOptions Alias<T>(string name) where T : class => Alias(name, typeof(T));
+    public MiddlewareOptions Alias<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string name) where T : class => Alias(name, typeof(T));
 
     /// <summary>Registers (or replaces) an alias for an inline middleware.</summary>
     public MiddlewareOptions Alias(string name, RouteMiddlewareDelegate middleware)
