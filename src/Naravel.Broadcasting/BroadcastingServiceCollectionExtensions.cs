@@ -50,7 +50,7 @@ public static class BroadcastingServiceCollectionExtensions
         AddConfiguredStores(services, configuration, sectionName, "log", CreateLog);
         AddConfiguredStores(services, configuration, sectionName, "null", _ => new NullBroadcastDriver());
 
-        services.Configure<BroadcastingOptions>(configuration.GetSection(sectionName));
+        BindOptions(services, configuration.GetSection(sectionName));
         services.AddNaravelManager<BroadcastManager, IBroadcastDriver, BroadcastingOptions>();
         if (configure is not null) services.Configure(configure);
 
@@ -63,6 +63,34 @@ public static class BroadcastingServiceCollectionExtensions
         services.TryAddSingleton<IPresence>(provider => provider.GetRequiredService<PresenceService>());
         services.AddHostedService<PresenceHeartbeatService>();
         return services;
+    }
+
+    /// <summary>
+    /// Binds the three configurable values (<c>Default</c>, <c>Stores</c>, <c>PresenceEntryTtl</c>) by hand and
+    /// follows configuration reloads like <c>Configure&lt;TOptions&gt;(section)</c> does.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="BroadcastingOptions.Channels"/> is code-only (rules are delegates) and its type cannot be created
+    /// from configuration, so the configuration binding generator rejects the whole options type; the reflection binder
+    /// would not be trim or AOT safe.
+    /// </remarks>
+    private static void BindOptions(IServiceCollection services, IConfiguration section)
+    {
+        services.Configure<BroadcastingOptions>(options =>
+        {
+            if (section["Default"] is { } defaultStore) options.Default = defaultStore;
+            if (section["PresenceEntryTtl"] is { Length: > 0 } ttl)
+            {
+                options.PresenceEntryTtl = TimeSpan.Parse(ttl, System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            foreach (var store in section.GetSection("Stores").GetChildren())
+            {
+                options.Stores[store.Key] = store;
+            }
+        });
+        services.AddSingleton<IOptionsChangeTokenSource<BroadcastingOptions>>(
+            new ConfigurationChangeTokenSource<BroadcastingOptions>(Microsoft.Extensions.Options.Options.DefaultName, section));
     }
 
     /// <summary>
