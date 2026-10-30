@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <!-- Compile-time configuration binding (no reflection) for the Configure<TOptions>(section) call. -->
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <PackageId>Naravel.Redis</PackageId>
     <Description>Named, shared Redis connections for Naravel modules: one StackExchange.Redis multiplexer per name, owned and disposed by one manager.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -11,6 +13,7 @@
     <ProjectReference Include="..\Naravel.Foundation\Naravel.Foundation.csproj" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
     <PackageReference Include="StackExchange.Redis" />
   </ItemGroup>
 

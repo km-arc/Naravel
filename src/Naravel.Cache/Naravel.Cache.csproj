@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <!-- Compile-time configuration binding (no reflection) for the Configure<TOptions>(section) call. -->
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <PackageId>Naravel.Cache</PackageId>
     <Description>Named cache stores, tagging, scoping and locks for Naravel, built on Naravel.Foundation.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

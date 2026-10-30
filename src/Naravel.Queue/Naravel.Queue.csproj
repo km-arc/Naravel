@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- Compile-time configuration binding (no reflection) for the Configure<TOptions>(section) call. -->
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Naravel.Queue</RootNamespace>
     <Description>A Laravel-inspired, driver-based background job queue for .NET. Dispatch, retry with backoff, chaining, batching and a background worker - core package (in-process "memory" driver included; add Naravel.Queue.Redis/.File/.Database/.RabbitMQ/.Kafka for other backends).</Description>

@@ -35,6 +35,8 @@ public static class ServiceCollectionExtensions
     /// manager instead. Register built-in drivers with <see cref="AddNaravelDriver{TDriver}(IServiceCollection, string, Func{IServiceProvider, TDriver})"/>
     /// before the service provider is built.
     /// </remarks>
+    [RequiresUnreferencedCode("Binds TOptions from configuration through reflection. Trimmed or Native AOT applications bind the options with a compile-time Configure<TOptions>(section) call (configuration binding generator) and register the manager with AddNaravelManager<TManager, TDriver, TOptions>(services).")]
+    [RequiresDynamicCode("Binds TOptions from configuration through reflection. Trimmed or Native AOT applications bind the options with a compile-time Configure<TOptions>(section) call (configuration binding generator) and register the manager with AddNaravelManager<TManager, TDriver, TOptions>(services).")]
     public static IServiceCollection AddNaravelManager<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TManager, TDriver, TOptions>(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -46,6 +48,33 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.Configure<TOptions>(configuration);
+        return services.AddNaravelManager<TManager, TDriver, TOptions>();
+    }
+
+    /// <summary>
+    /// Registers a manager, its driver registry and the default driver as a plain service, without binding
+    /// <typeparamref name="TOptions"/>: the caller registers the options itself.
+    /// </summary>
+    /// <typeparam name="TManager">The concrete manager (for example <c>CacheManager</c>).</typeparam>
+    /// <typeparam name="TDriver">The driver contract.</typeparam>
+    /// <typeparam name="TOptions">The module options; they must be registered separately, for example with <c>services.Configure&lt;TOptions&gt;(section)</c>.</typeparam>
+    /// <param name="services">The service collection.</param>
+    /// <returns>The same collection, for chaining.</returns>
+    /// <remarks>
+    /// This is the trim and Native AOT path: <c>Configure&lt;TOptions&gt;(section)</c> with a concrete options type is
+    /// bound at compile time when the project enables the configuration binding generator
+    /// (<c>EnableConfigurationBindingGenerator</c>), whereas the generic call inside
+    /// <see cref="AddNaravelManager{TManager, TDriver, TOptions}(IServiceCollection, IConfiguration)"/> cannot be.
+    /// Everything else is identical to that overload.
+    /// </remarks>
+    public static IServiceCollection AddNaravelManager<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TManager, TDriver, TOptions>(
+        this IServiceCollection services)
+        where TManager : Manager<TDriver, TOptions>
+        where TDriver : class
+        where TOptions : class, IManagerOptions, new()
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
         services.TryAddSingleton<IDriverRegistry<TDriver>>(sp =>
         {
             var registry = new DriverRegistry<TDriver>();
