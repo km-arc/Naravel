@@ -1,7 +1,7 @@
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Naravel.Queue.Drivers;
 using Naravel.Queue.Failed;
+using Naravel.Queue.Serialization;
 
 namespace Naravel.Queue.Database;
 
@@ -27,7 +27,7 @@ public sealed class DatabaseFailedJobStore<TContext> : IFailedJobStore where TCo
         }
 
         message.Error = exception.ToString();
-        record.Envelope = JsonSerializer.Serialize(message);
+        record.Envelope = QueueEnvelopeJson.Serialize(message);
         record.Error = message.Error;
         record.FailedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
@@ -40,7 +40,7 @@ public sealed class DatabaseFailedJobStore<TContext> : IFailedJobStore where TCo
         var records = await db.Set<FailedJobRecord>().AsNoTracking().ToListAsync(cancellationToken);
         return records.Select(record =>
         {
-            var message = JsonSerializer.Deserialize<QueuedMessage>(record.Envelope)!;
+            var message = QueueEnvelopeJson.Deserialize(record.Envelope)!;
             message.Error = record.Error;
             return message;
         }).ToList();

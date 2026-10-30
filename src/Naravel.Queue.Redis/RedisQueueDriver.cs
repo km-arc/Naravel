@@ -1,9 +1,9 @@
-using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Naravel.Queue.Drivers;
 using Naravel.Queue.Extensions;
 using Naravel.Redis;
+using Naravel.Queue.Serialization;
 using StackExchange.Redis;
 
 namespace Naravel.Queue.Redis;
@@ -178,7 +178,7 @@ public class RedisQueueDriver : IQueueDriver, IDisposable
         var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         await db.ScriptEvaluateAsync(PushScript,
             [MessagesKey(message.Queue), DelayedKey(message.Queue), ReadyKey(message.Queue, message.Priority)],
-            [message.Id, JsonSerializer.Serialize(message), message.AvailableAt.ToUnixTimeMilliseconds(), nowMs]);
+            [message.Id, QueueEnvelopeJson.Serialize(message), message.AvailableAt.ToUnixTimeMilliseconds(), nowMs]);
     }
 
     /// <inheritdoc />
@@ -194,7 +194,7 @@ public class RedisQueueDriver : IQueueDriver, IDisposable
             [nowMs, (DateTimeOffset.UtcNow + _visibilityTimeout).ToUnixTimeMilliseconds(), DateTimeOffset.UtcNow.ToString("O"),
                 Guid.NewGuid().ToString("N")]);
         if (result.IsNull) return null;
-        return JsonSerializer.Deserialize<QueuedMessage>((string)result!);
+        return QueueEnvelopeJson.Deserialize((string)result!);
     }
 
     /// <inheritdoc />
@@ -242,7 +242,7 @@ public class RedisQueueDriver : IQueueDriver, IDisposable
     {
         var reservationId = message.ReservationId;
         message.ReservationId = null;
-        try { return (reservationId ?? string.Empty, JsonSerializer.Serialize(message)); }
+        try { return (reservationId ?? string.Empty, QueueEnvelopeJson.Serialize(message)); }
         finally { message.ReservationId = reservationId; }
     }
 

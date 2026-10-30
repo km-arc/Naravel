@@ -315,3 +315,10 @@ Naravel.Queue.Testing.QueueFake.AssertNotDispatched<TJob>() -> void
 Naravel.Queue.Dispatch.IJobMessageFactory
 Naravel.Queue.Dispatch.IJobMessageFactory.CreateMessage(Naravel.Queue.Jobs.IJob! job, System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure = null) -> Naravel.Queue.Drivers.QueuedMessage!
 Naravel.Queue.Dispatch.JobDispatcher.CreateMessage(Naravel.Queue.Jobs.IJob! job, System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure = null) -> Naravel.Queue.Drivers.QueuedMessage!
+Naravel.Queue.Serialization.QueueEnvelopeJson
+static Naravel.Queue.Serialization.QueueEnvelopeJson.Clone(Naravel.Queue.Drivers.QueuedMessage! message) -> Naravel.Queue.Drivers.QueuedMessage!
+static Naravel.Queue.Serialization.QueueEnvelopeJson.Deserialize(string! json) -> Naravel.Queue.Drivers.QueuedMessage?
+static Naravel.Queue.Serialization.QueueEnvelopeJson.DeserializeCallbacks(string! json) -> System.Collections.Generic.List<Naravel.Queue.Batching.BatchCallbackReference!>!
+static Naravel.Queue.Serialization.QueueEnvelopeJson.Serialize(Naravel.Queue.Drivers.QueuedMessage! message) -> string!
+static Naravel.Queue.Serialization.QueueEnvelopeJson.SerializeCallbacks(System.Collections.Generic.IReadOnlyList<Naravel.Queue.Batching.BatchCallbackReference!>! callbacks) -> string!
+static Naravel.Queue.Serialization.QueueEnvelopeJson.SerializeToUtf8Bytes(Naravel.Queue.Drivers.QueuedMessage! message) -> byte[]!

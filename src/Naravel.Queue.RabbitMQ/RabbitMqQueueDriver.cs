@@ -1,10 +1,10 @@
 using System.Text;
-using System.Text.Json;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Naravel.Queue.Drivers;
 using Naravel.Queue.Extensions;
+using Naravel.Queue.Serialization;
 using RabbitMQ.Client;
 
 namespace Naravel.Queue.RabbitMQ;
@@ -133,7 +133,7 @@ public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
     {
         await using var channel = await OpenChannelAsync(cancellationToken);
         await EnsureTopologyAsync(channel, message.Queue, cancellationToken);
-        var body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message));
+        var body = Encoding.UTF8.GetBytes(QueueEnvelopeJson.Serialize(message));
         var properties = new BasicProperties
         {
             DeliveryMode = DeliveryModes.Persistent,
@@ -168,7 +168,7 @@ public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
                 return null;
             }
 
-            var message = JsonSerializer.Deserialize<QueuedMessage>(Encoding.UTF8.GetString(result.Body.Span))!;
+            var message = QueueEnvelopeJson.Deserialize(Encoding.UTF8.GetString(result.Body.Span))!;
             message.ReservedAt = DateTimeOffset.UtcNow;
             _deliveries[message.Id] = new Delivery(channel, result.DeliveryTag);
             return message;
@@ -216,7 +216,7 @@ public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
 
         await using var channel = await OpenChannelAsync(cancellationToken);
         await EnsureTopologyAsync(channel, message.Queue, cancellationToken);
-        var body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message));
+        var body = Encoding.UTF8.GetBytes(QueueEnvelopeJson.Serialize(message));
         await channel.BasicPublishAsync("", $"netqueue.failed.{message.Queue}", false, new BasicProperties(), body, cancellationToken);
     }
 

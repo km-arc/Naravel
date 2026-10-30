@@ -1,8 +1,8 @@
-using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Naravel.Queue.Batching;
 using Naravel.Queue.Drivers;
+using Naravel.Queue.Serialization;
 using StackExchange.Redis;
 
 namespace Naravel.Queue.Redis;
@@ -56,9 +56,9 @@ public sealed class RedisBatchRepository : IBatchRepository
             new HashEntry("CancelledJobs", 0),
             new HashEntry("AllowFailures", options.AllowFailures ? "1" : "0"),
             new HashEntry("IsCancelled", "0"),
-            new HashEntry("ThenCallbacks", JsonSerializer.Serialize(options.ThenCallbacks)),
-            new HashEntry("CatchCallbacks", JsonSerializer.Serialize(options.CatchCallbacks)),
-            new HashEntry("FinallyCallbacks", JsonSerializer.Serialize(options.FinallyCallbacks)),
+            new HashEntry("ThenCallbacks", QueueEnvelopeJson.SerializeCallbacks(options.ThenCallbacks)),
+            new HashEntry("CatchCallbacks", QueueEnvelopeJson.SerializeCallbacks(options.CatchCallbacks)),
+            new HashEntry("FinallyCallbacks", QueueEnvelopeJson.SerializeCallbacks(options.FinallyCallbacks)),
             new HashEntry("ThenCallbacksCompleted", "0"),
             new HashEntry("CatchCallbacksCompleted", "0"),
             new HashEntry("FinallyCallbacksCompleted", "0")
@@ -175,7 +175,7 @@ public sealed class RedisBatchRepository : IBatchRepository
         QueueBatch batch,
         CancellationToken cancellationToken)
     {
-        var callbacks = JsonSerializer.Deserialize<List<BatchCallbackReference>>((string)values[callbacksField]!) ?? new();
+        var callbacks = QueueEnvelopeJson.DeserializeCallbacks((string)values[callbacksField]!);
         await _callbacks.InvokeAsync(callbacks, batch, cancellationToken);
         await _database.HashSetAsync(BatchKey(id), completedField, "1");
     }

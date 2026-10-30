@@ -333,7 +333,7 @@ public class QueueWorkerService : BackgroundService
         // Static chaining: dispatched via dispatcher.Chain(...).DispatchAsync().
         if (!string.IsNullOrEmpty(message.ChainedJobPayload))
         {
-            var links = System.Text.Json.JsonSerializer.Deserialize<List<Naravel.Queue.Dispatch.ChainLink>>(message.ChainedJobPayload)!;
+            var links = System.Text.Json.JsonSerializer.Deserialize(message.ChainedJobPayload, Naravel.Queue.Serialization.QueueJsonContext.Default.ChainLinks)!;
             var jobs = links.Select(l => DeserializeJob(l.JobType, l.Payload)).ToList();
             await _dispatcher.DispatchChainAsync(jobs, opts => ApplyChainOptions(opts, message), stoppingToken);
         }

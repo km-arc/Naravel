@@ -103,7 +103,7 @@ public class JobDispatcher : IJobDispatcher, IJobMessageFactory
             var rest = remainingJobs.Skip(1)
                 .Select(CreateChainLink)
                 .ToList();
-            message.ChainedJobPayload = JsonSerializer.Serialize(rest);
+            message.ChainedJobPayload = JsonSerializer.Serialize(rest, QueueJsonContext.Default.ChainLinks);
         }
 
         var driver = _manager.Connection(options.Connection);

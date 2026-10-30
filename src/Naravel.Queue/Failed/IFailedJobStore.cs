@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
-using System.Text.Json;
 using Naravel.Queue.Drivers;
+using Naravel.Queue.Serialization;
 
 namespace Naravel.Queue.Failed;
 
@@ -59,6 +59,5 @@ public class InMemoryFailedJobStore : IFailedJobStore
         return Task.FromResult(count);
     }
 
-    private static QueuedMessage Clone(QueuedMessage message)
-        => JsonSerializer.Deserialize<QueuedMessage>(JsonSerializer.Serialize(message))!;
+    private static QueuedMessage Clone(QueuedMessage message) => QueueEnvelopeJson.Clone(message);
 }
