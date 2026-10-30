@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Naravel.Broadcasting.Testing;
 using Naravel.Events;
 
@@ -30,6 +31,41 @@ public class BroadcasterTests
         services.AddNaravelBroadcasting(configuration);
         configure?.Invoke(services);
         return services.BuildServiceProvider();
+    }
+
+    [Fact]
+    public async Task Options_bind_the_presence_ttl_and_keep_the_defaults_when_it_is_missing()
+    {
+        await using (var configured = Build(null, ("PresenceEntryTtl", "00:02:00")))
+        {
+            var options = configured.GetRequiredService<IOptionsMonitor<BroadcastingOptions>>().CurrentValue;
+            options.PresenceEntryTtl.Should().Be(TimeSpan.FromMinutes(2));
+            options.Default.Should().Be("signalr");
+        }
+
+        await using var plain = Build();
+        var defaults = plain.GetRequiredService<IOptionsMonitor<BroadcastingOptions>>().CurrentValue;
+        defaults.PresenceEntryTtl.Should().Be(TimeSpan.FromSeconds(90));
+        defaults.Default.Should().Be("signalr");
+    }
+
+    [Fact]
+    public async Task Options_follow_a_configuration_change()
+    {
+        var configuration = new ConfigurationManager();
+        configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["Broadcasting:Default"] = "log" });
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddNaravelEvents();
+        services.AddNaravelBroadcasting(configuration);
+        await using var provider = services.BuildServiceProvider();
+        var monitor = provider.GetRequiredService<IOptionsMonitor<BroadcastingOptions>>();
+        monitor.CurrentValue.Default.Should().Be("log");
+
+        configuration["Broadcasting:Default"] = "null";
+        ((IConfigurationRoot)configuration).Reload(); // raises the reload token the options monitor listens to
+
+        monitor.CurrentValue.Default.Should().Be("null");
     }
 
     [Fact]
