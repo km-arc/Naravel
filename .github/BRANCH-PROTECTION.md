@@ -36,5 +36,10 @@ are skipped.
 ## CI service images
 
 Every service image is an exact version (`redis:7.4.2`, `mysql:8.4.6`, `postgres:17.6-alpine`,
-`mcr.microsoft.com/mssql/server:2022-CU19-ubuntu-22.04`, ...). The `pins` job fails on a floating tag such as `latest`,
-`2022-latest` or `17-alpine`. Bump a version deliberately in its own reviewed change.
+`mcr.microsoft.com/mssql/server:2022-CU19-ubuntu-22.04`, ...). The `pins` job checks `ci.yml` and `docker-compose.yml` (the local
+copy of the same images) and fails on a floating tag such as `latest`, `2022-latest` or `17-alpine`. Bump a version deliberately in its own reviewed change.
+
+The same job also runs `.github/scripts/check-publish-gates.py`. Version tags are not covered by branch protection, so the
+`publish` job (NuGet) lists every job that `ci-ok` requires in its own `needs:`, the `pins` job included, and `ci-ok` itself:
+a floating image tag, a red test leg or a cancelled job on a tag run therefore stops the release before the `nuget-release`
+approval is even asked. The script fails the build if the two lists drift apart.
