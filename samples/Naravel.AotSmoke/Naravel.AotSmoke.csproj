@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Native AOT smoke sample (docs/en/trimming-aot.md). .github/workflows/aot-smoke.yml publishes it with ILC and runs the native
+       binary, report-only; it is never shipped. It is in Naravel.slnx so every pull request compiles it: a change to a public API it
+       calls breaks the normal build instead of the next, rarely run, AOT workflow. Every call below uses the trim/AOT-safe path of its package. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Naravel.AotSmoke</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- One line per warning instead of one per assembly, so the report names the dependency that is not trim-safe. -->
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Naravel.Cache\Naravel.Cache.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Database\Naravel.Database.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Database.Sqlite\Naravel.Database.Sqlite.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Encryption\Naravel.Encryption.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Events\Naravel.Events.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Events.Queue\Naravel.Events.Queue.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Filesystem\Naravel.Filesystem.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Mail\Naravel.Mail.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Mail.Queue\Naravel.Mail.Queue.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Notifications.Queue\Naravel.Notifications.Queue.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Pagination\Naravel.Pagination.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Queue\Naravel.Queue.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Queue.Memory\Naravel.Queue.Memory.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Scheduling\Naravel.Scheduling.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+</Project>

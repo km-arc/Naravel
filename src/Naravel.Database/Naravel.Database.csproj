@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <!-- Compile-time configuration binding (no reflection) for the Configure<TOptions>(section) call. -->
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <PackageId>Naravel.Database</PackageId>
     <Description>Laravel-style query builder for Naravel on ADO.NET and Dapper: named connections on Naravel.Foundation, a connection and transaction seam that EF Core can share, and per-database driver packages.</Description>
     <PackageTags>database;query-builder;sql;dapper;laravel;naravel</PackageTags>

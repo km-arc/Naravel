@@ -1,6 +1,6 @@
-using System.Text.Json;
 using Naravel.Queue.Diagnostics;
 using Naravel.Queue.Drivers;
+using Naravel.Queue.Serialization;
 
 namespace Naravel.Queue.Failed;
 
@@ -76,7 +76,7 @@ public sealed class FailedJobManager
 
     private async Task RequeueAsync(QueuedMessage failedMessage, CancellationToken cancellationToken)
     {
-        var message = JsonSerializer.Deserialize<QueuedMessage>(JsonSerializer.Serialize(failedMessage))!;
+        var message = QueueEnvelopeJson.Clone(failedMessage);
         message.Id = Guid.NewGuid().ToString("N");
         message.Attempts = 0;
         message.Error = null;

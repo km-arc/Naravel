@@ -12,19 +12,23 @@ Naravel.Queue.Batching.BatchCallbackRegistry
 Naravel.Queue.Batching.BatchCallbackRegistry.BatchCallbackRegistry() -> void
 Naravel.Queue.Batching.BatchCallbackRegistry.InvokeAsync(System.Collections.Generic.IEnumerable<Naravel.Queue.Batching.BatchCallbackReference!>! callbacks, Naravel.Queue.Batching.QueueBatch! batch, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
 Naravel.Queue.Batching.BatchCallbackRegistry.Register<TPayload>(string! alias, System.Func<Naravel.Queue.Batching.QueueBatch!, TPayload, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! callback) -> void
+Naravel.Queue.Batching.BatchCallbackRegistry.Register<TPayload>(string! alias, System.Func<Naravel.Queue.Batching.QueueBatch!, TPayload, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! callback, System.Text.Json.Serialization.Metadata.JsonTypeInfo<TPayload>! payloadTypeInfo) -> void
 Naravel.Queue.Batching.BatchOptions
 Naravel.Queue.Batching.BatchOptions.AllowFailures.get -> bool
 Naravel.Queue.Batching.BatchOptions.AllowFailures.set -> void
 Naravel.Queue.Batching.BatchOptions.BatchOptions() -> void
 Naravel.Queue.Batching.BatchOptions.Catch<TPayload>(string! alias, TPayload payload) -> Naravel.Queue.Batching.BatchOptions!
+Naravel.Queue.Batching.BatchOptions.Catch<TPayload>(string! alias, TPayload payload, System.Text.Json.Serialization.Metadata.JsonTypeInfo<TPayload>! payloadTypeInfo) -> Naravel.Queue.Batching.BatchOptions!
 Naravel.Queue.Batching.BatchOptions.CatchCallbacks.get -> System.Collections.Generic.IReadOnlyList<Naravel.Queue.Batching.BatchCallbackReference!>!
 Naravel.Queue.Batching.BatchOptions.Finally<TPayload>(string! alias, TPayload payload) -> Naravel.Queue.Batching.BatchOptions!
+Naravel.Queue.Batching.BatchOptions.Finally<TPayload>(string! alias, TPayload payload, System.Text.Json.Serialization.Metadata.JsonTypeInfo<TPayload>! payloadTypeInfo) -> Naravel.Queue.Batching.BatchOptions!
 Naravel.Queue.Batching.BatchOptions.FinallyCallbacks.get -> System.Collections.Generic.IReadOnlyList<Naravel.Queue.Batching.BatchCallbackReference!>!
 Naravel.Queue.Batching.BatchOptions.OnCompleted.get -> System.Func<Naravel.Queue.Batching.QueueBatch!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>?
 Naravel.Queue.Batching.BatchOptions.OnCompleted.set -> void
 Naravel.Queue.Batching.BatchOptions.OnJobFailed.get -> System.Func<Naravel.Queue.Batching.QueueBatch!, System.Exception!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>?
 Naravel.Queue.Batching.BatchOptions.OnJobFailed.set -> void
 Naravel.Queue.Batching.BatchOptions.Then<TPayload>(string! alias, TPayload payload) -> Naravel.Queue.Batching.BatchOptions!
+Naravel.Queue.Batching.BatchOptions.Then<TPayload>(string! alias, TPayload payload, System.Text.Json.Serialization.Metadata.JsonTypeInfo<TPayload>! payloadTypeInfo) -> Naravel.Queue.Batching.BatchOptions!
 Naravel.Queue.Batching.BatchOptions.ThenCallbacks.get -> System.Collections.Generic.IReadOnlyList<Naravel.Queue.Batching.BatchCallbackReference!>!
 Naravel.Queue.Batching.IBatchRepository
 Naravel.Queue.Batching.IBatchRepository.CancelAsync(string! batchId, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
@@ -315,3 +319,10 @@ Naravel.Queue.Testing.QueueFake.AssertNotDispatched<TJob>() -> void
 Naravel.Queue.Dispatch.IJobMessageFactory
 Naravel.Queue.Dispatch.IJobMessageFactory.CreateMessage(Naravel.Queue.Jobs.IJob! job, System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure = null) -> Naravel.Queue.Drivers.QueuedMessage!
 Naravel.Queue.Dispatch.JobDispatcher.CreateMessage(Naravel.Queue.Jobs.IJob! job, System.Action<Naravel.Queue.Dispatch.DispatchOptions!>? configure = null) -> Naravel.Queue.Drivers.QueuedMessage!
+Naravel.Queue.Serialization.QueueEnvelopeJson
+static Naravel.Queue.Serialization.QueueEnvelopeJson.Clone(Naravel.Queue.Drivers.QueuedMessage! message) -> Naravel.Queue.Drivers.QueuedMessage!
+static Naravel.Queue.Serialization.QueueEnvelopeJson.Deserialize(string! json) -> Naravel.Queue.Drivers.QueuedMessage?
+static Naravel.Queue.Serialization.QueueEnvelopeJson.DeserializeCallbacks(string! json) -> System.Collections.Generic.List<Naravel.Queue.Batching.BatchCallbackReference!>!
+static Naravel.Queue.Serialization.QueueEnvelopeJson.Serialize(Naravel.Queue.Drivers.QueuedMessage! message) -> string!
+static Naravel.Queue.Serialization.QueueEnvelopeJson.SerializeCallbacks(System.Collections.Generic.IReadOnlyList<Naravel.Queue.Batching.BatchCallbackReference!>! callbacks) -> string!
+static Naravel.Queue.Serialization.QueueEnvelopeJson.SerializeToUtf8Bytes(Naravel.Queue.Drivers.QueuedMessage! message) -> byte[]!

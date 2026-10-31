@@ -59,6 +59,7 @@ app.MapNaravel(r =>
     {
         // check the password first (see hashing.md), then sign in with the claims your policies read
         var claims = new[] { new Claim(ClaimTypes.Name, body.Email), new Claim("email_verified", "true") };
+        // for users who may edit, also add new Claim(ClaimTypes.Role, "editor"): the "editor" policy and the /admin group below read that role
         await http.SignInAsync("cookie", new ClaimsPrincipal(new ClaimsIdentity(claims, "cookie")));
         return Results.Redirect("/dashboard");
     }).Middleware("guest");

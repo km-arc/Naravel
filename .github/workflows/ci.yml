@@ -552,6 +552,10 @@ jobs:
         uses: actions/checkout@v4
       - name: Reject floating image tags
         run: python3 .github/scripts/check-image-pins.py
+      - name: Publishing must wait for every required job
+        run: python3 .github/scripts/check-publish-gates.py
+      - name: Tag/version guard still works
+        run: python3 .github/scripts/check-tag-version.py --self-test
 
   # The one check branch protection needs. A database job skipped by the path filter counts as success; any failure,
   # cancellation or missing result fails it, so a filtered job can never block a merge by being absent.
@@ -585,7 +589,9 @@ jobs:
 
   publish:
     name: Publish to NuGet
-    needs: [fast, services, database]
+    # Publishing waits for every job ci-ok requires, the service image pins included. ci-ok is listed as well, so a job added to it
+    # later is covered even if this list is forgotten; .github/scripts/check-publish-gates.py fails the build when the two drift apart.
+    needs: [fast, services, changes, database, pins, ci-ok]
     # Publish only from version tags (v*). Never from main, PRs or manual runs.
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
@@ -605,6 +611,11 @@ jobs:
 
       - name: Pack projects
         run: dotnet pack Naravel.slnx -c Release -o ./nupkgs
+
+      # The version comes from Directory.Build.props, the tag only names the release. A tag that does not match (v0.1.0-preview after
+      # the preview suffix was removed, a tag cut from an older commit) must stop here, before the NuGet login and any push.
+      - name: Tag must match the package version
+        run: python3 .github/scripts/check-tag-version.py "${GITHUB_REF_NAME}" ./nupkgs
 
       - name: NuGet login (OIDC Trusted Publishing)
         id: nuget-login

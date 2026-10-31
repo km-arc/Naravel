@@ -7,7 +7,6 @@
     <Deterministic>true</Deterministic>
     <!-- Monorepo: every package ships with the same version (bump it here, once). -->
     <VersionPrefix>0.1.0</VersionPrefix>
-    <VersionSuffix>preview</VersionSuffix>
     <Authors>Naravel contributors</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/km-arc/naravel</PackageProjectUrl>
@@ -33,6 +32,12 @@
   </PropertyGroup>
   <PropertyGroup Condition="$([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('/src/')) Or $([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('\src\'))">
     <EnablePackageValidation>true</EnablePackageValidation>
+    <!-- Trim, Native AOT and single-file analyzers on every package under src/. With TreatWarningsAsErrors a new reflection-based
+         call that is not annotated fails the build (docs/en/trimming-aot.md). This is a regression gate for our own code only: it does
+         not make any package IsTrimmable or IsAotCompatible, because the dependencies and a published run are not vouched for yet. -->
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
   </PropertyGroup>
   <ItemGroup Condition="$([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('/src/')) Or $([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('\src\'))">
     <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
