@@ -1,5 +1,7 @@
 // Native AOT smoke test: published with ILC, then run. Each check uses the trim/AOT-safe path of its package
 // (compile-time configuration binding, source-generated JSON metadata) and the process exits non-zero when one fails.
+using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,16 +9,19 @@ using Microsoft.Extensions.Hosting;
 using Naravel.Cache.Abstractions;
 using Naravel.Database;
 using Naravel.Encryption;
+using Naravel.Filesystem;
 using Naravel.Events;
 using Naravel.Mail;
 using Naravel.Mail.Transports;
 using Naravel.Notifications.Queue;
+using Naravel.Pagination;
 using Naravel.Queue.Dispatch;
 using Naravel.Queue.Drivers;
 using Naravel.Queue.Extensions;
 using Naravel.Queue.Jobs;
 using Naravel.Queue.Memory;
 using Naravel.Queue.Serialization;
+using Naravel.Scheduling;
 
 var failures = 0;
 
@@ -41,6 +46,9 @@ var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<str
     ["Database:Default"] = "main",
     ["Database:Connections:main:Driver"] = "sqlite",
     ["Database:Connections:main:Path"] = ":memory:",
+    ["Filesystem:Default"] = "local",
+    ["Filesystem:Stores:local:Driver"] = "local",
+    ["Filesystem:Stores:local:Root"] = Path.Combine(Path.GetTempPath(), "naravel-aot-smoke-" + Guid.NewGuid().ToString("N")),
     ["NaravelQueue:Default"] = "smoke",
     ["NaravelQueue:Stores:smoke:Driver"] = "memory",
 }).Build();
@@ -54,6 +62,12 @@ services.AddNaravelMail(config);
 services.AddNaravelDatabase(config);
 services.AddNaravelSqliteDatabase(config);
 services.AddNaravelEncryption();
+services.AddNaravelFilesystem(config);
+services.AddNaravelScheduling(schedule => schedule.Call("smoke.tick", (_, _) =>
+{
+    Interlocked.Increment(ref SmokeTicks.Count);
+    return Task.CompletedTask;
+}).Cron("* * * * *"));
 services.AddNaravelMailQueue(o => o.Queue = "q");
 services.AddNaravelNotificationQueue(o => o.Queue = "q");
 services.AddQueuedNotification("smoke.note", SmokeJson.Default.SmokePayload, (payload, _, _) =>
@@ -172,12 +186,40 @@ await Check("encryption: string and typed round trip", () =>
     return Task.CompletedTask;
 });
 
+await Check("filesystem: local disk write and read", async () =>
+{
+    var disk = provider.GetRequiredService<IStorageDriver>();
+    await disk.PutAsync("smoke/a.txt", Encoding.UTF8.GetBytes("stored"));
+    var text = Encoding.UTF8.GetString(await disk.GetAsync("smoke/a.txt"));
+    if (text != "stored" || !await disk.ExistsAsync("smoke/a.txt")) throw new InvalidOperationException(text);
+});
+
+await Check("scheduling: a due task runs", async () =>
+{
+    await provider.GetRequiredService<Scheduler>().RunDueAsync(DateTimeOffset.UtcNow);
+    if (Volatile.Read(ref SmokeTicks.Count) < 1) throw new InvalidOperationException("the task did not run");
+});
+
+await Check("pagination: page arithmetic and JSON with metadata", () =>
+{
+    var page = new Paginated<SmokePayload>([new SmokePayload("a"), new SmokePayload("b")], 25, 2, 10);
+    if (page.LastPage != 3 || !page.HasMorePages) throw new InvalidOperationException($"last={page.LastPage}");
+    var json = JsonSerializer.Serialize(page, SmokeJson.Default.PaginatedSmokePayload);
+    if (!json.Contains("\"data\"", StringComparison.Ordinal) || !json.Contains("\"a\"", StringComparison.Ordinal)) throw new InvalidOperationException(json);
+    return Task.CompletedTask;
+});
+
 foreach (var service in hosted) await service.StopAsync(CancellationToken.None);
 
 Console.WriteLine(failures == 0 ? "AOT smoke: all checks passed" : $"AOT smoke: {failures} check(s) failed");
 return failures == 0 ? 0 : 1;
 
 internal sealed record SmokeEvent(int Amount);
+
+internal static class SmokeTicks
+{
+    public static int Count;
+}
 
 internal sealed record SmokeQueuedEvent(string Id);
 
@@ -220,4 +262,5 @@ internal sealed class SmokeJob : Job
 [JsonSerializable(typeof(SmokeJob))]
 [JsonSerializable(typeof(SmokeQueuedEvent))]
 [JsonSerializable(typeof(SmokePayload))]
+[JsonSerializable(typeof(Paginated<SmokePayload>))]
 internal sealed partial class SmokeJson : JsonSerializerContext;
