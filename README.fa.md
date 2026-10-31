@@ -1,6 +1,6 @@
 # ناراول (Naravel)
 
-APIهای آشنا و قابل‌کشف با الهام از لاراول، همراه با نقاط قوت .NET: تایپ قوی، `async/await`، تزریق وابستگی و کارایی بومی. یک ایدهٔ لاراولی فقط وقتی پذیرفته می‌شود که نسبت به امکانات خود .NET ارزش عملی اضافه کند؛ دلیل تصمیم در PDR ثبت می‌شود.
+**نام‌های لاراول، سیستم نوع‌های .NET.** اگر `Cache::remember`، `dispatch(new Job)` و `Route::prefix()->group()` را می‌شناسید، کد Naravel را از همان روز اول می‌خوانید: همان ایده‌ها در قالب APIهای آشنا و قابل‌کشف که نقاط قوت .NET را نگه می‌دارند: تایپ قوی، `async/await`، تزریق وابستگی و کارایی بومی. یک ایدهٔ لاراولی فقط وقتی پذیرفته می‌شود که نسبت به امکانات خود .NET ارزش عملی اضافه کند؛ دلیل تصمیم در PDR ثبت می‌شود.
 
 **وضعیت ماژول‌ها و نقشه‌راه:** مرجع رسمی [ROADMAP.md](ROADMAP.md) است. نتیجهٔ build و test در [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml) گزارش می‌شود.
 
@@ -8,6 +8,32 @@ APIهای آشنا و قابل‌کشف با الهام از لاراول، هم
 - راهنمای مشارکت و ایجنت‌ها: [AGENTS.md](AGENTS.md)
 - مستندات فارسی: [docs/fa](docs/fa) · PDRها: [docs/pdr/fa](docs/pdr/fa)
 - مستندات انگلیسی: [docs/en](docs/en) · PDRها: [docs/pdr/en](docs/pdr/en)
+
+## اگر لاراول را می‌شناسید
+
+همان کار، در یک خط. مثال‌های کامل‌تر در بخش ماژول‌ها پایین‌تر آمده است.
+
+| می‌خواهید | Laravel | Naravel |
+|---|---|---|
+| مقداری را کش کنید | `Cache::remember('site', 600, fn () => load())` | `await cache.RememberAsync("site", TimeSpan.FromMinutes(10), () => LoadAsync())` |
+| jobی را با تأخیر در صف بگذارید | `SendWelcome::dispatch($user)->delay(now()->addMinutes(5))` | `await jobs.DispatchAsync(new SendWelcomeJob(user), o => o.DelayFor(TimeSpan.FromMinutes(5)))` |
+| eventای پخش کنید | `event(new OrderPaid($id))` | `await events.DispatchAsync(new OrderPaid(id))` |
+| ایمیل بفرستید | `Mail::to($user->email)->send(new WelcomeMail($user))` | `await mailer.To(user.Email).SendAsync(new WelcomeMail(user))` |
+| routeها را گروه‌بندی کنید | `Route::prefix('admin')->name('admin.')->group(...)` | `routes.Prefix("admin").Name("admin.").Group(...)` |
+| جدولی را query کنید | `DB::table('users')->where('active', true)->orderBy('name')->get()` | `await db.Table("users").Where("active", true).OrderBy("name").GetAsync()` |
+| فایلی ذخیره کنید | `Storage::put($path, $contents)` | `await storage.PutAsync(path, contents)` |
+| کاری را زمان‌بندی کنید | `$schedule->call(fn () => prune())->everyFiveMinutes()->withoutOverlapping()` | `schedule.Call("prune", (sp, ct) => PruneAsync(ct)).EveryFiveMinutes().WithoutOverlapping()` |
+
+نگاشت کامل، با مشخص‌شدن آنچه Naravel به خود .NET سپرده یا رد کرده، در [جدول parity با لاراول](docs/fa/laravel-parity.md) است.
+
+## چرا Naravel
+
+- **نام‌های آشنا، .NET معمولی.** `RememberAsync`، `DelayFor` و `Prefix().Group()`: واژگان لاراول روی متدهایی که `async` هستند، `CancellationToken` می‌گیرند و از تزریق وابستگی می‌آیند.
+- **اول بومی، با صراحت.** session، هش گذرواژه و مجوزدهی route از قبل در ASP.NET Core و .NET هست، پس Naravel به‌جای بسته، دستورالعمل مستند می‌دهد (PDR-015، PDR-016، PDR-019). جایی هم که بسته اضافه می‌کند، یک PDR دلیلش را ثبت می‌کند.
+- **صادق دربارهٔ تضمین‌ها.** jobهای صف at-least-once هستند و باید idempotent باشند؛ Kafka تحویل با تأخیر را رد می‌کند؛ throttle در routeها فقط در یک پردازه اعمال می‌شود. محدودیت‌ها کنار قابلیت‌ها نوشته شده‌اند، نه اینکه در production کشف شوند.
+- **fake برای تست، بدون global state.** ماژول‌های Cache، Events، Mail، Notifications، Queue، Filesystem، Broadcasting، Database و Scheduling هرکدام یک fake دارند (`MailFake`، `QueueFake`، `StorageFake`...) که مثل هر وابستگی دیگر به کد می‌دهید و رویش assert می‌کنید، بدون broker، mail server، دیسک، bucket یا پایگاه داده.
+
+می‌خواهید اول اجرایش را ببینید؟ بخش «برنامهٔ نمونه» در پایین با یک دستور راه می‌افتد.
 
 ## ماژول‌ها
 
