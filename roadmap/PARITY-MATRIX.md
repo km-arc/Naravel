@@ -244,7 +244,7 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 | Auth | Native (`RequireAuthorization`; recipe, no package; PDR-016 `DECLINED`, `guest` alias kept) | R12 |
 | Broadcasting | Adapted (`Naravel.Broadcasting` over SignalR; PDR-018) | R14 |
 | Bus (chains, batches) | Part of Queue | R00, R07 |
-| Cache | Done (+RateLimiter open) | R04 |
+| Cache | Done, including the RateLimiter | R04 |
 | Concurrency | Native (`Task.WhenAll`, `Parallel`) | - |
 | Config | Native (`IConfiguration`, `IOptionsMonitor`) | PDR-004 |
 | Console | Native (`System.CommandLine`; recipe, no package) and Scheduling adapted (`Naravel.Scheduling`) | R13 |
@@ -267,9 +267,9 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 | Pagination | Adapt (cursor value) | R16 |
 | Pipeline | Native (delegates/middleware); revisit if Routing needs shared engine | - |
 | Process | Native (`System.Diagnostics.Process`) | - |
-| Queue | Done core; completion open | R00, R07, R08 |
+| Queue | Done (core and completion) | R00, R07, R08 |
 | Redis | Adapt shared connections | R03 |
-| Routing | 4a done; 4b open | R05 |
+| Routing | Done (middleware and routing completion) | R05 |
 | Session | Native (`ISession` over `IDistributedCache`; recipe, no package; PDR-015 `DECLINED`) | R11 |
 | Support (Str, Collection, helpers) | Native; no port | BACKLOG |
 | Testing (`*::fake`) | Fake per module (DoD S3) | every stage; Queue in R07 |

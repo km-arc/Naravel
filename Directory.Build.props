@@ -7,7 +7,6 @@
     <Deterministic>true</Deterministic>
     <!-- Monorepo: every package ships with the same version (bump it here, once). -->
     <VersionPrefix>0.1.0</VersionPrefix>
-    <VersionSuffix>preview</VersionSuffix>
     <Authors>Naravel contributors</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/km-arc/naravel</PackageProjectUrl>
