@@ -100,7 +100,7 @@ catch (InvalidCursorException) { return BadRequest(); }
 | پرش به صفحهٔ N | بله | نه، فقط بعدی و قبلی |
 | تعداد کل | بله | نه |
 
-اندازه‌گیری مقایسه در R16.T04 ثبت می‌شود؛ تا آن موقع هیچ عددی ادعا نمی‌شود.
+مقایسهٔ اندازه‌گیری‌شده روی SQLite درون‌حافظه در [benchmarks.md](benchmarks.md) آمده است؛ اعداد به موتور، عمق صفحه و ایندکس‌ها بستگی دارند، پس روی دادهٔ خودتان اندازه بگیرید.
 
 ## مثال کامل
 
@@ -155,8 +155,11 @@ app.MapGet("/posts/feed", async (AppDb db, string? cursor, CancellationToken ct)
 // var dto = page.Map(p => new PostDto(p.Id, p.Title));
 ```
 
+## روی query builder خود Naravel
+
+`Naravel.Database` همین نوع‌ها را برمی‌گرداند: روی یک query، `PaginateAsync(page, perPage)`، `SimplePaginateAsync` و `CursorPaginateAsync(perPage, cursor, column)`. شکل‌های offset به `OrderBy` نیاز دارند؛ شکل cursor یک ستون یکتا و هرگز null را دنبال می‌کند که در ستون‌های انتخاب‌شده باشد. رفتار هر موتور قراردادی مستند است: [database.md](database.md) و [database-dialects.md](database-dialects.md).
+
 ## پورت نشده
 
 - خواندن صفحه از درخواست HTTP جاری و رندر HTML در `links()`: لینک‌ها را با `WithPath`/`WithQuery` بسازید و در view رندر کنید.
-- `paginate` روی query builder خود Naravel (`Naravel.Database`): در R26 و بعد از R22 برنامه‌ریزی شده است.
 - Meter و Fake ندارد: این نوع‌ها I/O ندارند، پس چیزی برای اندازه‌گیری یا جعل نیست (انحراف از DoD S3 که در PDR-020 گفته شده).
