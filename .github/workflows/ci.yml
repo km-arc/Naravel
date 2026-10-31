@@ -554,6 +554,8 @@ jobs:
         run: python3 .github/scripts/check-image-pins.py
       - name: Publishing must wait for every required job
         run: python3 .github/scripts/check-publish-gates.py
+      - name: Tag/version guard still works
+        run: python3 .github/scripts/check-tag-version.py --self-test
 
   # The one check branch protection needs. A database job skipped by the path filter counts as success; any failure,
   # cancellation or missing result fails it, so a filtered job can never block a merge by being absent.
@@ -609,6 +611,11 @@ jobs:
 
       - name: Pack projects
         run: dotnet pack Naravel.slnx -c Release -o ./nupkgs
+
+      # The version comes from Directory.Build.props, the tag only names the release. A tag that does not match (v0.1.0-preview after
+      # the preview suffix was removed, a tag cut from an older commit) must stop here, before the NuGet login and any push.
+      - name: Tag must match the package version
+        run: python3 .github/scripts/check-tag-version.py "${GITHUB_REF_NAME}" ./nupkgs
 
       - name: NuGet login (OIDC Trusted Publishing)
         id: nuget-login

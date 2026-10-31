@@ -7,6 +7,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 ### Fixed
 - CI: the NuGet `publish` job now waits for every job `ci-ok` requires, including the service image pins (it did not wait for `pins` or `changes` before), and for `ci-ok` itself. `.github/scripts/check-publish-gates.py` (run by the `pins` job) fails the build if the two `needs:` lists drift apart.
 - CI: the image pin check now also reads `docker-compose.yml`, whose database images were floating (`mysql:8.4`, `postgres:17-alpine`, `mssql/server:2022-latest`) although it claims to match the CI job; they are now the exact versions CI uses.
+- CI: the NuGet `publish` job now checks that the tag matches the version of every packed `.nupkg` (`.github/scripts/check-tag-version.py`) before the NuGet login, so a tag such as `v0.1.0-preview` can no longer publish `0.1.0` packages, or the reverse. The `pins` job self-tests the script on every pull request.
 
 ### Release notes (R17)
 - Prepared contents for Naravel's first `0.1.0` release: database query builder, routing, queue, cache, filesystem, events, mail, notifications, encryption, pagination, broadcasting, scheduling and Redis, all intended to ship in lock-step. Hashing, session and auth-lite were declined in favour of native .NET (recipes in the docs). The release has not yet been tagged or published.
