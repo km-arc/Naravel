@@ -1,0 +1,91 @@
+name: Native AOT smoke
+
+# Report-only evidence (never a merge gate): publishes samples/Naravel.AotSmoke with ILC (PublishAot), reports every trim/AOT
+# warning ILC raises (our code and our dependencies), then runs the native binary. See docs/en/trimming-aot.md.
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'samples/Naravel.AotSmoke/**'
+      - '.github/workflows/aot-smoke.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aot-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish-and-run:
+    name: Publish with ILC and run
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Native toolchain
+        run: sudo apt-get install -y -qq clang zlib1g-dev
+
+      - name: Publish with ILC
+        id: publish
+        shell: bash
+        run: |
+          set +e
+          dotnet publish samples/Naravel.AotSmoke -c Release -r linux-x64 -o aot-out 2>&1 | tee publish.log
+          code=${PIPESTATUS[0]}
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "publish exit code: $code"
+          exit 0
+
+      - name: Report ILC warnings
+        if: always()
+        shell: bash
+        run: |
+          set +e +o pipefail
+          esc() { sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g'; }
+          grep -E 'IL[23][0-9]{3}' publish.log | sed -E 's# \[/[^]]*\]$##' | sort -u > ilc-warnings.txt
+          total=$(wc -l < ilc-warnings.txt)
+          size=$( [ -f aot-out/Naravel.AotSmoke ] && du -k aot-out/Naravel.AotSmoke | cut -f1 || echo missing )
+          {
+            echo "publish exit code: ${{ steps.publish.outputs.code }}"
+            echo "binary size (KB): $size"
+            echo "distinct ILC trim/AOT warnings: $total"
+            echo
+            grep -oE 'IL[23][0-9]{3}' ilc-warnings.txt | sort | uniq -c | sort -rn | awk '{print $2 ": " $1}'
+            echo
+            grep -E ' error |Build FAILED|error NETSDK' publish.log | head -5 | cut -c1-300
+          } | esc > summary.txt
+          echo "::notice title=AOT publish::$(cat summary.txt)"
+          # Which assemblies the warnings come from: the text before the first colon after the warning code, trimmed to the namespace.
+          sed -E 's/^.*(IL[23][0-9]{3}): *//; s/\(.*//; s/^([A-Za-z0-9_]+\.[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?).*/\1/' ilc-warnings.txt | sort | uniq -c | sort -rn | head -25 | esc > origins.txt
+          echo "::notice title=AOT warnings by namespace::$(cat origins.txt)"
+
+      - name: Detail (first 40 distinct warnings, in two slices)
+        if: always()
+        shell: bash
+        run: |
+          set +e +o pipefail
+          esc() { sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g'; }
+          sed -E 's/ can break functionality.*//; s/Using member //' ilc-warnings.txt | cut -c1-230 | sed -n '1,20p' | esc > d1.txt
+          sed -E 's/ can break functionality.*//; s/Using member //' ilc-warnings.txt | cut -c1-230 | sed -n '21,40p' | esc > d2.txt
+          echo "::notice title=AOT warnings 1-20::$(cat d1.txt)"
+          echo "::notice title=AOT warnings 21-40::$(cat d2.txt)"
+
+      - name: Run the native binary
+        shell: bash
+        run: |
+          set +e
+          if [ ! -x aot-out/Naravel.AotSmoke ]; then
+            echo "::error title=AOT run::no native binary was produced (publish exit code ${{ steps.publish.outputs.code }})"
+            exit 1
+          fi
+          timeout 60 ./aot-out/Naravel.AotSmoke 2>&1 | tee run.log
+          code=${PIPESTATUS[0]}
+          echo "run exit code: $code" | tee -a run.log
+          echo "::notice title=AOT run::$(sed 's/%/%25/g' run.log | sed ':a;N;$!ba;s/\n/%0A/g')"
+          exit $code
