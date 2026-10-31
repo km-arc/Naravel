@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Naravel.Queue.Drivers;
 using Naravel.Queue.Failed;
@@ -7,7 +8,7 @@ namespace Naravel.Queue.Database;
 
 /// <summary>Persistent failed-job storage using the application's EF Core context.</summary>
 /// <remarks><b>Laravel equivalent:</b> failed-jobs provider. It exists to retain retryable envelopes in the application's database without owning its DbContext or migrations.</remarks>
-public sealed class DatabaseFailedJobStore<TContext> : IFailedJobStore where TContext : DbContext
+public sealed class DatabaseFailedJobStore<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors | DynamicallyAccessedMemberTypes.PublicProperties)] TContext> : IFailedJobStore where TContext : DbContext
 {
     private readonly IDbContextFactory<TContext> _contextFactory;
 

@@ -33,7 +33,7 @@ public static class NaravelEventsQueueServiceCollectionExtensions
         services.AddNaravelEvents();
         services.Replace(ServiceDescriptor.Scoped<IEventListenerInvoker, QueueEventListenerInvoker>());
         services.TryAddSingleton<QueuedEventListenerRegistry>();
-        services.AddJob<QueuedEventListenerJob>("naravel.events.queued-listener");
+        services.AddJob(Naravel.Events.Queue.EventsQueueJsonContext.Default.QueuedEventListenerJob, "naravel.events.queued-listener");
         return services;
     }
 
