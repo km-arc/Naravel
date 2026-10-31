@@ -8,6 +8,7 @@ using Naravel.Cache.Abstractions;
 using Naravel.Events;
 using Naravel.Mail;
 using Naravel.Mail.Transports;
+using Naravel.Notifications.Queue;
 using Naravel.Queue.Dispatch;
 using Naravel.Queue.Drivers;
 using Naravel.Queue.Extensions;
@@ -42,8 +43,16 @@ var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<str
 var services = new ServiceCollection();
 services.AddLogging();
 services.AddNaravelCache(config);
-services.AddNaravelEvents();
+services.AddNaravelEventsQueue();
+services.AddQueuedEventListener<SmokeQueuedEvent, SmokeQueuedListener>("smoke.queued", SmokeJson.Default.SmokeQueuedEvent, o => o.OnQueue("q"));
 services.AddNaravelMail(config);
+services.AddNaravelMailQueue(o => o.Queue = "q");
+services.AddNaravelNotificationQueue(o => o.Queue = "q");
+services.AddQueuedNotification("smoke.note", SmokeJson.Default.SmokePayload, (payload, _, _) =>
+{
+    SmokePayloadRan.TrySetResult(payload.Text);
+    return Task.CompletedTask;
+});
 services.AddQueue(config).AddMemoryDriver(config);
 services.AddJob(SmokeJson.Default.SmokeJob);
 services.AddQueueWorker(o =>
@@ -103,12 +112,63 @@ await Check("queue: job dispatched, serialised with metadata and run by the work
     if (SmokeJob.Ran.Task.Result != "from-the-queue") throw new InvalidOperationException(SmokeJob.Ran.Task.Result);
 });
 
+await Check("events.queue: a queued listener runs in the worker", async () =>
+{
+    SmokeQueuedListener.Ran = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+    await provider.GetRequiredService<IEventDispatcher>().DispatchAsync(new SmokeQueuedEvent("evt-1"));
+    var winner = await Task.WhenAny(SmokeQueuedListener.Ran.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+    if (winner != SmokeQueuedListener.Ran.Task) throw new TimeoutException("the queued listener did not run within 10 seconds");
+    if (SmokeQueuedListener.Ran.Task.Result != "evt-1") throw new InvalidOperationException(SmokeQueuedListener.Ran.Task.Result);
+});
+
+await Check("mail.queue: a queued mail is sent by the worker", async () =>
+{
+    var transport = (ArrayMailTransport)provider.GetRequiredService<MailManager>().Driver("array");
+    var before = transport.Sent.Count;
+    await provider.GetRequiredService<IMailQueue>().EnqueueAsync(new MailMessage("app@example.com", "user@example.com", "Queued", "Body"), null);
+    var deadline = DateTime.UtcNow.AddSeconds(10);
+    while (transport.Sent.Count == before && DateTime.UtcNow < deadline) await Task.Delay(20);
+    if (transport.Sent.Count != before + 1) throw new TimeoutException($"sent={transport.Sent.Count} before={before}");
+});
+
+await Check("notifications.queue: a queued notification is delivered by the worker", async () =>
+{
+    await provider.GetRequiredService<INotificationQueue>().QueueAsync("smoke.note", new SmokePayload("note-1"));
+    var winner = await Task.WhenAny(SmokePayloadRan.Completion, Task.Delay(TimeSpan.FromSeconds(10)));
+    if (winner != SmokePayloadRan.Completion) throw new TimeoutException("the queued notification did not run within 10 seconds");
+    if (SmokePayloadRan.Completion.Result != "note-1") throw new InvalidOperationException(SmokePayloadRan.Completion.Result);
+});
+
 foreach (var service in hosted) await service.StopAsync(CancellationToken.None);
 
 Console.WriteLine(failures == 0 ? "AOT smoke: all checks passed" : $"AOT smoke: {failures} check(s) failed");
 return failures == 0 ? 0 : 1;
 
 internal sealed record SmokeEvent(int Amount);
+
+internal sealed record SmokeQueuedEvent(string Id);
+
+internal sealed record SmokePayload(string Text);
+
+internal sealed class SmokeQueuedListener : IQueuedEventListener<SmokeQueuedEvent>
+{
+    public static TaskCompletionSource<string> Ran { get; set; } = new();
+
+    public Task HandleAsync(SmokeQueuedEvent evt, EventDispatchContext context, CancellationToken cancellationToken = default)
+    {
+        Ran.TrySetResult(evt.Id);
+        return Task.CompletedTask;
+    }
+}
+
+internal static class SmokePayloadRan
+{
+    private static readonly TaskCompletionSource<string> Source = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public static Task<string> Completion => Source.Task;
+
+    public static void TrySetResult(string value) => Source.TrySetResult(value);
+}
 
 internal sealed class SmokeJob : Job
 {
@@ -125,4 +185,6 @@ internal sealed class SmokeJob : Job
 
 [JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true)]
 [JsonSerializable(typeof(SmokeJob))]
+[JsonSerializable(typeof(SmokeQueuedEvent))]
+[JsonSerializable(typeof(SmokePayload))]
 internal sealed partial class SmokeJson : JsonSerializerContext;

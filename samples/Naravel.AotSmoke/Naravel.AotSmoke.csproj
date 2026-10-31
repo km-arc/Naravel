@@ -15,7 +15,10 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Naravel.Cache\Naravel.Cache.csproj" />
     <ProjectReference Include="..\..\src\Naravel.Events\Naravel.Events.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Events.Queue\Naravel.Events.Queue.csproj" />
     <ProjectReference Include="..\..\src\Naravel.Mail\Naravel.Mail.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Mail.Queue\Naravel.Mail.Queue.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Notifications.Queue\Naravel.Notifications.Queue.csproj" />
     <ProjectReference Include="..\..\src\Naravel.Queue\Naravel.Queue.csproj" />
     <ProjectReference Include="..\..\src\Naravel.Queue.Memory\Naravel.Queue.Memory.csproj" />
   </ItemGroup>
