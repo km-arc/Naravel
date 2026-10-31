@@ -37,6 +37,7 @@
     <Project Path="src/Naravel.Cache.Redis/Naravel.Cache.Redis.csproj" />
   </Folder>
   <Folder Name="/samples/">
+    <Project Path="samples/Naravel.AotSmoke/Naravel.AotSmoke.csproj" />
     <Project Path="samples/Naravel.Sample/Naravel.Sample.csproj" />
   </Folder>
   <Folder Name="/benchmarks/">
