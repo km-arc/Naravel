@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Naravel.Queue.Batching;
+using Naravel.Queue.Serialization;
 
 namespace Naravel.Queue.Database;
 
@@ -30,9 +30,9 @@ public sealed class DatabaseBatchRepository<[DynamicallyAccessedMembers(Dynamica
             Id = batch.Id,
             TotalJobs = batch.TotalJobs,
             AllowFailures = options.AllowFailures,
-            ThenCallbacks = JsonSerializer.Serialize(options.ThenCallbacks),
-            CatchCallbacks = JsonSerializer.Serialize(options.CatchCallbacks),
-            FinallyCallbacks = JsonSerializer.Serialize(options.FinallyCallbacks)
+            ThenCallbacks = QueueEnvelopeJson.SerializeCallbacks(options.ThenCallbacks),
+            CatchCallbacks = QueueEnvelopeJson.SerializeCallbacks(options.CatchCallbacks),
+            FinallyCallbacks = QueueEnvelopeJson.SerializeCallbacks(options.FinallyCallbacks)
         });
         await db.SaveChangesAsync(cancellationToken);
     }
@@ -138,7 +138,7 @@ public sealed class DatabaseBatchRepository<[DynamicallyAccessedMembers(Dynamica
     }
 
     private static List<BatchCallbackReference> DeserializeCallbacks(string callbacks)
-        => JsonSerializer.Deserialize<List<BatchCallbackReference>>(callbacks) ?? new();
+        => QueueEnvelopeJson.DeserializeCallbacks(callbacks);
 
     private static QueueBatch ToBatch(QueueBatchRecord record) => new()
     {

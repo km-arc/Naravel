@@ -33,7 +33,8 @@ public static class MailServiceCollectionExtensions
         services.AddMailTransport(configuration, "log", (provider, _) => CreateLogTransport(provider), sectionName);
         services.AddMailTransport(configuration, "array", (_, _) => new ArrayMailTransport(), sectionName);
 
-        services.AddNaravelManager<MailManager, IMailTransport, MailOptions>(configuration.GetSection(sectionName));
+        services.Configure<MailOptions>(configuration.GetSection(sectionName));
+        services.AddNaravelManager<MailManager, IMailTransport, MailOptions>();
         services.TryAddSingleton<IMailer>(provider => provider.GetRequiredService<MailManager>().Mailer());
         return services;
     }

@@ -63,6 +63,26 @@ public class DependencyInjectionTests
     }
 
     [Fact]
+    public void Manager_without_configuration_uses_the_options_the_caller_registers()
+    {
+        // The trim/AOT path: the caller binds the options (compile-time bound in a real module) and the manager
+        // registration does not touch configuration at all.
+        var root = new ConfigurationBuilder().AddInMemoryCollection(Config(host: "h9")).Build();
+        var services = new ServiceCollection();
+        services.Configure<ManagerOptions>(root.GetSection("Fake"));
+        services.AddNaravelManager<FakeManager, IFakeDriver, ManagerOptions>();
+        services.AddNaravelDriver<IFakeDriver>("redis", HostDriver);
+        using var provider = services.BuildServiceProvider();
+
+        var manager = provider.GetRequiredService<FakeManager>();
+
+        provider.GetRequiredService<IOptionsMonitor<ManagerOptions>>().CurrentValue.Default.Should().Be("redis");
+        provider.GetRequiredService<IDriverRegistry<IFakeDriver>>().IsRegistered("redis").Should().BeTrue();
+        provider.GetRequiredService<IFakeDriver>().Should().BeSameAs(manager.Driver());
+        manager.Driver("redis").Id.Should().Be("h9");
+    }
+
+    [Fact]
     public void Built_in_drivers_read_their_own_store_configuration()
     {
         var (provider, _) = Build(Config(host: "redis.example"), services =>

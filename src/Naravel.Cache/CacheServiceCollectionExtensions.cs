@@ -35,8 +35,9 @@ public static class CacheServiceCollectionExtensions
         services.TryAddSingleton<ICacheStore>(provider => provider.GetRequiredService<CacheManager>().Store());
         services.TryAddSingleton<ICacheLock>(provider => provider.GetRequiredService<LockManager>().Driver());
         var section = configuration.GetSection(sectionName);
-        services.AddNaravelManager<CacheManager, ICacheStore, CacheOptions>(section);
-        services.AddNaravelManager<LockManager, ICacheLock, CacheOptions>(section);
+        services.Configure<CacheOptions>(section);
+        services.AddNaravelManager<CacheManager, ICacheStore, CacheOptions>();
+        services.AddNaravelManager<LockManager, ICacheLock, CacheOptions>();
         return services;
     }
 }

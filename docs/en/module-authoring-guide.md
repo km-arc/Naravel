@@ -45,11 +45,13 @@ Rules:
 ```csharp
 public static IServiceCollection AddNaravelCache(this IServiceCollection s, IConfiguration c)
 {
-    s.AddNaravelManager<CacheManager, ICacheDriver, CacheOptions>(c);
+    s.Configure<CacheOptions>(c);                                    // concrete type: bound at compile time
+    s.AddNaravelManager<CacheManager, ICacheDriver, CacheOptions>(); // manager, registry, default driver
     s.AddNaravelDriver<ICacheDriver>("file", /* ... */);
     return s;
 }
 ```
+Set `<EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>` in the module's project file so the `Configure` call is bound by the configuration binding generator instead of reflection (the trim and Native AOT path). `AddNaravelManager<...>(services, configuration)` is the shorter form for application code; it binds through reflection and is marked `RequiresUnreferencedCode` and `RequiresDynamicCode`.
 
 ## 5. Tests (mandatory)
 - Each built-in driver has its own tests.
