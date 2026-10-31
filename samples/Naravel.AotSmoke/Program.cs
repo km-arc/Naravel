@@ -5,6 +5,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Naravel.Cache.Abstractions;
+using Naravel.Database;
+using Naravel.Encryption;
 using Naravel.Events;
 using Naravel.Mail;
 using Naravel.Mail.Transports;
@@ -36,6 +38,9 @@ var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<str
 {
     ["Cache:Default"] = "memory",
     ["Mail:Default"] = "array",
+    ["Database:Default"] = "main",
+    ["Database:Connections:main:Driver"] = "sqlite",
+    ["Database:Connections:main:Path"] = ":memory:",
     ["NaravelQueue:Default"] = "smoke",
     ["NaravelQueue:Stores:smoke:Driver"] = "memory",
 }).Build();
@@ -46,6 +51,9 @@ services.AddNaravelCache(config);
 services.AddNaravelEventsQueue();
 services.AddQueuedEventListener<SmokeQueuedEvent, SmokeQueuedListener>("smoke.queued", SmokeJson.Default.SmokeQueuedEvent, o => o.OnQueue("q"));
 services.AddNaravelMail(config);
+services.AddNaravelDatabase(config);
+services.AddNaravelSqliteDatabase(config);
+services.AddNaravelEncryption();
 services.AddNaravelMailQueue(o => o.Queue = "q");
 services.AddNaravelNotificationQueue(o => o.Queue = "q");
 services.AddQueuedNotification("smoke.note", SmokeJson.Default.SmokePayload, (payload, _, _) =>
@@ -137,6 +145,31 @@ await Check("notifications.queue: a queued notification is delivered by the work
     var winner = await Task.WhenAny(SmokePayloadRan.Completion, Task.Delay(TimeSpan.FromSeconds(10)));
     if (winner != SmokePayloadRan.Completion) throw new TimeoutException("the queued notification did not run within 10 seconds");
     if (SmokePayloadRan.Completion.Result != "note-1") throw new InvalidOperationException(SmokePayloadRan.Completion.Result);
+});
+
+await Check("database: sqlite statement and select", async () =>
+{
+    var db = provider.GetRequiredService<IDatabase>();
+    await db.StatementAsync("create table smoke (id integer primary key, name text)");
+    await db.StatementAsync("insert into smoke (name) values (?)", ["naravel"]);
+    var rows = await db.SelectAsync("select name from smoke where name = ?", ["naravel"]);
+    if (rows.Count != 1 || (string?)rows[0]["name"] != "naravel") throw new InvalidOperationException($"rows={rows.Count}");
+});
+
+await Check("database: query builder reads a column", async () =>
+{
+    var db = provider.GetRequiredService<IDatabase>();
+    var names = await db.Table("smoke").Where("name", "naravel").PluckAsync<string>("name");
+    if (names.Count != 1 || names[0] != "naravel") throw new InvalidOperationException($"names={names.Count}");
+});
+
+await Check("encryption: string and typed round trip", () =>
+{
+    var encrypter = provider.GetRequiredService<IEncrypter>();
+    if (encrypter.Decrypt(encrypter.Encrypt("secret")) != "secret") throw new InvalidOperationException("string changed");
+    var typed = encrypter.Decrypt(encrypter.Encrypt(new SmokePayload("typed"), SmokeJson.Default.SmokePayload), SmokeJson.Default.SmokePayload);
+    if (typed.Text != "typed") throw new InvalidOperationException(typed.Text);
+    return Task.CompletedTask;
 });
 
 foreach (var service in hosted) await service.StopAsync(CancellationToken.None);
