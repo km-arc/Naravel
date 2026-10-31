@@ -34,7 +34,7 @@ public static class NotificationQueueServiceCollectionExtensions
             options.Configure(configure);
         }
 
-        services.AddJob<SendQueuedNotificationJob>(JobAlias);
+        services.AddJob(NotificationQueueJsonContext.Default.SendQueuedNotificationJob, JobAlias);
         services.TryAddSingleton<QueuedNotificationRegistry>();
         services.TryAddSingleton<INotificationQueue, QueuedNotificationDispatcher>();
         return services;

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,6 +12,8 @@ namespace Naravel.Queue.Extensions;
 public static class JobTypeRegistrationExtensions
 {
     /// <summary>Registers a job with its explicit alias or its <see cref="JobAttribute"/> / full-name default.</summary>
+    [RequiresUnreferencedCode("The job payload is serialised with reflection based System.Text.Json, which can lose members when the application is trimmed. Trimmed or Native AOT applications use the overload that takes JsonTypeInfo<TJob>.")]
+    [RequiresDynamicCode("The job payload is serialised with reflection based System.Text.Json. Trimmed or Native AOT applications use the overload that takes JsonTypeInfo<TJob>.")]
     public static IServiceCollection AddJob<TJob>(this IServiceCollection services, string? alias = null)
         where TJob : IJob
     {
@@ -30,6 +33,8 @@ public static class JobTypeRegistrationExtensions
     }
 
     /// <summary>Registers concrete job types in an assembly using their attribute aliases or full names.</summary>
+    [RequiresUnreferencedCode("Scans the assembly for job types and serialises their payloads with reflection based System.Text.Json. Trimmed or Native AOT applications register each job with the AddJob overload that takes JsonTypeInfo<TJob>.")]
+    [RequiresDynamicCode("The job payloads are serialised with reflection based System.Text.Json. Trimmed or Native AOT applications register each job with the AddJob overload that takes JsonTypeInfo<TJob>.")]
     public static IServiceCollection AddJobsFromAssembly(this IServiceCollection services, Assembly assembly)
     {
         ArgumentNullException.ThrowIfNull(assembly);

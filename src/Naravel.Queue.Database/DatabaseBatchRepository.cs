@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Naravel.Queue.Batching;
 using Naravel.Queue.Serialization;
@@ -6,7 +7,7 @@ namespace Naravel.Queue.Database;
 
 /// <summary>Persistent batch tracking using the application's EF Core context.</summary>
 /// <remarks><b>Laravel equivalent:</b> queue batch repository. It exists for restart-safe batch state; it does not own the application DbContext or persist delegates.</remarks>
-public sealed class DatabaseBatchRepository<TContext> : IBatchRepository where TContext : DbContext
+public sealed class DatabaseBatchRepository<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors | DynamicallyAccessedMemberTypes.PublicProperties)] TContext> : IBatchRepository where TContext : DbContext
 {
     private readonly IDbContextFactory<TContext> _contextFactory;
     private readonly BatchCallbackRegistry _callbacks;

@@ -34,7 +34,7 @@ public static class MailQueueServiceCollectionExtensions
             options.Configure(configure);
         }
 
-        services.AddJob<SendQueuedMailJob>(JobAlias);
+        services.AddJob(MailQueueJsonContext.Default.SendQueuedMailJob, JobAlias);
         services.Replace(ServiceDescriptor.Singleton<IMailQueue>(provider => new QueuedMailDispatcher(
             provider.GetRequiredService<IJobDispatcher>(),
             provider.GetRequiredService<IOptions<MailQueueOptions>>())));
