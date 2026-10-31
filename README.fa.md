@@ -130,7 +130,7 @@ builder.Services.AddQueuedEventListener<OrderPaid, SendReceipt>("order-paid.rece
 
 ### Naravel.Mail
 
-ایمیل تایپ‌شده بدون وابستگی شبکه‌ای در بستهٔ هسته: کلاس `Mailable` پیام را توصیف می‌کند، یک transport نام‌دار (به‌طور پیش‌فرض `log`، برای تست `array` و در تسکی بعدی `smtp` از طریق بستهٔ اختیاری) آن را تحویل می‌دهد و `MailFake` آن را قابل تست می‌کند. شکست transport به فراخواننده گزارش می‌شود و هرگز بی‌صدا تکرار نمی‌شود.
+ایمیل تایپ‌شده بدون وابستگی شبکه‌ای در بستهٔ هسته: کلاس `Mailable` پیام را توصیف می‌کند، یک transport نام‌دار (به‌طور پیش‌فرض `log`، برای تست `array` و `smtp` از طریق بستهٔ اختیاری `Naravel.Mail.Smtp`) آن را تحویل می‌دهد و `MailFake` آن را قابل تست می‌کند. شکست transport به فراخواننده گزارش می‌شود و هرگز بی‌صدا تکرار نمی‌شود.
 
 ```csharp
 builder.Services.AddNaravelMail(builder.Configuration);   // مقدار پیش‌فرض Mail:Default برابر "log" است
