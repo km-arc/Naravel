@@ -13,6 +13,7 @@ RULES = {  # image -> regex the tag must match
     r"rabbitmq": r"\d+\.\d+\.\d+",
     r"memcached": r"\d+\.\d+\.\d+",
     r"apache/kafka": r"\d+\.\d+\.\d+",
+    r"adobe/s3mock": r"\d+\.\d+\.\d+",
     r"mysql": r"\d+\.\d+\.\d+",
     r"postgres": r"\d+\.\d+(\.\d+)?(-alpine(\d+\.\d+)?)?",
     r"mcr\.microsoft\.com/mssql/server": r"\d{4}-CU\d+(-ubuntu-\d+\.\d+)?",
