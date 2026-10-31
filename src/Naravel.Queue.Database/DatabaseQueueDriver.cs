@@ -31,7 +31,7 @@ public class DatabaseQueueDriver<[DynamicallyAccessedMembers(DynamicallyAccessed
     public async Task PushAsync(QueuedMessage message, CancellationToken cancellationToken = default)
     {
         await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
-        db.Set<JobRecord>().Add(ToRecord(message));
+        db.Set<JobRecord>().Add(JobRecordMapper.ToRecord(message));
         await db.SaveChangesAsync(cancellationToken);
     }
 
@@ -135,27 +135,6 @@ public class DatabaseQueueDriver<[DynamicallyAccessedMembers(DynamicallyAccessed
         await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
         return await db.Set<JobRecord>().LongCountAsync(j => j.Queue == queue && j.FailedAt == null, cancellationToken);
     }
-
-    internal static JobRecord ToRecord(QueuedMessage m) => new()
-    {
-        Id = m.Id,
-        Queue = m.Queue,
-        Connection = m.Connection,
-        JobType = m.JobType,
-        Payload = m.Payload,
-        Attempts = m.Attempts,
-        MaxAttempts = m.MaxAttempts,
-        Priority = m.Priority,
-        CreatedAt = m.CreatedAt,
-        AvailableAt = m.AvailableAt,
-        ReservedAt = m.ReservedAt,
-        ReservationId = m.ReservationId,
-        Error = m.Error,
-        ChainedJobPayload = m.ChainedJobPayload,
-        BatchId = m.BatchId,
-        TraceParent = m.TraceParent,
-        TraceState = m.TraceState
-    };
 
     private static QueuedMessage ToMessage(JobRecord r) => new()
     {

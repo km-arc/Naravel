@@ -43,7 +43,7 @@ public sealed class DatabaseJobEnqueuer
             throw new InvalidOperationException($"{context.GetType().Name} does not map the queue jobs table. Call modelBuilder.ConfigureQueueJobs() in OnModelCreating.");
 
         var message = _factory.CreateMessage(job, configure);
-        context.Set<JobRecord>().Add(DatabaseQueueDriver<DbContext>.ToRecord(message));
+        context.Set<JobRecord>().Add(JobRecordMapper.ToRecord(message));
         return message.Id;
     }
 }
