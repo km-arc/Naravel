@@ -16,7 +16,7 @@ await app.Services.GetRequiredService<IJobDispatcher>().DispatchAsync(new MyJob(
 
 | Package | Driver | Extension method |
 |---|---|---|
-| `Naravel.Queue` | `memory` (in-process, zero deps) | `AddMemoryDriver(configuration)` |
+| `Naravel.Queue.Memory` | `memory` (in-process, zero deps) | `AddMemoryDriver(configuration)` |
 | `Naravel.Queue.File` | `file` (JSON files on disk) | `AddFileDriver(configuration)` |
 | `Naravel.Queue.Redis` | `redis` | `AddRedisDriver(configuration)` |
 | `Naravel.Queue.Database` | `database` (any EF Core provider) | `AddDatabaseDriver<TContext>(configuration)` |

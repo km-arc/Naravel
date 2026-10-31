@@ -16,7 +16,7 @@ await app.Services.GetRequiredService<IJobDispatcher>().DispatchAsync(new MyJob(
 
 | پکیج | درایور | متد ثبت |
 |---|---|---|
-| `Naravel.Queue` | `memory` (درون‌حافظه، بدون وابستگی) | `AddMemoryDriver(configuration)` |
+| `Naravel.Queue.Memory` | `memory` (درون‌حافظه، بدون وابستگی) | `AddMemoryDriver(configuration)` |
 | `Naravel.Queue.File` | `file` (فایل JSON روی دیسک) | `AddFileDriver(configuration)` |
 | `Naravel.Queue.Redis` | `redis` | `AddRedisDriver(configuration)` |
 | `Naravel.Queue.Database` | `database` (هر provider از EF Core) | `AddDatabaseDriver<TContext>(configuration)` |

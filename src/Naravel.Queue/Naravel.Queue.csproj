@@ -5,7 +5,7 @@
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Naravel.Queue</RootNamespace>
-    <Description>A Laravel-inspired, driver-based background job queue for .NET. Dispatch, retry with backoff, chaining, batching and a background worker - core package (in-process "memory" driver included; add Naravel.Queue.Redis/.File/.Database/.RabbitMQ/.Kafka for other backends).</Description>
+    <Description>A Laravel-inspired, driver-based background job queue for .NET. Dispatch, retry with backoff, chaining, batching and a background worker - core package (add Naravel.Queue.Memory for the in-process driver, or Naravel.Queue.Redis/.File/.Database/.RabbitMQ/.Kafka for other backends).</Description>
     <PackageTags>queue;jobs;background-jobs;worker;laravel;naravel</PackageTags>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
