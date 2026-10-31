@@ -1,6 +1,6 @@
 # Naravel
 
-Laravel-inspired, discoverable APIs with .NET's strengths: strong typing, `async/await`, dependency injection, and native performance. Naravel adopts a Laravel idea only when it adds practical value beyond what .NET already provides; the rationale is recorded in a PDR.
+**Laravel's names, .NET's type system.** If you know `Cache::remember`, `dispatch(new Job)` and `Route::prefix()->group()`, you can already read Naravel: the same ideas as discoverable APIs that keep .NET's strengths: strong typing, `async/await`, dependency injection, and native performance. Naravel adopts a Laravel idea only when it adds practical value beyond what .NET already provides; the rationale is recorded in a PDR.
 
 **Module and roadmap status:** [ROADMAP.md](ROADMAP.md) is the source of truth. Build and test results are reported by [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml).
 
@@ -8,6 +8,32 @@ Laravel-inspired, discoverable APIs with .NET's strengths: strong typing, `async
 - Contributor and agent guidance: [AGENTS.md](AGENTS.md)
 - English docs: [docs/en](docs/en) · PDRs: [docs/pdr/en](docs/pdr/en)
 - Persian docs: [docs/fa](docs/fa) · PDRs: [docs/pdr/fa](docs/pdr/fa)
+
+## If you know Laravel
+
+The same job, one line each. Fuller examples are in the module sections below.
+
+| You want to | Laravel | Naravel |
+|---|---|---|
+| Remember a value | `Cache::remember('site', 600, fn () => load())` | `await cache.RememberAsync("site", TimeSpan.FromMinutes(10), () => LoadAsync())` |
+| Queue a delayed job | `SendWelcome::dispatch($user)->delay(now()->addMinutes(5))` | `await jobs.DispatchAsync(new SendWelcomeJob(user), o => o.DelayFor(TimeSpan.FromMinutes(5)))` |
+| Dispatch an event | `event(new OrderPaid($id))` | `await events.DispatchAsync(new OrderPaid(id))` |
+| Send mail | `Mail::to($user->email)->send(new WelcomeMail($user))` | `await mailer.To(user.Email).SendAsync(new WelcomeMail(user))` |
+| Group routes | `Route::prefix('admin')->name('admin.')->group(...)` | `routes.Prefix("admin").Name("admin.").Group(...)` |
+| Query a table | `DB::table('users')->where('active', true)->orderBy('name')->get()` | `await db.Table("users").Where("active", true).OrderBy("name").GetAsync()` |
+| Store a file | `Storage::put($path, $contents)` | `await storage.PutAsync(path, contents)` |
+| Schedule a task | `$schedule->call(fn () => prune())->everyFiveMinutes()->withoutOverlapping()` | `schedule.Call("prune", (sp, ct) => PruneAsync(ct)).EveryFiveMinutes().WithoutOverlapping()` |
+
+The full mapping, including what Naravel leaves to .NET and what it rejects, is the [Laravel parity table](docs/en/laravel-parity.md).
+
+## Why Naravel
+
+- **Familiar names, ordinary .NET.** `RememberAsync`, `DelayFor`, `Prefix().Group()`: Laravel's vocabulary on methods that are `async`, take a `CancellationToken` and come from dependency injection.
+- **Native first, said out loud.** Sessions, password hashing and route authorization already exist in ASP.NET Core and .NET, so Naravel documents the recipe instead of shipping a package (PDR-015, PDR-016, PDR-019). Where it does add a package, a PDR records why.
+- **Honest about guarantees.** Queue jobs are at-least-once and should be idempotent; Kafka rejects delayed dispatch; route throttling is process-local. The limits are written next to the features instead of being discovered in production.
+- **Fakes for tests, no global state.** Cache, Events, Mail, Notifications, Queue, Filesystem, Broadcasting, Database and Scheduling each ship a fake (`MailFake`, `QueueFake`, `StorageFake`...) that you pass in like any other dependency and assert on, without a broker, mail server, disk, bucket or database.
+
+Want to see it run first? The [sample app](#sample-app) starts with one command.
 
 ## Modules
 
@@ -30,7 +56,9 @@ var scratch = storage.Disk("scratch");
 Named Memory, Redis, and Memcached stores; `RememberAsync`; explicit user/tenant scopes; tag-version invalidation; token-owned locks; and a Cache-backed fixed-window rate limiter. Redis and Memcached are optional provider packages.
 
 ```csharp
-using Naravel.Cache.Abstractions;
+using Naravel.Cache;                // RememberAsync
+using Naravel.Cache.Abstractions;   // ICacheStore
+using Naravel.Cache.Redis;          // AddNaravelRedisCache
 
 builder.Services.AddNaravelCache(builder.Configuration)
     .AddNaravelRedisCache(builder.Configuration);
@@ -52,6 +80,7 @@ Async background jobs with named drivers, delayed and prioritized dispatch, retr
 using Naravel.Queue.Extensions;
 using Naravel.Queue.Dispatch;
 using Naravel.Queue.Jobs;
+using Naravel.Queue.Redis;   // AddRedisDriver
 
 builder.Services.AddQueue(builder.Configuration)
     .AddRedisDriver(builder.Configuration);
@@ -199,7 +228,7 @@ var authors = await db.Table("users")                       // joins, JSON paths
     .WhereLike("users.name", "a%")
     .Where("users.settings->theme", "dark")                  // JSON path, bound as a parameter
     .WhereExists(s => s.Table("comments").WhereColumn("comments.post_id", "posts.id"))
-    .When(onlyRecent, q => q.Latest("posts.created_at"))
+    .When(onlyRecent, q => q.Where("posts.created_at", ">=", DateTime.UtcNow.AddDays(-7)))
     .Select("users.name").GroupBy("users.name")
     .GetAsync(cancellationToken);
 ```
