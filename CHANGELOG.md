@@ -9,9 +9,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 - CI: the image pin check now also reads `docker-compose.yml`, whose database images were floating (`mysql:8.4`, `postgres:17-alpine`, `mssql/server:2022-latest`) although it claims to match the CI job; they are now the exact versions CI uses.
 
 ### Release notes (R17)
-- First release of Naravel (version `0.1.0`): database query builder, routing, queue, cache, filesystem, events, mail, notifications, encryption, pagination, broadcasting, scheduling and Redis, all shipped in lock-step. Hashing, session and auth-lite were declined in favour of native .NET (recipes in the docs).
+- Prepared contents for Naravel's first `0.1.0` release: database query builder, routing, queue, cache, filesystem, events, mail, notifications, encryption, pagination, broadcasting, scheduling and Redis, all intended to ship in lock-step. Hashing, session and auth-lite were declined in favour of native .NET (recipes in the docs). The release has not yet been tagged or published.
 - All audit findings are closed; the release has no open `roadmap/AUDIT.md` rows.
-- Pre-1.0: breaking changes stay allowed if listed here (OD-09); revisit at the first stable release.
+- Pre-1.0 (`0.x`): breaking changes remain allowed when listed here (OD-09); revisit before `1.0.0`.
 
 ### Removed
 - Docs: removed the orphan `docs/en/querybuilder.md` (no Persian twin, described APIs that do not exist). Use `docs/en/database.md` / `docs/fa/database.md`. Closes AUDIT D-57.
