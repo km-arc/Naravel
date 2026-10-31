@@ -102,7 +102,7 @@ catch (InvalidCursorException) { return BadRequest(); }
 | Jump to page N | yes | no, only next and previous |
 | Total count | yes | no |
 
-R16.T04 records a measured comparison; until then no numbers are claimed.
+A measured comparison on in-memory SQLite is in [benchmarks.md](benchmarks.md); the numbers depend on the engine, the page depth and the indexes, so measure on your own data.
 
 ## Complete example
 
@@ -157,8 +157,11 @@ app.MapGet("/posts/feed", async (AppDb db, string? cursor, CancellationToken ct)
 // var dto = page.Map(p => new PostDto(p.Id, p.Title));
 ```
 
+## On the Naravel query builder
+
+`Naravel.Database` returns these same types: `PaginateAsync(page, perPage)`, `SimplePaginateAsync` and `CursorPaginateAsync(perPage, cursor, column)` on a query. The offset forms need an `OrderBy`; the cursor form follows one unique, never-null column that is among the selected columns. How each engine behaves is a documented contract: [database.md](database.md) and [database-dialects.md](database-dialects.md).
+
 ## Not ported
 
 - Reading the page from the current HTTP request, and `links()` HTML rendering: build the links with `WithPath`/`WithQuery`, render in your view.
-- `paginate` on the Naravel query builder (`Naravel.Database`): planned in R26, after R22.
 - No Meter or Fake: the types do no I/O, so there is nothing to meter or fake (a deviation from DoD S3, stated in PDR-020).

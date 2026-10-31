@@ -101,7 +101,7 @@ builder.Services.AddQueuedEventListener<OrderPaid, SendReceipt>("order-paid.rece
 
 ### Naravel.Mail
 
-ایمیل تایپ‌شده بدون وابستگی شبکه‌ای در بستهٔ هسته: کلاس `Mailable` پیام را توصیف می‌کند، یک transport نام‌دار (به‌طور پیش‌فرض `log`، برای تست `array` و در تسکی بعدی `smtp` از طریق بستهٔ اختیاری) آن را تحویل می‌دهد و `MailFake` آن را قابل تست می‌کند. شکست transport به فراخواننده گزارش می‌شود و هرگز بی‌صدا تکرار نمی‌شود.
+ایمیل تایپ‌شده بدون وابستگی شبکه‌ای در بستهٔ هسته: کلاس `Mailable` پیام را توصیف می‌کند، یک transport نام‌دار (به‌طور پیش‌فرض `log`، برای تست `array` و `smtp` از طریق بستهٔ اختیاری `Naravel.Mail.Smtp`) آن را تحویل می‌دهد و `MailFake` آن را قابل تست می‌کند. شکست transport به فراخواننده گزارش می‌شود و هرگز بی‌صدا تکرار نمی‌شود.
 
 ```csharp
 builder.Services.AddNaravelMail(builder.Configuration);   // مقدار پیش‌فرض Mail:Default برابر "log" است
@@ -300,6 +300,7 @@ dotnet run --project samples/Naravel.Sample/Naravel.Sample.csproj
 | `/queue` | dispatch در Queue، تأخیر، اولویت، retry/backoff، زنجیره و batch (به‌طور پیش‌فرض روی فایل) |
 | `/events` | dispatch رویداد `OrderPlaced`: listenerهای DI، توقف انتشار، callback از نوع `Listen` و listener صف‌شده |
 | `/routing/` | گروه مسیر، constraint، resource، model binding و route middleware |
+| `/database` | query builder روی SQLite درون‌حافظه: شرط‌هایی که به‌ازای هر پارامتر درخواست اضافه می‌شوند، مقدارهای bind‌شده، نام ستون ردشده، `WhereYear`، `FindAsync` و query log |
 
 برای تعویض provider و headerهای نمونه، [samples/Naravel.Sample/README.md](samples/Naravel.Sample/README.md) را ببینید.
 
