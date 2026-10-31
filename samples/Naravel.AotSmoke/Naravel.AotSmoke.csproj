@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Native AOT smoke sample (docs/en/trimming-aot.md). It is published with ILC and run by the evidence workflow, report-only;
-       it is not part of Naravel.slnx and never shipped. Every call below uses the trim/AOT-safe path of its package. -->
+  <!-- Native AOT smoke sample (docs/en/trimming-aot.md). .github/workflows/aot-smoke.yml publishes it with ILC and runs the native
+       binary, report-only; it is never shipped. It is in Naravel.slnx so every pull request compiles it: a change to a public API it
+       calls breaks the normal build instead of the next, rarely run, AOT workflow. Every call below uses the trim/AOT-safe path of its package. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <RootNamespace>Naravel.AotSmoke</RootNamespace>
