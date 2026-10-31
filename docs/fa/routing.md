@@ -238,7 +238,7 @@ app.MapNaravel(r =>
 
 ## middlewareهای بومی
 
-CORS، هدرهای proxy، host filtering، محدودیت اندازهٔ request و رمزنگاری cookie قابلیت‌های بومی ASP.NET Core هستند و دوباره پیاده نمی‌شوند (نگاه کنید به PDR-009). middlewareهای وابسته به Auth/Session، throttle مبتنی بر Redis، `route:list` و فرمان‌های CLI مربوط به maintenance به ماژول‌های بعدی تعلق دارند.
+CORS، هدرهای proxy، host filtering، محدودیت اندازهٔ request و رمزنگاری cookie قابلیت‌های بومی ASP.NET Core هستند و دوباره پیاده نمی‌شوند (نگاه کنید به PDR-009). middlewareهای وابسته به Auth و Session هم بومی هستند: مجوزدهی route با `RequireAuthorization` از طریق `NaravelRoute.Configure` و session با `AddSession` انجام می‌شود (PDR-016 و PDR-015، هر دو `DECLINED`؛ [auth.md](auth.md) و [session.md](session.md) را ببینید). بستهٔ Console در Naravel وجود ندارد (PDR-017 آن را به نفع `System.CommandLine` رد کرده است)، پس دستورهای `route:list` و `down`/`up` برای maintenance هم وجود ندارند. throttle مبتنی بر Redis بخشی از این بسته نیست؛ PDR-009 ذخیرهٔ مشترک throttle را به PDR جداگانه‌ای می‌سپارد.
 
 ## تست‌ها چه چیزی را پوشش می‌دهند (`tests/Naravel.Routing.Tests`)
 
@@ -251,7 +251,7 @@ CORS، هدرهای proxy، host filtering، محدودیت اندازهٔ reque
 ## محدودیت‌های این مرحله
 
 - نگاشت resource کنترلر نام actionهای متعارف MVC و routeهای conventional را انتظار دارد؛ route template اختصاصی کنترلر با resource map ترکیب نمی‌شود.
-- هنوز دستور `route:list` نداریم (به ماژول Console نیاز دارد).
+- دستور `route:list` نداریم: بستهٔ Console در Naravel وجود ندارد (PDR-017) و اینکه روی metadata endpointها چنین دستوری اضافه شود یا نه، هنوز تصمیم‌گیری نشده است.
 - state مربوط به maintenance و throttle محلی هر process است؛ برای هماهنگی instanceها زیرساخت مشترک لازم است.
 - signed URL برای چند instance به Data Protection key ring پایدار و مشترک نیاز دارد و به path/query متصل است، نه host.
 - ترتیب metadata برای middlewareِ وصل‌شده به `MapGroup` بومی از ترتیب metadata خود ASP.NET Core پیروی می‌کند؛ حذف (exclusion) به ترتیب وابسته نیست.
