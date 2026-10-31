@@ -1,6 +1,12 @@
 # Trimming and Native AOT status
 
-**Naravel is not trim-safe or AOT-compatible yet, and no package declares `IsTrimmable` or `IsAotCompatible`.** This page is the measured inventory, not a promise.
+**Naravel's own code is clean under the trim, Native AOT and single-file analyzers (0 warnings across `src/`, enforced by the build since 2026-10-31), but no package declares `IsTrimmable` or `IsAotCompatible` yet.** The analyzers only see our own code, not our dependencies, and no sample has been published with `PublishAot` and run. This page is the measured history and what is still open, not a promise.
+
+## Current state (2026-10-31)
+
+- **0 distinct warnings in `src/`** (was 126 on 2026-10-28). `Directory.Build.props` turns `EnableTrimAnalyzer`, `EnableAotAnalyzer` and `EnableSingleFileAnalyzer` on for every project under `src/`; with `TreatWarningsAsErrors` a new unannotated reflection-based call fails the build on every pull request. The report-only evidence workflow stays as the way to list everything at once.
+- **Reflection stays where it is by design, and it warns at the call site.** These entry points carry `RequiresUnreferencedCode` and `RequiresDynamicCode`, each with a `JsonTypeInfo` or compile-time counterpart: `Encrypter` typed `Encrypt<T>`/`Decrypt<T>`, `AddNaravelManager(services, configuration)` (use `Configure<TOptions>(section)` with the configuration binding generator, then `AddNaravelManager(services)`), `AddJob<TJob>(alias)` and `AddJobsFromAssembly` (use `AddJob(JsonTypeInfo<TJob>)`), `BatchOptions.Then/Catch/Finally` and `BatchCallbackRegistry.Register` without metadata, the Events/Notifications queue overloads without `JsonTypeInfo`, `MapNaravel` route mapping and URL generation by reflection.
+- **What is not claimed:** the dependencies are not vouched for (Dapper, EF Core, `AWSSDK.S3`, `Confluent.Kafka`, `RabbitMQ.Client` and others have their own trimming story), and an analyzer-clean library is not the same as a published Native AOT application that runs. `IsTrimmable` and `IsAotCompatible` are set per package only after a `PublishAot` sample that uses it has been built and run in CI.
 
 ## How it is measured
 
@@ -23,7 +29,7 @@ Largest packages: `Naravel.Queue` 21, `Naravel.Queue.Redis` 18, `Naravel.Queue.D
 
 - Applications that publish with trimming or Native AOT must expect warnings and possible runtime failures from the packages above. JIT deployments are not affected.
 - The queue envelope (`QueuedMessage`) and the job payloads are the largest area: payloads are serialised by alias through the job type registry, which is reflection based by design (OD-07).
-- Plan: fix or annotate package by package, smallest first (`Naravel.Database`, `Naravel.Encryption`, `Naravel.Cache.Redis`, `Naravel.Pagination`), then set `IsAotCompatible` on a package only when its row in the next inventory is zero. The workflow becomes a gate per package at that point.
+- Plan (updated 2026-10-31): the analyzer gate is on; next a `PublishAot` smoke sample in the evidence workflow (report-only first), then per package: review its dependencies, and set `IsTrimmable` and `IsAotCompatible` only for the ones the sample builds and runs.
 
 ## Progress
 
