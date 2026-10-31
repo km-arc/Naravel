@@ -2,18 +2,23 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages share one version (monorepo, lock-step).
 
-## [Unreleased] - 0.1.0-preview
+## [Unreleased]
+
+### Fixed
+- CI: the NuGet `publish` job now waits for every job `ci-ok` requires, including the service image pins (it did not wait for `pins` or `changes` before), and for `ci-ok` itself. `.github/scripts/check-publish-gates.py` (run by the `pins` job) fails the build if the two `needs:` lists drift apart.
+- CI: the image pin check now also reads `docker-compose.yml`, whose database images were floating (`mysql:8.4`, `postgres:17-alpine`, `mssql/server:2022-latest`) although it claims to match the CI job; they are now the exact versions CI uses.
+- CI: the NuGet `publish` job now checks that the tag matches the version of every packed `.nupkg` (`.github/scripts/check-tag-version.py`) before the NuGet login, so a tag such as `v0.1.0-preview` can no longer publish `0.1.0` packages, or the reverse. The `pins` job self-tests the script on every pull request.
 
 ### Release notes (R17)
-- First preview release of Naravel: database query builder, routing, queue, cache, filesystem, events, mail, notifications, encryption, pagination, broadcasting, scheduling and Redis, all lock-step at `0.1.0-preview`. Hashing, session and auth-lite were declined in favour of native .NET (recipes in the docs).
+- Prepared contents for Naravel's first `0.1.0` release: database query builder, routing, queue, cache, filesystem, events, mail, notifications, encryption, pagination, broadcasting, scheduling and Redis, all intended to ship in lock-step. Hashing, session and auth-lite were declined in favour of native .NET (recipes in the docs). The release has not yet been tagged or published.
 - All audit findings are closed; the release has no open `roadmap/AUDIT.md` rows.
-- Pre-1.0: breaking changes stay allowed if listed here (OD-09); revisit at the first stable release.
+- Pre-1.0 (`0.x`): breaking changes remain allowed when listed here (OD-09); revisit before `1.0.0`.
 
 ### Removed
 - Docs: removed the orphan `docs/en/querybuilder.md` (no Persian twin, described APIs that do not exist). Use `docs/en/database.md` / `docs/fa/database.md`. Closes AUDIT D-57.
 
 ### Changed
-- Evidence (report-only `evidence.yml`): recorded CI-runner benchmark baselines (`docs/en|fa/benchmarks.md`) and the first measured trim/AOT inventory (`docs/en|fa/trimming-aot.md`: 126 warnings in 18 packages, about nine in ten from reflection JSON serialisation). The packages are not declared trim-safe or AOT-compatible yet; fixes follow package by package.
+- Evidence (report-only `evidence.yml`): recorded CI-runner benchmark baselines (`docs/en|fa/benchmarks.md`) and the first measured trim/AOT inventory (`docs/en|fa/trimming-aot.md`: 126 warnings in 18 packages, about nine in ten from reflection JSON serialisation). The expanded Native AOT smoke in [run 41196158945](https://github.com/km-arc/Naravel/actions/runs/41196158945) subsequently published and ran all 14 selected checks; ILC reported 28 distinct warnings, all attributed to Dapper in the reachable database path. These results do not certify every package or dependency; no package is declared trim-safe or AOT-compatible yet.
 - Cache rate limiter: Memcached `IncrementAsync(key, by, ttl)` now passes the TTL to the fallback increment, so a counter that expires between the add and the increment is recreated with an expiry instead of becoming permanent (a subject rejected forever). Documented local versus distributed behaviour (Memory and `throttle` are per process), lock-timeout behaviour, and added a concurrency test.
 - Queue.Database (PDR-023): `DatabaseJobEnqueuer.Enqueue(db, job)` adds a job to the caller's own `DbContext`, so it commits or rolls back with the business changes in one `SaveChanges` (no lost or phantom job); `AddTransactionalEnqueue()`. `Naravel.Queue` gains `IJobMessageFactory` (implemented by `JobDispatcher`). Unique jobs, chains and batches are not supported by it; no outbox yet for Redis, Kafka or RabbitMQ.
 - JSON contains contract: documented which values `WhereJsonContains` accepts per engine (scalar types, `Guid`/`DateTime`/enum refused on SQLite and SQL Server, `null` rejected everywhere, typed vs text comparison) and added offline positive and negative tests (`JsonContainsContractTests`). No behaviour change.

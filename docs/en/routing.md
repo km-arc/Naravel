@@ -238,7 +238,7 @@ app.MapNaravel(r =>
 
 ## Native middleware
 
-CORS, proxy headers, host filtering, request-size limits and cookie encryption are native ASP.NET Core features and are not re-implemented (see PDR-009). Auth- and Session-backed middleware, Redis-backed throttling, `route:list`, and maintenance CLI commands belong to later modules.
+CORS, proxy headers, host filtering, request-size limits and cookie encryption are native ASP.NET Core features and are not re-implemented (see PDR-009). Auth- and Session-backed middleware are native too: route authorization is `RequireAuthorization` through `NaravelRoute.Configure` and sessions are `AddSession` (PDR-016 and PDR-015, both `DECLINED`; see [auth.md](auth.md) and [session.md](session.md)). There is no Naravel Console package (PDR-017 declines it in favour of `System.CommandLine`), so there are no `route:list` or maintenance `down`/`up` commands. A Redis-backed `throttle` is not part of this package; PDR-009 leaves a shared throttle store to a separate PDR.
 
 ## What the tests cover (`tests/Naravel.Routing.Tests`)
 
@@ -251,7 +251,7 @@ CORS, proxy headers, host filtering, request-size limits and cookie encryption a
 ## Limitations of this stage
 
 - Controller resource mapping expects conventional MVC action names and route templates; controller-specific route templates are not composed with the resource map.
-- No `route:list` command yet (needs the Console module).
+- No `route:list` command: there is no Naravel Console package (PDR-017), and whether to add one over the endpoint metadata is not decided.
 - Maintenance mode state and throttling are process-local; use shared infrastructure if instances need coordinated state.
 - Signed URLs require a shared, durable Data Protection key ring for multi-instance use and are path/query-bound rather than host-bound.
 - Middleware attached to a native `MapGroup` uses ASP.NET Core's metadata order; exclusions are order-independent.

@@ -24,7 +24,8 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddQueue(this IServiceCollection services, IConfiguration configuration, string sectionName = "NaravelQueue")
     {
-        services.AddNaravelManager<QueueManager, IQueueDriver, QueueOptions>(configuration.GetSection(sectionName));
+        services.Configure<QueueOptions>(configuration.GetSection(sectionName));
+        services.AddNaravelManager<QueueManager, IQueueDriver, QueueOptions>();
         services.TryAddSingleton(configuration);
         services.TryAddSingleton<IJobTypeRegistry>(sp => new JobTypeRegistry(sp.GetRequiredService<IOptions<JobTypeRegistryOptions>>()));
         services.TryAddSingleton(_ => new JsonSerializerOptions { PropertyNameCaseInsensitive = true });

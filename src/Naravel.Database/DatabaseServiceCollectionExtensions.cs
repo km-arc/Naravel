@@ -23,7 +23,8 @@ public static class DatabaseServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentException.ThrowIfNullOrWhiteSpace(sectionName);
 
-        services.AddNaravelManager<DatabaseManager, IDatabaseConnection, DatabaseOptions>(configuration.GetSection(sectionName));
+        services.Configure<DatabaseOptions>(configuration.GetSection(sectionName));
+        services.AddNaravelManager<DatabaseManager, IDatabaseConnection, DatabaseOptions>();
         services.TryAddSingleton<IConnectionScope, PooledConnectionScope>();
         services.TryAddSingleton<IDatabase>(provider => new DatabaseService(
             provider.GetRequiredService<DatabaseManager>(),

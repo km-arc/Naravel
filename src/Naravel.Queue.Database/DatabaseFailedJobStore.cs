@@ -1,13 +1,14 @@
-using System.Text.Json;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Naravel.Queue.Drivers;
 using Naravel.Queue.Failed;
+using Naravel.Queue.Serialization;
 
 namespace Naravel.Queue.Database;
 
 /// <summary>Persistent failed-job storage using the application's EF Core context.</summary>
 /// <remarks><b>Laravel equivalent:</b> failed-jobs provider. It exists to retain retryable envelopes in the application's database without owning its DbContext or migrations.</remarks>
-public sealed class DatabaseFailedJobStore<TContext> : IFailedJobStore where TContext : DbContext
+public sealed class DatabaseFailedJobStore<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors | DynamicallyAccessedMemberTypes.PublicProperties)] TContext> : IFailedJobStore where TContext : DbContext
 {
     private readonly IDbContextFactory<TContext> _contextFactory;
 
@@ -27,7 +28,7 @@ public sealed class DatabaseFailedJobStore<TContext> : IFailedJobStore where TCo
         }
 
         message.Error = exception.ToString();
-        record.Envelope = JsonSerializer.Serialize(message);
+        record.Envelope = QueueEnvelopeJson.Serialize(message);
         record.Error = message.Error;
         record.FailedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
@@ -40,7 +41,7 @@ public sealed class DatabaseFailedJobStore<TContext> : IFailedJobStore where TCo
         var records = await db.Set<FailedJobRecord>().AsNoTracking().ToListAsync(cancellationToken);
         return records.Select(record =>
         {
-            var message = JsonSerializer.Deserialize<QueuedMessage>(record.Envelope)!;
+            var message = QueueEnvelopeJson.Deserialize(record.Envelope)!;
             message.Error = record.Error;
             return message;
         }).ToList();

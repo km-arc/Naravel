@@ -28,7 +28,7 @@ if (result == PasswordVerificationResult.SuccessRehashNeeded) hash = hasher.Hash
 | `Hash::needsRehash($hashed)` | `SuccessRehashNeeded`. It is reported while verifying, which is the only time the plain password is available to rehash anyway. |
 | `rounds` (bcrypt) | `PasswordHasherOptions.IterationCount` |
 | `argon`, `argon2id` | Not in the .NET base library, so not offered |
-| Algorithm check (`HASH_VERIFY`) | Not needed: the hash carries its own format marker, and an unknown marker returns `Failed` |
+| Algorithm check (`HASH_VERIFY`) | Not needed for hashes made here: the hash carries its own format marker, and an unknown marker returns `Failed`. A value that is not Base64 at all, such as a Laravel `$2y$` bcrypt hash, is different: `VerifyHashedPassword` throws `FormatException` for it, so look at the stored value's prefix first (see "What this does not cover"). |
 
 ## Work factor
 
@@ -81,6 +81,6 @@ app.MapPost("/login", async (Credentials body, IPasswordHasher<AppUser> hasher, 
 
 ## What this does not cover
 
-- **Argon2id and bcrypt.** OWASP ranks Argon2id first and PBKDF2 as the choice when FIPS-140 is required. Neither Argon2id nor bcrypt is in the .NET base library; using them means a third-party package, which needs its own PDR in this project. That includes verifying existing Laravel `$2y$` hashes after a migration: until such a package is approved, keep the old hashes and rehash each user to the Identity format at their next login with a small adapter of your own.
+- **Argon2id and bcrypt.** OWASP ranks Argon2id first and PBKDF2 as the choice when FIPS-140 is required. Neither Argon2id nor bcrypt is in the .NET base library; using them means a third-party package, which needs its own PDR in this project. That includes verifying existing Laravel `$2y$` hashes after a migration: until such a package is approved, keep the old hashes and rehash each user to the Identity format at their next login with a small adapter of your own. The adapter must branch on the stored value **before** it calls `VerifyHashedPassword`: a `$2y$` hash is not Base64, so passing it to the Identity hasher throws `FormatException` instead of returning `Failed`.
 - **Peppering, password policy and breach checks.** Not part of hashing; none is provided.
 - **Logging.** Never log a password or a hash.

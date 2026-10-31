@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 
 namespace Naravel.Queue.Batching;
 
@@ -44,31 +46,67 @@ public class BatchOptions
     public Func<QueueBatch, Exception, CancellationToken, Task>? OnJobFailed { get; set; }
 
     /// <summary>Registers a callback for a batch that completes without failures or cancellation.</summary>
+    [RequiresUnreferencedCode("Serialises the callback payload with reflection based System.Text.Json. Trimmed or Native AOT applications use the overload that takes JsonTypeInfo<TPayload>.")]
+    [RequiresDynamicCode("Serialises the callback payload with reflection based System.Text.Json. Trimmed or Native AOT applications use the overload that takes JsonTypeInfo<TPayload>.")]
     public BatchOptions Then<TPayload>(string alias, TPayload payload)
     {
         _then.Add(BatchCallbackReference.Create(alias, payload));
         return this;
     }
 
+    /// <summary>Same as <see cref="Then{TPayload}(string, TPayload)"/>, with source-generated metadata for the payload (trimming and Native AOT).</summary>
+    /// <param name="alias">The alias registered in <see cref="BatchCallbackRegistry"/>.</param>
+    /// <param name="payload">The payload passed to the callback.</param>
+    /// <param name="payloadTypeInfo">JSON metadata for <typeparamref name="TPayload"/>.</param>
+    public BatchOptions Then<TPayload>(string alias, TPayload payload, JsonTypeInfo<TPayload> payloadTypeInfo)
+    {
+        _then.Add(BatchCallbackReference.Create(alias, payload, payloadTypeInfo));
+        return this;
+    }
+
     /// <summary>Registers a callback for a batch that contains permanent failures.</summary>
+    [RequiresUnreferencedCode("Serialises the callback payload with reflection based System.Text.Json. Trimmed or Native AOT applications use the overload that takes JsonTypeInfo<TPayload>.")]
+    [RequiresDynamicCode("Serialises the callback payload with reflection based System.Text.Json. Trimmed or Native AOT applications use the overload that takes JsonTypeInfo<TPayload>.")]
     public BatchOptions Catch<TPayload>(string alias, TPayload payload)
     {
         _catch.Add(BatchCallbackReference.Create(alias, payload));
         return this;
     }
 
+    /// <summary>Same as <see cref="Catch{TPayload}(string, TPayload)"/>, with source-generated metadata for the payload (trimming and Native AOT).</summary>
+    /// <param name="alias">The alias registered in <see cref="BatchCallbackRegistry"/>.</param>
+    /// <param name="payload">The payload passed to the callback.</param>
+    /// <param name="payloadTypeInfo">JSON metadata for <typeparamref name="TPayload"/>.</param>
+    public BatchOptions Catch<TPayload>(string alias, TPayload payload, JsonTypeInfo<TPayload> payloadTypeInfo)
+    {
+        _catch.Add(BatchCallbackReference.Create(alias, payload, payloadTypeInfo));
+        return this;
+    }
+
     /// <summary>Registers a callback for any terminal batch outcome.</summary>
+    [RequiresUnreferencedCode("Serialises the callback payload with reflection based System.Text.Json. Trimmed or Native AOT applications use the overload that takes JsonTypeInfo<TPayload>.")]
+    [RequiresDynamicCode("Serialises the callback payload with reflection based System.Text.Json. Trimmed or Native AOT applications use the overload that takes JsonTypeInfo<TPayload>.")]
     public BatchOptions Finally<TPayload>(string alias, TPayload payload)
     {
         _finally.Add(BatchCallbackReference.Create(alias, payload));
         return this;
     }
 
-    /// <summary>Gets the callbacks registered with <see cref="Then{TPayload}"/>.</summary>
+    /// <summary>Same as <see cref="Finally{TPayload}(string, TPayload)"/>, with source-generated metadata for the payload (trimming and Native AOT).</summary>
+    /// <param name="alias">The alias registered in <see cref="BatchCallbackRegistry"/>.</param>
+    /// <param name="payload">The payload passed to the callback.</param>
+    /// <param name="payloadTypeInfo">JSON metadata for <typeparamref name="TPayload"/>.</param>
+    public BatchOptions Finally<TPayload>(string alias, TPayload payload, JsonTypeInfo<TPayload> payloadTypeInfo)
+    {
+        _finally.Add(BatchCallbackReference.Create(alias, payload, payloadTypeInfo));
+        return this;
+    }
+
+    /// <summary>Gets the callbacks registered with <see cref="Then{TPayload}(string, TPayload)"/>.</summary>
     public IReadOnlyList<BatchCallbackReference> ThenCallbacks => _then;
-    /// <summary>Gets the callbacks registered with <see cref="Catch{TPayload}"/>.</summary>
+    /// <summary>Gets the callbacks registered with <see cref="Catch{TPayload}(string, TPayload)"/>.</summary>
     public IReadOnlyList<BatchCallbackReference> CatchCallbacks => _catch;
-    /// <summary>Gets the callbacks registered with <see cref="Finally{TPayload}"/>.</summary>
+    /// <summary>Gets the callbacks registered with <see cref="Finally{TPayload}(string, TPayload)"/>.</summary>
     public IReadOnlyList<BatchCallbackReference> FinallyCallbacks => _finally;
 }
 
@@ -78,10 +116,19 @@ public class BatchOptions
 /// <remarks>Laravel callbacks are delegates; Naravel intentionally persists no delegate or CLR type name.</remarks>
 public sealed record BatchCallbackReference(string Alias, string Payload)
 {
+    [RequiresUnreferencedCode("Serialises the callback payload with reflection based System.Text.Json.")]
+    [RequiresDynamicCode("Serialises the callback payload with reflection based System.Text.Json.")]
     internal static BatchCallbackReference Create<TPayload>(string alias, TPayload payload)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(alias);
         return new BatchCallbackReference(alias, JsonSerializer.Serialize(payload));
+    }
+
+    internal static BatchCallbackReference Create<TPayload>(string alias, TPayload payload, JsonTypeInfo<TPayload> payloadTypeInfo)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(alias);
+        ArgumentNullException.ThrowIfNull(payloadTypeInfo);
+        return new BatchCallbackReference(alias, JsonSerializer.Serialize(payload, payloadTypeInfo));
     }
 }
 
@@ -94,24 +141,46 @@ public sealed class BatchCallbackRegistry
         Task InvokeAsync(QueueBatch batch, string payload, CancellationToken cancellationToken);
     }
 
-    private sealed class Handler<TPayload>(Func<QueueBatch, TPayload, CancellationToken, Task> callback) : IHandler
+    private sealed class Handler<TPayload>(Func<QueueBatch, TPayload, CancellationToken, Task> callback, JsonTypeInfo<TPayload>? payloadTypeInfo) : IHandler
     {
         public Task InvokeAsync(QueueBatch batch, string payload, CancellationToken cancellationToken)
         {
-            var value = JsonSerializer.Deserialize<TPayload>(payload)
+            var value = (payloadTypeInfo is null ? ReflectionDeserialize(payload) : JsonSerializer.Deserialize(payload, payloadTypeInfo))
                 ?? throw new InvalidDataException($"Batch callback payload for '{typeof(TPayload).Name}' was null.");
             return callback(batch, value, cancellationToken);
         }
+
+        // Reached only for a handler registered through Register<TPayload>(alias, callback), which carries
+        // RequiresUnreferencedCode and RequiresDynamicCode, so the warning is raised where the handler is registered.
+        // With Native AOT, System.Text.Json reflection is disabled and this call throws instead of misreading the payload.
+        [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "The reflection path is only registered through the annotated Register<TPayload>(alias, callback) overload.")]
+        [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The reflection path is only registered through the annotated Register<TPayload>(alias, callback) overload; Native AOT disables it and System.Text.Json throws.")]
+        private static TPayload? ReflectionDeserialize(string payload) => JsonSerializer.Deserialize<TPayload>(payload);
     }
 
     private readonly ConcurrentDictionary<string, IHandler> _handlers = new(StringComparer.Ordinal);
 
     /// <summary>Registers a callback under <paramref name="alias"/> that receives the batch and a payload deserialized as <typeparamref name="TPayload"/>.</summary>
+    [RequiresUnreferencedCode("Deserialises the callback payload with reflection based System.Text.Json. Trimmed or Native AOT applications use the overload that takes JsonTypeInfo<TPayload>.")]
+    [RequiresDynamicCode("Deserialises the callback payload with reflection based System.Text.Json. Trimmed or Native AOT applications use the overload that takes JsonTypeInfo<TPayload>.")]
     public void Register<TPayload>(string alias, Func<QueueBatch, TPayload, CancellationToken, Task> callback)
+        => AddHandler(alias, callback, null);
+
+    /// <summary>Same as <see cref="Register{TPayload}(string, Func{QueueBatch, TPayload, CancellationToken, Task})"/>, with source-generated metadata for the payload (trimming and Native AOT).</summary>
+    /// <param name="alias">The alias batches refer to.</param>
+    /// <param name="callback">The callback.</param>
+    /// <param name="payloadTypeInfo">JSON metadata for <typeparamref name="TPayload"/>.</param>
+    public void Register<TPayload>(string alias, Func<QueueBatch, TPayload, CancellationToken, Task> callback, JsonTypeInfo<TPayload> payloadTypeInfo)
+    {
+        ArgumentNullException.ThrowIfNull(payloadTypeInfo);
+        AddHandler(alias, callback, payloadTypeInfo);
+    }
+
+    private void AddHandler<TPayload>(string alias, Func<QueueBatch, TPayload, CancellationToken, Task> callback, JsonTypeInfo<TPayload>? payloadTypeInfo)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(alias);
         ArgumentNullException.ThrowIfNull(callback);
-        if (!_handlers.TryAdd(alias, new Handler<TPayload>(callback)))
+        if (!_handlers.TryAdd(alias, new Handler<TPayload>(callback, payloadTypeInfo)))
             throw new InvalidOperationException($"A batch callback is already registered as '{alias}'.");
     }
 

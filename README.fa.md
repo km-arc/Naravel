@@ -1,6 +1,6 @@
 # ناراول (Naravel)
 
-APIهای آشنا و قابل‌کشف با الهام از لاراول، همراه با نقاط قوت .NET: تایپ قوی، `async/await`، تزریق وابستگی و کارایی بومی. یک ایدهٔ لاراولی فقط وقتی پذیرفته می‌شود که نسبت به امکانات خود .NET ارزش عملی اضافه کند؛ دلیل تصمیم در PDR ثبت می‌شود.
+**نام‌های لاراول، سیستم نوع‌های .NET.** اگر `Cache::remember`، `dispatch(new Job)` و `Route::prefix()->group()` را می‌شناسید، کد Naravel را از همان روز اول می‌خوانید: همان ایده‌ها در قالب APIهای آشنا و قابل‌کشف که نقاط قوت .NET را نگه می‌دارند: تایپ قوی، `async/await`، تزریق وابستگی و کارایی بومی. یک ایدهٔ لاراولی فقط وقتی پذیرفته می‌شود که نسبت به امکانات خود .NET ارزش عملی اضافه کند؛ دلیل تصمیم در PDR ثبت می‌شود.
 
 **وضعیت ماژول‌ها و نقشه‌راه:** مرجع رسمی [ROADMAP.md](ROADMAP.md) است. نتیجهٔ build و test در [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml) گزارش می‌شود.
 
@@ -8,6 +8,32 @@ APIهای آشنا و قابل‌کشف با الهام از لاراول، هم
 - راهنمای مشارکت و ایجنت‌ها: [AGENTS.md](AGENTS.md)
 - مستندات فارسی: [docs/fa](docs/fa) · PDRها: [docs/pdr/fa](docs/pdr/fa)
 - مستندات انگلیسی: [docs/en](docs/en) · PDRها: [docs/pdr/en](docs/pdr/en)
+
+## اگر لاراول را می‌شناسید
+
+همان کار، در یک خط. مثال‌های کامل‌تر در بخش ماژول‌ها پایین‌تر آمده است.
+
+| می‌خواهید | Laravel | Naravel |
+|---|---|---|
+| مقداری را کش کنید | `Cache::remember('site', 600, fn () => load())` | `await cache.RememberAsync("site", TimeSpan.FromMinutes(10), () => LoadAsync())` |
+| jobی را با تأخیر در صف بگذارید | `SendWelcome::dispatch($user)->delay(now()->addMinutes(5))` | `await jobs.DispatchAsync(new SendWelcomeJob(user), o => o.DelayFor(TimeSpan.FromMinutes(5)))` |
+| eventای پخش کنید | `event(new OrderPaid($id))` | `await events.DispatchAsync(new OrderPaid(id))` |
+| ایمیل بفرستید | `Mail::to($user->email)->send(new WelcomeMail($user))` | `await mailer.To(user.Email).SendAsync(new WelcomeMail(user))` |
+| routeها را گروه‌بندی کنید | `Route::prefix('admin')->name('admin.')->group(...)` | `routes.Prefix("admin").Name("admin.").Group(...)` |
+| جدولی را query کنید | `DB::table('users')->where('active', true)->orderBy('name')->get()` | `await db.Table("users").Where("active", true).OrderBy("name").GetAsync()` |
+| فایلی ذخیره کنید | `Storage::put($path, $contents)` | `await storage.PutAsync(path, contents)` |
+| کاری را زمان‌بندی کنید | `$schedule->call(fn () => prune())->everyFiveMinutes()->withoutOverlapping()` | `schedule.Call("prune", (sp, ct) => PruneAsync(ct)).EveryFiveMinutes().WithoutOverlapping()` |
+
+نگاشت کامل، با مشخص‌شدن آنچه Naravel به خود .NET سپرده یا رد کرده، در [جدول parity با لاراول](docs/fa/laravel-parity.md) است.
+
+## چرا Naravel
+
+- **نام‌های آشنا، .NET معمولی.** `RememberAsync`، `DelayFor` و `Prefix().Group()`: واژگان لاراول روی متدهایی که `async` هستند، `CancellationToken` می‌گیرند و از تزریق وابستگی می‌آیند.
+- **اول بومی، با صراحت.** session، هش گذرواژه و مجوزدهی route از قبل در ASP.NET Core و .NET هست، پس Naravel به‌جای بسته، دستورالعمل مستند می‌دهد (PDR-015، PDR-016، PDR-019). جایی هم که بسته اضافه می‌کند، یک PDR دلیلش را ثبت می‌کند.
+- **صادق دربارهٔ تضمین‌ها.** jobهای صف at-least-once هستند و باید idempotent باشند؛ Kafka تحویل با تأخیر را رد می‌کند؛ throttle در routeها فقط در یک پردازه اعمال می‌شود. محدودیت‌ها کنار قابلیت‌ها نوشته شده‌اند، نه اینکه در production کشف شوند.
+- **fake برای تست، بدون global state.** ماژول‌های Cache، Events، Mail، Notifications، Queue، Filesystem، Broadcasting، Database و Scheduling هرکدام یک fake دارند (`MailFake`، `QueueFake`، `StorageFake`...) که مثل هر وابستگی دیگر به کد می‌دهید و رویش assert می‌کنید، بدون broker، mail server، دیسک، bucket یا پایگاه داده.
+
+می‌خواهید اول اجرایش را ببینید؟ بخش «برنامهٔ نمونه» در پایین با یک دستور راه می‌افتد.
 
 ## ماژول‌ها
 
@@ -30,7 +56,9 @@ var scratch = storage.Disk("scratch");
 storeهای نام‌دار Memory، Redis و Memcached؛ `RememberAsync`؛ scope صریح user/tenant؛ بی‌اعتبارسازی مبتنی بر نسخهٔ tag؛ lock توکنی؛ و rate limiter پنجره‌ای مبتنی بر Cache. providerهای Redis و Memcached بسته‌های اختیاری‌اند.
 
 ```csharp
-using Naravel.Cache.Abstractions;
+using Naravel.Cache;                // RememberAsync
+using Naravel.Cache.Abstractions;   // ICacheStore
+using Naravel.Cache.Redis;          // AddNaravelRedisCache
 
 builder.Services.AddNaravelCache(builder.Configuration)
     .AddNaravelRedisCache(builder.Configuration);
@@ -52,6 +80,7 @@ public sealed class SettingsService(ICacheStore cache)
 using Naravel.Queue.Extensions;
 using Naravel.Queue.Dispatch;
 using Naravel.Queue.Jobs;
+using Naravel.Queue.Redis;   // AddRedisDriver
 
 builder.Services.AddQueue(builder.Configuration)
     .AddRedisDriver(builder.Configuration);
@@ -185,7 +214,7 @@ await broadcaster.BroadcastAsync(new OrderShipped(7));   // record OrderShipped(
 
 ### Naravel.Database
 
-query builder به سبک Laravel با اتصال‌های نام‌دار و SQL با پارامتر، برای SQLite، MySQL، PostgreSQL و SQL Server (Dapper ردیف‌ها را map می‌کند؛ EF Core همچنان ابزار entity و migration است). **امروز:** اتصال‌ها، درایورهای SQLite، MySQL، PostgreSQL و SQL Server، builder با خانوادهٔ کامل where (مقدار، null، between، ستون، بخش تاریخ، any/all/none، الگو، متن کامل، مسیر JSON، exists و زیرکوئری)، شرطی‌ها، join، group by و having، کمک‌های ترتیب، limit، union، زیرکوئری و join جانبی (lateral)، CTE، عبارت raw همراه با binding، قفل ردیف و `ToSql`/`ToRawSql` که برای هر چهار دیالکت کامپایل می‌شود و روی هر چهار اجرا می‌شود (یک suite قرارداد مشترک در CI)، و مشاهده‌پذیری (meter و activity با نام `Naravel.Database` بدون SQL در tagها، `IQueryListener`، query log اختیاری) به‌همراه `DatabaseFake` برای تست. aggregate (`CountAsync`، `SumAsync`، `ExistsAsync`...)، chunk و استریم `IAsyncEnumerable` شامل هستند؛ نوشتن هم هست: `InsertAsync`، `InsertGetIdAsync`، `UpdateAsync`، `IncrementAsync`، `UpsertAsync`، `DeleteAsync`، `TruncateAsync` و `*ReturningAsync` و برای update و delete `where` صریح لازم است؛ تراکنش (`TransactionAsync` با savepoint و تکرار هنگام deadlock، `BeginTransactionAsync`، که `IDatabase` تزریق‌شده هم به آن می‌پیوندد) و آداپتور اختیاری EF Core (`Naravel.Database.EntityFrameworkCore`: `dbContext.Query("table")` و `db.Using(dbContext)` اتصال و تراکنش context را به اشتراک می‌گذارند)؛ یکپارچگی صفحه‌بندی در مرحله‌ای بعد می‌آید (فایل [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md) را ببینید).
+query builder به سبک Laravel با اتصال‌های نام‌دار و SQL با پارامتر، برای SQLite، MySQL، PostgreSQL و SQL Server (Dapper ردیف‌ها را map می‌کند؛ EF Core همچنان ابزار entity و migration است). **امروز:** اتصال‌ها، درایورهای SQLite، MySQL، PostgreSQL و SQL Server، builder با خانوادهٔ کامل where (مقدار، null، between، ستون، بخش تاریخ، any/all/none، الگو، متن کامل، مسیر JSON، exists و زیرکوئری)، شرطی‌ها، join، group by و having، کمک‌های ترتیب، limit، union، زیرکوئری و join جانبی (lateral)، CTE، عبارت raw همراه با binding، قفل ردیف و `ToSql`/`ToRawSql` که برای هر چهار دیالکت کامپایل می‌شود و روی هر چهار اجرا می‌شود (یک suite قرارداد مشترک در CI)، و مشاهده‌پذیری (meter و activity با نام `Naravel.Database` بدون SQL در tagها، `IQueryListener`، query log اختیاری) به‌همراه `DatabaseFake` برای تست. aggregate (`CountAsync`، `SumAsync`، `ExistsAsync`...)، chunk و استریم `IAsyncEnumerable` شامل هستند؛ نوشتن هم هست: `InsertAsync`، `InsertGetIdAsync`، `UpdateAsync`، `IncrementAsync`، `UpsertAsync`، `DeleteAsync`، `TruncateAsync` و `*ReturningAsync` و برای update و delete `where` صریح لازم است؛ تراکنش (`TransactionAsync` با savepoint و تکرار هنگام deadlock، `BeginTransactionAsync`، که `IDatabase` تزریق‌شده هم به آن می‌پیوندد) و آداپتور اختیاری EF Core (`Naravel.Database.EntityFrameworkCore`: `dbContext.Query("table")` و `db.Using(dbContext)` اتصال و تراکنش context را به اشتراک می‌گذارند)؛ صفحه‌بندی (`PaginateAsync`، `SimplePaginateAsync` و `CursorPaginateAsync` که نوع‌های `Naravel.Pagination` را برمی‌گردانند) هم شامل است (رفتار در هر موتور فرق دارد و قراردادی مستند است: [docs/fa/database-dialects.md](docs/fa/database-dialects.md)؛ «به سبک Laravel» در اینجا فقط به زیرمجموعهٔ تست‌شده اشاره دارد؛ برنامهٔ متد‌به‌متد در [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md)).
 
 ```csharp
 builder.Services.AddNaravelDatabase(builder.Configuration);
@@ -199,7 +228,7 @@ var authors = await db.Table("users")                       // join، مسیر J
     .WhereLike("users.name", "a%")
     .Where("users.settings->theme", "dark")                  // مسیر JSON، به‌صورت پارامتر bind می‌شود
     .WhereExists(s => s.Table("comments").WhereColumn("comments.post_id", "posts.id"))
-    .When(onlyRecent, q => q.Latest("posts.created_at"))
+    .When(onlyRecent, q => q.Where("posts.created_at", ">=", DateTime.UtcNow.AddDays(-7)))
     .Select("users.name").GroupBy("users.name")
     .GetAsync(cancellationToken);
 ```
@@ -286,6 +315,14 @@ var next = await db.Posts.CursorPaginateAsync(k => k.By(p => p.CreatedAt).Then(p
 | `Naravel.Database.SqlServer` | `builder.Services.AddNaravelSqlServerDatabase(configuration);` |
 
 extension methodهای Queue در `Naravel.Queue.Extensions` قرار دارند. بخش تنظیمات Queue به‌طور پیش‌فرض `NaravelQueue:Stores`، Cache بخش `Cache:Stores` و Filesystem بخش `Filesystem:Stores` است؛ برای هرکدام می‌توان نام بخش دیگری تعیین کرد.
+
+### Hashing (بومی، بدون بسته)
+
+هش گذرواژه از قبل در .NET هست: `PasswordHasher<TUser>` از `Microsoft.Extensions.Identity.Core` کار `Hash::make`، `Hash::check` و `Hash::needsRehash` را انجام می‌دهد (PDR-019، `DECLINED`). تنها چیزی که باید عوض کنید هزینهٔ کار است: مقدار پیش‌فرض ۱۰۰٬۰۰۰ iteration برای HMAC-SHA512 کمتر از عدد OWASP است، پس `PasswordHasherOptions.IterationCount` را خودتان تنظیم کنید. [docs/fa/hashing.md](docs/fa/hashing.md) و [docs/en/hashing.md](docs/en/hashing.md) را ببینید.
+
+### Session و middleware احراز هویت (بومی، بدون بسته)
+
+Session از قبل در ASP.NET Core هست: `AddSession` روی هر `IDistributedCache`، و `TempData` و `ModelState` برای داده‌های flash و ورودی قبلی (PDR-015، `DECLINED`). مجوزدهی route با `NaravelRoute.Configure(b => b.RequireAuthorization("policy"))` انجام می‌شود؛ aliasهای `auth`، `can` و `verified` وجود ندارند و alias داخلی `guest` می‌ماند (PDR-016، `DECLINED`). [docs/fa/session.md](docs/fa/session.md)، [docs/fa/auth.md](docs/fa/auth.md) و نسخه‌های انگلیسی آن‌ها در `docs/en/` را ببینید.
 
 ## برنامهٔ نمونه
 

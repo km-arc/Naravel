@@ -216,11 +216,22 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
+      s3mock:
+        image: adobe/s3mock:5.2.3
+        ports:
+          - 9090:9090
+        options: >-
+          --health-cmd "wget --spider -q http://localhost:9090/favicon.ico"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 30s
     env:
       NARAVEL_TEST_REDIS: localhost:6379
       NARAVEL_TEST_RABBITMQ: amqp://naravel:naravel@localhost:5672/%2f
       NARAVEL_TEST_KAFKA: localhost:9092
       NARAVEL_TEST_MEMCACHED: localhost:11211
+      NARAVEL_TEST_S3: "http://localhost:9090;naravel;naravel;naravel-test"
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -259,6 +270,15 @@ jobs:
           -c Release --no-build --no-restore
           --logger "trx;LogFileName=CacheProviders.trx"
           --results-directory TestResults/Providers/Cache
+          --collect:"XPlat Code Coverage"
+
+      - name: S3 storage integration tests
+        run: >-
+          dotnet test tests/Naravel.Filesystem.Tests/Naravel.Filesystem.Tests.csproj
+          -c Release --no-build --no-restore
+          --filter "FullyQualifiedName~S3StorageDriverSharedContractTests"
+          --logger "trx;LogFileName=S3Storage.trx"
+          --results-directory TestResults/Providers/Filesystem
           --collect:"XPlat Code Coverage"
 
       - name: Broadcasting presence on Redis
@@ -552,6 +572,10 @@ jobs:
         uses: actions/checkout@v4
       - name: Reject floating image tags
         run: python3 .github/scripts/check-image-pins.py
+      - name: Publishing must wait for every required job
+        run: python3 .github/scripts/check-publish-gates.py
+      - name: Tag/version guard still works
+        run: python3 .github/scripts/check-tag-version.py --self-test
 
   # The one check branch protection needs. A database job skipped by the path filter counts as success; any failure,
   # cancellation or missing result fails it, so a filtered job can never block a merge by being absent.
@@ -585,7 +609,9 @@ jobs:
 
   publish:
     name: Publish to NuGet
-    needs: [fast, services, database]
+    # Publishing waits for every job ci-ok requires, the service image pins included. ci-ok is listed as well, so a job added to it
+    # later is covered even if this list is forgotten; .github/scripts/check-publish-gates.py fails the build when the two drift apart.
+    needs: [fast, services, changes, database, pins, ci-ok]
     # Publish only from version tags (v*). Never from main, PRs or manual runs.
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
@@ -605,6 +631,11 @@ jobs:
 
       - name: Pack projects
         run: dotnet pack Naravel.slnx -c Release -o ./nupkgs
+
+      # The version comes from Directory.Build.props, the tag only names the release. A tag that does not match (v0.1.0-preview after
+      # the preview suffix was removed, a tag cut from an older commit) must stop here, before the NuGet login and any push.
+      - name: Tag must match the package version
+        run: python3 .github/scripts/check-tag-version.py "${GITHUB_REF_NAME}" ./nupkgs
 
       - name: NuGet login (OIDC Trusted Publishing)
         id: nuget-login

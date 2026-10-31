@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <!-- Compile-time configuration binding (no reflection) for the Configure<TOptions>(section) call. -->
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <PackageId>Naravel.Mail</PackageId>
     <Description>Typed mail contract for Naravel: Mailable classes, named transports (log, array, SMTP via an optional package) and a test fake, built on Naravel.Foundation.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

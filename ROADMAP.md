@@ -88,7 +88,7 @@ PDR numbers are fixed: 007a RateLimiter · 008 Filesystem · 009 Routing (done) 
 | OD-06 | Quality principles S1–S3 apply to every stage (see *Definition of done*). |
 | OD-07 | Queue job identity is an explicit **alias registry**, not `AssemblyQualifiedName` (R00.T01). |
 | OD-08 | Expected thin/native outcomes: R11, R12, R15 likely `DECLINED` or tiny; R13 commands likely native; R14 thin over SignalR. A PDR must still argue it. |
-| OD-09 | Pre-1.0 (`0.x-preview`): breaking changes are allowed if listed in `CHANGELOG.md`. Revisit at R17. |
+| OD-09 | Pre-1.0 (`0.x`): breaking changes are allowed if listed in `CHANGELOG.md`; revisit before 1.0.0. |
 
 ## PDR-batching rule
 If `NEXT` has gate `PDR`/`GO` and no approved PDR exists, do **not** idle: write the EN+FA PDRs for **every stage of

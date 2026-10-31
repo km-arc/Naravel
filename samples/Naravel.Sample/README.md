@@ -56,4 +56,4 @@ For Redis-backed limiting with several instances, register `AddNaravelRedisCache
 
 Protected examples accept the request header `X-Sample-Key: naravel-demo`. The role example additionally expects `X-Sample-Role: admin`. The domain-scoped examples require the host `tenant.example.test`.
 
-The sample does not claim full Laravel routing parity. `route:list`, view-route helpers, string controller actions, route caching, scoped binding, missing-model callbacks, and authorization policies are not implemented by the current routing package. See `docs/en/routing.md`, `PROGRESS-ROUTING.md`, and PDR-009 for the current decisions and follow-ups.
+The sample does not claim full Laravel routing parity. `route:list`, view-route helpers, string controller actions, route caching, scoped binding, missing-model callbacks, and authorization policies are not implemented by the current routing package (route authorization is native `RequireAuthorization`; see `docs/en/auth.md`). See `docs/en/routing.md` and PDR-009 for the current decisions and limits; `PROGRESS-ROUTING.md` is the historical record.

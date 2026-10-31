@@ -45,11 +45,13 @@ services.AddNaravelDriver<ICacheDriver>("file", sp =>
 ```csharp
 public static IServiceCollection AddNaravelCache(this IServiceCollection s, IConfiguration c)
 {
-    s.AddNaravelManager<CacheManager, ICacheDriver, CacheOptions>(c);
+    s.Configure<CacheOptions>(c);                                    // نوع مشخص: bind در زمان کامپایل
+    s.AddNaravelManager<CacheManager, ICacheDriver, CacheOptions>(); // manager، registry و درایور پیش‌فرض
     s.AddNaravelDriver<ICacheDriver>("file", /* ... */);
     return s;
 }
 ```
+در فایل پروژهٔ ماژول `<EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>` را بگذارید تا `Configure` با configuration binding generator و نه با reflection bind شود (مسیر trim و Native AOT). شکل کوتاه‌تر `AddNaravelManager<...>(services, configuration)` برای کد برنامه است؛ با reflection bind می‌کند و `RequiresUnreferencedCode` و `RequiresDynamicCode` دارد.
 
 ## ۵. تست (اجباری)
 - هر درایور داخلی تست‌های خودش را دارد.
