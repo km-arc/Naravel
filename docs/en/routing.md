@@ -127,7 +127,7 @@ Partitions use the authenticated name identifier (or identity name), falling bac
 What to do today:
 
 1. Use `throttle` where roughly N times the limit is acceptable (damping scrapers, protecting a single instance's CPU), not as a security boundary.
-2. For one limit shared by all instances, use the Cache-backed `IRateLimiter` on a shared Redis store. The tested login example in [cache.md](cache.md) does this in an endpoint handler; the same call fits in your own `IRouteMiddleware` (see the `role` example below). Redis is the safer store for a critical shared quota; read the backend table in cache.md first.
+2. For a quota that must be shared by all instances and counts explicit attempts (failed logins, one-time codes), use the Cache-backed `IRateLimiter` on a shared Redis store, in the handler. The tested login example in [cache.md](cache.md) does this. It takes a lock per subject and makes several store calls, so it suits attempt counters, not a blanket throttle on a busy route. Redis is the safer store for a critical shared quota; read the backend table in cache.md first.
 3. Or enforce the limit at the edge (reverse proxy or API gateway), where all traffic passes exactly once.
 
 A built-in shared store for `throttle` is not built. It is proposed in [PDR-024](../pdr/en/PDR-024-shared-throttle-store.md), which needs owner approval.
