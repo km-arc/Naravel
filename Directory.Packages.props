@@ -12,7 +12,8 @@
     <!-- Naravel.Encryption (PDR-021 A1 E6): the facade references the full Data Protection package. 10.0.13 was the highest stable 10.0.x on nuget.org on 2026-10-24
          and is the first whose System.Security.Cryptography.Xml dependency has no advisory (10.0.12 carries GHSA-7hqp-7c5m-4vq6, GHSA-r955-8q5j-3h83 and
          GHSA-c399-9853-6jmj). It needs Microsoft.Extensions.* abstractions of at least 10.0.13, so the five packages above it in this block were raised to 10.0.13.
-         OWNER TO CONFIRM this version before merge (as with Cronos); the NuGet audit in CI is the arbiter. -->
+         Confirmed by the owner on 2026-10-31 (AUDIT D-64); the NuGet audit in CI stays the arbiter. .NET 10.0.14 (an out-of-band security
+         update, 2026-10-25) is newer: moving the Microsoft.* pins off 10.0.13 is a separate change for the whole train, not for this package alone. -->
     <PackageVersion Include="Microsoft.AspNetCore.DataProtection" Version="10.0.13" />
     <!-- 2026-10-25: every package below was raised to the latest stable version without a NuGet vulnerability or deprecation flag (read from nuget.org). Deliberate exceptions: FluentAssertions stays on 7.x (8.x needs a paid commercial licence); xunit stays on 2.9.3 (deprecated in favour of xunit.v3, a package and API migration of every test project, AUDIT D-65); SQLitePCLRaw.lib.e_sqlite3 stays on the 2.1 line (3.x is a different major that Microsoft.Data.Sqlite 10 does not use); Npgsql, Dapper, MySqlConnector, Microsoft.Data.SqlClient, Newtonsoft.Json, RabbitMQ.Client, BenchmarkDotNet, PublicApiAnalyzers, coverlet.collector were already the latest. -->
     <!-- Cron expression parser for Naravel.Scheduling (PDR-017 D3). 0.11.0 was confirmed by the owner (2026-10-24); 0.13.0 (latest stable, 2026-10-25) adds previous-occurrence queries and is raised on the owner request to use the latest stable of every package. -->
