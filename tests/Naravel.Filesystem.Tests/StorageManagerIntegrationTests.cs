@@ -91,6 +91,22 @@ public sealed class StorageManagerIntegrationTests : IDisposable
         custom.DisposeCalls.Should().Be(1);
     }
 
+    [Fact]
+    public void DI_disposes_the_default_driver_once_for_programmatic_filesystem_registration()
+    {
+        var services = new ServiceCollection();
+        services.AddNaravelFilesystem(options => options.Default = "custom");
+        var custom = new TrackingDriver();
+        services.AddNaravelDriver<IStorageDriver>("custom", _ => custom);
+        var provider = services.BuildServiceProvider();
+        var manager = provider.GetRequiredService<StorageManager>();
+
+        provider.GetRequiredService<IStorageDriver>().Should().BeSameAs(manager.Disk());
+        provider.Dispose();
+
+        custom.DisposeCalls.Should().Be(1);
+    }
+
     private ServiceProvider Build(ConfigurationManager config)
     {
         var services = new ServiceCollection();

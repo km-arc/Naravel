@@ -157,6 +157,27 @@ public sealed class CacheManagerIntegrationTests
     }
 
     [Fact]
+    public void Injected_default_cache_store_is_a_scoped_view_and_manager_disposes_its_driver_once()
+    {
+        var config = Config(("Default", "custom"));
+        var services = new ServiceCollection();
+        services.AddNaravelCache(config);
+        var custom = new DisposableFakeStore("custom");
+        services.AddNaravelDriver<ICacheStore>("custom", _ => custom);
+        var provider = services.BuildServiceProvider();
+        var manager = provider.GetRequiredService<CacheManager>();
+        var injected = provider.GetRequiredService<ICacheStore>();
+
+        manager.Driver().Should().BeSameAs(custom);
+        injected.Should().NotBeSameAs(custom);
+        injected.Should().BeOfType<Naravel.Cache.Scoping.ScopedCacheStore>();
+
+        provider.Dispose();
+
+        custom.DisposeCalls.Should().Be(1);
+    }
+
+    [Fact]
     public void Redis_and_memcached_provider_registration_adds_configured_names_without_connecting()
     {
         var config = Config(
@@ -237,7 +258,9 @@ public sealed class CacheManagerIntegrationTests
 
     private sealed class DisposableFakeStore(string name) : ICacheStore, IDisposable
     {
-        public bool IsDisposed { get; private set; }
+        private int _disposeCalls;
+        public int DisposeCalls => Volatile.Read(ref _disposeCalls);
+        public bool IsDisposed => DisposeCalls > 0;
         public string Name => name;
         public Task<(bool Found, T? Value)> TryGetAsync<T>(string key, CancellationToken cancellationToken = default) => Task.FromResult((false, default(T)));
         public Task SetAsync<T>(string key, T value, TimeSpan? ttl, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -247,7 +270,7 @@ public sealed class CacheManagerIntegrationTests
         public Task<long> IncrementAsync(string key, long by, TimeSpan ttl, CancellationToken cancellationToken = default) => Task.FromResult(by);
         public Task<long> DecrementAsync(string key, long by, CancellationToken cancellationToken = default) => Task.FromResult(-by);
         public Task FlushAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public void Dispose() => IsDisposed = true;
+        public void Dispose() => Interlocked.Increment(ref _disposeCalls);
     }
 
     private sealed class DisposableFakeLock : ICacheLock, IDisposable
