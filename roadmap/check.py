@@ -218,8 +218,9 @@ def main() -> int:
             errors.append(f"{kind}: EN/FA file mismatch: {sorted(en ^ fa)}")
 
     fa_text = (ROOT / "ROADMAP.fa.md").read_text(encoding="utf-8")
-    fa_next = re.search(r"(?m)^NEXT:\s*(R\d{2})\s*$", fa_text)
-    if not fa_next or fa_next.group(1) != next_id:
+    fa_next = re.search(r"(?m)^NEXT:\s*(R\d{2}|none)\s*$", fa_text)
+    fa_next_id = None if fa_next and fa_next.group(1) == "none" else (fa_next.group(1) if fa_next else None)
+    if not fa_next or fa_next_id != next_id:
         errors.append("ROADMAP.fa.md NEXT pointer differs from ROADMAP.md")
 
     # stage-file structure (STAGE-TEMPLATE.md)
