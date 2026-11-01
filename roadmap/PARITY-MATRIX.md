@@ -276,3 +276,9 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 | Translation | Native (`IStringLocalizer`) | - |
 | Validation / Form Requests | Not built (OD-04): document FluentValidation/DataAnnotations | BACKLOG |
 | View | Native (Razor/Minimal API) | - |
+## R27 — Foundation NuGet package README
+
+- Laravel surface: none; this is a package-distribution and consumer-documentation correction, not a Laravel feature.
+- Naravel: `Naravel.Foundation` embeds its English module guide as the package-root `README.md` and declares that path through NuGet's `readme` metadata.
+- Value: NuGet Gallery and supported package clients can display the actual Foundation guide rather than reporting a missing README or showing the monorepo overview.
+- Native baseline: use the SDK's `PackageReadmeFile` MSBuild property and a packed Markdown file; no custom packaging dependency is needed.
