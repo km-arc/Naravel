@@ -117,7 +117,7 @@ manager.Extend("scratch", _ => new LocalStorageDriver("storage/scratch", "/scrat
 var scratch = manager.Disk("scratch");
 ```
 
-manager مالک driverهایی است که factory برمی‌گرداند و هنگام dispose شدن manager آن‌ها را آزاد می‌کند. از برگرداندن singleton متعلق به container استفاده نکنید، مگر اینکه manager اجازهٔ آزادسازی آن را داشته باشد.
+Manager مالک درایورهای نام‌دار و نمونه‌هایی است که برای استفادهٔ داخلی خودش می‌سازد. اگر `IStorageDriver` پیش‌فرض مستقیماً از DI resolve شود، container مالک همان نمونه است و آن را آزاد می‌کند؛ Manager حتی اگر reload تنظیمات آن را بازنشسته کند از آزادسازی‌اش صرف‌نظر می‌کند. اگر سرویس مستقیم resolve نشود، خود Manager درایور پیش‌فرض را آزاد می‌کند. از برگرداندن singleton نامرتبط متعلق به container از factory درایور خودداری کنید.
 
 ## مثال کامل
 

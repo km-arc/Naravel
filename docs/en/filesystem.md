@@ -117,7 +117,7 @@ manager.Extend("scratch", _ => new LocalStorageDriver("storage/scratch", "/scrat
 var scratch = manager.Disk("scratch");
 ```
 
-The manager owns drivers returned by factories and disposes them when the manager is disposed. Do not return an unrelated container-owned singleton from a factory unless the manager is allowed to dispose it.
+The manager owns named and otherwise manager-created drivers. When the default `IStorageDriver` is resolved directly from DI, the container owns and disposes that exact instance; the manager skips it, including if a configuration reload later retires it. If the direct service is never resolved, the manager disposes the default itself. Do not return an unrelated container-owned singleton from a driver factory.
 
 ## Complete example
 

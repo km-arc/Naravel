@@ -36,8 +36,8 @@ services.AddNaravelDriver<ICacheDriver>("file", sp =>
 });
 ```
 Rules:
-- **Ownership:** the manager disposes what factories return. Create instances with `new` / `ActivatorUtilities.CreateInstance`; do not return container-owned singletons.
-- **Idempotent `Dispose`/`DisposeAsync`** (the DI container may also dispose the default driver).
+- **Ownership:** if the default `TDriver` service registered by `AddNaravelManager` is resolved, DI owns and disposes that default instance and the manager skips it. If it is not resolved, the manager disposes the default itself. The manager disposes all other factory-created drivers, including named and retired instances. Create instances with `new` / `ActivatorUtilities.CreateInstance`; never return an unrelated container-owned singleton from a factory.
+- Keep `Dispose`/`DisposeAsync` idempotent where practical, especially when a driver can also be explicitly disposed by application code.
 - Prefer `IAsyncDisposable` for I/O drivers. Use async factories for anything that connects over the network.
 - If a driver depends on configuration *outside* its store section (like Laravel's `connection => 'cache'` pointing at another config section), call `manager.Forget(name)` when that config changes.
 
