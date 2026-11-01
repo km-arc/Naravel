@@ -116,7 +116,21 @@ builder.Services.AddNaravelRouting(o => o.ConfigureThrottlePolicy("login", 5, Ti
 app.MapNaravel(r => r.Post("/login", Login).Middleware("throttle:login"));
 ```
 
-partition بر اساس شناسهٔ کاربر احراز‌شده (یا نام identity) ساخته می‌شود و اگر موجود نباشد IP درخواست را به کار می‌برد؛ endpoint و policy نیز جداکننده‌اند. پاسخ‌ها `X-RateLimit-Limit` و `X-RateLimit-Remaining` دارند؛ درخواست ردشده 429 و `Retry-After` می‌گیرد. این محدودیت process-local است و سهمیهٔ instanceها را هماهنگ نمی‌کند. پنجرهٔ ثابت ممکن است در بازه‌ای کوتاه پیرامون مرز دو پنجره تا ۲ برابر سقف را بپذیرد.
+partition بر اساس شناسهٔ کاربر احراز‌شده (یا نام identity) ساخته می‌شود و اگر موجود نباشد IP درخواست را به کار می‌برد؛ endpoint و policy نیز جداکننده‌اند. پاسخ‌ها `X-RateLimit-Limit` و `X-RateLimit-Remaining` دارند؛ درخواست ردشده 429 و `Retry-After` می‌گیرد. پنجرهٔ ثابت ممکن است در بازه‌ای کوتاه پیرامون مرز دو پنجره تا ۲ برابر سقف را بپذیرد. شمارنده‌ها در حافظهٔ هر process هستند؛ پیش از اجرای بیش از یک instance بخش بعد را بخوانید.
+
+#### throttle پشت بیش از یک سرور
+
+- **هر instance سهمیهٔ جداگانه دارد.** با N instance هر فراخوان N بار جدا شمرده می‌شود. پشت load balancer از نوع round-robin یک فراخوان می‌تواند در یک پنجره تا N برابر سقف درخواست بفرستد و از یک سرور 429 بگیرد در حالی که سرور دیگر هنوز 200 می‌دهد. سقف عملی **شل‌تر** از مقدار تنظیم‌شده است، نه سخت‌گیرانه‌تر.
+- **restart همهٔ سهمیه‌ها را صفر می‌کند.** شمارنده‌ها ذخیره نمی‌شوند: deploy، crash، scale-in یا scale-out باعث می‌شود instance مربوط با شمارندهٔ خالی شروع کند و فراخوان‌ها پنجرهٔ تازه بگیرند.
+- **فراخوان‌های پشت proxy.** فراخوان ناشناس با `RemoteIpAddress` شناسایی می‌شود. پشت load balancer یا reverse proxy این همان آدرس proxy است، مگر اینکه forwarded headers در ASP.NET Core فعال باشد (`UseForwardedHeaders` و proxy در `KnownProxies` یا `KnownNetworks`)؛ بدون آن همهٔ فراخوان‌های ناشناس یک bucket مشترک دارند و سقف بسیار سخت‌گیرانه می‌شود. Naravel این را دوباره پیاده نمی‌کند (PDR-009).
+
+اکنون چه باید کرد:
+
+1. `throttle` را جایی به کار ببرید که تقریباً N برابر سقف قابل‌قبول است (کند کردن scraperها، محافظت از CPU یک instance)، نه به‌عنوان مرز امنیتی.
+2. برای سهمیه‌ای که باید بین همهٔ instanceها مشترک باشد و تلاش‌های صریح را می‌شمارد (loginهای ناموفق، کدهای یک‌بارمصرف) از `IRateLimiter` مبتنی بر Cache روی Redis مشترک و در خود handler استفاده کنید. مثال تست‌شدهٔ login در [cache.md](cache.md) همین است. این limiter برای هر subject یک lock می‌گیرد و چند فراخوانی store دارد، پس برای شمارندهٔ تلاش‌ها مناسب است نه برای throttle سراسری روی routeای پرترافیک. برای سهمیهٔ مشترکِ حساس Redis انتخاب امن‌تر است؛ پیش از آن جدول backendها در cache.md را بخوانید.
+3. یا سقف را در لبه (reverse proxy یا API gateway) اعمال کنید، جایی که همهٔ ترافیک دقیقاً یک بار عبور می‌کند.
+
+store مشترک داخلی برای `throttle` ساخته نشده است. پیشنهاد آن در [PDR-024](../pdr/fa/PDR-024-shared-throttle-store.md) آمده و به تأیید مالک نیاز دارد.
 
 `IUrlGenerator.SignedRoute(name, values)` و `TemporarySignedRoute(name, expiresAt, values)` URL نسبی امضاشده می‌سازند. برای اعتبارسنجی، `.Middleware("signed")` را وصل کنید. امضا path و query را پوشش می‌دهد، نه host را؛ URL موقت پس از انقضا رد می‌شود. برای تولید و اعتبارسنجی لینک در چند instance، کلیدهای Data Protection باید پایدار و مشترک باشند؛ در production از key ring در برابر ذخیره‌سازی ناامن محافظت کنید.
 
@@ -252,7 +266,7 @@ CORS، هدرهای proxy، host filtering، محدودیت اندازهٔ reque
 
 - نگاشت resource کنترلر نام actionهای متعارف MVC و routeهای conventional را انتظار دارد؛ route template اختصاصی کنترلر با resource map ترکیب نمی‌شود.
 - دستور `route:list` نداریم: بستهٔ Console در Naravel وجود ندارد (PDR-017) و اینکه روی metadata endpointها چنین دستوری اضافه شود یا نه، هنوز تصمیم‌گیری نشده است.
-- state مربوط به maintenance و throttle محلی هر process است؛ برای هماهنگی instanceها زیرساخت مشترک لازم است.
+- state مربوط به maintenance و throttle محلی هر process است: با N instance، throttle تا N برابر سقف را می‌پذیرد و هر restart آن را صفر می‌کند (بخش «throttle پشت بیش از یک سرور»)؛ برای هماهنگی instanceها زیرساخت مشترک لازم است.
 - signed URL برای چند instance به Data Protection key ring پایدار و مشترک نیاز دارد و به path/query متصل است، نه host.
 - ترتیب metadata برای middlewareِ وصل‌شده به `MapGroup` بومی از ترتیب metadata خود ASP.NET Core پیروی می‌کند؛ حذف (exclusion) به ترتیب وابسته نیست.
 - پیکربندی مسیرها یک‌بار هنگام استارت خوانده می‌شود (بدون hot reload).

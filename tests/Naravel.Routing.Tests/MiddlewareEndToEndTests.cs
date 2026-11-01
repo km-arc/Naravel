@@ -82,6 +82,26 @@ public class MiddlewareEndToEndTests
     }
 
     [Fact]
+    public async Task Throttle_counts_per_application_instance_and_starts_empty_after_a_restart()
+    {
+        // Documents the limit in docs/en/routing.md ("Throttle behind more than one server"): the counters live in each
+        // process. Two hosts stand for two servers behind a load balancer; a third, fresh host stands for a restart.
+        void Routes(IRouteRegistrar r) => r.Get("/limited", () => "ok").Middleware("throttle:1,1");
+        await using var serverA = await TestApp.StartAsync(routes: Routes);
+        await using var serverB = await TestApp.StartAsync(routes: Routes);
+
+        (await serverA.Client.GetAsync("/limited")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await serverA.Client.GetAsync("/limited")).StatusCode.Should().Be((HttpStatusCode)429);
+
+        // The same caller is admitted by the other instance: with N instances a caller can send N times the limit.
+        (await serverB.Client.GetAsync("/limited")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await serverB.Client.GetAsync("/limited")).StatusCode.Should().Be((HttpStatusCode)429);
+
+        await using var restarted = await TestApp.StartAsync(routes: Routes);
+        (await restarted.Client.GetAsync("/limited")).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task Signed_urls_accept_valid_reject_tampered_and_expired_requests()
     {
         await using var app = await TestApp.StartAsync(routes: r =>

@@ -116,7 +116,21 @@ builder.Services.AddNaravelRouting(o => o.ConfigureThrottlePolicy("login", 5, Ti
 app.MapNaravel(r => r.Post("/login", Login).Middleware("throttle:login"));
 ```
 
-Partitions use the authenticated name identifier (or identity name), falling back to the remote IP, and are isolated by endpoint and policy. Responses include `X-RateLimit-Limit` and `X-RateLimit-Remaining`; rejected requests return 429 and `Retry-After`. This is process-local and does not share quota across app instances. A fixed window can admit up to 2x the limit across a short adjacent-window boundary interval.
+Partitions use the authenticated name identifier (or identity name), falling back to the remote IP, and are isolated by endpoint and policy. Responses include `X-RateLimit-Limit` and `X-RateLimit-Remaining`; rejected requests return 429 and `Retry-After`. A fixed window can admit up to 2x the limit across a short adjacent-window boundary interval. The counters live in the memory of each process; read the next section before running more than one instance.
+
+#### Throttle behind more than one server
+
+- **One quota per instance.** With N instances every caller is counted N times separately. Behind a round-robin load balancer a caller can send up to N times the limit in one window, and gets 429 from one server while another still answers 200. The limit is looser than configured, not stricter.
+- **A restart resets every quota.** Counters are not persisted: a deploy, a crash, a scale-in or a scale-out starts the affected instance with empty counters, so callers get a fresh window.
+- **Callers behind a proxy.** An anonymous caller is identified by `RemoteIpAddress`. Behind a load balancer or reverse proxy that is the proxy's address unless you enable ASP.NET Core's forwarded headers (`UseForwardedHeaders` with the proxy listed in `KnownProxies` or `KnownNetworks`); without it every anonymous caller shares one bucket and the limit is far too strict. Naravel does not re-implement this (PDR-009).
+
+What to do today:
+
+1. Use `throttle` where roughly N times the limit is acceptable (damping scrapers, protecting a single instance's CPU), not as a security boundary.
+2. For a quota that must be shared by all instances and counts explicit attempts (failed logins, one-time codes), use the Cache-backed `IRateLimiter` on a shared Redis store, in the handler. The tested login example in [cache.md](cache.md) does this. It takes a lock per subject and makes several store calls, so it suits attempt counters, not a blanket throttle on a busy route. Redis is the safer store for a critical shared quota; read the backend table in cache.md first.
+3. Or enforce the limit at the edge (reverse proxy or API gateway), where all traffic passes exactly once.
+
+A built-in shared store for `throttle` is not built. It is proposed in [PDR-024](../pdr/en/PDR-024-shared-throttle-store.md), which needs owner approval.
 
 `IUrlGenerator.SignedRoute(name, values)` and `TemporarySignedRoute(name, expiresAt, values)` create signed relative URLs. Attach `.Middleware("signed")` to validate them. The signature covers the path and query, not the host. Temporary URLs are rejected once expired. Data Protection keys must be persisted and shared by instances that generate and validate the same links; protect the key ring at rest in production.
 
@@ -252,7 +266,7 @@ CORS, proxy headers, host filtering, request-size limits and cookie encryption a
 
 - Controller resource mapping expects conventional MVC action names and route templates; controller-specific route templates are not composed with the resource map.
 - No `route:list` command: there is no Naravel Console package (PDR-017), and whether to add one over the endpoint metadata is not decided.
-- Maintenance mode state and throttling are process-local; use shared infrastructure if instances need coordinated state.
+- Maintenance mode state and throttling are process-local: with N instances the throttle admits up to N times its limit and every restart resets it (see "Throttle behind more than one server"); use shared infrastructure if instances need coordinated state.
 - Signed URLs require a shared, durable Data Protection key ring for multi-instance use and are path/query-bound rather than host-bound.
 - Middleware attached to a native `MapGroup` uses ASP.NET Core's metadata order; exclusions are order-independent.
 - Route configuration is read once at startup (no hot reload).
