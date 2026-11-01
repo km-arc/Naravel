@@ -42,8 +42,7 @@ public static class FilesystemServiceCollectionExtensions
 
             return registry;
         });
-        services.TryAddSingleton<StorageManager>();
-        services.TryAddSingleton<IStorageDriver>(provider => provider.GetRequiredService<StorageManager>().Driver());
+        services.AddNaravelManager<StorageManager, IStorageDriver, FilesystemOptions>();
 
         return services;
     }

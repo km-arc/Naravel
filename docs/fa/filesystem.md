@@ -117,7 +117,7 @@ manager.Extend("scratch", _ => new LocalStorageDriver("storage/scratch", "/scrat
 var scratch = manager.Disk("scratch");
 ```
 
-manager مالک driverهایی است که factory برمی‌گرداند و هنگام dispose شدن manager آن‌ها را آزاد می‌کند. از برگرداندن singleton متعلق به container استفاده نکنید، مگر اینکه manager اجازهٔ آزادسازی آن را داشته باشد.
+Manager مالک درایورهای نام‌دار و نمونه‌هایی است که برای استفادهٔ داخلی خودش می‌سازد. اگر `IStorageDriver` پیش‌فرض مستقیماً از DI resolve شود، container مالک همان نمونه است و آن را آزاد می‌کند؛ Manager حتی اگر reload تنظیمات آن را بازنشسته کند از آزادسازی‌اش صرف‌نظر می‌کند. اگر سرویس مستقیم resolve نشود، خود Manager درایور پیش‌فرض را آزاد می‌کند. از برگرداندن singleton نامرتبط متعلق به container از factory درایور خودداری کنید.
 
 ## مثال کامل
 
@@ -201,8 +201,8 @@ storage.AssertCount(1);
 
 ## امنیت و محدودیت‌ها
 
-- مسیرهای local نسبت به ریشهٔ دیسک هستند. تلاش برای خروج از ریشه با `UnauthorizedAccessException` رد می‌شود؛ هنگام تغییر مسیرها تست‌های regression را حفظ کنید.
+- مسیرهای local نسبت به ریشهٔ دیسک هستند. traversal لغوی و وجود symbolic link، junction یا هر reparse point در اجزای زیر ریشه با `UnauthorizedAccessException` رد می‌شود. خود ریشه بخشی از تنظیمات مورداعتماد برنامه است. اعتبارسنجی مسیر و بازکردن فایل دو عملیات جدا از سیستم‌عامل‌اند؛ مهاجمی که بتواند هم‌زمان درخت پوشه را تغییر دهد هنوز ممکن است بین این دو مرحله race ایجاد کند، بنابراین ریشه را فقط برای برنامه و مدیران مورداعتماد قابل‌نوشتن نگه دارید.
 - مهاجرت به Foundation کلیدهای تنظیمات را از `DefaultDisk`/`Disks` به `Default`/`Stores` تغییر داده و APIهای قدیمی `IStorageManager` و factory را حذف کرده است. هنگام مهاجرت، مصرف‌کننده‌ها را به‌روزرسانی کنید.
-- انتخاب region در S3، endpoint و آزادسازی client تست واحد دارند. قرارداد مشترک storage با `NARAVEL_TEST_S3` روی سرویس زندهٔ سازگار با S3 قابل اجراست، اما CI چنین سرویسی بالا نمی‌آورد، پس به‌طور پیش‌فرض تست زندهٔ S3 اجرا نمی‌شود.
+- انتخاب region در S3، endpoint و آزادسازی client تست واحد دارند. CI قرارداد مشترک storage را با Adobe S3Mock نسخهٔ 5.2.3 و از طریق `NARAVEL_TEST_S3` اجرا می‌کند. این تست عملیات پوشش‌داده‌شدهٔ S3-compatible را بررسی می‌کند، اما جایگزین تست AWS واقعی یا اعتبارسنجی امضای URLهای presigned نیست.
 - درایور local endpoint عمومی HTTP ایجاد نمی‌کند. static files یا endpoint مجاز دانلود را جداگانه در ASP.NET Core تنظیم کنید.
 - عملیات Filesystem سیستم Laravel برای امضای URL، visibility/policy یا abstraction ابری فراتر از driverهای مستندشده را ارائه نمی‌کند.

@@ -52,6 +52,57 @@ public class LocalStorageDriverSecurityTests : IDisposable
     }
 
     [Fact]
+    public async Task A_file_symlink_to_outside_the_root_is_rejected_for_reads_and_delete()
+    {
+        var outside = Path.Combine(Path.GetTempPath(), "naravel-fs-symlink-file-" + Guid.NewGuid().ToString("N") + ".txt");
+        var link = Path.Combine(_root, "linked-file.txt");
+        await File.WriteAllTextAsync(outside, "outside-secret");
+        try
+        {
+            File.CreateSymbolicLink(link, outside);
+
+            var read = async () => await _driver.GetAsync("linked-file.txt");
+            await read.Should().ThrowAsync<UnauthorizedAccessException>();
+            var delete = () => _driver.DeleteAsync("linked-file.txt");
+            await delete.Should().ThrowAsync<UnauthorizedAccessException>();
+
+            File.ReadAllText(outside).Should().Be("outside-secret");
+            File.Exists(outside).Should().BeTrue();
+        }
+        finally
+        {
+            File.Delete(outside);
+        }
+    }
+
+    [Fact]
+    public async Task A_directory_symlink_to_outside_the_root_is_rejected_for_read_write_and_url()
+    {
+        var outside = Path.Combine(Path.GetTempPath(), "naravel-fs-symlink-dir-" + Guid.NewGuid().ToString("N"));
+        var link = Path.Combine(_root, "linked-directory");
+        Directory.CreateDirectory(outside);
+        await File.WriteAllTextAsync(Path.Combine(outside, "secret.txt"), "outside-secret");
+        try
+        {
+            Directory.CreateSymbolicLink(link, outside);
+
+            var read = async () => await _driver.GetAsync("linked-directory/secret.txt");
+            await read.Should().ThrowAsync<UnauthorizedAccessException>();
+            var write = () => _driver.PutAsync("linked-directory/created.txt", "must-not-escape"u8.ToArray());
+            await write.Should().ThrowAsync<UnauthorizedAccessException>();
+            var url = () => _driver.GetUrlAsync("linked-directory/secret.txt");
+            await url.Should().ThrowAsync<UnauthorizedAccessException>();
+
+            File.ReadAllText(Path.Combine(outside, "secret.txt")).Should().Be("outside-secret");
+            File.Exists(Path.Combine(outside, "created.txt")).Should().BeFalse();
+        }
+        finally
+        {
+            Directory.Delete(outside, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Ordinary_relative_paths_still_work()
     {
         await _driver.PutAsync("reports/2026/summary.txt", "hello"u8.ToArray());
