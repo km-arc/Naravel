@@ -123,7 +123,8 @@ public sealed class StorageManagerIntegrationTests : IDisposable
 
     private sealed class TrackingDriver : IStorageDriver, IDisposable
     {
-        public int DisposeCalls { get; private set; }
+        private int _disposeCalls;
+        public int DisposeCalls => Volatile.Read(ref _disposeCalls);
         public bool IsDisposed => DisposeCalls > 0;
         public Task<bool> ExistsAsync(string path, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<byte[]> GetAsync(string path, CancellationToken cancellationToken = default) => Task.FromResult(Array.Empty<byte>());
@@ -135,6 +136,6 @@ public sealed class StorageManagerIntegrationTests : IDisposable
         public Task MoveAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<long> SizeAsync(string path, CancellationToken cancellationToken = default) => Task.FromResult(0L);
         public Task<string> GetUrlAsync(string path, TimeSpan? expiration = null, CancellationToken cancellationToken = default) => Task.FromResult(path);
-        public void Dispose() => Interlocked.Increment(ref DisposeCalls);
+        public void Dispose() => Interlocked.Increment(ref _disposeCalls);
     }
 }

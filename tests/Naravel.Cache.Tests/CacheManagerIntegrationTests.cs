@@ -252,10 +252,11 @@ public sealed class CacheManagerIntegrationTests
 
     private sealed class DisposableFakeLock : ICacheLock, IDisposable
     {
-        public int DisposeCalls { get; private set; }
+        private int _disposeCalls;
+        public int DisposeCalls => Volatile.Read(ref _disposeCalls);
         public bool IsDisposed => DisposeCalls > 0;
         public Task<string?> AcquireAsync(string name, TimeSpan ttl, CancellationToken cancellationToken = default) => Task.FromResult<string?>("token");
         public Task<bool> ReleaseAsync(string name, string token, CancellationToken cancellationToken = default) => Task.FromResult(true);
-        public void Dispose() => Interlocked.Increment(ref DisposeCalls);
+        public void Dispose() => Interlocked.Increment(ref _disposeCalls);
     }
 }
