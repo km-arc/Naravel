@@ -40,6 +40,11 @@ public static class FilesystemServiceCollectionExtensions
                 registry.Register(name, _ => CreateDriver(section));
             }
 
+            foreach (var configure in provider.GetServices<Action<IDriverRegistry<IStorageDriver>>>())
+            {
+                configure(registry);
+            }
+
             return registry;
         });
         services.AddNaravelManager<StorageManager, IStorageDriver, FilesystemOptions>();
