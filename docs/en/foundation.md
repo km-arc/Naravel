@@ -7,6 +7,7 @@
 Define a driver contract, options, and a manager. Register the manager and a named driver before building the service provider:
 
 ```csharp
+using System; using Microsoft.Extensions.Configuration; using Microsoft.Extensions.DependencyInjection; using Microsoft.Extensions.Options; using Naravel.Foundation;
 public interface IGreeter { string Greet(string name); }
 public sealed class GreeterOptions : ManagerOptions { }
 public sealed class GreeterManager(IServiceProvider sp, IDriverRegistry<IGreeter> registry, IOptionsMonitor<GreeterOptions> options)
@@ -51,6 +52,6 @@ The synchronous `Driver` method does not block on an asynchronous-only factory. 
 
 ## Dependencies and guidance
 
-The package depends on `Microsoft.Extensions.*` abstractions and has no dependency on another Naravel module. See the [architecture guide](architecture.md), [module authoring guide](module-authoring-guide.md), and [trimming/AOT guide](trimming-aot.md) for the full contracts and examples.
+The package depends on `Microsoft.Extensions.*` abstractions and has no dependency on another Naravel module. See the [architecture guide](https://github.com/km-arc/Naravel/blob/main/docs/en/architecture.md), [module authoring guide](https://github.com/km-arc/Naravel/blob/main/docs/en/module-authoring-guide.md), and [trimming/AOT guide](https://github.com/km-arc/Naravel/blob/main/docs/en/trimming-aot.md) for the full contracts and examples.
 
 Persian documentation: [راهنمای فارسی Foundation](https://github.com/km-arc/Naravel/blob/main/docs/fa/foundation.md).
