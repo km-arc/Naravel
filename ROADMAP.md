@@ -69,7 +69,7 @@ R02 was completed before this roadmap existed; its R00 dependency is nominal and
 - `roadmap/check.py` enforces this: it fails on a hand-typed test count or a repeated stage status outside those places. Put
   `<!-- check:allow-count -->` on a line only when a number is not a test total (for example HTTP status codes).
 
-**Default order:** R15 → R11 → R12 → R17.
+**Default order:** R15 → R11 → R12.
 Rationale: correctness and proof first (R00, R01); then the two modules that carry the project's value (Queue, Cache);
 then the most Laravel-feeling features (middleware, events, mail); thin or likely-native stages last.
 Never run two stages that edit the same project in parallel. Parallel-safe: R15, R16, R06 touch no other module.
