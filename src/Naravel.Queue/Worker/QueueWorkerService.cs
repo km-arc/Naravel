@@ -132,7 +132,9 @@ public class QueueWorkerService : BackgroundService
 
             if (stopAfterPop)
             {
-                try { await driver.ReleaseAsync(message, TimeSpan.Zero, stoppingToken); }
+                // CancellationToken.None, not stoppingToken: this branch is reached exactly when the worker is winding down, and a
+                // driver that honours its token (EF Core, a network client) would throw here and leave the message reserved.
+                try { await driver.ReleaseAsync(message, TimeSpan.Zero, CancellationToken.None); }
                 catch (Exception releaseEx)
                 {
                     _logger.LogError(releaseEx, "Naravel.Queue: could not release job {JobId} after worker controls stopped polling.", message.Id);
@@ -152,6 +154,7 @@ public class QueueWorkerService : BackgroundService
             {
                 // Never let one bad message (or a driver outage while acking/failing it) kill the worker loop -
                 // an unhandled exception here would stop the whole host (BackgroundService default behaviour).
+                // ProcessCoreAsync has already handed the message back if it was still reserved.
                 _logger.LogError(ex, "Naravel.Queue: unexpected error while processing job {JobId}; the worker keeps running.", message.Id);
                 try { await Task.Delay(_options.Rest, stoppingToken); } catch (OperationCanceledException) { }
             }
@@ -184,123 +187,208 @@ public class QueueWorkerService : BackgroundService
         }
     }
 
+    /// <summary>
+    /// Runs one reserved message and guarantees it does not stay reserved. Every exit of <see cref="RunReservedAsync"/> either
+    /// settles the message (acknowledge, release or fail) or throws; when it throws with the message still unsettled, the
+    /// message is handed back here before the exception continues to the polling loop. Without this, a driver that has no
+    /// expiry-based reclaim (Memory, RabbitMQ, Kafka) would keep the message reserved until the process ends, and the
+    /// others until the visibility timeout.
+    /// </summary>
     private async Task ProcessCoreAsync(IQueueDriver driver, QueuedMessage message, CancellationToken stoppingToken)
     {
-        if (!string.IsNullOrEmpty(message.BatchId) &&
-            await _batchRepository.IsCancelledAsync(message.BatchId, stoppingToken))
+        var reservation = new Reservation();
+        try
         {
-            await driver.AckAsync(message, stoppingToken);
-            await _batchRepository.MarkJobCancelledAsync(message.BatchId, stoppingToken);
-            return;
+            await RunReservedAsync(driver, message, reservation, stoppingToken);
         }
+        catch (Exception ex) when (!reservation.Settled)
+        {
+            await HandBackAsync(driver, message, ex);
+            throw;
+        }
+    }
 
-        using var scope = _rootProvider.CreateScope();
-        var sp = scope.ServiceProvider;
-        var listeners = sp.GetServices<IQueueEventListener>().ToList();
-
-        await NotifyAsync(listeners, l => l.OnProcessingAsync(message, stoppingToken));
-
-        var context = new JobContext(sp, message);
+    private async Task RunReservedAsync(IQueueDriver driver, QueuedMessage message, Reservation reservation, CancellationToken stoppingToken)
+    {
+        IServiceScope? scope = null;
+        var sp = _rootProvider;
+        var listeners = new List<IQueueEventListener>();
         IJob? job = null;
 
         try
         {
-            job = DeserializeJob(message.JobType, message.Payload);
-
-            if (message.Attempts >= message.MaxAttempts)
+            try
             {
-                var exhausted = new InvalidOperationException("The job exhausted its attempts while its reservation was reclaimed.");
-                await HandleFailureAsync(driver, message, job, exhausted, sp, listeners, stoppingToken, attemptAlreadyCounted: true);
+                // Every step from here to the job handler is inside this try on purpose: the batch store, the DI container
+                // (listeners, middleware, the job's own dependencies) and the serializer can all throw before the job runs,
+                // and each of those must take the same path as a job that threw - count the attempt, retry with backoff,
+                // and finally record the failure - instead of leaving the reserved message behind.
+                if (!string.IsNullOrEmpty(message.BatchId) &&
+                    await _batchRepository.IsCancelledAsync(message.BatchId, stoppingToken))
+                {
+                    await driver.AckAsync(message, stoppingToken);
+                    reservation.Settle();
+                    await _batchRepository.MarkJobCancelledAsync(message.BatchId, stoppingToken);
+                    return;
+                }
+
+                scope = _rootProvider.CreateScope();
+                sp = scope.ServiceProvider;
+                listeners = sp.GetServices<IQueueEventListener>().ToList();
+
+                await NotifyAsync(listeners, l => l.OnProcessingAsync(message, stoppingToken));
+
+                var context = new JobContext(sp, message);
+                var runnable = DeserializeJob(message.JobType, message.Payload);
+                job = runnable;
+
+                if (message.Attempts >= message.MaxAttempts)
+                {
+                    var exhausted = new InvalidOperationException("The job exhausted its attempts while its reservation was reclaimed.");
+                    await HandleFailureAsync(driver, message, runnable, exhausted, sp, listeners, reservation, stoppingToken, attemptAlreadyCounted: true);
+                    return;
+                }
+
+                var perJobTimeout = (runnable as Job)?.Timeout;
+                var effectiveTimeout = perJobTimeout.HasValue && _options.JobTimeout.HasValue
+                    ? (perJobTimeout.Value < _options.JobTimeout.Value ? perJobTimeout : _options.JobTimeout)
+                    : perJobTimeout ?? _options.JobTimeout;
+                WarnIfVisibilityTimeoutIsTooShort(driver, effectiveTimeout, message.JobType);
+                using var jobCts = effectiveTimeout.HasValue
+                    ? CancellationTokenSource.CreateLinkedTokenSource(stoppingToken)
+                    : null;
+                jobCts?.CancelAfter(effectiveTimeout!.Value);
+                var jobToken = jobCts?.Token ?? stoppingToken;
+
+                Func<Task> handler = async () =>
+                {
+                    context.JobExecuted = true;
+                    if (runnable is IUniqueJob { UniqueUntilProcessing: true })
+                        await ReleaseUniqueAsync(runnable, message);
+                    await runnable.HandleAsync(context, jobToken);
+                };
+                var middlewares = (runnable is IHasJobMiddleware own ? own.Middleware(context) : Enumerable.Empty<IJobMiddleware>())
+                    .Reverse()
+                    .Concat(sp.GetServices<IJobMiddleware>().Reverse());
+                foreach (var middleware in middlewares)
+                {
+                    var next = handler;
+                    handler = () => middleware.InvokeAsync(context, next);
+                }
+
+                await handler();
+
+                if (!context.JobExecuted)
+                {
+                    if (context.Outcome == JobOutcome.Released)
+                    {
+                        var delay = context.ReleaseDelay > TimeSpan.Zero && !driver.SupportsDelayedDelivery ? TimeSpan.Zero : context.ReleaseDelay;
+                        await driver.ReleaseAsync(message, delay, stoppingToken);
+                        reservation.Settle();
+                        QueueTelemetry.Outcome.Add(1, new KeyValuePair<string, object?>("outcome", "released"));
+                        return;
+                    }
+                    if (context.Outcome == JobOutcome.Skipped)
+                    {
+                        await driver.AckAsync(message, stoppingToken);
+                        reservation.Settle();
+                        await ReleaseUniqueAsync(runnable, message);
+                        QueueTelemetry.Outcome.Add(1, new KeyValuePair<string, object?>("outcome", "skipped"));
+                        if (!string.IsNullOrEmpty(message.BatchId))
+                            await _batchRepository.MarkJobCancelledAsync(message.BatchId, stoppingToken);
+                        return;
+                    }
+                    throw new InvalidOperationException(
+                        "A job middleware returned without calling next and without calling JobContext.Release or JobContext.Skip, so the job was not run. Call one of them, or call next.");
+                }
+
+                // At-least-once delivery: publish follow-up jobs BEFORE acknowledging, so a failure here retries this
+                // job instead of silently losing the chain. Jobs must therefore be idempotent (documented in README).
+                await ContinueChainAsync(message, context, stoppingToken);
+                await driver.AckAsync(message, stoppingToken);
+                reservation.Settle();
+                await ReleaseUniqueAsync(runnable, message);
+                QueueTelemetry.Processed.Add(1);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // Shutdown interrupted the message: ProcessCoreAsync hands it back immediately WITHOUT counting an
+                // attempt (unless it was already settled), otherwise drivers without reclaim (Memory, RabbitMQ, Kafka)
+                // would keep it reserved for the life of the process.
+                throw;
+            }
+            catch (Exception ex) when (!reservation.FailureHandlingStarted)
+            {
+                if (reservation.Settled)
+                {
+                    // Acknowledged, released or failed already: the message belongs to nobody now. Routing this through the
+                    // failure path would put a finished (for example skipped or batch-cancelled) job back on the queue.
+                    _logger.LogError(ex, "Naravel.Queue: job {JobId} was settled, but the bookkeeping after it failed.", message.Id);
+                    return;
+                }
+
+                await HandleFailureAsync(driver, message, job, ex, sp, listeners, reservation, stoppingToken);
                 return;
             }
 
-            var perJobTimeout = (job as Job)?.Timeout;
-            var effectiveTimeout = perJobTimeout.HasValue && _options.JobTimeout.HasValue
-                ? (perJobTimeout.Value < _options.JobTimeout.Value ? perJobTimeout : _options.JobTimeout)
-                : perJobTimeout ?? _options.JobTimeout;
-            WarnIfVisibilityTimeoutIsTooShort(driver, effectiveTimeout, message.JobType);
-            using var jobCts = effectiveTimeout.HasValue
-                ? CancellationTokenSource.CreateLinkedTokenSource(stoppingToken)
-                : null;
-            jobCts?.CancelAfter(effectiveTimeout!.Value);
-            var jobToken = jobCts?.Token ?? stoppingToken;
-
-            Func<Task> handler = async () =>
+            // The job is acknowledged from here on. Nothing below may route back into the failure/retry path,
+            // or an already-completed job would be re-queued and executed twice.
+            try
             {
-                context.JobExecuted = true;
-                if (job is IUniqueJob { UniqueUntilProcessing: true })
-                    await ReleaseUniqueAsync(job, message);
-                await job.HandleAsync(context, jobToken);
-            };
-            var middlewares = (job is IHasJobMiddleware own ? own.Middleware(context) : Enumerable.Empty<IJobMiddleware>())
-                .Reverse()
-                .Concat(sp.GetServices<IJobMiddleware>().Reverse());
-            foreach (var middleware in middlewares)
-            {
-                var next = handler;
-                handler = () => middleware.InvokeAsync(context, next);
+                await NotifyAsync(listeners, l => l.OnProcessedAsync(message, stoppingToken));
+                if (!string.IsNullOrEmpty(message.BatchId))
+                    await _batchRepository.MarkJobCompletedAsync(message.BatchId, stoppingToken);
             }
-
-            await handler();
-
-            if (!context.JobExecuted)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                if (context.Outcome == JobOutcome.Released)
-                {
-                    var delay = context.ReleaseDelay > TimeSpan.Zero && !driver.SupportsDelayedDelivery ? TimeSpan.Zero : context.ReleaseDelay;
-                    await driver.ReleaseAsync(message, delay, stoppingToken);
-                    QueueTelemetry.Outcome.Add(1, new KeyValuePair<string, object?>("outcome", "released"));
-                    return;
-                }
-                if (context.Outcome == JobOutcome.Skipped)
-                {
-                    await driver.AckAsync(message, stoppingToken);
-                    await ReleaseUniqueAsync(job, message);
-                    QueueTelemetry.Outcome.Add(1, new KeyValuePair<string, object?>("outcome", "skipped"));
-                    if (!string.IsNullOrEmpty(message.BatchId))
-                        await _batchRepository.MarkJobCancelledAsync(message.BatchId, stoppingToken);
-                    return;
-                }
-                throw new InvalidOperationException(
-                    "A job middleware returned without calling next and without calling JobContext.Release or JobContext.Skip, so the job was not run. Call one of them, or call next.");
+                _logger.LogError(ex, "Naravel.Queue: job {JobId} completed, but post-completion bookkeeping failed.", message.Id);
             }
-
-            // At-least-once delivery: publish follow-up jobs BEFORE acknowledging, so a failure here retries this
-            // job instead of silently losing the chain. Jobs must therefore be idempotent (documented in README).
-            await ContinueChainAsync(message, context, stoppingToken);
-            await driver.AckAsync(message, stoppingToken);
-            await ReleaseUniqueAsync(job, message);
-            QueueTelemetry.Processed.Add(1);
         }
-        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        finally
         {
-            // Shutdown interrupted the job: hand it back immediately WITHOUT counting an attempt, otherwise
-            // drivers without visibility-timeout reclaim (memory/file/database) would keep it reserved forever.
-            try { await driver.ReleaseAsync(message, TimeSpan.Zero, CancellationToken.None); }
-            catch (Exception releaseEx)
-            {
-                _logger.LogError(releaseEx, "Naravel.Queue: could not release job {JobId} during shutdown.", message.Id);
-            }
-            throw;
+            scope?.Dispose();
         }
-        catch (Exception ex)
-        {
-            await HandleFailureAsync(driver, message, job, ex, sp, listeners, stoppingToken);
-            return;
-        }
+    }
 
-        // The job is acknowledged from here on. Nothing below may route back into the failure/retry path,
-        // or an already-completed job would be re-queued and executed twice.
+    /// <summary>
+    /// Best-effort release of a message whose processing threw before it was acknowledged, released or failed. It uses
+    /// <see cref="CancellationToken.None"/> so a stopping host cannot cancel it, adds no attempt (a failure the worker
+    /// counted was counted before this runs), and on a shutdown hands the message back immediately. Any other cause waits
+    /// one <see cref="QueueWorkerOptions.Rest"/> on drivers that can delay, so a broken store is not hit in a hot loop.
+    /// A fenced driver (Redis, File, Database) ignores the call when the reservation already belongs to another worker.
+    /// </summary>
+    private async Task HandBackAsync(IQueueDriver driver, QueuedMessage message, Exception cause)
+    {
+        var shuttingDown = cause is OperationCanceledException;
+        var delay = shuttingDown || !driver.SupportsDelayedDelivery ? TimeSpan.Zero : _options.Rest;
         try
         {
-            await NotifyAsync(listeners, l => l.OnProcessedAsync(message, stoppingToken));
-            if (!string.IsNullOrEmpty(message.BatchId))
-                await _batchRepository.MarkJobCompletedAsync(message.BatchId, stoppingToken);
+            await driver.ReleaseAsync(message, delay, CancellationToken.None);
+            if (!shuttingDown)
+            {
+                _logger.LogWarning(cause,
+                    "Naravel.Queue: processing of job {JobId} on queue '{Queue}' stopped before the message was acknowledged, released or failed; it was handed back to the queue.",
+                    message.Id, message.Queue);
+            }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception releaseEx)
         {
-            _logger.LogError(ex, "Naravel.Queue: job {JobId} completed, but post-completion bookkeeping failed.", message.Id);
+            _logger.LogError(releaseEx,
+                "Naravel.Queue: could not hand job {JobId} on queue '{Queue}' back to the queue; it stays reserved until the driver reclaims it (visibility timeout) or the worker restarts.",
+                message.Id, message.Queue);
         }
+    }
+
+    /// <summary>What happened to one reserved message while this worker holds it.</summary>
+    private sealed class Reservation
+    {
+        /// <summary>True once the message was acknowledged, released or failed (or the driver reported the reservation is no longer ours).</summary>
+        public bool Settled { get; private set; }
+
+        /// <summary>True once <c>HandleFailureAsync</c> started, so a failure inside it is never handled a second time (the attempt would be counted twice).</summary>
+        public bool FailureHandlingStarted { get; set; }
+
+        public void Settle() => Settled = true;
     }
 
     /// <summary>
@@ -363,9 +451,11 @@ public class QueueWorkerService : BackgroundService
         Exception ex,
         IServiceProvider sp,
         List<IQueueEventListener> listeners,
+        Reservation reservation,
         CancellationToken stoppingToken,
         bool attemptAlreadyCounted = false)
     {
+        reservation.FailureHandlingStarted = true;
         if (!attemptAlreadyCounted) message.Attempts++;
         message.Error = ex.ToString();
 
@@ -373,7 +463,9 @@ public class QueueWorkerService : BackgroundService
         {
             message.Connection ??= _options.Connection;
             await _failedJobStore.RecordAsync(message, ex, stoppingToken);
-            if (!await driver.TryFailAsync(message, stoppingToken))
+            var failedByUs = await driver.TryFailAsync(message, stoppingToken);
+            reservation.Settle(); // failed, or fenced out: either way nothing is left for this worker to hand back
+            if (!failedByUs)
             {
                 // Fenced out: this worker outlived the visibility timeout and another worker now owns the job, so the job
                 // is not ours to fail. Drop the record written just above and skip every failure side effect.
@@ -420,6 +512,7 @@ public class QueueWorkerService : BackgroundService
                 delay = TimeSpan.Zero;
             }
             await driver.ReleaseAsync(message, delay, stoppingToken);
+            reservation.Settle();
             QueueTelemetry.Retried.Add(1);
             _logger.LogWarning(ex, "Naravel.Queue: job {JobId} on queue '{Queue}' failed (attempt {Attempt}/{Max}), retrying in {Delay}.",
                 message.Id, message.Queue, message.Attempts, message.MaxAttempts, delay);

@@ -312,6 +312,38 @@ migration (for the default table: `ALTER TABLE QueueJobs ADD ReservationId varch
 new package, otherwise polling fails with an unknown-column error. Fencing does not make a long job safe: it still
 runs twice if it exceeds the visibility timeout, so keep `VisibilityTimeoutSeconds` above your longest job.
 
+### A reserved message is never left behind
+
+Between taking a message from the queue and calling `HandleAsync`, the worker checks whether the job's batch was
+cancelled, opens a DI scope, resolves the `IQueueEventListener` services and tells them the job is starting,
+deserializes the payload and builds the middleware chain. Each of those can throw: the batch store is down, a listener
+or middleware constructor fails, the payload no longer deserializes, the job alias is unknown, a decryption fails.
+Each one now takes the same path as a job that threw: the attempt is counted, the message is released with a backoff
+on drivers that can delay (the job's own `Backoff` once the job exists, otherwise 5 seconds per attempt up to 60), and
+after `MaxAttempts` the failure is recorded in the failed-job store and the driver. Before this, such a message stayed
+reserved: until the visibility timeout on Redis, File and Database, until the process ended on Memory, until the channel
+closed on RabbitMQ, and until a restart or rebalance on Kafka.
+
+Three rules close the remaining gaps:
+
+- **Settling can fail too.** If the release, the failed-job store or the driver's fail call throws while the worker is
+  settling a message, the worker hands the message back once more, without counting another attempt. On a shutdown it
+  hands it back immediately; for any other error it waits one `Rest` on drivers that can delay, so a broken store is not
+  hit in a loop. If that fails as well, the worker logs an error and the message stays reserved until the driver
+  reclaims it (the visibility timeout) or the broker redelivers it (see
+  [Attempt accounting by driver](#attempt-accounting-by-driver)).
+- **A settled message is not touched again.** Once a message was acknowledged, released or failed, a later error (for
+  example the batch store failing while a skipped or batch-cancelled job is being counted) is only logged. It is never
+  routed back into the retry path, which would put a finished job on the queue again.
+- **Stopping never cancels the hand-back.** The release that gives back a message the worker will not process (the
+  worker reached `MaxJobs` or `MaxRuntime`, or the host is stopping) ignores the stopping token, because a driver that
+  honours its token would otherwise throw and leave the message reserved.
+
+A pre-execution failure counts as an attempt, like any other failure, so a permanent one (a payload that can never be
+deserialized) ends in the failed-job store after `MaxAttempts`. An unknown job alias is retried too, because during a
+rolling deployment another worker may know it. Redis, File and Database fence the hand-back to the reservation: if
+another worker already owns the message, the call changes nothing.
+
 ## Delivery guarantee: at-least-once
 
 A job can run more than once (worker crash, visibility timeout, a failed acknowledgement), so jobs
