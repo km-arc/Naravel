@@ -7,6 +7,7 @@
 یک قرارداد driver، گزینه‌ها و manager تعریف کنید. سپس پیش از ساخت service provider، manager و یک driver نام‌دار را ثبت کنید:
 
 ```csharp
+using System; using Microsoft.Extensions.Configuration; using Microsoft.Extensions.DependencyInjection; using Microsoft.Extensions.Options; using Naravel.Foundation;
 public interface IGreeter { string Greet(string name); }
 public sealed class GreeterOptions : ManagerOptions { }
 public sealed class GreeterManager(IServiceProvider sp, IDriverRegistry<IGreeter> registry, IOptionsMonitor<GreeterOptions> options)
