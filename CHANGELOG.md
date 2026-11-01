@@ -4,6 +4,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.1.0] - 2026-11-01
+
 ### Fixed
 - Filesystem: a disk registered with `AddNaravelDriver<IStorageDriver>` or `ConfigureNaravelDrivers<IStorageDriver>` was silently ignored, because Filesystem built a registry of its own that never applied those registrations (every other module uses the shared one). Filesystem now registers its configured disks like any built-in driver, so both kinds share one registry; the later registration wins a name clash. Foundation gains the approved additive overload `ConfigureNaravelDrivers<TDriver>(Action<IServiceProvider, IDriverRegistry<TDriver>>)` for modules whose drivers depend on the built container. Configured disks, reload, `Extend` and disposal behave as before.
 - Queue worker: a reserved message is no longer left reserved when something fails before the job runs or while it is being settled. The batch cancellation check, the DI scope, the listeners, the deserialization and the middleware chain now run inside the same failure path as the job (the attempt is counted, the message is released with backoff, and after `MaxAttempts` the failure is recorded), instead of throwing out of the worker with the message still reserved. If settling itself fails (release, failed-job store, driver fail) the worker hands the message back once more without counting another attempt; a message that was already acknowledged, released or failed is never routed back into the retry path by a later bookkeeping error (for example a skipped job whose batch store call failed was put back on the queue); and the release at `MaxJobs`/`MaxRuntime` no longer uses the cancelled stopping token. Regression tests: `WorkerPreExecutionFailureTests`. See [docs/en/queue.md](docs/en/queue.md), AUDIT D-75.
