@@ -2,7 +2,7 @@
 
 **Native-first verdict:** `System.Threading.RateLimiting` is the right limiter for one process and stays the default. It cannot share a quota between processes, and no native .NET component does. Naravel already has the shared pieces in Cache (an atomic counter with a first-write expiry, and the Cache-backed `IRateLimiter`, PDR-007a); what is missing is the connection between them and the route middleware.
 
-Status: **Proposed (draft, 2026-11-01). Not approved, not scheduled.** `NEXT` is R17; if approved this becomes a stage after R17 and the owner assigns its id. Option A and the clock-aligned counter were confirmed by the owner on 2026-11-01; the failure policy, the breaker and the Memory provider question (below) are what is left before approval. Prerequisite: PR #192 (AUDIT D-70, Memory provider lock lifetime).
+Status: **Proposed (draft, 2026-11-01). Not approved, not scheduled.** `NEXT` is R17; if approved this becomes a stage after R17 and the owner assigns its id. Option A and the clock-aligned counter are the recommendations in this draft, pending explicit owner approval together with the failure policy and breaker. Prerequisite: merge and successful CI for PR #192 (AUDIT D-74, Memory provider lock lifetime).
 
 ## Context
 
@@ -46,10 +46,10 @@ Why A: Routing stays a package that needs only the ASP.NET Core framework refere
 - Telemetry: Routing adds a `naravel.routing.throttle` counter with the dimensions policy and outcome (`allowed`, `rejected`, `degraded`) and the failure counter above. Bounded dimensions only, never the subject.
 - Fake: `CacheFake` (Naravel.Cache.Testing) already stands in for the shared counter, with an injectable clock; the in-process store needs none.
 
-## Memory provider and lock lifetime (settled 2026-11-01)
+## Memory provider and lock lifetime (prerequisite; pending PR #192)
 
 - **The shared throttle takes no lock.** The adapter makes one `IncrementAsync` call per request. `MemoryLock` and `IRateLimiter` are not on its path, so nothing here depends on how Memory locks behave.
-- **A defect found in review, fixed first.** The Memory provider kept lock state for every key or lock name it had seen and never freed it: `MemoryCacheStore` held a lock object per key given to `IncrementAsync`, and the static `MemoryLock` table held a state per lock name even after release. A key per client address and window (this design) or a lock per subject (`IRateLimiter` today) would therefore grow memory without bound, driven by the client. Recorded as AUDIT D-70 and fixed in PR #192 (256 fixed gates picked by key hash; lock state dropped on release; expired states swept; tests for each). That PR is a **prerequisite** of this stage: the stage does not start before it is merged. It also fixes the Cache-backed rate limiter on the Memory store, independent of this PDR.
+- **A defect found in review, fixed first.** The Memory provider kept lock state for every key or lock name it had seen and never freed it: `MemoryCacheStore` held a lock object per key given to `IncrementAsync`, and the static `MemoryLock` table held a state per lock name even after release. A key per client address and window (this design) or a lock per subject (`IRateLimiter` today) would therefore grow memory without bound, driven by the client. Recorded as AUDIT D-74 and being addressed in PR #192: 256 fixed gates picked by key hash, lock state dropped on release, expired states swept, and regression tests. The finding remains open until the PR is merged and CI passes. That PR is a **prerequisite** of this stage: the stage does not start before it is merged. It also fixes the Cache-backed rate limiter on the Memory store, independent of this PDR.
 - **What stays in Memory for this design.** One counter entry per subject and window, with the window as its time-to-live. Expired entries are removed by `IMemoryCache` and by the store's eviction callback, so memory follows the number of distinct subjects seen within about one window (plus the cache's scan interval), not the history of the process.
 - **Memory is process-local.** `AddNaravelSharedThrottle("memory")` counts per process and shares nothing, like `MemoryLock` (`IsShared` is false). It is allowed for development and tests and the docs say so. There is no runtime check: `ICacheStore` does not say whether a store is shared, and adding such a flag to the public Cache contract is a separate decision that is not made here.
 
@@ -88,7 +88,7 @@ Routing tests use a test double of `IThrottleStore` (counts calls, can throw, ha
 
 **Store behaviour:** the in-process store passes the existing throttle tests unchanged; one store contract runs on the in-process store, on the Cache adapter over the Memory store and, in the env-gated provider job, over Redis. Two application hosts on Redis must share one quota (the two-host test of this repository with the expectation inverted), and a restarted host keeps the quota. Headers and 429 are identical for both stores. A burst test: many concurrent requests of one subject against Redis must not queue on a lock. A key test: the key is hashed and stays within the Memcached key rules for long and unusual partition keys.
 
-**Memory provider:** the adapter over the Memory store takes no `MemoryLock`; many distinct subjects over several short windows leave the entry count falling after the windows expire (the test uses a real window of a few hundred milliseconds because `MemoryCacheStore` reads the system clock); the tests that PR #192 adds for AUDIT D-70 stay green.
+**Memory provider:** the adapter over the Memory store takes no `MemoryLock`; many distinct subjects over several short windows leave the entry count falling after the windows expire (the test uses a real window of a few hundred milliseconds because `MemoryCacheStore` reads the system clock); the tests that PR #192 adds for AUDIT D-74 must pass in CI.
 
 A benchmark of the in-process path (must not regress) and of the shared path on Redis (the claim is one store call per request), reviewed before merge. Docs EN/FA, `CHANGELOG.md`, public API files. Build, tests and benchmarks are verified by CI only.
 
