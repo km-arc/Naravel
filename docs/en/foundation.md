@@ -7,16 +7,16 @@
 Define a driver contract, options, and a manager. Register the manager and a named driver before building the service provider:
 
 ```csharp
-using System; using Microsoft.Extensions.Configuration; using Microsoft.Extensions.DependencyInjection; using Microsoft.Extensions.Options; using Naravel.Foundation;
+using Microsoft.Extensions.Configuration; using Microsoft.Extensions.DependencyInjection; using Microsoft.Extensions.Options; using Microsoft.AspNetCore.Builder; using Naravel.Foundation;
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddNaravelManager<GreeterManager, IGreeter, GreeterOptions>(builder.Configuration.GetSection("Greeter"));
+builder.Services.AddNaravelDriver<IGreeter>("polite", _ => new PoliteGreeter());
+var app = builder.Build();
+app.MapGet("/hello", (GreeterManager manager) => manager.Driver().Greet("Ada")); app.Run();
 public interface IGreeter { string Greet(string name); }
 public sealed class GreeterOptions : ManagerOptions { }
-public sealed class GreeterManager(IServiceProvider sp, IDriverRegistry<IGreeter> registry, IOptionsMonitor<GreeterOptions> options)
-    : Manager<IGreeter, GreeterOptions>(sp, registry, options) { }
+public sealed class GreeterManager(IServiceProvider sp, IDriverRegistry<IGreeter> registry, IOptionsMonitor<GreeterOptions> options) : Manager<IGreeter, GreeterOptions>(sp, registry, options) { }
 public sealed class PoliteGreeter : IGreeter { public string Greet(string name) => $"Hello, {name}!"; }
-services.AddNaravelManager<GreeterManager, IGreeter, GreeterOptions>(configuration.GetSection("Greeter"));
-services.AddNaravelDriver<IGreeter>("polite", _ => new PoliteGreeter());
-var greeter = provider.GetRequiredService<GreeterManager>().Driver("polite");
-var greeting = greeter.Greet("Ada");
 ```
 
 Set `Greeter:Default` to `polite` in configuration to use `Driver()` without a name.
