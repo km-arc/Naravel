@@ -88,4 +88,27 @@ public sealed class CacheStoreTests
 
         await act.Should().ThrowAsync<OperationCanceledException>();
     }
+
+    [Fact]
+    public async Task Increments_stay_exact_across_many_distinct_keys_that_share_a_gate()
+    {
+        // The store serialises an increment with one of a fixed set of gates chosen by key hash instead of keeping a lock per key,
+        // so thousands of keys (one per client address and window, say) share gates. They must neither lose updates nor deadlock.
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var store = new MemoryCacheStore("memory", cache, "gates");
+        const int keys = 5000;
+
+        await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(async () =>
+        {
+            for (var i = 0; i < keys; i++)
+            {
+                await store.IncrementAsync($"window:{i}", 1, TimeSpan.FromMinutes(1));
+                await store.IncrementAsync("hot", 1, TimeSpan.FromMinutes(1));
+            }
+        })));
+
+        (await store.TryGetAsync<long>("hot")).Should().Be((true, 8L * keys));
+        (await store.TryGetAsync<long>("window:0")).Should().Be((true, 8L));
+        (await store.TryGetAsync<long>($"window:{keys - 1}")).Should().Be((true, 8L));
+    }
 }

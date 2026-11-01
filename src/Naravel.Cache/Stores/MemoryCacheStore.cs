@@ -11,7 +11,11 @@ public sealed class MemoryCacheStore : ICacheStore
     private readonly IMemoryCache _cache;
     private readonly string _prefix;
     private readonly ConcurrentDictionary<string, byte> _trackedKeys = new(StringComparer.Ordinal);
-    private readonly ConcurrentDictionary<string, object> _keyLocks = new(StringComparer.Ordinal);
+    // A fixed set of gates chosen by key hash, not one lock object per key: a dictionary of per-key locks is never pruned and grows
+    // with every distinct key ever incremented (a counter per client address and window, say). Two keys that share a gate only wait
+    // for each other for the few instructions an increment takes; no code path holds two gates.
+    private const int GateCount = 256;
+    private readonly object[] _gates = CreateGates();
     private readonly ConcurrentDictionary<string, DateTimeOffset> _incrementExpirations = new(StringComparer.Ordinal);
 
     /// <summary>Creates a named memory store.</summary>
@@ -84,7 +88,7 @@ public sealed class MemoryCacheStore : ICacheStore
     {
         cancellationToken.ThrowIfCancellationRequested();
         var fullKey = BuildKey(key);
-        var gate = _keyLocks.GetOrAdd(fullKey, static _ => new object());
+        var gate = GateFor(fullKey);
         lock (gate)
         {
             var current = _cache.TryGetValue(fullKey, out var value) && value is long number ? number : 0L;
@@ -104,7 +108,7 @@ public sealed class MemoryCacheStore : ICacheStore
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(by);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(ttl, TimeSpan.Zero);
         var fullKey = BuildKey(key);
-        var gate = _keyLocks.GetOrAdd(fullKey, static _ => new object());
+        var gate = GateFor(fullKey);
         lock (gate)
         {
             var now = DateTimeOffset.UtcNow;
@@ -141,6 +145,15 @@ public sealed class MemoryCacheStore : ICacheStore
 
         return Task.CompletedTask;
     }
+
+    private static object[] CreateGates()
+    {
+        var gates = new object[GateCount];
+        for (var i = 0; i < gates.Length; i++) gates[i] = new object();
+        return gates;
+    }
+
+    private object GateFor(string fullKey) => _gates[(int)((uint)StringComparer.Ordinal.GetHashCode(fullKey) % (uint)GateCount)];
 
     private void RegisterTrackingCallback(MemoryCacheEntryOptions options) =>
         options.RegisterPostEvictionCallback((evictedKey, _, _, _) => RegisterTrackingCallback(evictedKey));
