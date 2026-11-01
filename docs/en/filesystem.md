@@ -107,6 +107,17 @@ var url = await storage.Disk("archive").GetUrlAsync(
 
 Local URLs are not signed and do not expire. Protect access to the corresponding static-file route separately.
 
+## Add a disk at startup
+
+Disks that need code, not configuration, are registered like the built-in drivers of every other Naravel module. They share one registry with the configured disks, so the same name resolves through `StorageManager.Disk(name)`, and a disk named in `Default` also becomes the injected `IStorageDriver`:
+
+```csharp
+builder.Services.AddNaravelFilesystem(builder.Configuration);
+builder.Services.AddNaravelDriver<IStorageDriver>("scratch", _ => new LocalStorageDriver("storage/scratch", "/scratch"));
+```
+
+`ConfigureNaravelDrivers<IStorageDriver>(registry => ...)` registers several at once. Registrations run in the order they were added, and the later one wins when two use one name: add a disk after `AddNaravelFilesystem` to replace a configured disk of the same name. Registered disks are created when first used, like configured ones; who disposes them is described in the ownership note below.
+
 ## Add a runtime driver
 
 Foundation's manager supports runtime `Extend`. A custom driver can be registered after the service provider is built:
