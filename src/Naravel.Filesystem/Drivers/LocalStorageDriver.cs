@@ -14,24 +14,69 @@ public class LocalStorageDriver : IStorageDriver
         Directory.CreateDirectory(_rootPath);
     }
 
-    // SECURITY (PDR-008 interim patch): the previous version combined the caller's path into
-    // _rootPath without checking the result. "../../etc/passwd" (or an absolute path on Windows)
-    // resolved OUTSIDE _rootPath, giving arbitrary file read/write/delete. Path.GetFullPath
-    // collapses ".." segments, then we require the result to still start with _rootPath.
+    // SECURITY: normalize first to reject lexical traversal, then inspect every existing component below
+    // the configured root. A symlink, junction, or other reparse point could otherwise redirect an apparently
+    // contained key outside the root when the file API follows it.
     private string GetFullPath(string path)
     {
         var combined = Path.Combine(_rootPath, path.Replace('\\', '/').TrimStart('/'));
         var full = Path.GetFullPath(combined);
 
-        var rootWithSeparator = _rootPath.EndsWith(Path.DirectorySeparatorChar) ? _rootPath : _rootPath + Path.DirectorySeparatorChar;
-        if (!full.Equals(_rootPath, StringComparison.Ordinal) && !full.StartsWith(rootWithSeparator, StringComparison.Ordinal))
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var rootWithSeparator = Path.EndsInDirectorySeparator(_rootPath) ? _rootPath : _rootPath + Path.DirectorySeparatorChar;
+        if (!full.Equals(_rootPath, comparison) && !full.StartsWith(rootWithSeparator, comparison))
         {
             throw new UnauthorizedAccessException(
                 $"Path '{path}' resolves outside the disk's root directory and was rejected.");
         }
 
+        RejectReparsePointComponents(full, path);
         return full;
     }
+
+    private void RejectReparsePointComponents(string fullPath, string requestedPath)
+    {
+        var relative = Path.GetRelativePath(_rootPath, fullPath);
+        if (relative == ".")
+        {
+            return;
+        }
+
+        var current = _rootPath;
+        var segments = relative.Split(
+            new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+            StringSplitOptions.RemoveEmptyEntries);
+        foreach (var segment in segments)
+        {
+            current = Path.Combine(current, segment);
+
+            // LinkTarget detects symbolic links even when their target is currently missing. ReparsePoint also
+            // covers Windows junctions and other reparse-point types that are not exposed as symbolic links.
+            if (new FileInfo(current).LinkTarget is not null || new DirectoryInfo(current).LinkTarget is not null)
+            {
+                throw ReparsePointRejected(requestedPath);
+            }
+
+            try
+            {
+                if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                {
+                    throw ReparsePointRejected(requestedPath);
+                }
+            }
+            catch (FileNotFoundException)
+            {
+                break;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                break;
+            }
+        }
+    }
+
+    private static UnauthorizedAccessException ReparsePointRejected(string path) =>
+        new($"Path '{path}' traverses a symbolic link or reparse point and was rejected.");
 
     /// <inheritdoc />
     public Task<bool> ExistsAsync(string path, CancellationToken cancellationToken = default)
@@ -67,6 +112,7 @@ public class LocalStorageDriver : IStorageDriver
         if (!string.IsNullOrEmpty(dir))
             Directory.CreateDirectory(dir);
 
+        fullPath = GetFullPath(path);
         await using var fileStream = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, true);
         await contents.CopyToAsync(fileStream, cancellationToken);
     }
@@ -96,6 +142,8 @@ public class LocalStorageDriver : IStorageDriver
         var dir = Path.GetDirectoryName(dest);
         if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
 
+        src = GetFullPath(sourcePath);
+        dest = GetFullPath(destinationPath);
         File.Copy(src, dest, overwrite: true);
         return Task.CompletedTask;
     }
@@ -109,6 +157,8 @@ public class LocalStorageDriver : IStorageDriver
         var dir = Path.GetDirectoryName(dest);
         if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
 
+        src = GetFullPath(sourcePath);
+        dest = GetFullPath(destinationPath);
         File.Move(src, dest, overwrite: true);
         return Task.CompletedTask;
     }
@@ -124,6 +174,7 @@ public class LocalStorageDriver : IStorageDriver
     public Task<string> GetUrlAsync(string path, TimeSpan? expiration = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult($"{_baseUrl}/{path.Replace('\\', '/').TrimStart('/')}");
+        var relative = Path.GetRelativePath(_rootPath, GetFullPath(path));
+        return Task.FromResult($"{_baseUrl}/{relative.Replace(Path.DirectorySeparatorChar, '/')}");
     }
 }
