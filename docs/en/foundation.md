@@ -11,7 +11,7 @@ using System; using Microsoft.Extensions.Configuration; using Microsoft.Extensio
 public interface IGreeter { string Greet(string name); }
 public sealed class GreeterOptions : ManagerOptions { }
 public sealed class GreeterManager(IServiceProvider sp, IDriverRegistry<IGreeter> registry, IOptionsMonitor<GreeterOptions> options)
-    : Manager<IGreeter, GreeterOptions>(sp, registry, options);
+    : Manager<IGreeter, GreeterOptions>(sp, registry, options) { }
 public sealed class PoliteGreeter : IGreeter { public string Greet(string name) => $"Hello, {name}!"; }
 services.AddNaravelManager<GreeterManager, IGreeter, GreeterOptions>(configuration.GetSection("Greeter"));
 services.AddNaravelDriver<IGreeter>("polite", _ => new PoliteGreeter());
