@@ -27,3 +27,16 @@ container دات‌نت لایهٔ اول را پوشش می‌دهد. Keyed Ser
 - *IoC container سفارشی:* تکرار یک جزء بالغ و کاملاً یکپارچه.
 - *فقط Keyed DI:* نیاز runtime-extend را برآورده نمی‌کند.
 - *managerهای ad-hoc برای هر ماژول:* یک منطق را N بار تکرار و واگرا می‌کند.
+
+
+## الحاقیه — ثبت driver داخلی با دسترسی به provider (۲۰۲۶-۱۱-۰۱)
+
+گاهی یک ماژول هنگام ثبت factoryهای driver داخلی به سرویس‌های container ساخته‌شده نیاز دارد (Filesystem مقدار زندهٔ `IOptionsMonitor<FilesystemOptions>.CurrentValue` را می‌خواند). این ثبت‌ها همچنان باید در همان `IDriverRegistry<TDriver>` مشترک Foundation انجام شوند؛ ماژول نباید registry خصوصی بسازد و ثبت‌های `AddNaravelDriver` را دور بزند.
+
+- overload عمومی فعلی `ConfigureNaravelDrivers<TDriver>(Action<IDriverRegistry<TDriver>>)` بدون تغییر حفظ شود.
+- overload جدید `ConfigureNaravelDrivers<TDriver>(Action<IServiceProvider, IDriverRegistry<TDriver>>)` برای ثبت‌های deferred که به `IServiceProvider` ریشه نیاز دارند اضافه شود.
+- هر دو overload callbackها را در یک توالی مرتب ثبت می‌کنند. callbackها یک‌بار، هنگام ساخته‌شدن اولین registry singleton اجرا می‌شوند؛ در برخورد نام، ثبت دیرتر برنده است.
+- provider ارسال‌شده، provider ریشه است؛ از resolve کردن سرویس‌های scoped از آن خودداری کنید.
+- Filesystem از این overload برای خواندن `IOptionsMonitor<FilesystemOptions>.CurrentValue` هنگام ساخت registry استفاده می‌کند؛ در نتیجه هر دو ورودی `IConfiguration` و `Action<FilesystemOptions>` حفظ می‌شوند و registry دومی ساخته نمی‌شود.
+
+**تأیید مالک:** overload عمومی افزایشی در ۲۰۲۶-۱۱-۰۱ تأیید شد و تأیید آن در [PR #200](https://github.com/km-arc/Naravel/pull/200) ثبت شده است. overload یک‌آرگومانی قبلی برای سازگاری source بدون تغییر می‌ماند.

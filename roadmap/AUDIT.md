@@ -5,7 +5,9 @@ each open finding must be owned by a roadmap stage.
 
 ## Open findings
 
-_None._
+| ID | Finding | Evidence / impact | Owner |
+|---|---|---|---|
+| D-75 | Filesystem's module-owned registry bypassed Foundation driver registrations. | `AddFilesystemServices` constructed a separate `IDriverRegistry<IStorageDriver>`, so `AddNaravelDriver<IStorageDriver>` registrations were not applied to the registry used by `StorageManager`; both configured and custom disks must use the shared deferred registry while preserving the live `IOptionsMonitor` read. | R17.T08 |
 
 ## Resolved / historical notes
 

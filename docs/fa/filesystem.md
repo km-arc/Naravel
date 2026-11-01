@@ -107,6 +107,17 @@ var url = await storage.Disk("archive").GetUrlAsync(
 
 URLهای local امضا نمی‌شوند و انقضا ندارند. دسترسی به مسیر static-file مربوط را جداگانه محافظت کنید.
 
+## افزودن دیسک هنگام راه‌اندازی
+
+دیسک‌هایی که به کد نیاز دارند، نه پیکربندی، مثل driverهای داخلی هر ماژول دیگر Naravel ثبت می‌شوند. آن‌ها با دیسک‌های پیکربندی‌شده یک registry دارند؛ پس همان نام با `StorageManager.Disk(name)` پیدا می‌شود و دیسکی که در `Default` آمده، `IStorageDriver` تزریق‌شده هم می‌شود:
+
+```csharp
+builder.Services.AddNaravelFilesystem(builder.Configuration);
+builder.Services.AddNaravelDriver<IStorageDriver>("scratch", _ => new LocalStorageDriver("storage/scratch", "/scratch"));
+```
+
+`ConfigureNaravelDrivers<IStorageDriver>(registry => ...)` چند دیسک را یک‌جا ثبت می‌کند. ثبت‌ها به ترتیب افزودن اجرا می‌شوند و اگر دو ثبت یک نام داشته باشند، ثبت بعدی برنده است: برای جایگزین کردن دیسک پیکربندی‌شده با همان نام، دیسک را بعد از `AddNaravelFilesystem` اضافه کنید. دیسک‌های ثبت‌شده هم مثل دیسک‌های پیکربندی‌شده در اولین استفاده ساخته می‌شوند؛ اینکه چه کسی آن‌ها را dispose می‌کند در یادداشت مالکیت پایین‌تر آمده است.
+
 ## افزودن driver در زمان اجرا
 
 manager مربوط به Foundation از `Extend` زمان اجرا پشتیبانی می‌کند. پس از ساخته‌شدن service provider می‌توان driver سفارشی اضافه کرد:
