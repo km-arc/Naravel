@@ -36,8 +36,8 @@ services.AddNaravelDriver<ICacheDriver>("file", sp =>
 });
 ```
 قوانین:
-- **مالکیت:** Manager آنچه factoryها برمی‌گردانند را dispose می‌کند. نمونه‌ها را با `new` / `ActivatorUtilities.CreateInstance` بسازید؛ singleton متعلق به container را برنگردانید.
-- **`Dispose`/`DisposeAsync` باید idempotent باشد** (DI ممکن است درایور پیش‌فرض را هم dispose کند).
+- **مالکیت:** اگر سرویس مستقیم `TDriver` که `AddNaravelManager` ثبت کرده resolve شود، DI مالک درایور پیش‌فرض است و آن را آزاد می‌کند؛ Manager از آزادسازی همان نمونه صرف‌نظر می‌کند. اگر سرویس مستقیم resolve نشود، خود Manager درایور پیش‌فرض را آزاد می‌کند. Manager مالک بقیهٔ درایورهای ساخته‌شده از factoryها، از جمله درایورهای نام‌دار و بازنشسته است. نمونه‌ها را با `new` / `ActivatorUtilities.CreateInstance` بسازید؛ singleton نامرتبط متعلق به container را از factory برنگردانید.
+- تا جای ممکن `Dispose`/`DisposeAsync` را idempotent نگه دارید، به‌خصوص اگر کد برنامه هم بتواند درایور را مستقیماً آزاد کند.
 - برای درایورهای I/O از `IAsyncDisposable` و برای هر چیزی که روی شبکه وصل می‌شود از factory async استفاده کنید.
 - اگر درایور به کانفیگ *خارج* از بخش store خودش وابسته است (مثل `connection => 'cache'` لاراول)، هنگام تغییر آن `manager.Forget(name)` را صدا بزنید.
 

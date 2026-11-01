@@ -34,14 +34,14 @@ Example configuration:
 
 ### Driver lifetime and S3 settings
 
-- Keep disposal out of the `IStorageDriver` contract. Foundation already disposes cached drivers that implement `IDisposable` or `IAsyncDisposable`; implement `IDisposable` on `S3StorageDriver` and dispose its owned `IAmazonS3` client.
+- Keep disposal out of the `IStorageDriver` contract. The manager disposes driver instances it owns; when the default driver is exposed through the direct `TDriver` service from `AddNaravelManager`, DI owns that instance and the manager skips it. Implement `IDisposable` on `S3StorageDriver` and dispose its owned `IAmazonS3` client.
 - Make `DiskOptions.Region` effective: use `AmazonS3Config.RegionEndpoint` for standard AWS endpoints, and `AuthenticationRegion` for custom S3-compatible `ServiceURL` endpoints (the SDK clears `RegionEndpoint` when a custom service URL is set). Preserve the default endpoint behavior when `Region` is absent.
 - Do not upgrade `AWSSDK.S3` as part of this stage; that upgrade remains subject to separate owner approval.
 
 ### API, safety and tests
 
 - Preserve the existing async storage operations and add an optional `CancellationToken` to `GetUrlAsync` so all asynchronous I/O-facing APIs follow the repository's async/cancellation convention.
-- Preserve the path-traversal containment check unchanged and retain its regression cases.
+- Enforce lexical root containment and reject existing symbolic links, junctions and other reparse points in path components below the configured root; retain regression tests for `..` traversal and add file/directory link cases. Document the remaining check/open race if an attacker can mutate the directory tree concurrently.
 - Add local-driver contract tests for exists/get/stream/put/delete/copy/move/size/url; manager tests for multiple named stores, runtime `Extend`, config reload, default selection, and disposal; and an S3-focused test using an injectable client/factory seam or an already-approved test utility. Do not add a new package without a PDR decision.
 - Add `docs/en/filesystem.md` and `docs/fa/filesystem.md` with configuration, disk selection, controller upload, temporary URL, custom driver, limitations and security behavior. Update parity tables, module status and changelog.
 

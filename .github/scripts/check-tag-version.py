@@ -10,7 +10,7 @@ disagrees (an old preview tag, a typo, a tag cut from an older commit) would pub
 Package files are named ``<PackageId>.<version>.nupkg``; the check looks for ``.<version>.nupkg`` at the end of the name, with
 the leading dot, so ``X.10.1.0.nupkg`` is not mistaken for version ``0.1.0``.
 
-The publish job only runs on tags, so the ``pins`` job runs ``--self-test`` on every pull request to keep this script working.
+The Ubuntu pack job runs this check against the release version read from ``Directory.Build.props`` on every pull request. The publish job runs it again against the actual tag before NuGet credentials are used; the ``pins`` job also runs ``--self-test`` on every pull request.
 """
 import contextlib
 import io

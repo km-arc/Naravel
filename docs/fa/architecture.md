@@ -30,9 +30,12 @@ DriverNotRegisteredException، ManagerOptionsExtensions.GetStore
 - **دستی:** `Forget(name)`، `ForgetAll()`.
 
 ## طول عمر و Dispose
-درایورهای بازنشسته **فوراً dispose نمی‌شوند** (ممکن است درخواستی هنوز استفاده کند). در لیست «بازنشسته» می‌مانند و همراه درایورهای cache‌شده
-هنگام dispose شدن Manager بسته می‌شوند. درایورها بر اساس reference یکتا می‌شوند و یک‌بار dispose می‌شوند؛ خطاها بعد از تلاش برای همه در
-`AggregateException` جمع می‌شوند. ساختی که بعد از dispose تمام شود، نتیجه‌اش را dispose می‌کند و فراخواننده `ObjectDisposedException` می‌گیرد.
+درایورهای بازنشسته **فوراً dispose نمی‌شوند** (ممکن است درخواستی هنوز استفاده کند) و در فهرست بازنشسته‌ها می‌مانند.
+Manager نمونه‌های cache و بازنشسته‌ای را که مالکشان است، بر اساس reference یکتا می‌کند و آزاد می‌کند. اگر درایور پیش‌فرض از طریق
+سرویس مستقیم `TDriver` که `AddNaravelManager` ثبت می‌کند resolve شود، DI آن نمونه را متعلق به container علامت می‌زند؛ container
+آن را آزاد می‌کند و Manager حتی پس از بازنشسته‌شدن از آزادسازی‌اش صرف‌نظر می‌کند. اگر سرویس مستقیم resolve نشود، خود Manager
+درایور پیش‌فرض را آزاد می‌کند. خطاها پس از تلاش برای همهٔ درایورهای تحت مالکیت در `AggregateException` جمع می‌شوند. ساختی که
+پس از dispose شدن Manager تمام شود، نتیجه‌اش را آزاد می‌کند و فراخواننده `ObjectDisposedException` می‌گیرد.
 
 ## Thread safety
 همهٔ اعضای عمومی thread-safe هستند. وضعیت با یک lock کوتاه محافظت می‌شود و هیچ factory‌ای زیر lock اجرا نمی‌شود.

@@ -7,6 +7,10 @@ each open finding must be owned by a roadmap stage.
 
 | ID | Finding | Evidence / impact | Owner |
 |---|---|---|---|
+| D-70 | Local storage does not reject symbolic links/junctions beneath the root. | Path normalization blocks lexical traversal but filesystem APIs follow reparse points, allowing a path that stays lexically inside the root to reach an external target. | R17.T06 |
+| D-71 | Default driver exposed directly through DI can be disposed by both DI and Manager. | `AddNaravelManager` registers the same cached instance as `TDriver`; both the service provider and manager own disposal unless ownership is explicitly separated. | R17.T08 |
+| D-72 | Routing package overrides the shared release version. | `src/Naravel.Routing/Naravel.Routing.csproj` sets `Version=1.0.0` while `Directory.Build.props` sets `VersionPrefix=0.1.0`; a release tag guard would reject the mixed pack. | R17.T07 |
+| D-73 | Roadmap consistency checker is not part of the CI merge/publish gate. | The checker exists but the required `pins`/`ci-ok` path does not invoke it, so roadmap drift can merge undetected. | R17.T05 |
 
 ## Resolved / historical notes
 
@@ -19,7 +23,7 @@ each open finding must be owned by a roadmap stage.
 - D-21 closed (2026-10-26, R17, PR #143): `KafkaQueueDriver.PopAsync` polls with a zero timeout and an async delay, so an idle poll holds no thread and cancellation is prompt; a contract test was added. `docs/*/queue.md` no longer list the blocking poll as a limit.
 - D-26 closed (2026-10-26, R17, PR #144): `AddQueuedEventListener` overloads take per-listener dispatch options and a source-generated `JsonTypeInfo<TEvent>`; the existing overload is unchanged.
 - D-27 closed (2026-10-26, R17, PR #142): RabbitMQ stores take `QueueType` (`Classic` default, or `Quorum`) and `DeliveryLimit`; a quorum ready queue bounds crash redelivery and dead-letters to the failed queue. Classic stays the default because the queue type is fixed at declaration, so existing queues are not changed.
-- D-22 closed (2026-10-26, R17): `tests/Naravel.Filesystem.Tests/StorageDriverContractTests.cs` runs one `IStorageDriver` contract on the local driver, on `StorageFake`, and on S3 when `NARAVEL_TEST_S3` is set. The kind of exception for a missing file differs between drivers and is deliberately not part of the contract. CI does not start an S3-compatible service, so the S3 leg is skipped there until the owner picks one (MinIO or S3Mock). NOT RUN locally (no .NET SDK); CI is the verification.
+- D-22 closed (2026-10-26, R17; S3 CI coverage completed in PR #188): `tests/Naravel.Filesystem.Tests/StorageDriverContractTests.cs` runs one `IStorageDriver` contract on the local driver, on `StorageFake`, and against Adobe S3Mock 5.2.3 via `NARAVEL_TEST_S3`. The CI service job creates the test bucket and the shared contract passed in [run 41236723246](https://github.com/km-arc/Naravel/actions/runs/41236723246). The contract excludes driver-specific missing-file exception types. This is S3-compatible service evidence, not a real AWS integration or presigned-signature verification. NOT RUN locally (no .NET SDK); CI is the verification.
 - D-23 closed (2026-10-26, R17): `CacheFake` (`Naravel.Cache.Testing`) and `StorageFake` (`Naravel.Filesystem.Testing`) ship with assertions; `CacheFake` passes the shared cache store contract and moves with an injected `TimeProvider`. NOT RUN locally; CI is the verification.
 - R02 / PDR-008 Filesystem migration was completed; live S3 was not run. Build and test verification is reported in [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml).
 - PDR-007 Cache implementation was accepted; live Redis/Memcached were not run locally. Build and test verification is reported in [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml).
