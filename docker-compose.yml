@@ -55,6 +55,18 @@ services:
       timeout: 10s
       retries: 15
 
+  # S3-compatible service for the IStorageDriver integration contract (same pinned image as CI).
+  s3mock:
+    image: adobe/s3mock:5.2.3
+    ports:
+      - "9090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/favicon.ico"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
   # Database servers for the Naravel.Database contract tests (PDR-022 A6). They live in the "db" profile so the default
   # `docker compose up` stays light (SQL Server needs about 2 GB of RAM); start them with `scripts/test-local.sh --db`.
   # Same images and test-only tuning as the `database` job in .github/workflows/ci.yml.

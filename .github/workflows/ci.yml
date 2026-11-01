@@ -216,11 +216,22 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
+      s3mock:
+        image: adobe/s3mock:5.2.3
+        ports:
+          - 9090:9090
+        options: >-
+          --health-cmd "wget --spider -q http://localhost:9090/favicon.ico"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 30s
     env:
       NARAVEL_TEST_REDIS: localhost:6379
       NARAVEL_TEST_RABBITMQ: amqp://naravel:naravel@localhost:5672/%2f
       NARAVEL_TEST_KAFKA: localhost:9092
       NARAVEL_TEST_MEMCACHED: localhost:11211
+      NARAVEL_TEST_S3: "http://localhost:9090;naravel;naravel;naravel-test"
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -259,6 +270,15 @@ jobs:
           -c Release --no-build --no-restore
           --logger "trx;LogFileName=CacheProviders.trx"
           --results-directory TestResults/Providers/Cache
+          --collect:"XPlat Code Coverage"
+
+      - name: S3 storage integration tests
+        run: >-
+          dotnet test tests/Naravel.Filesystem.Tests/Naravel.Filesystem.Tests.csproj
+          -c Release --no-build --no-restore
+          --filter "FullyQualifiedName~S3StorageDriverSharedContractTests"
+          --logger "trx;LogFileName=S3Storage.trx"
+          --results-directory TestResults/Providers/Filesystem
           --collect:"XPlat Code Coverage"
 
       - name: Broadcasting presence on Redis

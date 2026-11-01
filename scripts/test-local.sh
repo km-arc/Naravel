@@ -42,6 +42,7 @@ if [[ $use_services -eq 1 ]]; then
   export NARAVEL_TEST_RABBITMQ='amqp://naravel:naravel@localhost:5672/%2f'
   export NARAVEL_TEST_KAFKA=localhost:9092
   export NARAVEL_TEST_MEMCACHED=localhost:11211
+  export NARAVEL_TEST_S3='http://localhost:9090;naravel;naravel;naravel-test'
 fi
 
 status=0
