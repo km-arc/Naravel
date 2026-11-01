@@ -76,7 +76,8 @@ public sealed class LocalStorageDriverLinkOperationTests : IDisposable
         }
         finally
         {
-            Directory.Delete(link);
+            if (Directory.Exists(link))
+                Directory.Delete(link);
             Directory.Delete(outside, recursive: true);
         }
     }
