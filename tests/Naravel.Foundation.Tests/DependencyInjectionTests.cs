@@ -176,13 +176,25 @@ public class DependencyInjectionTests
     }
 
     [Fact]
-    public void Disposing_the_provider_disposes_drivers()
+    public void Disposing_the_provider_disposes_manager_owned_drivers_once_when_the_direct_service_was_not_resolved()
     {
         var (provider, _) = Build(Config(), services => services.AddNaravelDriver<IFakeDriver>("redis", HostDriver));
         var driver = (FakeDriver)provider.GetRequiredService<FakeManager>().Driver();
 
         provider.Dispose();
 
-        driver.IsDisposed.Should().BeTrue();
+        driver.DisposeCalls.Should().Be(1);
+    }
+
+    [Fact]
+    public void The_DI_container_disposes_the_injected_default_driver_once_and_the_manager_skips_it()
+    {
+        var (provider, _) = Build(Config(), services => services.AddNaravelDriver<IFakeDriver>("redis", HostDriver));
+        var driver = (FakeDriver)provider.GetRequiredService<IFakeDriver>();
+
+        provider.GetRequiredService<FakeManager>().Driver().Should().BeSameAs(driver);
+        provider.Dispose();
+
+        driver.DisposeCalls.Should().Be(1);
     }
 }

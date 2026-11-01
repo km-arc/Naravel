@@ -75,6 +75,7 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        services.TryAddSingleton<ContainerOwnedDrivers<TDriver>>();
         services.TryAddSingleton<IDriverRegistry<TDriver>>(sp =>
         {
             var registry = new DriverRegistry<TDriver>();
@@ -86,7 +87,12 @@ public static class ServiceCollectionExtensions
             return registry;
         });
         services.TryAddSingleton<TManager>();
-        services.TryAddSingleton<TDriver>(sp => sp.GetRequiredService<TManager>().Driver());
+        services.TryAddSingleton<TDriver>(sp =>
+        {
+            var driver = sp.GetRequiredService<TManager>().Driver();
+            sp.GetRequiredService<ContainerOwnedDrivers<TDriver>>().Mark(driver);
+            return driver;
+        });
         return services;
     }
 

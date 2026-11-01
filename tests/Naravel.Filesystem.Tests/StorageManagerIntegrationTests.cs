@@ -73,7 +73,22 @@ public sealed class StorageManagerIntegrationTests : IDisposable
 
         provider.Dispose();
 
-        custom.IsDisposed.Should().BeTrue();
+        custom.DisposeCalls.Should().Be(1);
+    }
+
+    [Fact]
+    public void DI_disposes_the_default_driver_once_when_it_is_injected_directly()
+    {
+        var config = Configuration(("Default", "custom"));
+        var provider = Build(config);
+        var manager = provider.GetRequiredService<StorageManager>();
+        var custom = new TrackingDriver();
+        manager.Extend("custom", _ => custom);
+
+        provider.GetRequiredService<IStorageDriver>().Should().BeSameAs(custom);
+        provider.Dispose();
+
+        custom.DisposeCalls.Should().Be(1);
     }
 
     private ServiceProvider Build(ConfigurationManager config)
@@ -108,7 +123,8 @@ public sealed class StorageManagerIntegrationTests : IDisposable
 
     private sealed class TrackingDriver : IStorageDriver, IDisposable
     {
-        public bool IsDisposed { get; private set; }
+        public int DisposeCalls { get; private set; }
+        public bool IsDisposed => DisposeCalls > 0;
         public Task<bool> ExistsAsync(string path, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<byte[]> GetAsync(string path, CancellationToken cancellationToken = default) => Task.FromResult(Array.Empty<byte>());
         public Task<Stream> GetStreamAsync(string path, CancellationToken cancellationToken = default) => Task.FromResult<Stream>(Stream.Null);
@@ -119,6 +135,6 @@ public sealed class StorageManagerIntegrationTests : IDisposable
         public Task MoveAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<long> SizeAsync(string path, CancellationToken cancellationToken = default) => Task.FromResult(0L);
         public Task<string> GetUrlAsync(string path, TimeSpan? expiration = null, CancellationToken cancellationToken = default) => Task.FromResult(path);
-        public void Dispose() => IsDisposed = true;
+        public void Dispose() => Interlocked.Increment(ref DisposeCalls);
     }
 }

@@ -43,6 +43,7 @@ public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable
     }
 
     private readonly IServiceProvider _provider;
+    private readonly ContainerOwnedDrivers<TDriver>? _containerOwnedDrivers;
     private readonly IDriverRegistry<TDriver> _registry;
     private readonly IOptionsMonitor<TOptions> _options;
     private readonly IDisposable? _optionsSubscription;
@@ -65,6 +66,7 @@ public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable
         ArgumentNullException.ThrowIfNull(options);
 
         _provider = provider;
+        _containerOwnedDrivers = (ContainerOwnedDrivers<TDriver>?)provider.GetService(typeof(ContainerOwnedDrivers<TDriver>));
         _registry = registry;
         _options = options;
         _storesFingerprint = Fingerprint(options.CurrentValue);
@@ -417,15 +419,19 @@ public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable
             HashSet<object> seen = new(ReferenceEqualityComparer.Instance);
             foreach (var entry in _cache.Values)
             {
-                if (entry.Task.IsCompletedSuccessfully && seen.Add(entry.Task.Result))
+                if (entry.Task.IsCompletedSuccessfully)
                 {
-                    owned.Add(entry.Task.Result);
+                    var driver = entry.Task.Result;
+                    if (seen.Add(driver) && _containerOwnedDrivers?.Contains(driver) != true)
+                    {
+                        owned.Add(driver);
+                    }
                 }
             }
 
             foreach (var driver in _retired)
             {
-                if (seen.Add(driver))
+                if (seen.Add(driver) && _containerOwnedDrivers?.Contains(driver) != true)
                 {
                     owned.Add(driver);
                 }
