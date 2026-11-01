@@ -14,7 +14,7 @@ The local driver also has a critical root-containment security fix and regressio
 
 - Use `StorageManager : Manager<IStorageDriver, FilesystemOptions>` and retain `Disk(string? name = null)` as the filesystem-facing alias for `Driver(name)`.
 - Derive `FilesystemOptions` from `ManagerOptions`; use `Default` and `Stores`, not `DefaultDisk` and `Disks`.
-- Register built-in disk drivers through Foundation's `IDriverRegistry<IStorageDriver>` / `AddNaravelDriver` pattern. Preserve the `AddNaravelFilesystem` entry point and allow an optional configuration section name, defaulting to `Filesystem`.
+- Register built-in disk drivers through Foundation's `IDriverRegistry<IStorageDriver>` / `AddNaravelDriver` pattern. Preserve the `AddNaravelFilesystem` entry point and allow an optional configuration section name, defaulting to `Filesystem`. When those configured disks must be read from the live options after the provider is built, use the provider-aware `ConfigureNaravelDrivers` overload from the PDR-002 addendum so they join the same shared registry.
 - Remove the duplicate factory/manager resolution path (`IFilesystemDriverFactory`, `FilesystemDriverFactory`, and the old `IStorageManager` abstraction) rather than layering Foundation under it. This is a public API migration and must be called out in release notes.
 - Runtime custom drivers use the manager's inherited `Extend`; do not add another registry or cache.
 

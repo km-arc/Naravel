@@ -5,6 +5,13 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Naravel.Foundation;
 
+/// <summary>Carries a deferred "register built-in drivers" action collected before the registry is created.</summary>
+internal sealed class DriverRegistrationCallback<TDriver>(Action<IServiceProvider, IDriverRegistry<TDriver>> configure)
+    where TDriver : notnull
+{
+    public Action<IServiceProvider, IDriverRegistry<TDriver>> Configure { get; } = configure;
+}
+
 /// <summary>DI wiring for Naravel managers and their drivers.</summary>
 /// <remarks>
 /// <b>Laravel equivalent:</b> a service provider's <c>$this->app->singleton(CacheManager::class)</c> plus
@@ -74,9 +81,9 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IDriverRegistry<TDriver>>(sp =>
         {
             var registry = new DriverRegistry<TDriver>();
-            foreach (var configure in sp.GetServices<Action<IDriverRegistry<TDriver>>>())
+            foreach (var callback in sp.GetServices<DriverRegistrationCallback<TDriver>>())
             {
-                configure(registry);
+                callback.Configure(sp, registry);
             }
 
             return registry;
@@ -96,6 +103,7 @@ public static class ServiceCollectionExtensions
     /// <param name="services">The service collection.</param>
     /// <param name="configure">Receives the registry to register factories on.</param>
     /// <returns>The same collection, for chaining.</returns>
+    /// <remarks>Registrations run in the order they were added to the collection; when two use the same name, the later one wins.</remarks>
     public static IServiceCollection ConfigureNaravelDrivers<TDriver>(
         this IServiceCollection services,
         Action<IDriverRegistry<TDriver>> configure)
@@ -103,7 +111,35 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configure);
-        services.AddSingleton(configure);
+        services.AddSingleton(new DriverRegistrationCallback<TDriver>((_, registry) => configure(registry)));
+        return services;
+    }
+
+    /// <summary>
+    /// Registers several built-in drivers at once, with access to the application's services; the action runs when the
+    /// registry is created, that is on first use of the manager.
+    /// </summary>
+    /// <typeparam name="TDriver">The driver contract.</typeparam>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configure">Receives the container and the registry to register factories on.</param>
+    /// <returns>The same collection, for chaining.</returns>
+    /// <remarks>
+    /// <para><b>Why it exists:</b> a module whose drivers depend on something only the built container knows (the live
+    /// <c>IOptionsMonitor</c> of its store list, say) cannot register them with
+    /// <see cref="AddNaravelDriver{TDriver}(IServiceCollection, string, Func{IServiceProvider, TDriver})"/> at registration time. Registering
+    /// them here keeps them on the same registry as every other built-in driver, so a driver added by
+    /// <c>AddNaravelDriver</c> or <c>ConfigureNaravelDrivers</c> elsewhere is honoured instead of silently ignored.</para>
+    /// <para>Registrations run in the order they were added to the collection; when two use the same name, the later one wins.
+    /// The container passed in is the root provider; do not resolve scoped services from it.</para>
+    /// </remarks>
+    public static IServiceCollection ConfigureNaravelDrivers<TDriver>(
+        this IServiceCollection services,
+        Action<IServiceProvider, IDriverRegistry<TDriver>> configure)
+        where TDriver : class
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configure);
+        services.AddSingleton(new DriverRegistrationCallback<TDriver>(configure));
         return services;
     }
 

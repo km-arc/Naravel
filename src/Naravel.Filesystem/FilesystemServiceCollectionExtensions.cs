@@ -1,7 +1,6 @@
 namespace Microsoft.Extensions.DependencyInjection;
 
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Naravel.Filesystem;
 using Naravel.Filesystem.Drivers;
 using Naravel.Foundation;
@@ -31,21 +30,17 @@ public static class FilesystemServiceCollectionExtensions
 
     private static IServiceCollection AddFilesystemServices(IServiceCollection services)
     {
-        services.TryAddSingleton<IDriverRegistry<IStorageDriver>>(provider =>
+        // The disks come from the options, read when the registry is built, so the configuration and the Action<FilesystemOptions>
+        // overloads share one path. They are registered like every other built-in driver (not on a registry of their own), so a
+        // disk added with AddNaravelDriver<IStorageDriver> or ConfigureNaravelDrivers<IStorageDriver> is honoured; the later
+        // registration wins when two use one name.
+        services.ConfigureNaravelDrivers<IStorageDriver>((provider, registry) =>
         {
             var options = provider.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<FilesystemOptions>>().CurrentValue;
-            var registry = new DriverRegistry<IStorageDriver>();
             foreach (var (name, section) in options.Stores)
             {
                 registry.Register(name, _ => CreateDriver(section));
             }
-
-            foreach (var configure in provider.GetServices<Action<IDriverRegistry<IStorageDriver>>>())
-            {
-                configure(registry);
-            }
-
-            return registry;
         });
         services.AddNaravelManager<StorageManager, IStorageDriver, FilesystemOptions>();
 

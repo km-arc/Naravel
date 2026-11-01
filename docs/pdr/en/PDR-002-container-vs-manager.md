@@ -27,3 +27,16 @@ The Foundation proposal was framed as extracting logic from `illuminate/containe
 - *Custom IoC container:* duplicates a mature, well-integrated framework component.
 - *Keyed DI only:* fails the runtime-extend requirement.
 - *Per-module ad-hoc managers:* duplicates and diverges the same logic N times.
+
+
+## Addendum — provider-aware built-in driver registration (2026-11-01)
+
+A module may need services from the built container while it registers its built-in driver factories (Filesystem reads the live `IOptionsMonitor<FilesystemOptions>.CurrentValue`). Those registrations must still belong to Foundation's single `IDriverRegistry<TDriver>`; a module must not create a private registry that bypasses `AddNaravelDriver` registrations.
+
+- Keep the existing public `ConfigureNaravelDrivers<TDriver>(Action<IDriverRegistry<TDriver>>)` overload unchanged.
+- Add `ConfigureNaravelDrivers<TDriver>(Action<IServiceProvider, IDriverRegistry<TDriver>>)` for deferred registrations that need the root `IServiceProvider`.
+- Both overloads register callbacks in one ordered sequence. The callbacks run once when the singleton registry is first created; a later registration wins when names collide.
+- The provider passed to the callback is the root provider. Do not resolve scoped services from it.
+- Filesystem uses this overload to read `IOptionsMonitor<FilesystemOptions>.CurrentValue` when the registry is built, preserving both its `IConfiguration` and `Action<FilesystemOptions>` entry points without creating a second registry.
+
+**Owner approval:** the additive public overload was approved on 2026-11-01 and the approval is recorded in [PR #200](https://github.com/km-arc/Naravel/pull/200). The existing one-argument overload remains source-compatible.

@@ -14,7 +14,7 @@
 
 - از `StorageManager : Manager<IStorageDriver, FilesystemOptions>` استفاده شود و `Disk(string? name = null)` به‌عنوان نام کاربری filesystem برای `Driver(name)` حفظ شود.
 - `FilesystemOptions` از `ManagerOptions` ارث‌بری کند؛ کلیدهای تنظیمات `Default` و `Stores` باشند، نه `DefaultDisk` و `Disks`.
-- درایورهای داخلی از الگوی Foundation یعنی `IDriverRegistry<IStorageDriver>` / `AddNaravelDriver` ثبت شوند. ورودی `AddNaravelFilesystem` حفظ شود و نام بخش تنظیمات اختیاری باشد؛ مقدار پیش‌فرض `Filesystem` است.
+- درایورهای داخلی از الگوی Foundation یعنی `IDriverRegistry<IStorageDriver>` / `AddNaravelDriver` ثبت شوند. ورودی `AddNaravelFilesystem` حفظ شود و نام بخش تنظیمات اختیاری باشد؛ مقدار پیش‌فرض `Filesystem` است. وقتی دیسک‌های پیکربندی‌شده باید پس از ساخته‌شدن provider از options زنده خوانده شوند، از overload دارای provider در الحاقیهٔ PDR-002 استفاده شود تا همان registry مشترک حفظ شود.
 - مسیر تکراری manager/factory (`IFilesystemDriverFactory`، `FilesystemDriverFactory` و abstraction قدیمی `IStorageManager`) حذف شود، نه اینکه Foundation پشت آن‌ها قرار بگیرد. این تغییر API عمومی است و باید در یادداشت انتشار ذکر شود.
 - درایور سفارشی زمان اجرا با `Extend` به‌ارث‌رسیده از manager اضافه شود؛ registry یا cache دیگری ساخته نشود.
 
