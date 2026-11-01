@@ -10,7 +10,7 @@ each open finding must be owned by a roadmap stage.
 | D-70 | Local storage does not reject symbolic links/junctions beneath the root. | Path normalization blocks lexical traversal but filesystem APIs follow reparse points, allowing a path that stays lexically inside the root to reach an external target. | R17.T06 |
 | D-71 | Default driver exposed directly through DI can be disposed by both DI and Manager. | `AddNaravelManager` registers the same cached instance as `TDriver`; both the service provider and manager own disposal unless ownership is explicitly separated. | R17.T08 |
 | D-72 | Routing package overrides the shared release version. | `src/Naravel.Routing/Naravel.Routing.csproj` sets `Version=1.0.0` while `Directory.Build.props` sets `VersionPrefix=0.1.0`; a release tag guard would reject the mixed pack. | R17.T07 |
-| D-73 | Roadmap consistency checker is not part of the CI merge/publish gate. | The checker exists but the required `pins`/`ci-ok` path does not invoke it, so roadmap drift can merge undetected. | R17.T05 |
+| D-73 | Roadmap consistency checker is not part of the CI merge/publish gate. | The checker exists but the required `pins`/`ci-ok` path does not invoke it, so roadmap drift can merge undetected. | R17.T05 |\n| D-74 | Memory provider lock state grows with distinct increment keys and lock names. | `MemoryCacheStore` previously retained one gate per increment key and `MemoryLock` retained one state per lock name; client-controlled key cardinality could grow process memory without bound. Fix and regression tests are proposed in PR #192; not closed until merged and verified. | R17 |
 
 ## Resolved / historical notes
 
