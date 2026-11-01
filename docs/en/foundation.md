@@ -7,7 +7,7 @@
 Define a driver contract, options, and a manager. Register the manager and a named driver before building the service provider:
 
 ```csharp
-using Microsoft.Extensions.Configuration; using Microsoft.Extensions.DependencyInjection; using Microsoft.Extensions.Options; using Microsoft.AspNetCore.Builder; using Naravel.Foundation;
+using System; using Microsoft.Extensions.Configuration; using Microsoft.Extensions.DependencyInjection; using Microsoft.Extensions.Options; using Microsoft.AspNetCore.Builder; using Naravel.Foundation;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddNaravelManager<GreeterManager, IGreeter, GreeterOptions>(builder.Configuration.GetSection("Greeter"));
 builder.Services.AddNaravelDriver<IGreeter>("polite", _ => new PoliteGreeter());
