@@ -11,10 +11,11 @@ each open finding must be owned by a roadmap stage.
 | D-71 | Default driver exposed directly through DI can be disposed by both DI and Manager. | `AddNaravelManager` registers the same cached instance as `TDriver`; both the service provider and manager own disposal unless ownership is explicitly separated. | R17.T08 |
 | D-72 | Routing package overrides the shared release version. | `src/Naravel.Routing/Naravel.Routing.csproj` sets `Version=1.0.0` while `Directory.Build.props` sets `VersionPrefix=0.1.0`; a release tag guard would reject the mixed pack. | R17.T07 |
 | D-73 | Roadmap consistency checker is not part of the CI merge/publish gate. | The checker exists but the required `pins`/`ci-ok` path does not invoke it, so roadmap drift can merge undetected. | R17.T05 |
-| D-74 | Memory provider lock state grows with distinct increment keys and lock names. | `MemoryCacheStore` previously retained one gate per increment key and `MemoryLock` retained one state per lock name; client-controlled key cardinality could grow process memory without bound. Fix and regression tests are proposed in PR #192; not closed until merged and verified. | R17 |
+
 
 ## Resolved / historical notes
 
+- D-74 closed (2026-11-01, R17, PR #192; CI run #497): `MemoryCacheStore` now uses 256 fixed gates selected by key hash; `MemoryLock` retires state on successful release and sweeps expired states every 1,024 acquisitions. Regression tests: `A_released_lock_is_not_kept_in_the_table`, `A_lock_that_expired_without_a_release_is_swept`, `A_name_is_still_held_by_one_owner_at_a_time_while_states_come_and_go`, and `Increments_stay_exact_across_many_distinct_keys_that_share_a_gate`. Windows, Ubuntu, macOS, provider integration, roadmap/package validation and `ci-ok` passed. Database matrix skipped because no database changes were detected; no local .NET SDK, CI is the verification.
 - D-17 closed (2026-10-27, R17.T02): every package under `src/` now documents its public API and the global `CS1591` suppression is gone (it remains only for tests and samples). Warnings are errors under `src/`, so CI fails on any new undocumented public member.
 - D-04 closed (2026-10-26, R17.T01): R07 and R08 are DONE (failed-job store and retry, middleware, chains, batches, worker controls).
 - D-05 closed (2026-10-26, R17.T01): R03 is DONE (`Naravel.Redis`, one shared connection manager, Cache.Redis and Queue.Redis migrated).
