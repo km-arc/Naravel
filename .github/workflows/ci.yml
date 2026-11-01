@@ -160,6 +160,13 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: dotnet pack Naravel.slnx -c Release --no-build -o ./nupkgs-check
 
+      - name: Verify packed package versions match the shared release version
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          version="$(python3 -c 'import xml.etree.ElementTree as ET; root = ET.parse("Directory.Build.props").getroot(); print(next((node.text or "").strip() for node in root.iter("VersionPrefix")))')"
+          python3 .github/scripts/check-tag-version.py "v${version}" ./nupkgs-check
+
   services:
     name: Provider integration tests
     runs-on: ubuntu-latest
@@ -572,6 +579,10 @@ jobs:
         uses: actions/checkout@v4
       - name: Reject floating image tags
         run: python3 .github/scripts/check-image-pins.py
+      - name: Validate the roadmap
+        run: /usr/bin/python3 roadmap/check.py
+      - name: Validate lock-step package versions
+        run: python3 .github/scripts/check-package-versions.py
       - name: Publishing must wait for every required job
         run: python3 .github/scripts/check-publish-gates.py
       - name: Tag/version guard still works

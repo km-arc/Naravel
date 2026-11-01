@@ -138,7 +138,22 @@ public sealed class CacheManagerIntegrationTests
 
         provider.Dispose();
 
-        custom.IsDisposed.Should().BeTrue();
+        custom.DisposeCalls.Should().Be(1);
+    }
+
+    [Fact]
+    public void DI_disposes_the_injected_default_lock_once_and_the_lock_manager_skips_it()
+    {
+        var config = Config(("Default", "custom"));
+        var provider = Build(config);
+        var manager = provider.GetRequiredService<LockManager>();
+        var custom = new DisposableFakeLock();
+        manager.Extend("custom", _ => custom);
+
+        provider.GetRequiredService<ICacheLock>().Should().BeSameAs(custom);
+        provider.Dispose();
+
+        custom.DisposeCalls.Should().Be(1);
     }
 
     [Fact]
@@ -237,9 +252,11 @@ public sealed class CacheManagerIntegrationTests
 
     private sealed class DisposableFakeLock : ICacheLock, IDisposable
     {
-        public bool IsDisposed { get; private set; }
+        private int _disposeCalls;
+        public int DisposeCalls => Volatile.Read(ref _disposeCalls);
+        public bool IsDisposed => DisposeCalls > 0;
         public Task<string?> AcquireAsync(string name, TimeSpan ttl, CancellationToken cancellationToken = default) => Task.FromResult<string?>("token");
         public Task<bool> ReleaseAsync(string name, string token, CancellationToken cancellationToken = default) => Task.FromResult(true);
-        public void Dispose() => IsDisposed = true;
+        public void Dispose() => Interlocked.Increment(ref _disposeCalls);
     }
 }

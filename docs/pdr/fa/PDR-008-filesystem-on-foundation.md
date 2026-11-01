@@ -34,14 +34,14 @@
 
 ### طول عمر driver و تنظیمات S3
 
-- اجباری‌کردن disposal در قرارداد `IStorageDriver` انجام نشود. Foundation driverهای cacheشده‌ای را که `IDisposable` یا `IAsyncDisposable` باشند آزاد می‌کند؛ `S3StorageDriver`، `IAmazonS3` متعلق به خودش را با `IDisposable` آزاد کند.
+- اجباری‌کردن disposal در قرارداد `IStorageDriver` انجام نشود. Manager نمونه‌هایی را که مالکشان است آزاد می‌کند؛ اگر درایور پیش‌فرض از طریق سرویس مستقیم `TDriver` در `AddNaravelManager` ارائه شود، DI مالک آن نمونه است و Manager از آزادسازی‌اش صرف‌نظر می‌کند. `S3StorageDriver`، `IAmazonS3` متعلق به خودش را با `IDisposable` آزاد کند.
 - `DiskOptions.Region` مؤثر شود: برای endpoint استاندارد AWS از `AmazonS3Config.RegionEndpoint` و برای `ServiceURL` سفارشی S3-compatible از `AuthenticationRegion` استفاده شود (SDK با تنظیم service URL سفارشی، `RegionEndpoint` را پاک می‌کند). رفتار پیش‌فرض در نبود `Region` حفظ شود.
 - در این مرحله `AWSSDK.S3` ارتقا داده نشود؛ ارتقای آن جداگانه به تأیید مالک نیاز دارد.
 
 ### API، ایمنی و تست‌ها
 
 - عملیات async فعلی حفظ شوند و `CancellationToken` اختیاری به `GetUrlAsync` اضافه شود تا APIهای async مرتبط با I/O با قرارداد مخزن هماهنگ باشند.
-- بررسی امنیتی containment برای جلوگیری از path traversal بدون تغییر حفظ شود و تست‌های regression آن باقی بمانند.
+- containment لغوی ریشه حفظ و تقویت شود: symbolic link، junction و سایر reparse pointهای موجود در اجزای مسیر زیر ریشه رد شوند؛ تست‌های regression مربوط به `..` حفظ و تست لینک فایل/پوشه اضافه شوند. محدودیت race میان بررسی مسیر و بازکردن فایل در صورت تغییر هم‌زمان درخت پوشه مستند شود.
 - تست‌های قرارداد درایور local برای exists/get/stream/put/delete/copy/move/size/url اضافه شوند؛ تست‌های manager برای چند store نام‌دار، `Extend` زمان اجرا، reload تنظیمات، انتخاب پیش‌فرض و disposal نوشته شوند؛ و برای S3 تستی با client/factory قابل تزریق یا ابزار تست از قبل تأییدشده افزوده شود. بدون تصمیم PDR وابستگی جدید اضافه نشود.
 - `docs/en/filesystem.md` و `docs/fa/filesystem.md` برای تنظیمات، انتخاب دیسک، upload در controller، temporary URL، driver سفارشی، محدودیت‌ها و رفتار امنیتی نوشته شوند. parity tableها، وضعیت ماژول و changelog نیز به‌روزرسانی شوند.
 

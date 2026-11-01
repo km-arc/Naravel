@@ -31,10 +31,12 @@ instead of blocking (no sync-over-async deadlocks). If an async driver was alrea
 - **Manual**: `Forget(name)`, `ForgetAll()`.
 
 ## Lifetime & disposal
-Retired drivers are **not** disposed immediately (a request may still hold them). They are kept in a retired list and
-disposed, together with cached drivers, when the manager is disposed. Drivers are de-duplicated by reference and disposed
-once; errors are aggregated into `AggregateException` after all drivers were attempted. A creation that finishes after
-disposal disposes its result and fails the caller with `ObjectDisposedException`.
+Retired drivers are **not** disposed immediately (a request may still hold them). The manager keeps them in a retired list.
+The manager disposes cached and retired instances it owns, de-duplicated by reference. If the default driver is also resolved
+as the direct `TDriver` service registered by `AddNaravelManager`, DI marks that instance as container-owned: the container
+disposes it and the manager skips it, including after it has been retired. If the direct service is never resolved, the
+manager disposes the default instance itself. Errors are aggregated into `AggregateException` after all owned drivers were
+attempted. A creation that finishes after manager disposal disposes its result and fails with `ObjectDisposedException`.
 
 ## Thread safety
 All public members are thread-safe. State is guarded by one short-lived lock; no factory ever runs under the lock.

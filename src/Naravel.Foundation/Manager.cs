@@ -22,10 +22,12 @@ namespace Naravel.Foundation;
 /// inject the manager only when you need to pick a driver at runtime (PDR-003).</para>
 /// <para><b>Guarantees:</b> one creation per name even under concurrency; failures are never cached; callers can cancel
 /// waiting without aborting a shared creation; the sync API never blocks on asynchronous factories.</para>
-/// <para><b>Ownership:</b> the manager owns every driver its factories return and disposes them (once, de-duplicated by
-/// reference) when the manager is disposed. Factories should therefore return instances the manager may dispose
-/// (prefer <c>ActivatorUtilities.CreateInstance</c> over resolving a container-owned singleton), and driver
-/// <c>Dispose</c> must be idempotent.</para>
+/// <para><b>Ownership:</b> the manager owns factory-created drivers except the default instance transferred to the
+/// dependency-injection container when the direct <typeparamref name="TDriver"/> service registered by
+/// <c>AddNaravelManager</c> is resolved. The container disposes that instance and the manager skips it, even if a
+/// configuration reload later retires it. If the direct service is never resolved, the manager owns and disposes the
+/// default instance too. Factories should return instances the manager may dispose (prefer
+/// <c>ActivatorUtilities.CreateInstance</c> over resolving an unrelated container-owned singleton).</para>
 /// <para><b>Thread safety:</b> all members are thread-safe.</para>
 /// </remarks>
 public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable
@@ -43,6 +45,7 @@ public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable
     }
 
     private readonly IServiceProvider _provider;
+    private readonly ContainerOwnedDrivers<TDriver>? _containerOwnedDrivers;
     private readonly IDriverRegistry<TDriver> _registry;
     private readonly IOptionsMonitor<TOptions> _options;
     private readonly IDisposable? _optionsSubscription;
@@ -65,6 +68,7 @@ public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable
         ArgumentNullException.ThrowIfNull(options);
 
         _provider = provider;
+        _containerOwnedDrivers = (ContainerOwnedDrivers<TDriver>?)provider.GetService(typeof(ContainerOwnedDrivers<TDriver>));
         _registry = registry;
         _options = options;
         _storesFingerprint = Fingerprint(options.CurrentValue);
@@ -417,15 +421,19 @@ public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable
             HashSet<object> seen = new(ReferenceEqualityComparer.Instance);
             foreach (var entry in _cache.Values)
             {
-                if (entry.Task.IsCompletedSuccessfully && seen.Add(entry.Task.Result))
+                if (entry.Task.IsCompletedSuccessfully)
                 {
-                    owned.Add(entry.Task.Result);
+                    var driver = entry.Task.Result;
+                    if (seen.Add(driver) && _containerOwnedDrivers?.Contains(driver) != true)
+                    {
+                        owned.Add(driver);
+                    }
                 }
             }
 
             foreach (var driver in _retired)
             {
-                if (seen.Add(driver))
+                if (seen.Add(driver) && _containerOwnedDrivers?.Contains(driver) != true)
                 {
                     owned.Add(driver);
                 }
