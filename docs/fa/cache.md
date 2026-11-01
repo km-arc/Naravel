@@ -63,7 +63,7 @@ app.Run();
 
 ## عملیات پایه
 
-برای store پیش‌فرض و application-scoped، `ICacheStore` را تزریق کنید:
+برای store پیش‌فرض و application-scoped، `ICacheStore` را تزریق کنید. این سرویس یک نمای `ScopedCacheStore` روی درایور پیش‌فرضِ تحت مالکیت `CacheManager` است، نه خود نمونهٔ درایور؛ بنابراین `CacheManager` درایور زیرین را آزاد می‌کند. تزریق مستقیم `ICacheLock` خود درایور قفل پیش‌فرض را از ثبت مالکیت‌محور Foundation دریافت می‌کند؛ در این حالت DI آن نمونه را آزاد می‌کند و `LockManager` از آزادسازی دوباره صرف‌نظر می‌کند:
 
 ```csharp
 using Naravel.Cache.Abstractions;

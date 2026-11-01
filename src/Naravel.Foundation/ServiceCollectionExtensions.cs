@@ -5,13 +5,6 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Naravel.Foundation;
 
-/// <summary>Carries a deferred "register built-in drivers" action collected before the registry is created.</summary>
-internal sealed class DriverRegistrationCallback<TDriver>(Action<IDriverRegistry<TDriver>> configure)
-    where TDriver : notnull
-{
-    public Action<IDriverRegistry<TDriver>> Configure { get; } = configure;
-}
-
 /// <summary>DI wiring for Naravel managers and their drivers.</summary>
 /// <remarks>
 /// <b>Laravel equivalent:</b> a service provider's <c>$this->app->singleton(CacheManager::class)</c> plus
@@ -81,9 +74,9 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IDriverRegistry<TDriver>>(sp =>
         {
             var registry = new DriverRegistry<TDriver>();
-            foreach (var callback in sp.GetServices<DriverRegistrationCallback<TDriver>>())
+            foreach (var configure in sp.GetServices<Action<IDriverRegistry<TDriver>>>())
             {
-                callback.Configure(registry);
+                configure(registry);
             }
 
             return registry;
@@ -110,7 +103,7 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configure);
-        services.AddSingleton(new DriverRegistrationCallback<TDriver>(configure));
+        services.AddSingleton(configure);
         return services;
     }
 

@@ -63,7 +63,7 @@ Named Memory stores use their store name as the default prefix when `Prefix` is 
 
 ## Basic operations
 
-Inject `ICacheStore` for the default application-scoped store:
+Inject `ICacheStore` for the default application-scoped store. This service is a `ScopedCacheStore` view over the manager-owned default driver, not the driver instance itself; `CacheManager` owns and disposes the underlying driver. Direct `ICacheLock` injection resolves the actual default lock driver through Foundation's ownership-aware registration, so DI disposes that instance and `LockManager` skips it:
 
 ```csharp
 using Naravel.Cache.Abstractions;
