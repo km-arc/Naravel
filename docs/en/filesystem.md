@@ -201,8 +201,8 @@ It behaves like the local driver: a missing file throws `FileNotFoundException`,
 
 ## Security and limitations
 
-- Local paths are disk-root-relative. Attempts to escape the configured root are rejected with `UnauthorizedAccessException`; keep the regression tests when changing path handling.
+- Local paths are disk-root-relative. Lexical traversal and existing symbolic links, junctions or other reparse points below the root are rejected with `UnauthorizedAccessException`. The root itself is trusted configuration. Validation and file opening are separate OS operations, so an attacker who can concurrently mutate the directory tree may still race the check; keep the root writable only by the application/trusted administrators.
 - The migration to Foundation changed the configuration keys from `DefaultDisk`/`Disks` to `Default`/`Stores` and removed the old `IStorageManager` and factory APIs. Update callers during migration.
-- S3 region selection, endpoint configuration and client disposal have unit coverage. The shared storage contract can run against a live S3-compatible service (`NARAVEL_TEST_S3`), but CI does not start one, so no live S3 test runs by default.
+- S3 region selection, endpoint configuration and client disposal have unit coverage. CI runs the shared storage contract against Adobe S3Mock 5.2.3 through `NARAVEL_TEST_S3`. This covers the tested S3-compatible operations, but does not establish real AWS endpoint parity or presigned-URL signature verification.
 - The local driver does not create a public HTTP endpoint. Configure ASP.NET Core static files or an authorized download endpoint separately.
 - Filesystem operations do not provide Laravel's URL signing, visibility/policy system, or cloud-provider abstraction beyond the drivers documented here.
