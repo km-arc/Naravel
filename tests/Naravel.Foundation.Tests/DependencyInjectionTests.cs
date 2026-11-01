@@ -197,4 +197,22 @@ public class DependencyInjectionTests
 
         driver.DisposeCalls.Should().Be(1);
     }
+
+    [Fact]
+    public void A_DI_owned_default_that_is_retired_by_reload_is_still_disposed_exactly_once()
+    {
+        var (provider, root) = Build(Config(host: "h1"), services => services.AddNaravelDriver<IFakeDriver>("redis", HostDriver));
+        var injected = (FakeDriver)provider.GetRequiredService<IFakeDriver>();
+        var manager = provider.GetRequiredService<FakeManager>();
+
+        root["Fake:Stores:Redis:Host"] = "h2";
+        root.Reload();
+        var replacement = (FakeDriver)manager.Driver();
+        replacement.Should().NotBeSameAs(injected);
+
+        provider.Dispose();
+
+        injected.DisposeCalls.Should().Be(1);
+        replacement.DisposeCalls.Should().Be(1);
+    }
 }

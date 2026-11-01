@@ -22,10 +22,12 @@ namespace Naravel.Foundation;
 /// inject the manager only when you need to pick a driver at runtime (PDR-003).</para>
 /// <para><b>Guarantees:</b> one creation per name even under concurrency; failures are never cached; callers can cancel
 /// waiting without aborting a shared creation; the sync API never blocks on asynchronous factories.</para>
-/// <para><b>Ownership:</b> the manager owns every driver its factories return and disposes them (once, de-duplicated by
-/// reference) when the manager is disposed. Factories should therefore return instances the manager may dispose
-/// (prefer <c>ActivatorUtilities.CreateInstance</c> over resolving a container-owned singleton), and driver
-/// <c>Dispose</c> must be idempotent.</para>
+/// <para><b>Ownership:</b> the manager owns factory-created drivers except the default instance transferred to the
+/// dependency-injection container when the direct <typeparamref name="TDriver"/> service registered by
+/// <c>AddNaravelManager</c> is resolved. The container disposes that instance and the manager skips it, even if a
+/// configuration reload later retires it. If the direct service is never resolved, the manager owns and disposes the
+/// default instance too. Factories should return instances the manager may dispose (prefer
+/// <c>ActivatorUtilities.CreateInstance</c> over resolving an unrelated container-owned singleton).</para>
 /// <para><b>Thread safety:</b> all members are thread-safe.</para>
 /// </remarks>
 public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable

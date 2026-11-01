@@ -31,8 +31,10 @@ public static class ServiceCollectionExtensions
     /// <returns>The same collection, for chaining.</returns>
     /// <remarks>
     /// The plain <typeparamref name="TDriver"/> registration resolves the default driver <b>once</b>, on first
-    /// injection. Consumers that must follow a changing <c>Default</c> or pick drivers at runtime should inject the
-    /// manager instead. Register built-in drivers with <see cref="AddNaravelDriver{TDriver}(IServiceCollection, string, Func{IServiceProvider, TDriver})"/>
+    /// injection. That directly injected instance is owned and disposed by DI; the manager will not dispose it.
+    /// If the direct service is never resolved, the manager retains ownership. Consumers that must follow a changing
+    /// <c>Default</c> or pick drivers at runtime should inject the manager instead. Register built-in drivers with
+    /// <see cref="AddNaravelDriver{TDriver}(IServiceCollection, string, Func{IServiceProvider, TDriver})"/>
     /// before the service provider is built.
     /// </remarks>
     [RequiresUnreferencedCode("Binds TOptions from configuration through reflection. Trimmed or Native AOT applications bind the options with a compile-time Configure<TOptions>(section) call (configuration binding generator) and register the manager with AddNaravelManager<TManager, TDriver, TOptions>(services).")]
