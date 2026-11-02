@@ -1,5 +1,9 @@
 # ناراول (Naravel)
 
+[![CI](https://github.com/km-arc/Naravel/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/km-arc/Naravel/actions/workflows/ci.yml)
+[![NuGet](https://img.shields.io/nuget/v/Naravel.Foundation.svg?label=nuget)](https://www.nuget.org/packages/Naravel.Foundation)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **نام‌های لاراول، سیستم نوع‌های .NET.** اگر `Cache::remember`، `dispatch(new Job)` و `Route::prefix()->group()` را می‌شناسید، کد Naravel را از همان روز اول می‌خوانید: همان ایده‌ها در قالب APIهای آشنا و قابل‌کشف که نقاط قوت .NET را نگه می‌دارند: تایپ قوی، `async/await`، تزریق وابستگی و کارایی بومی. یک ایدهٔ لاراولی فقط وقتی پذیرفته می‌شود که نسبت به امکانات خود .NET ارزش عملی اضافه کند؛ دلیل تصمیم در PDR ثبت می‌شود.
 
 **وضعیت ماژول‌ها و نقشه‌راه:** مرجع رسمی [ROADMAP.md](ROADMAP.md) است. نتیجهٔ build و test در [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml) گزارش می‌شود.
@@ -8,6 +12,39 @@
 - راهنمای مشارکت و ایجنت‌ها: [AGENTS.md](AGENTS.md)
 - مستندات فارسی: [docs/fa](docs/fa) · PDRها: [docs/pdr/fa](docs/pdr/fa)
 - مستندات انگلیسی: [docs/en](docs/en) · PDRها: [docs/pdr/en](docs/pdr/en)
+- مشارکت: [CONTRIBUTING.fa.md](CONTRIBUTING.fa.md) · پرسش و گزارش باگ: [GitHub issues](https://github.com/km-arc/Naravel/issues) · امنیت: [SECURITY.md](SECURITY.md)
+
+> **وضعیت: نسخهٔ 0.x (پیش از 1.0).** API عمومی ممکن است بین نسخه‌های minor عوض شود؛ هر تغییر ناسازگار در [CHANGELOG](CHANGELOG.md) فهرست می‌شود (OD-09). Jobهای صف «دست‌کم یک‌بار» (at-least-once) اجرا می‌شوند. هنوز هیچ بسته‌ای سازگاری با trim یا Native AOT را اعلام نکرده است ([docs/fa/trimming-aot.md](docs/fa/trimming-aot.md)). اول روی یک شاخهٔ آزمایشی امتحانش کنید و تضمین‌های کنار هر قابلیت را بخوانید.
+
+## نصب
+
+Naravel برای **.NET 10** (`net10.0`) است. هر ماژول یک بستهٔ NuGet جداست و همهٔ بسته‌ها یک نسخهٔ یکسان دارند. ماژول‌هایی را که لازم دارید اضافه کنید؛ وابستگی‌هایشان، از جمله `Naravel.Foundation`، خودکار می‌آید:
+
+```sh
+dotnet add package Naravel.Cache          # یک ماژول اصلی
+dotnet add package Naravel.Cache.Redis    # یک provider، فقط اگر از Redis استفاده می‌کنید
+```
+
+همهٔ بسته‌های Naravel را در یک پروژه روی یک نسخه نگه دارید: با هم ساخته و تست می‌شوند.
+
+| می‌خواهید | نصب کنید | سپس ثبت کنید |
+|---|---|---|
+| Cache | `Naravel.Cache`؛ برای storeهای Redis یا Memcached، `Naravel.Cache.Redis` یا `Naravel.Cache.Memcached` را هم اضافه کنید | `AddNaravelCache(configuration)` |
+| Queue | `Naravel.Queue` و یک driver: `Naravel.Queue.Memory`، `.File`، `.Redis`، `.Database`، `.RabbitMQ` یا `.Kafka` | `AddQueue(configuration)` و `Add...Driver` همان driver |
+| هماهنگی صف (بدون هم‌پوشانی، محدودیت نرخ، jobهای یکتا) | `Naravel.Queue.Coordination` | [queue-coordination](docs/fa/queue-coordination.md) را ببینید |
+| Events | `Naravel.Events`؛ برای listenerهای صف‌شده `Naravel.Events.Queue` | `AddNaravelEvents()` |
+| Mail | `Naravel.Mail`؛ برای ارسال با SMTP `Naravel.Mail.Smtp` و برای ایمیل صف‌شده `Naravel.Mail.Queue` | `AddNaravelMail(configuration)` |
+| Notifications | `Naravel.Notifications`؛ در صورت نیاز `Naravel.Notifications.Mail` و `Naravel.Notifications.Queue` | `AddNaravelNotifications()` |
+| Query builder | `Naravel.Database` و یک dialect: `Naravel.Database.Sqlite`، `.MySql`، `.Postgres` یا `.SqlServer`؛ برای اشتراک اتصال یک context در EF Core، `Naravel.Database.EntityFrameworkCore` | `AddNaravelDatabase(configuration)` و `AddNaravel...Database` همان dialect |
+| Pagination | `Naravel.Pagination`؛ برای کوئری‌های EF Core، `Naravel.Pagination.EntityFrameworkCore` | لازم نیست |
+| فایل | `Naravel.Filesystem` | `AddNaravelFilesystem(configuration)` |
+| Routing | `Naravel.Routing` (ASP.NET Core) | `AddNaravelRouting()` |
+| Encryption | `Naravel.Encryption`؛ برای jobهای رمزگذاری‌شده `Naravel.Queue.Encryption` | `AddNaravelEncryption()` |
+| Scheduling | `Naravel.Scheduling` | `AddNaravelScheduling(...)` |
+| Broadcasting | `Naravel.Broadcasting` (ASP.NET Core، SignalR) | `AddNaravelBroadcasting(configuration)` |
+| اتصال Redis | `Naravel.Redis` (`Naravel.Cache.Redis` و `Naravel.Queue.Redis` از قبل به آن وابسته‌اند) | `AddNaravelRedis(configuration)` |
+
+جدول بخش «بسته‌های provider» (پایین‌تر) همهٔ فراخوانی‌های ثبت را دارد و هر بخش ماژول با یک مثال کوتاه شروع می‌شود. اول می‌خواهید اجرایش را ببینید؟ بخش «برنامهٔ نمونه» یک دستور برای اجرا دارد.
 
 ## اگر لاراول را می‌شناسید
 
