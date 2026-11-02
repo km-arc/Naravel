@@ -60,6 +60,10 @@ dotnet test Naravel.slnx -c Release
   آن تست `Extend` در زمان اجرا، تست بارگذاری مجدد پیکربندی (اگر config-driven است)، تست قرارداد برای هر driver و یک fake می‌خواهد.
   تست‌هایی که Redis، RabbitMQ، Kafka یا Memcached واقعی لازم دارند به متغیرهای `NARAVEL_TEST_*` (پایین) وابسته‌اند و وقتی سرویس
   نیست «skipped» دیده می‌شوند، نه «passed».
+- **بستهٔ تازه متادیتایش را داشته باشد.** در `.csproj` یک `<Description>` (دست‌کم ۴۰ نویسه) و `<PackageTags>`، و صفحهٔ بسته
+  `docs/nuget/<PackageId>.md` که به‌صورت `README.md` pack می‌شود؛ بقیهٔ چیزهایی که NuGet نشان می‌دهد از `Directory.Build.props`
+  می‌آید. CI هر بستهٔ pack‌شده را بررسی می‌کند (`.github/scripts/check-package-metadata.py` و `check-package-readmes.py`) چون NuGet
+  بعد از push نسخه را ویرایش نمی‌کند.
 - **مستندات به هر دو زبان باشد.** تغییر رفتار، `docs/en/*` و `docs/fa/*` را با هم به‌روز می‌کند. *دلیل* تصمیم را در مستندات یا پیام commit
   بنویسید، نه فقط خود تصمیم را.
 - **`CHANGELOG.md` یک خط زیر `[Unreleased]` داشته باشد** برای هر چیزی که کاربر یک بسته ممکن است متوجه شود.

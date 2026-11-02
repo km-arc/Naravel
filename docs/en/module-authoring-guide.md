@@ -13,6 +13,7 @@ Everything lives in this repository and one solution.
 - Tests in `tests/Naravel.<Module>.Tests` (xUnit + FluentAssertions 7.x).
 - Add **every** new project to `Naravel.slnx`.
 - Put new package versions in `Directory.Packages.props` only; `.csproj` files use `<PackageReference Include="X" />` without `Version`, and do not repeat target framework or NuGet metadata (those come from `Directory.Build.props`, including the shared lock-step version).
+- Give the project its own `<Description>` (at least 40 characters, saying what the package is) and `<PackageTags>`, plus its package page `docs/nuget/<PackageId>.md` packed as `README.md` (see the `docs/nuget` row in `AGENTS.md`); everything else NuGet shows (license, URLs, copyright, release notes, icon) comes from `Directory.Build.props`. CI packs every project and fails a package with a missing or default description, missing tags or a missing or wrong README (`.github/scripts/check-package-metadata.py`, `check-package-readmes.py`), so a gap is caught before a version that cannot be edited is pushed.
 - Do not create per-module repositories, solutions or CI workflows.
 
 ## 2. Contract, options, manager

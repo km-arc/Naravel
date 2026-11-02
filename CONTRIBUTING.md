@@ -61,6 +61,10 @@ A change is ready when:
   7.x). A driver module also needs a runtime `Extend` test, a config-reload test when it is config-driven, a contract test
   for every driver and a fake. Tests that need a real Redis, RabbitMQ, Kafka or Memcached are gated on the
   `NARAVEL_TEST_*` variables below and show up as skipped, never as passed, when the service is missing.
+- **A new package has its metadata.** A `<Description>` (at least 40 characters) and `<PackageTags>` in its `.csproj`, and its
+  package page `docs/nuget/<PackageId>.md` packed as `README.md`; the rest of what NuGet shows comes from
+  `Directory.Build.props`. CI checks every packed package (`.github/scripts/check-package-metadata.py` and
+  `check-package-readmes.py`), because NuGet cannot edit a version once it is pushed.
 - **Docs are in both languages.** A change to behaviour updates `docs/en/*` and `docs/fa/*` together. Put the *reason* for
   a decision in the docs or the commit message, not only the decision.
 - **`CHANGELOG.md` has a line under `[Unreleased]`** for anything a user of a package could notice.
