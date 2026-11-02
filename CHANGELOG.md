@@ -4,7 +4,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+- CI: `.github/scripts/consumer-smoke.py` installs every packed package into a consumer outside the repository the way a user does (`Naravel.*` from the packed files only, a fresh package cache), builds it, loads every Naravel assembly and runs the `Naravel.AotSmoke` program against the packages. It runs report-only in the pack job; the manual workflow `package-smoke.yml` runs it against a version published on nuget.org. Nothing else consumed a packed package before.
 
 ## [0.1.1] - 2026-11-02
 

@@ -1,0 +1,35 @@
+name: Package smoke (published version)
+
+# Manual and report-only: installs the packages published on nuget.org at the given version into a consumer outside the repository,
+# builds it, loads every Naravel assembly and runs the smoke program against them (.github/scripts/consumer-smoke.py). Run it after a
+# release to see what a user gets; the same script runs against the freshly packed files in ci.yml before anything is pushed.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published version to verify, for example 0.1.1
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-smoke-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Install and run ${{ inputs.version }} from nuget.org
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Consumer smoke
+        env:
+          VERSION: ${{ inputs.version }}
+        run: python3 .github/scripts/consumer-smoke.py --nuget "$VERSION"
