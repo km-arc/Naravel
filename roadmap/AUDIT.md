@@ -7,6 +7,7 @@ each open finding must be owned by a roadmap stage.
 
 | ID | Finding | Evidence / impact | Owner |
 |---|---|---|---|
+| D-79 | The public API baseline was not frozen at 0.1.0. | `PublicAPI.Shipped.txt` was empty and `PublicAPI.Unshipped.txt` listed every public member in all 35 projects after 0.1.0 was published. The analyzer reports a removed or changed member only when it is in `Shipped`, so a breaking change after 0.1.0 would not have failed the build. The tag `v0.1.0` and `main` have identical `src/**/*.cs` and `PublicAPI*.txt` files, so `Unshipped` is exactly the 0.1.0 API. | R29 |
 
 
 ## Resolved / historical notes
