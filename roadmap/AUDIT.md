@@ -5,13 +5,12 @@ each open finding must be owned by a roadmap stage.
 
 ## Open findings
 
-| ID | Finding | Evidence / impact | Owner |
-|---|---|---|---|
-| D-79 | The public API baseline was not frozen at 0.1.0. | `PublicAPI.Shipped.txt` was empty and `PublicAPI.Unshipped.txt` listed every public member in all 35 projects after 0.1.0 was published. The analyzer reports a removed or changed member only when it is in `Shipped`, so a breaking change after 0.1.0 would not have failed the build. The tag `v0.1.0` and `main` have identical `src/**/*.cs` and `PublicAPI*.txt` files, so `Unshipped` is exactly the 0.1.0 API. | R29 |
+_None._
 
 
 ## Resolved / historical notes
 
+- D-79 closed (2026-11-02, R29, PR #210 (merge `30075d6`); CI [run #550](https://github.com/km-arc/Naravel/actions/runs/41435821120)): `PublicAPI.Shipped.txt` now holds the API published as 0.1.0 in all 35 projects and `PublicAPI.Unshipped.txt` is empty, so a removed or changed member of the 0.1.0 API is reported by the analyzer (`RS0017` and related rules) instead of passing silently. The move was checked by script (equal entry sets per project) and by the CI build with the analyzer; no local .NET SDK. Later candidates, not part of R29: a release-tag guard requiring an empty `Unshipped`, and package validation against the published baseline version.
 - D-78 closed (2026-11-02, R28, PR #208 merge `6f77dfe`; CI [run #542](https://github.com/km-arc/Naravel/actions/runs/41402583229)): all 35 packable source packages now declare and pack their own package-specific Markdown as root `README.md`. The Ubuntu Release pack generated all packages and `check-package-readmes.py` verified each archive's README contents against the declared source and the nuspec `<readme>README.md</readme>` metadata; the validator also rejects missing/unaccounted projects and packages. The CI roadmap validation, required build/test and provider/database jobs, pins and service-image gates, and `ci-ok` passed. NuGet publish was skipped because this was not a version-tag event. This applies to future package versions only; the published 0.1.0 packages are immutable and unchanged.
 
 - D-76 closed (2026-11-01, R17.T08, PRs #199 and #200; CI [run #527](https://github.com/km-arc/Naravel/actions/runs/41340354146)): `AddFilesystemServices` no longer builds a private `IDriverRegistry<IStorageDriver>`. Configured disks are registered through the new additive `ConfigureNaravelDrivers<TDriver>(Action<IServiceProvider, IDriverRegistry<TDriver>>)` overload on Foundation's shared deferred registry, so a disk added with `AddNaravelDriver<IStorageDriver>` or `ConfigureNaravelDrivers<IStorageDriver>` reaches `StorageManager`; the later registration wins a name clash and the `IOptionsMonitor<FilesystemOptions>.CurrentValue` read stays lazy. Regressions: `DriverRegistrationWithProviderTests` (Foundation) and `StorageDriverRegistrationTests` (Filesystem). Public API addition approved by the owner (PDR-002 addendum, 2026-11-01). No local .NET SDK; CI is the verification.
