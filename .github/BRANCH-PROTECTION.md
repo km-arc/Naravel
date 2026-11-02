@@ -24,6 +24,8 @@ gh api -X PUT repos/km-arc/Naravel/branches/main/protection --input - <<'JSON'
 JSON
 ```
 
+**Current state (checked 2026-11-02):** `main` is already protected by a repository **ruleset** named `main` (Settings → Rules → Rulesets) with no bypass actors. It requires a pull request (no approvals), the `ci-ok` check with "branches up to date", and forbids force pushes and deletion, so it matches the list above. Because it is a ruleset, the classic branch-protection API answers "Branch not protected" (404) even though `main` is protected. Do not also run the `PUT` command above: it would add a second, parallel rule. Change the ruleset instead and keep this file in step.
+
 Also enable "Automatically delete head branches" (Settings → General) so merged branches do not pile up.
 
 ## What each PR reports
