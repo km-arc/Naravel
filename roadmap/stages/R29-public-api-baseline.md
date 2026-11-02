@@ -8,8 +8,14 @@ Out of scope: any source change; version bumps, tags and publishing; a CI guard 
 Decisions: Microsoft.CodeAnalysis.PublicApiAnalyzers (already referenced from `Directory.Build.props`, warnings are errors under `src/`) compares the code with `Shipped` plus `Unshipped`. It reports a removed or changed member only when that member is in `Shipped` (RS0017 and related rules). All 35 projects still listed every public member in `Unshipped` after 0.1.0 was published, so the analyzer could not see a breaking change after 0.1.0. The tag `v0.1.0` (commit `9bcc543`) and `main` have the same `src/**/*.cs` and `PublicAPI*.txt` files, so today's `Unshipped` is exactly the 0.1.0 API.
 
 ## Tasks
-- [ ] **R29.T01 — Freeze the baseline:** move every entry of each `PublicAPI.Unshipped.txt` into its `PublicAPI.Shipped.txt`, leaving `Unshipped` with only `#nullable enable`. **Accept:** for every project the entries now in `Shipped` equal the entries that were in `Unshipped`, `Unshipped` has no entries, no source file changed, and CI (build with the analyzer, warnings as errors) is green.
-- [ ] **R29.T02 — Process and records:** state the rule for maintainers and record the finding. **Accept:** `AGENTS.md` says where new public API goes and when it moves, `AUDIT.md` D-79, the `CHANGELOG.md` entry, the parity section, and `python3 roadmap/check.py` passing.
+- [x] **R29.T01 — Freeze the baseline:** move every entry of each `PublicAPI.Unshipped.txt` into its `PublicAPI.Shipped.txt`, leaving `Unshipped` with only `#nullable enable`. **Accept:** for every project the entries now in `Shipped` equal the entries that were in `Unshipped`, `Unshipped` has no entries, no source file changed, and CI (build with the analyzer, warnings as errors) is green.
+- [x] **R29.T02 — Process and records:** state the rule for maintainers and record the finding. **Accept:** `AGENTS.md` says where new public API goes and when it moves, `AUDIT.md` D-79, the `CHANGELOG.md` entry, the parity section, and `python3 roadmap/check.py` passing.
 
 ## Exit evidence
 Record the PR and the CI run in the `ROADMAP.md` status cell, and say that the check of equal entries was done by script and the analyzer result comes from CI (no local .NET SDK).
+
+## Evidence
+- PR #210 (merge `30075d6`): every entry of each `PublicAPI.Unshipped.txt` moved into `PublicAPI.Shipped.txt`; `Unshipped` keeps only `#nullable enable`. `AGENTS.md` rule 12, AUDIT D-79, the CHANGELOG entry and the parity section record it.
+- `src/**/*.cs` and `PublicAPI*.txt` were identical between tag `v0.1.0` (`9bcc543`) and main before the move, so `Unshipped` was exactly the 0.1.0 API. A script checked, per project, that the set of entries now in `Shipped` equals the set that was in `Unshipped` (no duplicates, no `*REMOVED*` lines).
+- The Ubuntu build with the analyzer on the PR head (CI run #546) reported no warnings and no errors and no `RS00xx` diagnostic; CI [run #550](https://github.com/km-arc/Naravel/actions/runs/41435821120) on the merge commit succeeded on every job including `ci-ok`.
+- Build and tests were not run locally (no .NET SDK); CI is the verification.
