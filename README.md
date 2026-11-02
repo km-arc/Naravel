@@ -51,6 +51,8 @@ storage.Extend("scratch", _ => new LocalStorageDriver("storage/scratch", "/scrat
 var scratch = storage.Disk("scratch");
 ```
 
+See [docs/en/foundation.md](docs/en/foundation.md) (English) and [docs/fa/foundation.md](docs/fa/foundation.md) (فارسی) for the Foundation package guide.
+
 ### Naravel.Cache
 
 Named Memory, Redis, and Memcached stores; `RememberAsync`; explicit user/tenant scopes; tag-version invalidation; token-owned locks; and a Cache-backed fixed-window rate limiter. Redis and Memcached are optional provider packages.

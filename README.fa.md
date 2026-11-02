@@ -51,6 +51,8 @@ storage.Extend("scratch", _ => new LocalStorageDriver("storage/scratch", "/scrat
 var scratch = storage.Disk("scratch");
 ```
 
+راهنمای کامل بسته در [docs/fa/foundation.md](docs/fa/foundation.md) (فارسی) و [docs/en/foundation.md](docs/en/foundation.md) (English) در دسترس است.
+
 ### Naravel.Cache
 
 storeهای نام‌دار Memory، Redis و Memcached؛ `RememberAsync`؛ scope صریح user/tenant؛ بی‌اعتبارسازی مبتنی بر نسخهٔ tag؛ lock توکنی؛ و rate limiter پنجره‌ای مبتنی بر Cache. providerهای Redis و Memcached بسته‌های اختیاری‌اند.
