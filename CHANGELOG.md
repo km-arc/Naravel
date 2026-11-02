@@ -4,6 +4,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.1.1] - 2026-11-02
+
 ### Added
 - Repository: an Install section and status note in `README.md` / `README.fa.md` (which package to install and which registration call to make for each module), CI/NuGet/license badges, a rewritten [CONTRIBUTING.md](CONTRIBUTING.md) with a Persian twin, GitHub issue forms (bug report, feature request), a pull request template, and [SECURITY.md](SECURITY.md) (private reporting through GitHub, supported versions, what counts as a vulnerability). Private vulnerability reporting must be enabled in the repository settings for the reporting link to work.
 - CI: `.github/scripts/check-package-metadata.py` checks the nuspec of every packed package (description, license, URLs, tags, copyright against `LICENSE`, release notes for the package's own version, icon) in the pack job and, before the NuGet login, in the publish job. Package READMEs stay with `check-package-readmes.py`.
