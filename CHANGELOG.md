@@ -4,7 +4,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+- `Naravel.Foundation`: include the Foundation-specific guide as the package-root NuGet README and declare it with `PackageReadmeFile`. CI now checks both the nuspec metadata and the embedded `README.md` so the package page does not regress to a missing-README warning.
 
 ## [0.1.0] - 2026-11-01
 
