@@ -4,6 +4,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 
 ## [Unreleased]
 
+### Added
+- Repository: an Install section and status note in `README.md` / `README.fa.md` (which package to install and which registration call to make for each module), CI/NuGet/license badges, a rewritten [CONTRIBUTING.md](CONTRIBUTING.md) with a Persian twin, GitHub issue forms (bug report, feature request), a pull request template, and [SECURITY.md](SECURITY.md) (private reporting through GitHub, supported versions, what counts as a vulnerability). Private vulnerability reporting must be enabled in the repository settings for the reporting link to work.
+- CI: `.github/scripts/check-package-metadata.py` checks the nuspec of every packed package (description, license, URLs, tags, copyright against `LICENSE`, release notes for the package's own version, icon) in the pack job and, before the NuGet login, in the publish job. Package READMEs stay with `check-package-readmes.py`.
+
+### Changed
+- NuGet metadata for every package under `src/`: `Copyright` matches `LICENSE`, `PackageReleaseNotes` links to the GitHub release for the package's tag and to this changelog, every package has `PackageTags`, `Naravel.Foundation` has a description, and an icon is wired up as soon as a PNG exists at `build/icon.png`. NuGet cannot edit a pushed version, so `0.1.0` on nuget.org keeps the metadata it was pushed with; this ships with the next version.
+
 ### Fixed
 - NuGet packages: every package now carries its own package-root `README.md` (`docs/nuget/<PackageId>.md`) and declares it with `PackageReadmeFile`, so the package pages no longer report a missing README. `Naravel.Routing` showed the repository overview and the Queue packages packed it without declaring it. CI now checks every packed package (`.github/scripts/check-package-readmes.py`, which replaces the Foundation-only check). The `Naravel.Filesystem` package description now describes storage disks instead of repeating the Foundation wording. This applies to the next package version; the published 0.1.0 packages are unchanged.
 - `Naravel.Foundation`: include the Foundation-specific guide as the package-root NuGet README and declare it with `PackageReadmeFile`. CI now checks both the nuspec metadata and the embedded `README.md` so the package page does not regress to a missing-README warning.
