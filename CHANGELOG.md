@@ -10,6 +10,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 
 ### Changed
 - NuGet metadata for every package under `src/`: `Copyright` matches `LICENSE`, `PackageReleaseNotes` links to the GitHub release for the package's tag and to this changelog, every package has `PackageTags`, `Naravel.Foundation` has a description, and an icon is wired up as soon as a PNG exists at `build/icon.png`. NuGet cannot edit a pushed version, so `0.1.0` on nuget.org keeps the metadata it was pushed with; this ships with the next version.
+- Public API baseline: the API published as 0.1.0 is now recorded in each project's `PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt` is empty, so the PublicApiAnalyzers rules fail the build when a later change removes or alters a member of the 0.1.0 API. New public API is added to `Unshipped` as before. No source or behavior changed.
 
 ### Fixed
 - NuGet packages: every package now carries its own package-root `README.md` (`docs/nuget/<PackageId>.md`) and declares it with `PackageReadmeFile`, so the package pages no longer report a missing README. `Naravel.Routing` showed the repository overview and the Queue packages packed it without declaring it. CI now checks every packed package (`.github/scripts/check-package-readmes.py`, which replaces the Foundation-only check). The `Naravel.Filesystem` package description now describes storage disks instead of repeating the Foundation wording. This applies to the next package version; the published 0.1.0 packages are unchanged.

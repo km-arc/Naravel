@@ -80,6 +80,7 @@ history and the accepted PDR-009 decisions remain in [PROGRESS-ROUTING.md](PROGR
 9. **Be honest about verification.** If you could not run `dotnet build`/`dotnet test` (no SDK, no NuGet access), say so explicitly and never describe unrun tests as passing.
 10. **Never resolve a CLR type from stored data** (queue/cache/session payloads) except through an explicit alias registry (OD-07).
 11. **Stay inside `Touch:`** of the active stage file; log anything else in `roadmap/AUDIT.md`.
+12. **Public API baseline.** New public API goes into the project's `PublicAPI.Unshipped.txt`. `PublicAPI.Shipped.txt` holds what a published version contains (0.1.0 since R29); do not edit its entries to make a build pass, because a removed or changed member is a breaking change that needs an owner decision and an AUDIT entry. When a version is released, move that version's `Unshipped` entries into `Shipped`.
 
 ## Adding or changing a module (monorepo checklist)
 1. Read the PDRs; write the module's PDR; wait for approval.
