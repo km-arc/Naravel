@@ -5,7 +5,9 @@ each open finding must be owned by a roadmap stage.
 
 ## Open findings
 
-_None._
+| ID | Finding | Evidence / impact | Owner |
+|---|---|---|---|
+| D-78 | Most packages declared no README for NuGet. | After R27 only Foundation and Routing declared one; the other packages have no `<readme>` in their nuspec, so their nuget.org pages report a missing README. The Queue packages packed the repository `README.md` without declaring it, and Routing's page showed the repository overview. 0.1.0 is immutable, so the fix ships with the next lock-step version. | R28 |
 
 ## Resolved / historical notes
 

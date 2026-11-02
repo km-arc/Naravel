@@ -2,6 +2,7 @@
   <PropertyGroup>
     <PackageId>Naravel.Pagination</PackageId>
     <Description>Laravel-style pagination results for .NET: length-aware, simple and cursor pages with Laravel's data/links/meta JSON. No EF Core, ASP.NET Core or database dependency.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>pagination;paginator;cursor;laravel;naravel</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -13,5 +14,9 @@
     <InternalsVisibleTo Include="Naravel.Pagination.EntityFrameworkCore.Tests" />
     <InternalsVisibleTo Include="Naravel.Pagination.EntityFrameworkCore" />
     <InternalsVisibleTo Include="Naravel.Database" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\docs\nuget\Naravel.Pagination.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 </Project>

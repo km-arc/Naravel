@@ -3,6 +3,7 @@
   <PropertyGroup>
     <RootNamespace>Naravel.Queue.File</RootNamespace>
     <Description>File-based queue driver for Naravel.Queue - durable, zero external services required, JSON files on disk.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>queue;jobs;background-jobs;laravel;naravel;file</PackageTags>
   </PropertyGroup>
 
@@ -11,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\docs\nuget\Naravel.Queue.File.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 
 </Project>
