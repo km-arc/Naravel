@@ -4,6 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Naravel.Queue.Database</RootNamespace>
     <Description>EF Core-backed queue driver for Naravel.Queue - works with any EF Core provider (SQL Server, PostgreSQL, SQLite, MySQL).</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>queue;jobs;background-jobs;laravel;naravel;ef-core;database</PackageTags>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -23,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\docs\nuget\Naravel.Queue.Database.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 
 </Project>

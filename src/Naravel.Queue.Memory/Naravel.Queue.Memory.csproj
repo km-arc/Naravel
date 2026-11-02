@@ -4,6 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Naravel.Queue.Memory</RootNamespace>
     <Description>In-process "memory" queue driver for Naravel.Queue - zero dependencies, ideal for tests and local development.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>queue;jobs;background-jobs;laravel;naravel;memory</PackageTags>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -14,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\docs\nuget\Naravel.Queue.Memory.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 
 </Project>

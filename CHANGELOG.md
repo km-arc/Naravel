@@ -5,6 +5,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 ## [Unreleased]
 
 ### Fixed
+- NuGet packages: every package now carries its own package-root `README.md` (`docs/nuget/<PackageId>.md`) and declares it with `PackageReadmeFile`, so the package pages no longer report a missing README. `Naravel.Routing` showed the repository overview and the Queue packages packed it without declaring it. CI now checks every packed package (`.github/scripts/check-package-readmes.py`, which replaces the Foundation-only check). The `Naravel.Filesystem` package description now describes storage disks instead of repeating the Foundation wording. This applies to the next package version; the published 0.1.0 packages are unchanged.
 - `Naravel.Foundation`: include the Foundation-specific guide as the package-root NuGet README and declare it with `PackageReadmeFile`. CI now checks both the nuspec metadata and the embedded `README.md` so the package page does not regress to a missing-README warning.
 
 ## [0.1.0] - 2026-11-01

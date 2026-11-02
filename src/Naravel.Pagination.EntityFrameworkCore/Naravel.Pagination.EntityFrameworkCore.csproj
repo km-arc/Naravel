@@ -2,6 +2,7 @@
   <PropertyGroup>
     <PackageId>Naravel.Pagination.EntityFrameworkCore</PackageId>
     <Description>PaginateAsync, SimplePaginateAsync and CursorPaginateAsync for EF Core queries, returning Naravel.Pagination results. Keyset (cursor) paging applies both the order and the filter from one key declaration.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>pagination;cursor;keyset;ef-core;laravel;naravel</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -15,5 +16,9 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Naravel.Pagination.EntityFrameworkCore.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\docs\nuget\Naravel.Pagination.EntityFrameworkCore.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 </Project>

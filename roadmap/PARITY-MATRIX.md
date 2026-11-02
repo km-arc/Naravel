@@ -283,3 +283,10 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 - Naravel: `Naravel.Foundation` embeds its English module guide as the package-root `README.md` and declares that path through NuGet's `readme` metadata.
 - Value: NuGet Gallery and supported package clients can display the actual Foundation guide rather than reporting a missing README or showing the monorepo overview.
 - Native baseline: use the SDK's `PackageReadmeFile` MSBuild property and a packed Markdown file; no custom packaging dependency is needed.
+
+## R28 — NuGet README for every package
+
+- Laravel surface: none; this is a package-distribution and consumer-documentation correction, not a Laravel feature.
+- Naravel: every package embeds a short English package page as its root `README.md` and declares it through NuGet's `readme` metadata; the page links the existing English and Persian guides.
+- Value: nuget.org shows what each package is, how to install it, what it depends on and where its guide is, instead of reporting a missing README (or, for Routing, the repository overview).
+- Native baseline: the SDK's `PackageReadmeFile` MSBuild property and a packed Markdown file, as in R27; no custom packaging dependency.

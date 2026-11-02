@@ -50,6 +50,7 @@ dotnet restore Naravel.slnx && dotnet build Naravel.slnx -c Release && dotnet te
 | `docs/en`, `docs/fa` | Parallel English / Persian docs (same file names). |
 | `docs/pdr/en`, `docs/pdr/fa` | **PDRs** — Parity Decision Records: why each Laravel feature was adopted, adapted or rejected. |
 | `docs/en/next-agent-prompt.md` | Ready-to-paste task prompt for the next agent. |
+| `docs/nuget` | English NuGet package pages: one `<PackageId>.md` per package, packed as its root `README.md` and checked by CI. A new package adds its file here and the `PackageReadmeFile` metadata. |
 
 ## Module status
 The status table in [ROADMAP.md](ROADMAP.md) is the single source of truth. See the module docs for current APIs and usage.

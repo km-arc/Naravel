@@ -1,0 +1,16 @@
+# R28 — NuGet README for every package
+
+Parity section: `R28` in [../PARITY-MATRIX.md](../PARITY-MATRIX.md).
+Gate: - (packaging metadata and documentation only; no public API, runtime behavior, or dependency change)
+Read: `AGENTS.md`, `ROADMAP.md`, `roadmap/PARITY-MATRIX.md`, `roadmap/STAGE-TEMPLATE.md`, `roadmap/stages/R27-foundation-package-readme.md`, `Directory.Build.props`, every `src/*/*.csproj`, `docs/en/*.md` (guide names only), `.github/workflows/ci.yml`, `.github/scripts/check-foundation-readme.py` (from R27).
+Touch: `docs/nuget/*.md`, `src/*/*.csproj` (README metadata, and the `Naravel.Filesystem` description), `.github/scripts/check-package-readmes.py`, `.github/scripts/check-foundation-readme.py` (removed), `.github/workflows/ci.yml`, `CHANGELOG.md`, `AGENTS.md`, `roadmap/AUDIT.md`, `roadmap/BACKLOG.md`, `roadmap/PARITY-MATRIX.md`, `roadmap/check.py`, `roadmap/stages/R28-package-readmes.md`, `ROADMAP.md`, `ROADMAP.fa.md`.
+Out of scope: runtime code or public API; dependencies; version bumps, tags and NuGet publishing (the release that carries this is a separate owner-approved step); changing or republishing the immutable 0.1.0 packages; usage code in the READMEs (the bilingual guides carry the examples, and CI does not compile README snippets); `Naravel.Foundation`, whose README is the R27 guide.
+Decisions: R27 settled the mechanism (`PackageReadmeFile` plus a packed Markdown file, no new dependency). Each package gets a short English package page, `docs/nuget/<PackageId>.md`, that links the existing English and Persian guides with absolute URLs, because NuGet does not resolve repository-relative links. The text comes from the project's own `Description`, its Naravel project references and the guide names; nothing is invented per package.
+
+## Tasks
+- [ ] **R28.T01 — Package READMEs:** add `docs/nuget/<PackageId>.md` for every packable project except Foundation, set `PackageReadmeFile` and pack that file as `README.md` in each project, and stop packing the repository README into Routing and the Queue packages. Align the `Naravel.Filesystem` description with its guide. **Accept:** every `src/*/*.csproj` declares `PackageReadmeFile` and exactly one `None` item with `PackagePath="README.md"`; every guide link points to a file that exists under `docs/en` and `docs/fa`.
+- [ ] **R28.T02 — Gate for every package:** replace `.github/scripts/check-foundation-readme.py` with `.github/scripts/check-package-readmes.py` in the Ubuntu pack step. **Accept:** the step fails when a project declares no README, a package lacks `README.md` or its `<readme>` metadata, the packed README differs from the declared file, a project produced no package, or a package belongs to no project; CI is green on the pull request.
+- [ ] **R28.T03 — Records:** record the finding and the fix. **Accept:** `AUDIT.md` D-78, the `CHANGELOG.md` entry, the `AGENTS.md` row for `docs/nuget`, the BACKLOG row removed, the parity section, and `python3 roadmap/check.py` passing.
+
+## Exit evidence
+Record the PR and the CI run in the `ROADMAP.md` status cell. State that this fixes future package versions only (the published 0.1.0 packages are unchanged) and that the release carrying it needs its own owner-approved version bump and tag.
