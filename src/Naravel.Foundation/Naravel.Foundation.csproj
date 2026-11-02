@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Naravel.Foundation</RootNamespace>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>Shared driver-manager infrastructure for Naravel: named drivers resolved and cached from configuration, runtime Extend, reaction to configuration changes and single-owner disposal. Used by Naravel.Cache, Naravel.Queue and Naravel.Filesystem.</Description>
+    <PackageTags>dependency-injection;driver;manager;configuration;laravel;naravel</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

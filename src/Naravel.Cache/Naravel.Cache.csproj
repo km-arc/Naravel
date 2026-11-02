@@ -5,6 +5,7 @@
     <PackageId>Naravel.Cache</PackageId>
     <Description>Named cache stores, tagging, scoping and locks for Naravel, built on Naravel.Foundation.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>cache;caching;tags;lock;rate-limit;laravel;naravel</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

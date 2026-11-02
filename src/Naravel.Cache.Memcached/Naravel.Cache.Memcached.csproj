@@ -3,6 +3,7 @@
     <PackageId>Naravel.Cache.Memcached</PackageId>
     <Description>Memcached cache and lock providers for Naravel.Cache.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>cache;memcached;lock;laravel;naravel</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
