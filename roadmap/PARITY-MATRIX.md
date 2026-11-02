@@ -290,3 +290,10 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 - Naravel: every package embeds a short English package page as its root `README.md` and declares it through NuGet's `readme` metadata; the page links the existing English and Persian guides.
 - Value: nuget.org shows what each package is, how to install it, what it depends on and where its guide is, instead of reporting a missing README (or, for Routing, the repository overview).
 - Native baseline: the SDK's `PackageReadmeFile` MSBuild property and a packed Markdown file, as in R27; no custom packaging dependency.
+
+## R29 — Public API baseline at 0.1.0
+
+- Laravel surface: none; this is release bookkeeping for the .NET public API, not a Laravel feature.
+- Naravel: the public API published as 0.1.0 is recorded in each project's `PublicAPI.Shipped.txt`, so the PublicApiAnalyzers rules report a removed or changed public member in later versions.
+- Value: a breaking change after 0.1.0 fails the build instead of reaching consumers, and new API stays visible in `Unshipped` until its release.
+- Native baseline: the Roslyn PublicApiAnalyzers convention (`Shipped` / `Unshipped`), already enabled in `Directory.Build.props`; no new dependency.
