@@ -18,7 +18,7 @@ Stage template: [roadmap/STAGE-TEMPLATE.md](roadmap/STAGE-TEMPLATE.md).
 
 ## NEXT
 ```text
-NEXT: R28
+NEXT: none
 ```
 
 ## Stages
@@ -57,7 +57,7 @@ needs the EN+FA PDR.
 | R25 | Query builder: Transactions and EF Core interop (PDR-022) | R23 | PDR | DONE (2026-10-24; tasks T01-T04 merged; transactions with savepoints and deadlock retry, the ambient scope and the EF Core adapter are proven by SQLite tests, by `ServerTransactionTests` on MySQL 8.4, PostgreSQL 17 and SQL Server 2022 (forced deadlock retry on PostgreSQL and SQL Server) and by the EF Core SQLite interop tests; those server tests ran in CI only after AUDIT D-58 and exposed the unwired ambient scope, AUDIT D-59; docs EN/FA, README and parity updated; roadmap check passed; no local .NET SDK or database servers, so CI is the verification: green on main at 7f67567, run 40075990068) |
 | R26 | Query builder: Pagination integration (PDR-022) | R22, R16 | PDR | DONE (2026-10-25; tasks T01-T03; paginate, simplePaginate and cursorPaginate are proven by the shared contract suite on SQLite, MySQL, PostgreSQL and SQL Server; CI green on run 40224356959 at 37a3704; roadmap check passed) |
 | R27 | Foundation NuGet package README and consumer docs | R17 | - | DONE (2026-11-02; T01-T03 complete. PR #205 (merge `8e003e0`) adds the Foundation-specific English and Persian guides, sets `PackageReadmeFile` and packs `docs/en/foundation.md` as the package-root `README.md`; the CI validator checks the nuspec `<readme>` metadata and that the packed file equals the guide. CI [run #539](https://github.com/km-arc/Naravel/actions/runs/41400157505) on main `9ff3550` succeeded on every job including `ci-ok`, and its Ubuntu pack step reported the Foundation README verified. This fixes future package versions only: the published 0.1.0 `Naravel.Foundation` package is immutable and unchanged, and the other packages still declare no README (BACKLOG). Build and tests were not run locally (no .NET SDK).) |
-| R28 | NuGet README for every package | R27 | - | DOING |
+| R28 | NuGet README for every package | R27 | - | DONE (2026-11-02; T01-T03 complete. PR #208 (merge `6f77dfe`) adds a package-specific NuGet README to all 35 packable packages and the all-package archive/nuspec validator. CI [run #542](https://github.com/km-arc/Naravel/actions/runs/41402583229) on PR head `24987b9` completed successfully: Ubuntu Release pack and `Verify every package carries its README (metadata and contents)` passed; Ubuntu/macOS/Windows build-and-test, Provider integration, MySQL, PostgreSQL, SQL Server, service-image/version/roadmap gates and `ci-ok` passed. The roadmap checker ran in the `Validate the roadmap` step. The platform-specific pack/readme steps on macOS and Windows were skipped by workflow design; the Ubuntu pack produced and verified all packages. NuGet publish was skipped (not a version-tag event). Local `dotnet pack`, solution tests and `roadmap/check.py` were NOT RUN here; CI is the verification. Applies to future package versions only; published 0.1.0 packages are immutable and unchanged; release requires a separately owner-approved version bump and tag.) |
 
 R17 lists every stage in release scope; the owner may mark an out-of-scope stage `DECLINED`/`BLOCKED` to release without it.
 R02 was completed before this roadmap existed; its R00 dependency is nominal and does not invalidate it.
@@ -71,7 +71,7 @@ R02 was completed before this roadmap existed; its R00 dependency is nominal and
 - `roadmap/check.py` enforces this: it fails on a hand-typed test count or a repeated stage status outside those places. Put
   `<!-- check:allow-count -->` on a line only when a number is not a test total (for example HTTP status codes).
 
-**Default order:** R15 → R11 → R12 → R28.
+**Default order:** R15 → R11 → R12.
 Rationale: correctness and proof first (R00, R01); then the two modules that carry the project's value (Queue, Cache);
 then the most Laravel-feeling features (middleware, events, mail); thin or likely-native stages last.
 Never run two stages that edit the same project in parallel. Parallel-safe: R15, R16, R06 touch no other module.
