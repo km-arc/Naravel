@@ -1,0 +1,90 @@
+name: Bug report
+description: Something in a Naravel package does not behave as documented.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. A minimal reproduction, ideally a failing test, is the fastest way to a fix.
+        **Security problems do not belong here.** Read [SECURITY.md](https://github.com/km-arc/Naravel/blob/main/SECURITY.md) instead.
+        English or Persian is fine.
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      description: The package the problem is in. If you are not sure, pick the one whose API you called.
+      multiple: true
+      options:
+        - Naravel.Foundation
+        - Naravel.Cache (and Cache.Redis / Cache.Memcached)
+        - Naravel.Redis
+        - Naravel.Queue (core, worker, dispatch)
+        - Naravel.Queue drivers (Memory / File / Redis / Database / RabbitMQ / Kafka)
+        - Naravel.Queue.Coordination
+        - Naravel.Queue.Encryption
+        - Naravel.Events (and Events.Queue)
+        - Naravel.Mail (and Mail.Smtp / Mail.Queue)
+        - Naravel.Notifications (and Notifications.Mail / Notifications.Queue)
+        - Naravel.Database (query builder and dialects)
+        - Naravel.Database.EntityFrameworkCore
+        - Naravel.Pagination (and Pagination.EntityFrameworkCore)
+        - Naravel.Filesystem
+        - Naravel.Routing
+        - Naravel.Encryption
+        - Naravel.Scheduling
+        - Naravel.Broadcasting
+        - Documentation
+        - Other / not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Naravel version
+      description: The version of the package you installed (all Naravel packages share one version), or the commit if you build from source.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: runtime
+    attributes:
+      label: .NET version and operating system
+      placeholder: ".NET 10.0.x, Ubuntu 24.04"
+    validations:
+      required: true
+  - type: input
+    id: provider
+    attributes:
+      label: Provider or service, if any
+      description: The driver and the server version, for example Redis 7.4, PostgreSQL 17, RabbitMQ 4, SQL Server 2022.
+      placeholder: "Redis 7.4"
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what you got instead. Include the exception and stack trace if there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: The smallest code, configuration or test that shows it. Remove secrets and connection strings.
+      render: csharp
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Logs, whether it worked in an earlier version, or what you already tried.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues and the docs, and this is not already reported or documented behaviour.
+          required: true
+        - label: This is not a security vulnerability (those go through SECURITY.md).
+          required: true
