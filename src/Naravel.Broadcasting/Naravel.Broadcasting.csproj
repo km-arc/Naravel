@@ -3,6 +3,7 @@
     <PackageId>Naravel.Broadcasting</PackageId>
     <Description>Typed real-time broadcasting over SignalR for Naravel: IBroadcastable events, channel authorization rules, signalr/log/null drivers and a test fake, built on Naravel.Foundation and Naravel.Events.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>broadcasting;signalr;realtime;laravel;naravel</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

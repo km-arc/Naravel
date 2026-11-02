@@ -1,5 +1,9 @@
 # Naravel
 
+[![CI](https://github.com/km-arc/Naravel/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/km-arc/Naravel/actions/workflows/ci.yml)
+[![NuGet](https://img.shields.io/nuget/v/Naravel.Foundation.svg?label=nuget)](https://www.nuget.org/packages/Naravel.Foundation)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **Laravel's names, .NET's type system.** If you know `Cache::remember`, `dispatch(new Job)` and `Route::prefix()->group()`, you can already read Naravel: the same ideas as discoverable APIs that keep .NET's strengths: strong typing, `async/await`, dependency injection, and native performance. Naravel adopts a Laravel idea only when it adds practical value beyond what .NET already provides; the rationale is recorded in a PDR.
 
 **Module and roadmap status:** [ROADMAP.md](ROADMAP.md) is the source of truth. Build and test results are reported by [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml).
@@ -8,6 +12,39 @@
 - Contributor and agent guidance: [AGENTS.md](AGENTS.md)
 - English docs: [docs/en](docs/en) · PDRs: [docs/pdr/en](docs/pdr/en)
 - Persian docs: [docs/fa](docs/fa) · PDRs: [docs/pdr/fa](docs/pdr/fa)
+- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md) · Questions and bugs: [GitHub issues](https://github.com/km-arc/Naravel/issues) · Security: [SECURITY.md](SECURITY.md)
+
+> **Status: 0.x (pre-1.0).** The public API can still change between minor versions; every breaking change is listed in the [CHANGELOG](CHANGELOG.md) (OD-09). Queue jobs are at-least-once. No package declares trim or Native AOT compatibility yet ([docs/en/trimming-aot.md](docs/en/trimming-aot.md)). Try it on a branch first and read the guarantees next to each feature.
+
+## Install
+
+Naravel targets **.NET 10** (`net10.0`). Each module is its own NuGet package, and every package has the same version. Add the modules you use; their dependencies, `Naravel.Foundation` included, come with them:
+
+```sh
+dotnet add package Naravel.Cache          # a core module
+dotnet add package Naravel.Cache.Redis    # a provider, only if you use Redis
+```
+
+Keep all Naravel packages in a project on one version: they are built and tested together.
+
+| You want | Install | Then register |
+|---|---|---|
+| Cache | `Naravel.Cache`; add `Naravel.Cache.Redis` or `Naravel.Cache.Memcached` for those stores | `AddNaravelCache(configuration)` |
+| Queue | `Naravel.Queue` and one driver: `Naravel.Queue.Memory`, `.File`, `.Redis`, `.Database`, `.RabbitMQ` or `.Kafka` | `AddQueue(configuration)` and the driver's `Add...Driver` |
+| Queue coordination (no overlap, rate limits, unique jobs) | `Naravel.Queue.Coordination` | see [queue-coordination](docs/en/queue-coordination.md) |
+| Events | `Naravel.Events`; add `Naravel.Events.Queue` for queued listeners | `AddNaravelEvents()` |
+| Mail | `Naravel.Mail`; add `Naravel.Mail.Smtp` to send over SMTP and `Naravel.Mail.Queue` for queued mail | `AddNaravelMail(configuration)` |
+| Notifications | `Naravel.Notifications`; add `Naravel.Notifications.Mail` and `Naravel.Notifications.Queue` as needed | `AddNaravelNotifications()` |
+| Query builder | `Naravel.Database` and one dialect: `Naravel.Database.Sqlite`, `.MySql`, `.Postgres` or `.SqlServer`; `Naravel.Database.EntityFrameworkCore` to share an EF Core context's connection | `AddNaravelDatabase(configuration)` and the dialect's `AddNaravel...Database` |
+| Pagination | `Naravel.Pagination`; `Naravel.Pagination.EntityFrameworkCore` for EF Core queries | none |
+| Files | `Naravel.Filesystem` | `AddNaravelFilesystem(configuration)` |
+| Routing | `Naravel.Routing` (ASP.NET Core) | `AddNaravelRouting()` |
+| Encryption | `Naravel.Encryption`; add `Naravel.Queue.Encryption` for encrypted jobs | `AddNaravelEncryption()` |
+| Scheduling | `Naravel.Scheduling` | `AddNaravelScheduling(...)` |
+| Broadcasting | `Naravel.Broadcasting` (ASP.NET Core, SignalR) | `AddNaravelBroadcasting(configuration)` |
+| Redis connections | `Naravel.Redis` (`Naravel.Cache.Redis` and `Naravel.Queue.Redis` already depend on it) | `AddNaravelRedis(configuration)` |
+
+The [Provider packages](#provider-packages) table lists every registration call, and each module section below starts with a short example. Prefer to see it run first? Use the [sample app](#sample-app).
 
 ## If you know Laravel
 

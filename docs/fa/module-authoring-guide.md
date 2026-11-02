@@ -13,6 +13,7 @@
 - تست‌ها در `tests/Naravel.<Module>.Tests` (xUnit + FluentAssertions 7.x).
 - **هر** پروژهٔ جدید را به `Naravel.slnx` اضافه کنید.
 - نسخهٔ پکیج جدید فقط در `Directory.Packages.props`؛ فایل‌های `.csproj` بدون `Version` و بدون تکرار target framework یا متادیتای NuGet (این‌ها از `Directory.Build.props` می‌آیند، از جمله نسخهٔ مشترک lock-step).
+- پروژه `<Description>` (دست‌کم ۴۰ نویسه که بگوید بسته چیست) و `<PackageTags>` خودش را داشته باشد، به‌علاوهٔ صفحهٔ بسته `docs/nuget/<PackageId>.md` که به‌صورت `README.md` pack می‌شود (ردیف `docs/nuget` در `AGENTS.md`)؛ بقیهٔ چیزهایی که NuGet نشان می‌دهد (مجوز، نشانی‌ها، copyright، release notes، آیکون) از `Directory.Build.props` می‌آید. CI همهٔ پروژه‌ها را pack می‌کند و بستهٔ بدون توضیح یا با توضیح پیش‌فرض، بدون tag یا با README نبوده/نادرست را رد می‌کند (`.github/scripts/check-package-metadata.py` و `check-package-readmes.py`)؛ پس خلأ قبل از push نسخه‌ای که قابل ویرایش نیست پیدا می‌شود.
 - ریپو، solution یا workflow CI جدا برای هر ماژول نسازید.
 
 ## ۲. قرارداد، options، manager

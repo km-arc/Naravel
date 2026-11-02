@@ -4,7 +4,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 
 ## [Unreleased]
 
+### Added
+- Repository: an Install section and status note in `README.md` / `README.fa.md` (which package to install and which registration call to make for each module), CI/NuGet/license badges, a rewritten [CONTRIBUTING.md](CONTRIBUTING.md) with a Persian twin, GitHub issue forms (bug report, feature request), a pull request template, and [SECURITY.md](SECURITY.md) (private reporting through GitHub, supported versions, what counts as a vulnerability). Private vulnerability reporting must be enabled in the repository settings for the reporting link to work.
+- CI: `.github/scripts/check-package-metadata.py` checks the nuspec of every packed package (description, license, URLs, tags, copyright against `LICENSE`, release notes for the package's own version, icon) in the pack job and, before the NuGet login, in the publish job. Package READMEs stay with `check-package-readmes.py`.
+
 ### Changed
+- NuGet metadata for every package under `src/`: `Copyright` matches `LICENSE`, `PackageReleaseNotes` links to the GitHub release for the package's tag and to this changelog, every package has `PackageTags`, `Naravel.Foundation` has a description, and an icon is wired up as soon as a PNG exists at `build/icon.png`. NuGet cannot edit a pushed version, so `0.1.0` on nuget.org keeps the metadata it was pushed with; this ships with the next version.
 - Public API baseline: the API published as 0.1.0 is now recorded in each project's `PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt` is empty, so the PublicApiAnalyzers rules fail the build when a later change removes or alters a member of the 0.1.0 API. New public API is added to `Unshipped` as before. No source or behavior changed.
 
 ### Fixed
