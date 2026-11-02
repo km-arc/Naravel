@@ -297,3 +297,10 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 - Naravel: the public API published as 0.1.0 is recorded in each project's `PublicAPI.Shipped.txt`, so the PublicApiAnalyzers rules report a removed or changed public member in later versions.
 - Value: a breaking change after 0.1.0 fails the build instead of reaching consumers, and new API stays visible in `Unshipped` until its release.
 - Native baseline: the Roslyn PublicApiAnalyzers convention (`Shipped` / `Unshipped`), already enabled in `Directory.Build.props`; no new dependency.
+
+## R30 — Consumer install smoke test for the packed packages
+
+- Laravel surface: none; this is release verification for the .NET packages, not a Laravel feature.
+- Naravel: a script installs every packed package into a consumer outside the repository, loads every assembly and runs the existing smoke program against the packages, in CI before anything is pushed and on demand against a published version.
+- Value: a missing dependency, a framework reference that does not flow or a version range that does not resolve is found before an immutable version reaches nuget.org, instead of by the first user.
+- Native baseline: `dotnet restore`/`build` with NuGet package source mapping; no new dependency.
