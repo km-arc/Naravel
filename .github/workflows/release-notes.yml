@@ -1,0 +1,60 @@
+name: GitHub release notes
+
+# Creates the GitHub Release for a version tag from that version's section of CHANGELOG.md. Every package's NuGet "Release notes"
+# link points at /releases/tag/v<version>, so the release has to exist. This is separate from the NuGet publish job in ci.yml on
+# purpose: a failure here never blocks, repeats or approves a publish. To create the release for a tag that already exists, run
+# this workflow by hand (Actions -> GitHub release notes -> Run workflow) and give the tag.
+on:
+  push:
+    tags: [ 'v*.*.*' ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to create the release for, for example v0.1.1
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-notes-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Create the GitHub release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - name: Tag must look like a version
+        run: |
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Not a version tag: $TAG" >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.TAG }}
+
+      - name: Take the notes from CHANGELOG.md
+        run: |
+          python3 .github/scripts/changelog-section.py "${TAG#v}" > release-notes.md
+          {
+            echo
+            echo "---"
+            echo "All Naravel packages share this version, for example [Naravel.Foundation ${TAG#v}](https://www.nuget.org/packages/Naravel.Foundation/${TAG#v})."
+          } >> release-notes.md
+
+      - name: Create the release
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "Release $TAG already exists; leaving it as it is."
+            exit 0
+          fi
+          prerelease=()
+          if [[ "$TAG" == *-* ]]; then prerelease=(--prerelease); fi
+          gh release create "$TAG" --verify-tag --title "Naravel ${TAG#v}" --notes-file release-notes.md "${prerelease[@]}"

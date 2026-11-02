@@ -51,3 +51,12 @@ The version comes from `Directory.Build.props`; the tag only names the release. 
 version the tag names (`v0.1.0` means `0.1.0`), before the NuGet login and before anything is pushed. A tag cut from an older
 commit or one that disagrees with `VersionPrefix`/`VersionSuffix` (for example `v0.1.0-preview` once the suffix is gone) stops there.
 The `pins` job runs the script's `--self-test` on every pull request, because the publish job itself only runs on tags.
+
+## GitHub releases
+
+Every package's NuGet "Release notes" link points at `/releases/tag/v<version>`. `.github/workflows/release-notes.yml` creates that
+release when a version tag is pushed, with the body taken from the matching `## [<version>]` section of `CHANGELOG.md`
+(`.github/scripts/changelog-section.py`; the `pins` job runs its `--self-test`). It is a separate workflow, so a failure there never
+affects a NuGet publish. A tag whose changelog section is missing or empty fails the workflow instead of creating an empty release.
+To create the release for a tag that already exists, run the workflow by hand (Actions → GitHub release notes → Run workflow) and
+give the tag.

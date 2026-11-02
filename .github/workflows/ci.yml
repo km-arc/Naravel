@@ -593,6 +593,8 @@ jobs:
         run: python3 .github/scripts/check-publish-gates.py
       - name: Tag/version guard still works
         run: python3 .github/scripts/check-tag-version.py --self-test
+      - name: Release-notes extraction still works
+        run: python3 .github/scripts/changelog-section.py --self-test
 
   # The one check branch protection needs. A database job skipped by the path filter counts as success; any failure,
   # cancellation or missing result fails it, so a filtered job can never block a merge by being absent.
