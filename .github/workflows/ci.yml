@@ -162,6 +162,9 @@ jobs:
       - name: Verify every package carries its README (metadata and contents)
         if: matrix.os == 'ubuntu-latest'
         run: python3 .github/scripts/check-package-readmes.py ./nupkgs-check
+      - name: Verify the metadata nuget.org will show for every package
+        if: matrix.os == 'ubuntu-latest'
+        run: python3 .github/scripts/check-package-metadata.py ./nupkgs-check
 
       - name: Verify packed package versions match the shared release version
         if: matrix.os == 'ubuntu-latest'
@@ -650,6 +653,11 @@ jobs:
       # the preview suffix was removed, a tag cut from an older commit) must stop here, before the NuGet login and any push.
       - name: Tag must match the package version
         run: python3 .github/scripts/check-tag-version.py "${GITHUB_REF_NAME}" ./nupkgs
+
+      # NuGet cannot edit a pushed version, so metadata that is missing or wrong (description, tags, copyright, release notes, icon)
+      # must stop here, before the login and any push, the same way a wrong tag does.
+      - name: Package metadata must be complete
+        run: python3 .github/scripts/check-package-metadata.py ./nupkgs
 
       - name: NuGet login (OIDC Trusted Publishing)
         id: nuget-login
