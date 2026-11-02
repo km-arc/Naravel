@@ -18,6 +18,11 @@ def fail(message: str) -> int:
     return 1
 
 
+# The README that must be packed. The csproj packs this file as the package-root README.md, so the bytes must match;
+# metadata alone would not notice the repository overview being packed under the same name.
+EXPECTED_README = Path(__file__).resolve().parents[2] / "docs" / "en" / "foundation.md"
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         return fail("usage: check-foundation-readme.py <directory-containing-nupkg>")
@@ -33,6 +38,11 @@ def main() -> int:
             names = set(archive.namelist())
             if "README.md" not in names:
                 return fail(f"{package.name} does not contain README.md at the package root")
+
+            if not EXPECTED_README.is_file():
+                return fail(f"cannot find {EXPECTED_README} to compare the packed README with")
+            if archive.read("README.md") != EXPECTED_README.read_bytes():
+                return fail(f"README.md in {package.name} is not the content of docs/en/foundation.md")
 
             nuspecs = [name for name in names if name.lower().endswith(".nuspec")]
             if len(nuspecs) != 1:

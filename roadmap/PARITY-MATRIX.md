@@ -276,6 +276,7 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 | Translation | Native (`IStringLocalizer`) | - |
 | Validation / Form Requests | Not built (OD-04): document FluentValidation/DataAnnotations | BACKLOG |
 | View | Native (Razor/Minimal API) | - |
+
 ## R27 — Foundation NuGet package README
 
 - Laravel surface: none; this is a package-distribution and consumer-documentation correction, not a Laravel feature.

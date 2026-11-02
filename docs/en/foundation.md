@@ -12,7 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddNaravelManager<GreeterManager, IGreeter, GreeterOptions>(builder.Configuration.GetSection("Greeter"));
 builder.Services.AddNaravelDriver<IGreeter>("polite", _ => new PoliteGreeter());
 var app = builder.Build();
-app.MapGet("/hello", (GreeterManager manager) => manager.Driver().Greet("Ada")); app.Run();
+app.MapGet("/hello", (GreeterManager manager) => manager.Driver("polite").Greet("Ada")); app.Run();
 public interface IGreeter { string Greet(string name); }
 public sealed class GreeterOptions : ManagerOptions { }
 public sealed class GreeterManager(IServiceProvider sp, IDriverRegistry<IGreeter> registry, IOptionsMonitor<GreeterOptions> options) : Manager<IGreeter, GreeterOptions>(sp, registry, options) { }
