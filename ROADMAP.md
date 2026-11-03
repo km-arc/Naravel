@@ -61,7 +61,6 @@ needs the EN+FA PDR.
 | R29 | Public API baseline at 0.1.0 | R28 | - | DONE (2026-11-02; T01-T02 complete. PR #210 (merge `30075d6`) moved every `PublicAPI.Unshipped.txt` entry into `PublicAPI.Shipped.txt` in all 35 projects, so PublicApiAnalyzers now reports a removed or changed member of the 0.1.0 API; `AGENTS.md` rule 12 says where new API goes. No source file changed (identical between tag `v0.1.0` and main before the move), and a script checked that each project's `Shipped` set equals its former `Unshipped` set. The Ubuntu build with the analyzer on the PR head reported no warnings and no errors (CI run #546), and CI [run #550](https://github.com/km-arc/Naravel/actions/runs/41435821120) on the merge commit succeeded on every job including `ci-ok`. Build and tests were not run locally (no .NET SDK).) |
 | R30 | Consumer install smoke test for the packed packages | R29 | - | DOING |
 | R31 | Shared store for the route `throttle` middleware (PDR-024) | R03, R04, R05 | PDR | TODO |
-
 R17 lists every stage in release scope; the owner may mark an out-of-scope stage `DECLINED`/`BLOCKED` to release without it.
 R02 was completed before this roadmap existed; its R00 dependency is nominal and does not invalidate it.
 ## Single source of truth (D-18)

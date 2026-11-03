@@ -12,7 +12,7 @@
 - راهنمای مشارکت و ایجنت‌ها: [AGENTS.md](AGENTS.md)
 - مستندات فارسی: [docs/fa](docs/fa) · PDRها: [docs/pdr/fa](docs/pdr/fa)
 - مستندات انگلیسی: [docs/en](docs/en) · PDRها: [docs/pdr/en](docs/pdr/en)
-- مشارکت: [CONTRIBUTING.fa.md](CONTRIBUTING.fa.md) · پرسش و گزارش باگ: [GitHub issues](https://github.com/km-arc/Naravel/issues) · امنیت: [SECURITY.md](SECURITY.md)
+- مشارکت: [CONTRIBUTING.fa.md](CONTRIBUTING.fa.md) · پرسش و گزارش باگ: [GitHub issues](https://github.com/km-arc/Naravel/issues) · امنیت: [SECURITY.md](SECURITY.md) · [آیین‌نامهٔ رفتار](CODE_OF_CONDUCT.fa.md)
 
 > **وضعیت: نسخهٔ 0.x (پیش از 1.0).** API عمومی ممکن است بین نسخه‌های minor عوض شود؛ هر تغییر ناسازگار در [CHANGELOG](CHANGELOG.md) فهرست می‌شود (OD-09). Jobهای صف «دست‌کم یک‌بار» (at-least-once) اجرا می‌شوند. هنوز هیچ بسته‌ای سازگاری با trim یا Native AOT را اعلام نکرده است ([docs/fa/trimming-aot.md](docs/fa/trimming-aot.md)). اول روی یک شاخهٔ آزمایشی امتحانش کنید و تضمین‌های کنار هر قابلیت را بخوانید.
 

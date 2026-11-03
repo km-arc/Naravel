@@ -15,7 +15,6 @@ MATRIX = ROOT / "roadmap" / "PARITY-MATRIX.md"
 STAGES = ROOT / "roadmap" / "stages"
 EXPECTED_IDS = {f"R{i:02}" for i in range(32)}
 
-
 def fail(errors: list[str]) -> int:
     for error in errors:
         print(f"ERROR: {error}")
