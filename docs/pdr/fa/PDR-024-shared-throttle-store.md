@@ -2,7 +2,7 @@
 
 **حکم native-first:** `System.Threading.RateLimiting` برای یک process انتخاب درست است و پیش‌فرض می‌ماند. این limiter نمی‌تواند سهمیه را بین processها مشترک کند و هیچ جزء native در .NET هم این کار را نمی‌کند. بخش‌های مشترک را Naravel در Cache از قبل دارد (شمارندهٔ اتمیک با expiry هنگام ساخت، و `IRateLimiter` مبتنی بر Cache، PDR-007a)؛ آنچه کم است اتصال آن‌ها به middleware مسیر است.
 
-وضعیت: **پیشنهادی (پیش‌نویس، 2026-11-01). تأیید نشده و زمان‌بندی نشده.** `NEXT` اکنون R17 است؛ در صورت تأیید، این کار پس از R17 یک stage می‌شود و شناسهٔ آن را مالک تعیین می‌کند. گزینهٔ A و شمارندهٔ هم‌تراز با ساعت، پیشنهاد این پیش‌نویس هستند و همراه با سیاست خطا و breaker هنوز به تأیید صریح مالک نیاز دارند. پیش‌نیاز برآورده شد: PR شمارهٔ 192 ادغام شد و CI کامل آن در اجرای شمارهٔ 497 موفق بود (AUDIT D-74).
+وضعیت: **تأییدشده در 2026-11-03** (بخش *تأیید*): گزینهٔ A، شمارندهٔ هم‌تراز با ساعت، سیاست خطای *degrade to local* و قرارداد breaker همان‌طور که پایین‌تر نوشته شده. پیاده‌سازی مرحلهٔ R31 است (گیت: همین PDR). پیش‌نیاز برآورده شد: PR شمارهٔ 192 ادغام شد و CI کامل آن در اجرای شمارهٔ 497 موفق بود (AUDIT D-74).
 
 ## زمینه
 
@@ -30,17 +30,17 @@
 
 چرا A: Routing فقط به framework reference ASP.NET Core نیاز دارد (PDR-009)، کسی که فقط throttle in-process می‌خواهد Cache را نمی‌کشد، و جهت وابستگی (Routing.Cache ← Routing، Cache) با قانون سخت ۳ می‌خواند. B کد کمتری دارد ولی Cache را به همهٔ کاربران Routing اضافه می‌کند. C هزینه‌ای ندارد و همان وضعیتی است که مستندات می‌گویند؛ هر تیم باید همان middleware ۱۵ خطی را بنویسد، با مدیریت 429 و هدرها.
 
-## تصمیم (در صورت تأیید: گزینهٔ A)
+## تصمیم (گزینهٔ A)
 
 - `IThrottleStore` (عمومی، در Routing): `ValueTask<ThrottleDecision> AttemptAsync(string partitionKey, int permitLimit, TimeSpan window, CancellationToken ct)`. `ThrottleDecision` شامل `Allowed`، `Remaining` و `RetryAfter` است. کلید partition همان رشتهٔ `policy|endpoint|subject` امروز است.
 - `ThrottleMiddleware` از store استفاده می‌کند؛ هدرها و پاسخ 429 برای هر دو store بدون تغییر می‌مانند. store درون‌فرایندی `PartitionedRateLimiter` و رفتار فعلی را عیناً نگه می‌دارد؛ تست‌های موجود باید بدون ویرایش بگذرند.
 - `Naravel.Routing.Cache` تابع `AddNaravelSharedThrottle(storeName)` را اضافه می‌کند، یعنی یک `IThrottleStore` روی `ICacheStore.IncrementAsync(key, 1, window)` به شکل بالا: کلید `throttle:{SHA-256 کلید partition}:{bucket}`، یک فراخوانی store برای هر درخواست، بدون lock. کلید hash می‌شود چون Memcached برای طول و نویسهٔ کلید محدودیت دارد. وابستگی شخص‌ثالث تازه‌ای ندارد و از `IRateLimiter` استفاده نمی‌کند.
 - معنا: پنجرهٔ ثابتِ هم‌تراز با ساعت (`bucket = floor(UtcNow / window)`)، نه «اولین درخواست پنجره را شروع می‌کند» مثل `IRateLimiter`. ساعت instanceها باید در حد معمول NTP نزدیک باشد؛ اختلاف چند میلی‌ثانیه فقط مرز پنجره را همان‌قدر جابه‌جا می‌کند. burst تا ۲ برابر در مرز پنجره که مستند است باقی می‌ماند. sliding window و token bucket در این PDR نیست.
-- **تأخیر محدود.** throttle نباید backend کند را برای همه کند کند. هر فراخوانی store timeout کوتاه خودش را دارد (`ThrottleOptions.StoreTimeout`، پیش‌فرض پیشنهادی ۲۵۰ms) که به cancellation token درخواست وصل است؛ timeout یک خطای store حساب می‌شود.
-- **سیاست خطا (تصمیم مالک).** وقتی store خطا می‌دهد یا timeout می‌شود، گزینه‌ها: *fail open* (پذیرش بدون هیچ سقف)، *fail closed* (503 با `Retry-After`) و *degrade to local* (برای همان درخواست limiter درون‌فرایندی امروز اعمال شود). پیشنهاد: **degrade to local** به‌عنوان پیش‌فرض و `FailClosed` به‌صورت opt-in صریح برای هر policy برای endpointهای credential. این کار قطع Redis را از انداختن برنامه جلو می‌گیرد و باز هم سوءاستفاده را محدود می‌کند (در سطح هر instance مثل محصول امروز، هرگز نامحدود). Laravel خطا را پرتاب می‌کند که به 500 تبدیل می‌شود؛ این پیشنهاد نیست. قرارداد:
+- **تأخیر محدود.** throttle نباید backend کند را برای همه کند کند. هر فراخوانی store timeout کوتاه خودش را دارد (`ThrottleOptions.StoreTimeout`، پیش‌فرض ۲۵۰ms) که به cancellation token درخواست وصل است؛ timeout یک خطای store حساب می‌شود.
+- **سیاست خطا (تأییدشده در 2026-11-03).** وقتی store خطا می‌دهد یا timeout می‌شود، گزینه‌ها: *fail open* (پذیرش بدون هیچ سقف)، *fail closed* (503 با `Retry-After`) و *degrade to local* (برای همان درخواست limiter درون‌فرایندی امروز اعمال شود). تصمیم: **degrade to local** به‌عنوان پیش‌فرض و `FailClosed` به‌صورت opt-in صریح برای هر policy برای endpointهای credential. این کار قطع Redis را از انداختن برنامه جلو می‌گیرد و باز هم سوءاستفاده را محدود می‌کند (در سطح هر instance مثل محصول امروز، هرگز نامحدود). Laravel خطا را پرتاب می‌کند که به 500 تبدیل می‌شود؛ این پیشنهاد نیست. قرارداد:
   - `ThrottleFailureMode { DegradeToLocal (پیش‌فرض)، FailClosed، FailOpen }` برای هر policy (`o.ConfigureThrottlePolicy("login", 5, TimeSpan.FromMinutes(1), ThrottleFailureMode.FailClosed)`)؛ `FailOpen` فقط به‌صورت opt-in صریح وجود دارد.
   - **چه چیزی خطاست:** store پرتاب کند یا فراخوانی از `StoreTimeout` بیشتر شود. `OperationCanceledException` وقتی token خود درخواست لغو شده (کلاینت رفته) خطا **نیست**: عبور می‌کند و به breaker دست نمی‌زند.
-  - **یک breaker برای هر store** (همهٔ policyها یک backend دارند)، زمان از `TimeProvider`. *Closed*: فراخوانی‌ها به store می‌روند. پس از یک خطا به‌مدت `BreakerPeriod` (پیشنهاد ۵ ثانیه) *Open* می‌شود: store فراخوانی نمی‌شود و هر درخواست با failure mode policy خودش اداره می‌شود. پس از پایان دوره *Half-open* می‌شود: دقیقاً یک درخواست (probe) store را صدا می‌زند و بقیه هنوز مثل Open اداره می‌شوند. probe موفق آن را Closed می‌کند؛ probe ناموفق برای یک دورهٔ دیگر Open می‌کند.
+  - **یک breaker برای هر store** (همهٔ policyها یک backend دارند)، زمان از `TimeProvider`. *Closed*: فراخوانی‌ها به store می‌روند. پس از یک خطا به‌مدت `BreakerPeriod` (پیش‌فرض ۵ ثانیه) *Open* می‌شود: store فراخوانی نمی‌شود و هر درخواست با failure mode policy خودش اداره می‌شود. پس از پایان دوره *Half-open* می‌شود: دقیقاً یک درخواست (probe) store را صدا می‌زند و بقیه هنوز مثل Open اداره می‌شوند. probe موفق آن را Closed می‌کند؛ probe ناموفق برای یک دورهٔ دیگر Open می‌کند.
   - **درخواست‌های degraded** از یک limiter درون‌فرایندی هر instance با همان اعداد policy استفاده می‌کنند؛ شمارنده‌هایش جداست و درخواست‌هایی که پذیرفته است پس از بازگشت backend به store بازپخش نمی‌شود. پاسخ‌ها هدرهایی دارند که limiter محلی حساب می‌کند. `FailClosed` با 503 و `Retry-After` برابر زمان باقی‌ماندهٔ حالت Open (دست‌کم ۱ ثانیه) و بدون هدرهای `X-RateLimit-*` پاسخ می‌دهد.
   - هر بار باز شدن breaker یک بار log می‌شود (warning همراه exception) و هر خطا در `naravel.routing.throttle.store_failures` شمرده می‌شود.
 - Telemetry: Routing یک شمارندهٔ `naravel.routing.throttle` با dimensionهای policy و outcome (`allowed`، `rejected`، `degraded`) و شمارندهٔ خطای بالا را اضافه می‌کند. dimensionها محدود هستند و هرگز subject نیستند.
@@ -53,18 +53,15 @@
 - **چه چیزی در Memory برای این طراحی می‌ماند.** یک ورودی شمارنده برای هر subject و پنجره، با پنجره به‌عنوان time-to-live. ورودی‌های منقضی را `IMemoryCache` و callback حذف store پاک می‌کنند؛ پس حافظه با تعداد subjectهای متمایزِ دیده‌شده در حدود یک پنجره (به‌اضافهٔ فاصلهٔ scan کش) متناسب است، نه با تاریخچهٔ process.
 - **Memory محلی process است.** `AddNaravelSharedThrottle("memory")` در هر process جدا می‌شمارد و چیزی را مشترک نمی‌کند، مثل `MemoryLock` (`IsShared` برابر false). برای توسعه و تست مجاز است و مستندات این را می‌گویند. بررسی در runtime نداریم: `ICacheStore` نمی‌گوید store مشترک است یا نه و اضافه کردن چنین پرچمی به قرارداد عمومی Cache تصمیم جداگانه‌ای است که اینجا گرفته نمی‌شود.
 
-## پرسش‌های باز برای مالک
+## تأیید
 
-1. گزینهٔ A، B یا C.
-2. سیاست خطا: degrade to local (پیشنهادی)، fail open، fail closed، یا بدون پیش‌فرض (فراخوان باید برای هر policy انتخاب کند)، با قرارداد breaker بالا و پیش‌فرض‌های `StoreTimeout` برابر 250ms و `BreakerPeriod` برابر ۵ ثانیه.
-3. اینکه throttle مشترک اجازه دارد پنجرهٔ هم‌تراز با ساعت روی `IncrementAsync` به کار ببرد (پیشنهادی: یک فراخوانی، بدون lock) به‌جای `IRateLimiter` (چند فراخوانی و یک lock). هزینهٔ این پیشنهاد فقط این است که مرز پنجره‌ها از ساعت instanceها پیروی می‌کند.
-4. state حالت maintenance هم به همین دلیل process-local است (`docs/en/routing.md`، بخش محدودیت‌ها). اینجا پوشش داده نشده؛ اگر PDR جدا می‌خواهید بگویید.
+مالک در 2026-11-01 گزینهٔ A و شمارندهٔ هم‌تراز با ساعت را تأیید کرد. در 2026-11-03 به دو پرسشی که هنوز باز بودند پاسخ داد: (۱) سیاست خطا به‌صورت پیش‌فرض **degrade to local** است، با `FailClosed` به‌صورت opt-in صریح برای هر policy و `FailOpen` فقط به‌صورت opt-in صریح؛ (۲) قرارداد breaker و پیش‌فرض‌هایش دقیقاً همان‌طور که بالا نوشته شده تأیید شد (یک breaker برای هر store، `StoreTimeout` برابر 250ms، `BreakerPeriod` برابر ۵ ثانیه، فقط یک probe در حالت half-open، و قطع شدن درخواست از سمت کلاینت خطای store نیست). هر دو پیش‌فرض گزینه‌های `ThrottleOptions` هستند، پس تغییرشان بعداً تغییر API نیست. ثبت پیاده‌سازی به‌عنوان مرحلهٔ R31 به انتخاب دستیار واگذار شد («select best»). state حالت maintenance (پرسش ۴ پیش‌نویس) پاسخ داده نشد؛ پس بیرون از این PDR می‌ماند (بخش *اینجا تصمیم گرفته نمی‌شود*).
 
 ## اینجا تصمیم گرفته نمی‌شود
 
 الگوریتم‌های sliding window و token bucket، limitهای پویا برای هر کاربر، پرچم maintenance بین instanceها، و هر تغییر در نحوهٔ تشخیص آدرس کلاینت (forwarded headers همچنان native ASP.NET Core است).
 
-## راستی‌آزمایی لازم پس از تأیید
+## راستی‌آزمایی لازم
 
 تست‌های Routing از یک test double برای `IThrottleStore` (تعداد فراخوانی را می‌شمارد، می‌تواند پرتاب کند، تا لغو hang کند یا پاسخ دهد) و یک `TimeProvider` دستی استفاده می‌کنند؛ پس هیچ تستی منتظر دورهٔ واقعی breaker نمی‌ماند.
 

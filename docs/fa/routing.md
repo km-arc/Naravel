@@ -130,7 +130,7 @@ partition بر اساس شناسهٔ کاربر احراز‌شده (یا نام
 2. برای سهمیه‌ای که باید بین همهٔ instanceها مشترک باشد و تلاش‌های صریح را می‌شمارد (loginهای ناموفق، کدهای یک‌بارمصرف) از `IRateLimiter` مبتنی بر Cache روی Redis مشترک و در خود handler استفاده کنید. مثال تست‌شدهٔ login در [cache.md](cache.md) همین است. این limiter برای هر subject یک lock می‌گیرد و چند فراخوانی store دارد، پس برای شمارندهٔ تلاش‌ها مناسب است نه برای throttle سراسری روی routeای پرترافیک. برای سهمیهٔ مشترکِ حساس Redis انتخاب امن‌تر است؛ پیش از آن جدول backendها در cache.md را بخوانید.
 3. یا سقف را در لبه (reverse proxy یا API gateway) اعمال کنید، جایی که همهٔ ترافیک دقیقاً یک بار عبور می‌کند.
 
-store مشترک داخلی برای `throttle` ساخته نشده است. پیشنهاد آن در [PDR-024](../pdr/fa/PDR-024-shared-throttle-store.md) آمده و به تأیید مالک نیاز دارد.
+store مشترک داخلی برای `throttle` هنوز ساخته نشده است. طراحی آن در [PDR-024](../pdr/fa/PDR-024-shared-throttle-store.md) تأیید شده و پیگیری کار در [ROADMAP.md](../../ROADMAP.md) است. تا زمان انتشار آن، راه‌های بالا تنها راه اشتراک سهمیه هستند.
 
 `IUrlGenerator.SignedRoute(name, values)` و `TemporarySignedRoute(name, expiresAt, values)` URL نسبی امضاشده می‌سازند. برای اعتبارسنجی، `.Middleware("signed")` را وصل کنید. امضا path و query را پوشش می‌دهد، نه host را؛ URL موقت پس از انقضا رد می‌شود. برای تولید و اعتبارسنجی لینک در چند instance، کلیدهای Data Protection باید پایدار و مشترک باشند؛ در production از key ring در برابر ذخیره‌سازی ناامن محافظت کنید.
 

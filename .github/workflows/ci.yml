@@ -31,10 +31,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
 
@@ -142,7 +142,7 @@ jobs:
 
       - name: Upload test and coverage results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-and-coverage-${{ matrix.os }}
           path: |
@@ -253,10 +253,10 @@ jobs:
       NARAVEL_TEST_S3: "http://localhost:9090;naravel;naravel;naravel-test"
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
 
@@ -365,7 +365,7 @@ jobs:
 
       - name: Upload provider test and coverage results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: provider-test-and-coverage
           path: |
@@ -383,7 +383,7 @@ jobs:
       database: ${{ steps.filter.outputs.database }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -429,7 +429,7 @@ jobs:
             conn: 'Server=127.0.0.1,1433;Database=master;User Id=sa;Password=Naravel_Passw0rd!;TrustServerCertificate=true;Encrypt=false'
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # The container starts first, in the background, so it initialises while .NET is restored and built.
       - name: Start the ${{ matrix.db }} container
@@ -457,12 +457,12 @@ jobs:
           esac
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
 
       - name: Cache NuGet packages
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props') }}
@@ -576,7 +576,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: database-tests-${{ matrix.db }}
           path: TestResults/Database/**/*.trx
@@ -588,7 +588,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Reject floating image tags
         run: python3 .github/scripts/check-image-pins.py
       - name: Validate the roadmap
@@ -647,10 +647,10 @@ jobs:
       id-token: write # OIDC token for NuGet Trusted Publishing; granted to this job only
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
 

@@ -13,7 +13,7 @@ Do not implement these in an active stage unless its owner-approved scope explic
 | Controller resource routing | Deferred routing follow-up | Include in R05 only if accepted scope and GO approval allow it. |
 | Cross-provider live integration suite | Planned under R01 | Owner approval required for Testcontainers/test dependency and CI platform cost. |
 | Database/Redis provider semantics outside listed stages | Unassessed | Add audit finding and owning stage if a verified defect appears. |
-| Shared (cross-instance) route `throttle` store | Proposed in PDR-024 (draft, not approved); not scheduled | Owner confirmed option A and the clock-aligned counter on 2026-11-01; the failure policy and breaker contract still need approval. Prerequisite: PR #192 (AUDIT D-70). Until then docs describe the per-instance behaviour and the `IRateLimiter` recipe (`docs/en/routing.md`). Maintenance mode state is process-local too and is not covered. |
+| Shared (cross-instance) route `throttle` store | Assigned: R31 (PDR-024 approved 2026-11-03) | Option A, the clock-aligned counter, the failure policy `degrade to local` and the breaker contract are approved; the implementation is tracked in ROADMAP.md. The prerequisite (PR #192, AUDIT D-74) is merged. Until R31 is released, docs describe the per-instance behaviour and the `IRateLimiter` recipe (`docs/en/routing.md`). Maintenance mode state is process-local too and is not covered. |
 | Encryption (`Crypt`, `ShouldBeEncrypted`) | Assigned: R18 (OD-03) | Thin facade over Data Protection. |
 | Validation / Form Requests | Not built (OD-04) | Document FluentValidation/DataAnnotations; revisit after R17. |
 | Testing fakes | Assigned: DoD S3 per stage; Queue in R07.T07 | - |
