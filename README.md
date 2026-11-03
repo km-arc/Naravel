@@ -1,54 +1,22 @@
-# Naravel
+<div align="center">
+
+<img src="docs/assets/banner.png" alt="Naravel: Laravel's names, .NET's type system" width="100%">
+
+**Cache, queue, events, mail, scheduling, a query builder and more:**<br>
+**the Laravel vocabulary you already know, as typed, async, dependency-injected .NET 10 packages.**
 
 [![CI](https://github.com/km-arc/Naravel/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/km-arc/Naravel/actions/workflows/ci.yml)
 [![NuGet](https://img.shields.io/nuget/v/Naravel.Foundation.svg?label=nuget)](https://www.nuget.org/packages/Naravel.Foundation)
+[![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Laravel's names, .NET's type system.** If you know `Cache::remember`, `dispatch(new Job)` and `Route::prefix()->group()`, you can already read Naravel: the same ideas as discoverable APIs that keep .NET's strengths: strong typing, `async/await`, dependency injection, and native performance. Naravel adopts a Laravel idea only when it adds practical value beyond what .NET already provides; the rationale is recorded in a PDR.
+[Get started](#get-started) · [Modules](#modules) · [Documentation](docs/README.md) · [Laravel parity](docs/en/laravel-parity.md) · [Changelog](CHANGELOG.md) · [فارسی](README.fa.md)
 
-**Module and roadmap status:** [ROADMAP.md](ROADMAP.md) is the source of truth. Build and test results are reported by [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml).
+</div>
 
-- Persian: [README.fa.md](README.fa.md)
-- Contributor and agent guidance: [AGENTS.md](AGENTS.md)
-- English docs: [docs/en](docs/en) · PDRs: [docs/pdr/en](docs/pdr/en)
-- Persian docs: [docs/fa](docs/fa) · PDRs: [docs/pdr/fa](docs/pdr/fa)
-- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md) · Questions and bugs: [GitHub issues](https://github.com/km-arc/Naravel/issues) · Security: [SECURITY.md](SECURITY.md) · [Code of Conduct](CODE_OF_CONDUCT.md)
+If you know `Cache::remember`, `dispatch(new Job)` and `Route::prefix()->group()`, you can already read Naravel. The names are Laravel's. The methods are `async`, take a `CancellationToken`, come from dependency injection and are checked by the compiler.
 
-> **Status: 0.x (pre-1.0).** The public API can still change between minor versions; every breaking change is listed in the [CHANGELOG](CHANGELOG.md) (OD-09). Queue jobs are at-least-once. No package declares trim or Native AOT compatibility yet ([docs/en/trimming-aot.md](docs/en/trimming-aot.md)). Try it on a branch first and read the guarantees next to each feature.
-
-## Install
-
-Naravel targets **.NET 10** (`net10.0`). Each module is its own NuGet package, and every package has the same version. Add the modules you use; their dependencies, `Naravel.Foundation` included, come with them:
-
-```sh
-dotnet add package Naravel.Cache          # a core module
-dotnet add package Naravel.Cache.Redis    # a provider, only if you use Redis
-```
-
-Keep all Naravel packages in a project on one version: they are built and tested together.
-
-| You want | Install | Then register |
-|---|---|---|
-| Cache | `Naravel.Cache`; add `Naravel.Cache.Redis` or `Naravel.Cache.Memcached` for those stores | `AddNaravelCache(configuration)` |
-| Queue | `Naravel.Queue` and one driver: `Naravel.Queue.Memory`, `.File`, `.Redis`, `.Database`, `.RabbitMQ` or `.Kafka` | `AddQueue(configuration)` and the driver's `Add...Driver` |
-| Queue coordination (no overlap, rate limits, unique jobs) | `Naravel.Queue.Coordination` | see [queue-coordination](docs/en/queue-coordination.md) |
-| Events | `Naravel.Events`; add `Naravel.Events.Queue` for queued listeners | `AddNaravelEvents()` |
-| Mail | `Naravel.Mail`; add `Naravel.Mail.Smtp` to send over SMTP and `Naravel.Mail.Queue` for queued mail | `AddNaravelMail(configuration)` |
-| Notifications | `Naravel.Notifications`; add `Naravel.Notifications.Mail` and `Naravel.Notifications.Queue` as needed | `AddNaravelNotifications()` |
-| Query builder | `Naravel.Database` and one dialect: `Naravel.Database.Sqlite`, `.MySql`, `.Postgres` or `.SqlServer`; `Naravel.Database.EntityFrameworkCore` to share an EF Core context's connection | `AddNaravelDatabase(configuration)` and the dialect's `AddNaravel...Database` |
-| Pagination | `Naravel.Pagination`; `Naravel.Pagination.EntityFrameworkCore` for EF Core queries | none |
-| Files | `Naravel.Filesystem` | `AddNaravelFilesystem(configuration)` |
-| Routing | `Naravel.Routing` (ASP.NET Core) | `AddNaravelRouting()` |
-| Encryption | `Naravel.Encryption`; add `Naravel.Queue.Encryption` for encrypted jobs | `AddNaravelEncryption()` |
-| Scheduling | `Naravel.Scheduling` | `AddNaravelScheduling(...)` |
-| Broadcasting | `Naravel.Broadcasting` (ASP.NET Core, SignalR) | `AddNaravelBroadcasting(configuration)` |
-| Redis connections | `Naravel.Redis` (`Naravel.Cache.Redis` and `Naravel.Queue.Redis` already depend on it) | `AddNaravelRedis(configuration)` |
-
-The [Provider packages](#provider-packages) table lists every registration call, and each module section below starts with a short example. Prefer to see it run first? Use the [sample app](#sample-app).
-
-## If you know Laravel
-
-The same job, one line each. Fuller examples are in the module sections below.
+## Same job, one line each
 
 | You want to | Laravel | Naravel |
 |---|---|---|
@@ -63,331 +31,93 @@ The same job, one line each. Fuller examples are in the module sections below.
 
 The full mapping, including what Naravel leaves to .NET and what it rejects, is the [Laravel parity table](docs/en/laravel-parity.md).
 
+## Get started
+
+Naravel targets **.NET 10**. Every module is its own NuGet package, so you add only what you use.
+
+```sh
+dotnet new web -n Hello && cd Hello
+dotnet add package Naravel.Cache
+```
+
+Replace `Program.cs` with:
+
+```csharp
+using Naravel.Cache;
+using Naravel.Cache.Abstractions;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddNaravelCache(builder.Configuration);   // an in-memory store unless you configure another
+
+var app = builder.Build();
+app.MapGet("/", (ICacheStore cache) =>
+    cache.RememberAsync("greeting", TimeSpan.FromMinutes(10), () => Task.FromResult($"Hello at {DateTime.UtcNow:T} UTC")));
+app.Run();
+```
+
+Run it and reload the page: the time stays the same for ten minutes, because `RememberAsync` serves it from the cache.
+
+Which package gives you what, and which call registers it, is in [Getting started](docs/en/getting-started.md). Prefer to see a whole app first? `dotnet run --project samples/Naravel.Sample/Naravel.Sample.csproj` starts the [sample app](samples/Naravel.Sample/README.md).
+
 ## Why Naravel
 
 - **Familiar names, ordinary .NET.** `RememberAsync`, `DelayFor`, `Prefix().Group()`: Laravel's vocabulary on methods that are `async`, take a `CancellationToken` and come from dependency injection.
-- **Native first, said out loud.** Sessions, password hashing and route authorization already exist in ASP.NET Core and .NET, so Naravel documents the recipe instead of shipping a package (PDR-015, PDR-016, PDR-019). Where it does add a package, a PDR records why.
+- **Install only what you use.** One NuGet package per module and per provider, all on one version. Redis is `Naravel.Cache.Redis`, not a dependency of everyone.
+- **Native first, said out loud.** Naravel adopts a Laravel idea only when it adds practical value beyond what .NET already provides. Sessions, password hashing and route authorization already exist in ASP.NET Core and .NET, so it documents the recipe instead of shipping a package (PDR-015, PDR-016, PDR-019); where it does add a package, a PDR records why.
 - **Honest about guarantees.** Queue jobs are at-least-once and should be idempotent; Kafka rejects delayed dispatch; route throttling is process-local. The limits are written next to the features instead of being discovered in production.
 - **Fakes for tests, no global state.** Cache, Events, Mail, Notifications, Queue, Filesystem, Broadcasting, Database and Scheduling each ship a fake (`MailFake`, `QueueFake`, `StorageFake`...) that you pass in like any other dependency and assert on, without a broker, mail server, disk, bucket or database.
+- **Documented in English and Persian.** Every guide and every design decision exists in both languages.
 
-Want to see it run first? The [sample app](#sample-app) starts with one command.
+```csharp
+var fake = new MailFake { DefaultFrom = "app@example.com" };
+await new SignupService(fake).RegisterAsync("ada@example.com");   // your code; it takes an IMailer
+
+fake.AssertSent(m => m.To.Contains("ada@example.com") && m.Subject == "Welcome");
+fake.AssertNothingQueued();
+```
 
 ## Modules
 
-### Naravel.Foundation
-
-Shared driver-manager infrastructure used by driver-based modules. It resolves and caches named drivers, supports runtime `Extend`, reacts to configuration changes, and owns driver disposal. Applications usually consume it through Cache, Queue, or Filesystem rather than registering Foundation directly. For example, a Filesystem manager can register a local disk at runtime:
-
-```csharp
-using Microsoft.Extensions.DependencyInjection;
-using Naravel.Filesystem;
-using Naravel.Filesystem.Drivers;
-
-var storage = app.Services.GetRequiredService<StorageManager>();
-storage.Extend("scratch", _ => new LocalStorageDriver("storage/scratch", "/scratch"));
-var scratch = storage.Disk("scratch");
-```
-
-See [docs/en/foundation.md](docs/en/foundation.md) (English) and [docs/fa/foundation.md](docs/fa/foundation.md) (فارسی) for the Foundation package guide.
-
-### Naravel.Cache
-
-Named Memory, Redis, and Memcached stores; `RememberAsync`; explicit user/tenant scopes; tag-version invalidation; token-owned locks; and a Cache-backed fixed-window rate limiter. Redis and Memcached are optional provider packages.
-
-```csharp
-using Naravel.Cache;                // RememberAsync
-using Naravel.Cache.Abstractions;   // ICacheStore
-using Naravel.Cache.Redis;          // AddNaravelRedisCache
-
-builder.Services.AddNaravelCache(builder.Configuration)
-    .AddNaravelRedisCache(builder.Configuration);
-
-public sealed class SettingsService(ICacheStore cache)
-{
-    public Task<string> GetAsync(CancellationToken ct) =>
-        cache.RememberAsync("site-name", TimeSpan.FromMinutes(10), _ => Task.FromResult("Naravel"), ct);
-}
-```
-
-Use `ICacheStore` for the default store and `CacheManager` to choose a named store or create a scope. Provider behavior and limitations, including Memcached's cluster-wide `FlushAsync`, are documented in [docs/en/cache.md](docs/en/cache.md) and [docs/fa/cache.md](docs/fa/cache.md).
-
-### Naravel.Queue
-
-Async background jobs with named drivers, delayed and prioritized dispatch, retries and backoff, chaining, batches, failed-job handling, hosted workers, and telemetry. Jobs are **at-least-once** and should be idempotent. The Memory driver is process-local; Redis, File, and Database use visibility timeouts for recovery, while Kafka and RabbitMQ use broker redelivery. Kafka does not support delayed delivery (delayed dispatch is rejected; retries are immediate); see [docs/en/queue.md](docs/en/queue.md#kafka-no-delayed-delivery).
-
-```csharp
-using Naravel.Queue.Extensions;
-using Naravel.Queue.Dispatch;
-using Naravel.Queue.Jobs;
-using Naravel.Queue.Redis;   // AddRedisDriver
-
-builder.Services.AddQueue(builder.Configuration)
-    .AddRedisDriver(builder.Configuration);
-builder.Services.AddJob<SendWelcomeEmailJob>("mail.welcome");
-builder.Services.AddQueueWorker(w => { w.Queues = new[] { "default" }; w.Concurrency = 4; });
-
-var app = builder.Build();
-var dispatcher = app.Services.GetRequiredService<IJobDispatcher>();
-await dispatcher.DispatchAsync(new SendWelcomeEmailJob("ali@example.com"));
-```
-
-See [docs/en/queue.md](docs/en/queue.md) and [docs/fa/queue.md](docs/fa/queue.md) for job definitions, configuration, failed jobs, persistent batches, worker controls, and provider-specific setup.
-
-### Naravel.Events
-
-Typed, asynchronous, in-process events. DI-registered `IEventListener<TEvent>` listeners run in registration order, followed by request-scoped `Listen` callbacks (each returns an `IDisposable` subscription). A listener can call `context.Stop()` to stop later listeners; the first listener exception propagates to the caller and stops the dispatch. Listeners are matched by the exact event type passed to `DispatchAsync<TEvent>`, with no base-type or interface fan-out. The dispatcher is scoped, emits a `Naravel.Events` `Meter` and `ActivitySource`, and `Naravel.Events.Testing.EventFake` records dispatched events for tests.
-
-```csharp
-using Naravel.Events;
-
-builder.Services.AddNaravelEvents();
-builder.Services.AddScoped<IEventListener<OrderPaid>, UpdateOrderReadModel>();
-
-public sealed record OrderPaid(string OrderId);
-
-public sealed class UpdateOrderReadModel : IEventListener<OrderPaid>
-{
-    public Task HandleAsync(OrderPaid evt, EventDispatchContext context, CancellationToken ct = default) =>
-        Task.CompletedTask;
-}
-
-public sealed class CheckoutService(IEventDispatcher events)
-{
-    public Task PayAsync(string orderId, CancellationToken ct) =>
-        events.DispatchAsync(new OrderPaid(orderId), ct);
-}
-```
-
-The optional `Naravel.Events.Queue` adapter runs a listener through `Naravel.Queue` instead. Implement `IQueuedEventListener<TEvent>` and register it under an explicit alias; the alias, not a CLR type name, is what is stored in the queue. Configure Queue and a driver as usual. The adapter dispatches on the default connection and the `default` queue and serializes the event with `System.Text.Json`, so keep events small and serializable. Queued execution is at-least-once, like any Queue job.
-
-```csharp
-builder.Services.AddNaravelEventsQueue();
-builder.Services.AddQueuedEventListener<OrderPaid, SendReceipt>("order-paid.receipt");
-```
-
-See [docs/en/events.md](docs/en/events.md) and [docs/fa/events.md](docs/fa/events.md), and run the sample's `/events` page for a working example.
-
-### Naravel.Mail
-
-Typed mail without a network dependency in the core package: a `Mailable` class describes the message, a named transport (`log` by default, `array` for tests, `smtp` via the optional `Naravel.Mail.Smtp` package) delivers it, and `MailFake` makes it testable. A transport failure is reported to the caller and never retried silently.
-
-```csharp
-builder.Services.AddNaravelMail(builder.Configuration);   // Mail:Default defaults to "log"
-
-public class WelcomeMail(User user) : Mailable
-{
-    public override MailMessage Build(MailBuilder mail) =>
-        mail.From("app@example.com").Subject("Welcome").Text($"Hi {user.Name}").Build();
-}
-
-await mailer.To(user.Email).SendAsync(new WelcomeMail(user), cancellationToken);
-
-// optional Naravel.Mail.Queue: services.AddNaravelMailQueue(); then
-await mailer.To(user.Email).QueueAsync(new WelcomeMail(user), cancellationToken);   // stores message data only, at-least-once
-```
-
-See [docs/en/mail.md](docs/en/mail.md) and [docs/fa/mail.md](docs/fa/mail.md).
-
-### Naravel.Redis
-
-Named, shared Redis connections: one StackExchange.Redis multiplexer per name (the real `IConnectionMultiplexer`, no command wrapper), owned and disposed by one manager. Cache and Queue stores name a connection with `Connection`; the old `ConnectionString` still works and equal strings share one connection. See [docs/en/redis.md](docs/en/redis.md) and [docs/fa/redis.md](docs/fa/redis.md).
-
-```csharp
-builder.Services.AddNaravelRedis(builder.Configuration);   // Redis:Default, Redis:Stores:<name>:ConnectionString
-var multiplexer = redis.Connection("main").Multiplexer;
-```
-
-### Naravel.Notifications
-
-One typed notification sent to a recipient through channels you name, in the order you name them, with a fake for tests. The core package has no mail, queue or network dependency; Mail (`Naravel.Notifications.Mail`) and Queue (`Naravel.Notifications.Queue`) are opt-in packages, and any other channel is a class or delegate. A missing channel fails before anything is sent; a failing channel stops the dispatch and `NotificationDeliveryException` says which channel failed and which had already delivered.
-
-```csharp
-builder.Services.AddNaravelNotifications();
-builder.Services.AddLogNotificationChannel<InvoiceReady>();          // a channel named "log"
-
-await notifications.SendAsync(user, new InvoiceReady(7), ["log"], cancellationToken);   // notifications is an injected INotificationSender
-
-// optional Naravel.Notifications.Mail: services.AddMailNotificationChannel<InvoiceReady>(c => c.GetRecipient<User>().Email, n => new InvoiceMail(n));
-// optional Naravel.Notifications.Queue: services.AddNaravelNotificationQueue(); services.AddQueuedNotification<InvoicePayload>("invoice.ready", handler);
-//   await notificationQueue.QueueAsync("invoice.ready", payload);   // stores an alias and plain data only, at-least-once
-```
-
-See [docs/en/notifications.md](docs/en/notifications.md) and [docs/fa/notifications.md](docs/fa/notifications.md).
-
-### Naravel.Encryption
-
-A thin `Encrypt` / `Decrypt` facade over ASP.NET Core Data Protection (no custom cryptography), typed values, `ForPurpose` isolation and `DecryptException`. `Naravel.Queue.Encryption` stores the payload of jobs marked `IShouldBeEncrypted` encrypted; the job type is still chosen by the alias registry only. **Producer and worker must share the Data Protection key ring and application name.** See [docs/en/encryption.md](docs/en/encryption.md) and [docs/fa/encryption.md](docs/fa/encryption.md).
-
-```csharp
-builder.Services.AddNaravelEncryption();
-var token = encrypter.Encrypt("secret");
-var text = encrypter.Decrypt(token);
-// optional Naravel.Queue.Encryption: services.AddNaravelQueueEncryption(); class MyJob : Job, IShouldBeEncrypted
-```
-
-### Naravel.Scheduling
-
-Named tasks on a schedule, run by a hosted service inside your host: no cron line and no command to start. Frequencies and filters read like Laravel's (`EveryFiveMinutes`, `DailyAt`, `Weekdays`, `Cron`), and two guards work across several instances over the cache locks: `WithoutOverlapping` and `OnOneServer` (startup fails when the lock driver is not shared). Each run gets a new DI scope; `SchedulerFake` runs a schedule at times you choose. The Artisan half is not a package: Commands are a documented `System.CommandLine` recipe (PDR-017).
-
-```csharp
-builder.Services.AddNaravelScheduling(schedule =>
-{
-    schedule.Call("prune-sessions", (sp, ct) => sp.GetRequiredService<SessionPruner>().RunAsync(ct)).EveryFiveMinutes().WithoutOverlapping();
-    schedule.Call("daily-digest", (sp, ct) => sp.GetRequiredService<Digest>().SendAsync(ct)).DailyAt(8, 0).OnOneServer();
-});
-```
-
-See [docs/en/scheduling.md](docs/en/scheduling.md) and [docs/fa/scheduling.md](docs/fa/scheduling.md).
-
-### Naravel.Broadcasting
-
-A thin layer over SignalR for typed real-time events: `IBroadcastable` says which channels an event goes to, `Channels.Authorize("private-orders.{id}", ...)` decides who may join (a `private-` or `presence-` channel with no matching rule is **refused**), and `signalr`, `log` and `null` drivers are picked by configuration. Events are opted in one by one with `AddBroadcastOn<TEvent>()` because `Naravel.Events` dispatches by exact type. `presence-` channels keep a member list in the shared cache (`MemberJoined`, `MemberLeft`, `IPresence`), one member per user across all instances. Delivery is inline and at most once. `BroadcastFake` records broadcasts for tests (PDR-018).
-
-```csharp
-builder.Services.AddNaravelBroadcasting(builder.Configuration, o => o.Channels.Authorize("private-orders.{id}", (user, id) => user.FindFirst("order")?.Value == id));
-app.MapNaravelBroadcasting("/hubs/broadcast");
-await broadcaster.BroadcastAsync(new OrderShipped(7));   // record OrderShipped(int OrderId) : IBroadcastable { Channels() => [$"private-orders.{OrderId}"] }
-```
-
-See [docs/en/broadcasting.md](docs/en/broadcasting.md) and [docs/fa/broadcasting.md](docs/fa/broadcasting.md).
-
-### Naravel.Database
-
-A Laravel-style query builder with named connections and parameter-bound SQL on SQLite, MySQL, PostgreSQL and SQL Server (Dapper maps rows; EF Core stays the tool for entities and migrations). **Today:** connections, the SQLite, MySQL, PostgreSQL and SQL Server drivers, the builder (select, the full where family: value, null, between, column, date part, any/all/none, pattern, full text, JSON paths, exists and subqueries; conditionals; joins; group by and having; ordering helpers; limit; aggregates, chunking and streaming; unions, subqueries and lateral joins, CTEs, raw expressions with bindings, row locks, `ToSql`/`ToRawSql`) that compiles for all four dialects and runs on all four (one shared contract suite in CI), and observability (a `Naravel.Database` meter and activity with no SQL in tags, `IQueryListener`, an opt-in query log) with a `DatabaseFake` for tests. Aggregates (`CountAsync`, `SumAsync`, `ExistsAsync`...), chunking and `IAsyncEnumerable` streaming are included, and so are writes: `InsertAsync`, `InsertGetIdAsync`, `UpdateAsync`, `IncrementAsync`, `UpsertAsync`, `DeleteAsync`, `TruncateAsync` and `*ReturningAsync`, with an explicit `where` required for update and delete; transactions (`TransactionAsync` with savepoints and deadlock retry, `BeginTransactionAsync`, joined by the injected `IDatabase`) and an opt-in EF Core adapter (`Naravel.Database.EntityFrameworkCore`: `dbContext.Query("table")` and `db.Using(dbContext)` share the context's connection and transaction); pagination (`PaginateAsync`, `SimplePaginateAsync`, `CursorPaginateAsync`, returning the `Naravel.Pagination` types) is included (behaviour differs per engine and is a documented contract: [docs/en/database-dialects.md](docs/en/database-dialects.md); "Laravel-style" here means the tested subset only; method-by-method plan in [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md)).
-
-```csharp
-builder.Services.AddNaravelDatabase(builder.Configuration);
-builder.Services.AddNaravelSqliteDatabase(builder.Configuration);   // Database:Connections:main = { Driver: sqlite, Path: app.db }
-
-var adults = await db.Table("users").Where("active", true).Where("age", ">=", 18).OrderBy("name").GetAsync(cancellationToken);
-var ada    = await db.Table("users").Where("email", email).FirstAsync<UserRow>(cancellationToken);   // email is bound, never concatenated
-
-var authors = await db.Table("users")                       // joins, JSON paths, exists, grouping: the same Laravel names
-    .Join("posts", "users.id", "posts.user_id")
-    .WhereLike("users.name", "a%")
-    .Where("users.settings->theme", "dark")                  // JSON path, bound as a parameter
-    .WhereExists(s => s.Table("comments").WhereColumn("comments.post_id", "posts.id"))
-    .When(onlyRecent, q => q.Where("posts.created_at", ">=", DateTime.UtcNow.AddDays(-7)))
-    .Select("users.name").GroupBy("users.name")
-    .GetAsync(cancellationToken);
-```
-
-Values are always bound as parameters, identifiers are validated, and raw SQL exists only in `*Raw` methods. See [docs/en/database.md](docs/en/database.md) and [docs/fa/database.md](docs/fa/database.md).
-
-### Naravel.Filesystem
-
-Named local and S3/S3-compatible storage disks. The local driver rejects paths outside its configured root. Naravel does not create a public HTTP endpoint; serve or authorize stored files through ASP.NET Core separately.
-
-```csharp
-using Naravel.Filesystem;
-
-builder.Services.AddNaravelFilesystem(builder.Configuration);
-
-public sealed class ArchiveService(IStorageDriver storage)
-{
-    public Task SaveAsync(string key, Stream contents, CancellationToken ct) =>
-        storage.PutAsync(key, contents, ct);
-}
-```
-
-See [docs/en/filesystem.md](docs/en/filesystem.md) and [docs/fa/filesystem.md](docs/fa/filesystem.md) for disk configuration, uploads, S3 URLs, and security notes.
-
-### Naravel.Routing
-
-A thin layer over ASP.NET Core routing: nested route groups, names and URL generation, constraints, resource routes, model binding, and route middleware aliases/groups/parameters.
-
-```csharp
-var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddNaravelRouting();
-var app = builder.Build();
-app.UseNaravelRouting();
-app.MapNaravel(routes => routes
-    .Prefix("admin").Name("admin.")
-    .Group(group => group.Get("users/{id}", (int id) => Results.Ok(new { id }))
-        .Name("users.show")));
-```
-
-Ready-made route middleware aliases are `throttle` (process-local fixed window), `signed`, `maintenance`, `cache.headers`, `trim`, `convert.empty`, and `guest`; custom aliases, groups, and parameters are supported too. Throttling and maintenance state are process-local, and signed URLs need a shared, persisted Data Protection key ring across instances. See [docs/en/routing.md](docs/en/routing.md) and [docs/fa/routing.md](docs/fa/routing.md).
-
-## Provider packages
-
-Register the core package and only the providers your configured stores use. The snippets below are alternatives; the Database driver also requires an EF Core context and `ConfigureQueueJobs()` model mapping. Provider configuration and requirements are in the linked module docs.
-
-| Package | Example registration |
+Each module has a guide with a short example and the guarantees worth knowing. Provider packages are optional and only for the stores and drivers you use.
+
+| Module | What you get | Optional packages |
+|---|---|---|
+| [`Naravel.Cache`](docs/en/cache.md) | Named stores, `RememberAsync`, tags, token-owned locks, a rate limiter | `.Redis`, `.Memcached` |
+| [`Naravel.Queue`](docs/en/queue.md) | Background jobs: delay, priority, retries and backoff, chains, batches, hosted workers | drivers `.Memory` `.File` `.Redis` `.Database` `.RabbitMQ` `.Kafka`; `.Coordination`, `.Encryption` |
+| [`Naravel.Events`](docs/en/events.md) | Typed in-process events and listeners | `.Queue` for queued listeners |
+| [`Naravel.Mail`](docs/en/mail.md) | `Mailable` classes, log, array and SMTP transports, `MailFake` | `.Smtp`, `.Queue` |
+| [`Naravel.Notifications`](docs/en/notifications.md) | One notification, sent through the channels you name, in the order you name them | `.Mail`, `.Queue` |
+| [`Naravel.Database`](docs/en/database.md) | A query builder with bound parameters on SQLite, MySQL, PostgreSQL and SQL Server; transactions | dialects `.Sqlite` `.MySql` `.Postgres` `.SqlServer`; `.EntityFrameworkCore` |
+| [`Naravel.Pagination`](docs/en/pagination.md) | Laravel-shaped pages: length-aware, simple and cursor | `.EntityFrameworkCore` |
+| [`Naravel.Filesystem`](docs/en/filesystem.md) | Named local and S3-compatible disks | none |
+| [`Naravel.Routing`](docs/en/routing.md) | Route groups, names, resource routes and route middleware on ASP.NET Core | none |
+| [`Naravel.Scheduling`](docs/en/scheduling.md) | Scheduled tasks in a hosted service, with `WithoutOverlapping` and `OnOneServer` | none |
+| [`Naravel.Broadcasting`](docs/en/broadcasting.md) | Typed real-time events over SignalR, with channel authorization | none |
+| [`Naravel.Encryption`](docs/en/encryption.md) | `Encrypt` and `Decrypt` over ASP.NET Core Data Protection | none |
+| [`Naravel.Redis`](docs/en/redis.md) | Named, shared Redis connections | none |
+| [`Naravel.Foundation`](docs/en/foundation.md) | The driver-manager base the others build on | installed for you |
+
+Not a package, on purpose: sessions, password hashing and route authorization are already ASP.NET Core and .NET features, and the guides show the recipe ([session](docs/en/session.md), [auth](docs/en/auth.md), [hashing](docs/en/hashing.md)). Examples for every module are collected in [Modules](docs/en/modules.md).
+
+## Status
+
+> **0.x (pre-1.0).** The public API can still change between minor versions; every breaking change is listed in the [CHANGELOG](CHANGELOG.md) (OD-09). Queue jobs are at-least-once. No package declares trim or Native AOT compatibility yet ([docs/en/trimming-aot.md](docs/en/trimming-aot.md)). Try it on a branch first and read the guarantees next to each feature.
+
+[ROADMAP.md](ROADMAP.md) is the source of truth for module and roadmap status. Build and test results are reported by [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml).
+
+## Documentation
+
+| | |
 |---|---|
-| `Naravel.Cache` (Memory) | `builder.Services.AddNaravelCache(configuration);` |
-| `Naravel.Redis` | `builder.Services.AddNaravelRedis(configuration);` |
-| `Naravel.Cache.Redis` | `builder.Services.AddNaravelRedisCache(configuration);` |
-| `Naravel.Cache.Memcached` | `builder.Services.AddNaravelMemcachedCache(configuration);` |
-| `Naravel.Queue.Memory` | `builder.Services.AddMemoryDriver(configuration);` |
-| `Naravel.Queue.File` | `builder.Services.AddFileDriver(configuration);` |
-| `Naravel.Queue.Redis` | `builder.Services.AddRedisDriver(configuration);` |
-| `Naravel.Queue.Database` | `builder.Services.AddDatabaseDriver<AppDbContext>(configuration);` |
-| `Naravel.Queue.RabbitMQ` | `builder.Services.AddRabbitMqDriver(configuration);` |
-| `Naravel.Queue.Kafka` | `builder.Services.AddKafkaDriver(configuration);` |
-| `Naravel.Events.Queue` (adapter) | `builder.Services.AddNaravelEventsQueue();` |
-| `Naravel.Mail` | `builder.Services.AddNaravelMail(configuration);` |
-| `Naravel.Mail.Queue` | `builder.Services.AddNaravelMailQueue();` |
-| `Naravel.Mail.Smtp` | `builder.Services.AddNaravelMailSmtp(configuration);` |
-| `Naravel.Notifications` | `builder.Services.AddNaravelNotifications();` |
-| `Naravel.Notifications.Mail` | `builder.Services.AddMailNotificationChannel<TNotification>(address, mailable);` |
-| `Naravel.Notifications.Queue` | `builder.Services.AddNaravelNotificationQueue();` |
-| `Naravel.Encryption` | `builder.Services.AddNaravelEncryption();` |
-| `Naravel.Queue.Encryption` | `builder.Services.AddNaravelQueueEncryption();` |
-| `Naravel.Scheduling` | `builder.Services.AddNaravelScheduling(schedule => schedule.Call("name", handler).EveryFiveMinutes());` |
-| `Naravel.Broadcasting` | `builder.Services.AddNaravelBroadcasting(configuration); app.MapNaravelBroadcasting("/hubs/broadcast");` |
-| `Naravel.Database` | `builder.Services.AddNaravelDatabase(configuration);` |
-| `Naravel.Database.Sqlite` | `builder.Services.AddNaravelSqliteDatabase(configuration);` |
-| `Naravel.Database.MySql` | `builder.Services.AddNaravelMySqlDatabase(configuration);` |
-| `Naravel.Database.Postgres` | `builder.Services.AddNaravelPostgresDatabase(configuration);` |
-| `Naravel.Database.SqlServer` | `builder.Services.AddNaravelSqlServerDatabase(configuration);` |
+| [Getting started](docs/en/getting-started.md) | Which package to install, which call registers it, the sample app |
+| [Modules](docs/en/modules.md) | Every module with an example and its guarantees |
+| [Guides](docs/en) | One in-depth guide per module, each with a [Persian twin](docs/fa) |
+| [Laravel parity](docs/en/laravel-parity.md) and [PDRs](docs/pdr/en) | What was ported, adapted or declined, and why |
+| [Architecture](docs/en/architecture.md), [benchmarks](docs/en/benchmarks.md) | How the modules are built and what they cost |
+| [Documentation index](docs/README.md) | Everything above in English and Persian |
 
-Queue registrations are extension methods in `Naravel.Queue.Extensions`. The Queue configuration uses `NaravelQueue:Stores`; Cache and Filesystem use `Cache:Stores` and `Filesystem:Stores` by default. Each supports a custom section name.
+## Contributing
 
-### Hashing (native, no package)
+Contributions are welcome: read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md). Questions and bugs go to [GitHub issues](https://github.com/km-arc/Naravel/issues); security problems follow [SECURITY.md](SECURITY.md). Contributor and agent rules are in [AGENTS.md](AGENTS.md).
 
-Password hashing is already in .NET: `PasswordHasher<TUser>` from `Microsoft.Extensions.Identity.Core` does `Hash::make`, `Hash::check` and `Hash::needsRehash` (PDR-019, `DECLINED`). The one thing to change is the work factor: the default of 100,000 iterations is below the OWASP figure for HMAC-SHA512, so set `PasswordHasherOptions.IterationCount` yourself. See [docs/en/hashing.md](docs/en/hashing.md) and [docs/fa/hashing.md](docs/fa/hashing.md).
-
-### Session and auth middleware (native, no package)
-
-Session is already in ASP.NET Core: `AddSession` over any `IDistributedCache`, with `TempData` and `ModelState` for flash data and old input (PDR-015, `DECLINED`). Route authorization is `NaravelRoute.Configure(b => b.RequireAuthorization("policy"))`; there are no `auth`, `can` or `verified` aliases, and the built-in `guest` alias stays (PDR-016, `DECLINED`). See [docs/en/session.md](docs/en/session.md), [docs/en/auth.md](docs/en/auth.md) and the Persian twins under `docs/fa/`.
-
-### Pagination
-
-`Naravel.Pagination` (no EF Core dependency) returns Laravel-shaped pages with `data`, `links` and `meta`; `Naravel.Pagination.EntityFrameworkCore` adds `PaginateAsync`, `SimplePaginateAsync` and `CursorPaginateAsync` to EF Core queries. Cursor paging declares its keys once and writes both the `ORDER BY` and the `WHERE`; a cursor is an unsigned position, read strictly (`InvalidCursorException`), and page sizes are capped at 100.
-
-```csharp
-var page = await db.Posts.OrderBy(p => p.Id).PaginateAsync(page: 2, perPage: 15);
-var next = await db.Posts.CursorPaginateAsync(k => k.By(p => p.CreatedAt).Then(p => p.Id), 15, cursor);
-```
-
-See [docs/en/pagination.md](docs/en/pagination.md) and [docs/fa/pagination.md](docs/fa/pagination.md).
-
-## Sample app
-
-`samples/Naravel.Sample` is a runnable web app that exercises the modules. It is never packed.
-
-```sh
-dotnet run --project samples/Naravel.Sample/Naravel.Sample.csproj
-```
-
-| URL | What it shows |
-|---|---|
-| `/queue` | Queue dispatch, delay, priority, retry/backoff, chains and batches (file-backed by default) |
-| `/events` | `OrderPlaced` dispatch: DI listeners, stop propagation, a `Listen` callback, and a queued listener |
-| `/routing/` | Route groups, constraints, resources, model binding and route middleware |
-| `/database` | The query builder on in-memory SQLite: conditions added per request parameter, bound values, a rejected column name, `WhereYear`, `FindAsync` and the query log |
-
-See [samples/Naravel.Sample/README.md](samples/Naravel.Sample/README.md) for provider switching and demo headers.
-
-## Build and test
-
-Requires the .NET 10 SDK. From the repository root:
-
-```sh
-dotnet restore Naravel.slnx
-dotnet build Naravel.slnx -c Release
-dotnet test Naravel.slnx -c Release
-```
-
-Naravel is a monorepo: `Naravel.slnx` contains all modules, providers, tests, and samples. Central package versions are in `Directory.Packages.props`; shared build settings and the lock-step package version are in `Directory.Build.props`.
+Naravel is released under the [MIT license](LICENSE).
