@@ -76,7 +76,7 @@ history and the accepted PDR-009 decisions remain in [PROGRESS-ROUTING.md](PROGR
 5. **Tests are mandatory**, including a runtime `Extend` test and (if config-driven) a config-reload test.
 6. **Don't port PHP mechanics** (magic `__call`, array configs, reflection tricks) just for resemblance.
 7. **Async-first** for anything that touches I/O; `CancellationToken` on every async API.
-8. **Do not add dependencies** beyond `Microsoft.Extensions.*` abstractions without a PDR (already approved: see OD-01/OD-02 in `ROADMAP.md`). FluentAssertions stays on 7.x (8.x+ is commercially licensed).
+8. **Do not add dependencies** beyond `Microsoft.Extensions.*` abstractions without a PDR (already approved: see OD-01/OD-02 in `ROADMAP.md`). FluentAssertions stays on 7.x (8.x+ is commercially licensed). `.github/dependabot.yml` proposes version bumps of packages and actions that are already in the repository (never a new one) and its `ignore` entries repeat the exceptions above; its pull requests are dependency changes, so the owner reviews and merges them like any other.
 9. **Be honest about verification.** If you could not run `dotnet build`/`dotnet test` (no SDK, no NuGet access), say so explicitly and never describe unrun tests as passing.
 10. **Never resolve a CLR type from stored data** (queue/cache/session payloads) except through an explicit alias registry (OD-07).
 11. **Stay inside `Touch:`** of the active stage file; log anything else in `roadmap/AUDIT.md`.

@@ -2,7 +2,7 @@
 
 Thank you for helping. Naravel is a .NET port of the *ideas* of Laravel, not a line-by-line clone, so most of the work is
 deciding what is worth porting and then doing it small and well. This guide is the short path; the binding rules are in
-[AGENTS.md](AGENTS.md) and [ROADMAP.md](ROADMAP.md). Persian: [CONTRIBUTING.fa.md](CONTRIBUTING.fa.md).
+[AGENTS.md](AGENTS.md) and [ROADMAP.md](ROADMAP.md). Persian: [CONTRIBUTING.fa.md](CONTRIBUTING.fa.md). Everyone who takes part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Ways to help
 
