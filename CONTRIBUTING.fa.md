@@ -124,6 +124,21 @@ scripts/test-local.sh --db -- --filter "Dialect=Postgres"   # فقط یک dialec
 scripts/test-local.sh -- --filter "FullyQualifiedName~Redis"
 ```
 
+### بستهٔ pack‌شده را مثل یک کاربر امتحان کنید
+
+همهٔ پروژه‌های تست اینجا Naravel را با `ProjectReference` می‌گیرند، پس هیچ چیز دیگری یک `.nupkg` ساخته‌شده را نصب نمی‌کند. CI این کار را
+می‌کند: `consumer-smoke.py` همهٔ بسته‌های pack‌شده را در یک مصرف‌کنندهٔ بیرون از مخزن restore می‌کند، همهٔ assemblyهای Naravel را بار می‌کند
+و برنامهٔ `samples/Naravel.AotSmoke` را روی بسته‌ها اجرا می‌کند؛ پس وابستگی گمشده یا framework reference که منتقل نمی‌شود پیش از push نسخه
+پیدا می‌شود (نسخهٔ push‌شده قابل ویرایش نیست). به‌صورت محلی:
+
+```sh
+dotnet pack Naravel.slnx -c Release -o ./nupkgs-check
+python3 .github/scripts/consumer-smoke.py --local ./nupkgs-check
+```
+
+برای نسخه‌ای که از قبل روی nuget.org است، workflow «Package smoke (published version)» را با همان نسخه اجرا کنید
+(`gh workflow run package-smoke.yml -f version=0.1.1`) یا `python3 .github/scripts/consumer-smoke.py --nuget 0.1.1`.
+
 ### Dev container
 
 مخزن را در VS Code یا Codespaces باز کنید («Reopen in Container») تا SDK آمادهٔ .NET 10 با دسترسی به Docker داشته باشید

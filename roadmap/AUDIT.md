@@ -5,7 +5,9 @@ each open finding must be owned by a roadmap stage.
 
 ## Open findings
 
-_None._
+| ID | Finding | Evidence / impact | Owner |
+|---|---|---|---|
+| D-80 | No CI step consumes a packed package. | Every test and sample project references Naravel through `ProjectReference`, so a missing dependency in a nuspec, a framework reference that does not flow, a version range that does not resolve or an assembly that does not load could only be found by a user after a version is on nuget.org, where it cannot be edited (0.1.0 and 0.1.1 are published). The pack checks read the nuspec and the README; none restores or runs a package. | R30 |
 
 
 ## Resolved / historical notes

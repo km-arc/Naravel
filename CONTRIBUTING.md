@@ -127,6 +127,21 @@ scripts/test-local.sh --db -- --filter "Dialect=Postgres"   # one database diale
 scripts/test-local.sh -- --filter "FullyQualifiedName~Redis"
 ```
 
+### Check the packed packages like a user
+
+Every test project here references Naravel through `ProjectReference`, so nothing else installs a packed `.nupkg`. CI does:
+`consumer-smoke.py` restores every packed package into a consumer outside the repository, loads every Naravel assembly and runs the
+`samples/Naravel.AotSmoke` program against the packages, so a missing dependency or a framework reference that does not flow shows up
+before a version is pushed (a pushed version cannot be edited). Locally:
+
+```sh
+dotnet pack Naravel.slnx -c Release -o ./nupkgs-check
+python3 .github/scripts/consumer-smoke.py --local ./nupkgs-check
+```
+
+To check a version that is already on nuget.org, run the "Package smoke (published version)" workflow with that version
+(`gh workflow run package-smoke.yml -f version=0.1.1`) or `python3 .github/scripts/consumer-smoke.py --nuget 0.1.1`.
+
 ### Dev container
 
 Open the repository in VS Code or Codespaces ("Reopen in Container") for a ready .NET 10 SDK with Docker access
