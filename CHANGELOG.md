@@ -4,7 +4,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+- CI: `.github/workflows/release-notes.yml` creates the GitHub Release for each version tag from that version's section of this changelog (`.github/scripts/release-notes.py`, whose self-test the `pins` job runs), so every package's NuGet "Release notes" link leads somewhere. It runs when a tag is pushed and when `main` changes, where it also creates the release of any version tag that has none (the `v0.1.1` tag predates it); pull requests get a read-only dry run. It is separate from the NuGet publish job and never edits an existing release.
 
 ## [0.1.1] - 2026-11-02
 
