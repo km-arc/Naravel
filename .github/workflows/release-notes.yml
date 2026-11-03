@@ -1,0 +1,78 @@
+name: GitHub release notes
+
+# Every package's NuGet "Release notes" link points at /releases/tag/v<version>, so that GitHub Release has to exist. This workflow
+# creates it, from the matching "## [<version>]" section of CHANGELOG.md, without anyone clicking anything:
+#   - when a version tag is pushed, it creates the release for that tag (a missing changelog section fails the run);
+#   - when main changes (and on a manual run), it creates the release of every version tag that has none yet, so tags that
+#     were pushed before this workflow existed are filled in the first time it lands on main, and a failed run is repaired by the next;
+#   - on a pull request it only prints what it would create (a dry run, read-only token).
+# It is separate from the NuGet publish job in ci.yml on purpose: a failure here never blocks, repeats or approves a publish.
+# Existing releases are never edited. See .github/scripts/release-notes.py.
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*.*.*' ]
+  pull_request:
+    paths:
+      - CHANGELOG.md
+      - .github/workflows/release-notes.yml
+      - .github/scripts/release-notes.py
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Only this existing version tag, for example v0.1.1. Leave empty to create every release that is missing.
+        required: false
+
+permissions:
+  contents: read
+
+# Release runs queue one behind the other; a newer pull request push replaces the older dry run.
+concurrency:
+  group: release-notes-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || 'release' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  preview:
+    name: Dry run (publishes nothing)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Show the releases that would be created
+        run: python3 .github/scripts/release-notes.py --dry-run
+
+  release:
+    name: Create the missing GitHub releases
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      # Passed through the environment, never pasted into the script; release-notes.py rejects anything that is not a version tag.
+      TAG: ${{ github.event.inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name || '') }}
+    steps:
+      # The default branch carries the newest CHANGELOG.md; for a tag the script falls back to the file as it was at the tag.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Create the releases
+        run: |
+          args=()
+          if [[ -n "$TAG" ]]; then args+=(--tag "$TAG"); fi
+          python3 .github/scripts/release-notes.py "${args[@]}"
