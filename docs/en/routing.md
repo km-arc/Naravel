@@ -130,7 +130,7 @@ What to do today:
 2. For a quota that must be shared by all instances and counts explicit attempts (failed logins, one-time codes), use the Cache-backed `IRateLimiter` on a shared Redis store, in the handler. The tested login example in [cache.md](cache.md) does this. It takes a lock per subject and makes several store calls, so it suits attempt counters, not a blanket throttle on a busy route. Redis is the safer store for a critical shared quota; read the backend table in cache.md first.
 3. Or enforce the limit at the edge (reverse proxy or API gateway), where all traffic passes exactly once.
 
-A built-in shared store for `throttle` is not built. It is proposed in [PDR-024](../pdr/en/PDR-024-shared-throttle-store.md), which needs owner approval.
+A built-in shared store for `throttle` is not built yet. Its design is approved in [PDR-024](../pdr/en/PDR-024-shared-throttle-store.md); the work is tracked in [ROADMAP.md](../../ROADMAP.md). Until it is released, the options above are the way to share a quota.
 
 `IUrlGenerator.SignedRoute(name, values)` and `TemporarySignedRoute(name, expiresAt, values)` create signed relative URLs. Attach `.Middleware("signed")` to validate them. The signature covers the path and query, not the host. Temporary URLs are rejected once expired. Data Protection keys must be persisted and shared by instances that generate and validate the same links; protect the key ring at rest in production.
 
