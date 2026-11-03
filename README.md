@@ -12,7 +12,7 @@
 - Contributor and agent guidance: [AGENTS.md](AGENTS.md)
 - English docs: [docs/en](docs/en) · PDRs: [docs/pdr/en](docs/pdr/en)
 - Persian docs: [docs/fa](docs/fa) · PDRs: [docs/pdr/fa](docs/pdr/fa)
-- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md) · Questions and bugs: [GitHub issues](https://github.com/km-arc/Naravel/issues) · Security: [SECURITY.md](SECURITY.md)
+- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md) · Questions and bugs: [GitHub issues](https://github.com/km-arc/Naravel/issues) · Security: [SECURITY.md](SECURITY.md) · [Code of Conduct](CODE_OF_CONDUCT.md)
 
 > **Status: 0.x (pre-1.0).** The public API can still change between minor versions; every breaking change is listed in the [CHANGELOG](CHANGELOG.md) (OD-09). Queue jobs are at-least-once. No package declares trim or Native AOT compatibility yet ([docs/en/trimming-aot.md](docs/en/trimming-aot.md)). Try it on a branch first and read the guarantees next to each feature.
 
