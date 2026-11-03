@@ -48,6 +48,7 @@ dotnet restore Naravel.slnx && dotnet build Naravel.slnx -c Release && dotnet te
 | `tests/Naravel.<Module>.Tests` | xUnit + FluentAssertions (7.x) tests for that module. |
 | `samples/` | Runnable samples (never packed). |
 | `docs/en`, `docs/fa` | Parallel English / Persian docs (same file names). |
+| `docs/README.md`, `docs/assets` | Documentation index (English and Persian) and the README images. The README stays a short front page: put detail in `docs/en` and `docs/fa`, not in the README. |
 | `docs/pdr/en`, `docs/pdr/fa` | **PDRs** — Parity Decision Records: why each Laravel feature was adopted, adapted or rejected. |
 | `docs/en/next-agent-prompt.md` | Ready-to-paste task prompt for the next agent. |
 | `docs/nuget` | English NuGet package pages: one `<PackageId>.md` per package, packed as its root `README.md` and checked by CI. A new package adds its file here and the `PackageReadmeFile` metadata. |

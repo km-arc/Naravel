@@ -1,54 +1,22 @@
-# ناراول (Naravel)
+<div align="center">
+
+<img src="docs/assets/banner.png" alt="Naravel: نام‌های لاراول، سیستم نوع‌های .NET" width="100%">
+
+**کش، صف، رویداد، ایمیل، زمان‌بندی، query builder و بیشتر:**<br>
+**واژگان لاراولی که می‌شناسید، در قالب بسته‌های .NET 10 با تایپ قوی، async و تزریق وابستگی.**
 
 [![CI](https://github.com/km-arc/Naravel/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/km-arc/Naravel/actions/workflows/ci.yml)
 [![NuGet](https://img.shields.io/nuget/v/Naravel.Foundation.svg?label=nuget)](https://www.nuget.org/packages/Naravel.Foundation)
+[![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**نام‌های لاراول، سیستم نوع‌های .NET.** اگر `Cache::remember`، `dispatch(new Job)` و `Route::prefix()->group()` را می‌شناسید، کد Naravel را از همان روز اول می‌خوانید: همان ایده‌ها در قالب APIهای آشنا و قابل‌کشف که نقاط قوت .NET را نگه می‌دارند: تایپ قوی، `async/await`، تزریق وابستگی و کارایی بومی. یک ایدهٔ لاراولی فقط وقتی پذیرفته می‌شود که نسبت به امکانات خود .NET ارزش عملی اضافه کند؛ دلیل تصمیم در PDR ثبت می‌شود.
+[شروع سریع](#شروع-سریع) · [ماژول‌ها](docs/fa/modules.md) · [مستندات](docs/README.md) · [parity با لاراول](docs/fa/laravel-parity.md) · [CHANGELOG](CHANGELOG.md) · [English](README.md)
 
-**وضعیت ماژول‌ها و نقشه‌راه:** مرجع رسمی [ROADMAP.md](ROADMAP.md) است. نتیجهٔ build و test در [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml) گزارش می‌شود.
+</div>
 
-- انگلیسی: [README.md](README.md)
-- راهنمای مشارکت و ایجنت‌ها: [AGENTS.md](AGENTS.md)
-- مستندات فارسی: [docs/fa](docs/fa) · PDRها: [docs/pdr/fa](docs/pdr/fa)
-- مستندات انگلیسی: [docs/en](docs/en) · PDRها: [docs/pdr/en](docs/pdr/en)
-- مشارکت: [CONTRIBUTING.fa.md](CONTRIBUTING.fa.md) · پرسش و گزارش باگ: [GitHub issues](https://github.com/km-arc/Naravel/issues) · امنیت: [SECURITY.md](SECURITY.md) · [آیین‌نامهٔ رفتار](CODE_OF_CONDUCT.fa.md)
+اگر `Cache::remember`، `dispatch(new Job)` و `Route::prefix()->group()` را می‌شناسید، همین حالا می‌توانید Naravel را بخوانید. نام‌ها همان نام‌های لاراول است. متدها `async` هستند، `CancellationToken` می‌گیرند، از تزریق وابستگی می‌آیند و کامپایلر آن‌ها را بررسی می‌کند.
 
-> **وضعیت: نسخهٔ 0.x (پیش از 1.0).** API عمومی ممکن است بین نسخه‌های minor عوض شود؛ هر تغییر ناسازگار در [CHANGELOG](CHANGELOG.md) فهرست می‌شود (OD-09). Jobهای صف «دست‌کم یک‌بار» (at-least-once) اجرا می‌شوند. هنوز هیچ بسته‌ای سازگاری با trim یا Native AOT را اعلام نکرده است ([docs/fa/trimming-aot.md](docs/fa/trimming-aot.md)). اول روی یک شاخهٔ آزمایشی امتحانش کنید و تضمین‌های کنار هر قابلیت را بخوانید.
-
-## نصب
-
-Naravel برای **.NET 10** (`net10.0`) است. هر ماژول یک بستهٔ NuGet جداست و همهٔ بسته‌ها یک نسخهٔ یکسان دارند. ماژول‌هایی را که لازم دارید اضافه کنید؛ وابستگی‌هایشان، از جمله `Naravel.Foundation`، خودکار می‌آید:
-
-```sh
-dotnet add package Naravel.Cache          # یک ماژول اصلی
-dotnet add package Naravel.Cache.Redis    # یک provider، فقط اگر از Redis استفاده می‌کنید
-```
-
-همهٔ بسته‌های Naravel را در یک پروژه روی یک نسخه نگه دارید: با هم ساخته و تست می‌شوند.
-
-| می‌خواهید | نصب کنید | سپس ثبت کنید |
-|---|---|---|
-| Cache | `Naravel.Cache`؛ برای storeهای Redis یا Memcached، `Naravel.Cache.Redis` یا `Naravel.Cache.Memcached` را هم اضافه کنید | `AddNaravelCache(configuration)` |
-| Queue | `Naravel.Queue` و یک driver: `Naravel.Queue.Memory`، `.File`، `.Redis`، `.Database`، `.RabbitMQ` یا `.Kafka` | `AddQueue(configuration)` و `Add...Driver` همان driver |
-| هماهنگی صف (بدون هم‌پوشانی، محدودیت نرخ، jobهای یکتا) | `Naravel.Queue.Coordination` | [queue-coordination](docs/fa/queue-coordination.md) را ببینید |
-| Events | `Naravel.Events`؛ برای listenerهای صف‌شده `Naravel.Events.Queue` | `AddNaravelEvents()` |
-| Mail | `Naravel.Mail`؛ برای ارسال با SMTP `Naravel.Mail.Smtp` و برای ایمیل صف‌شده `Naravel.Mail.Queue` | `AddNaravelMail(configuration)` |
-| Notifications | `Naravel.Notifications`؛ در صورت نیاز `Naravel.Notifications.Mail` و `Naravel.Notifications.Queue` | `AddNaravelNotifications()` |
-| Query builder | `Naravel.Database` و یک dialect: `Naravel.Database.Sqlite`، `.MySql`، `.Postgres` یا `.SqlServer`؛ برای اشتراک اتصال یک context در EF Core، `Naravel.Database.EntityFrameworkCore` | `AddNaravelDatabase(configuration)` و `AddNaravel...Database` همان dialect |
-| Pagination | `Naravel.Pagination`؛ برای کوئری‌های EF Core، `Naravel.Pagination.EntityFrameworkCore` | لازم نیست |
-| فایل | `Naravel.Filesystem` | `AddNaravelFilesystem(configuration)` |
-| Routing | `Naravel.Routing` (ASP.NET Core) | `AddNaravelRouting()` |
-| Encryption | `Naravel.Encryption`؛ برای jobهای رمزگذاری‌شده `Naravel.Queue.Encryption` | `AddNaravelEncryption()` |
-| Scheduling | `Naravel.Scheduling` | `AddNaravelScheduling(...)` |
-| Broadcasting | `Naravel.Broadcasting` (ASP.NET Core، SignalR) | `AddNaravelBroadcasting(configuration)` |
-| اتصال Redis | `Naravel.Redis` (`Naravel.Cache.Redis` و `Naravel.Queue.Redis` از قبل به آن وابسته‌اند) | `AddNaravelRedis(configuration)` |
-
-جدول بخش «بسته‌های provider» (پایین‌تر) همهٔ فراخوانی‌های ثبت را دارد و هر بخش ماژول با یک مثال کوتاه شروع می‌شود. اول می‌خواهید اجرایش را ببینید؟ بخش «برنامهٔ نمونه» یک دستور برای اجرا دارد.
-
-## اگر لاراول را می‌شناسید
-
-همان کار، در یک خط. مثال‌های کامل‌تر در بخش ماژول‌ها پایین‌تر آمده است.
+## همان کار، در یک خط
 
 | می‌خواهید | Laravel | Naravel |
 |---|---|---|
@@ -63,331 +31,93 @@ dotnet add package Naravel.Cache.Redis    # یک provider، فقط اگر از R
 
 نگاشت کامل، با مشخص‌شدن آنچه Naravel به خود .NET سپرده یا رد کرده، در [جدول parity با لاراول](docs/fa/laravel-parity.md) است.
 
+## شروع سریع
+
+Naravel برای **.NET 10** است. هر ماژول یک بستهٔ NuGet جداست، پس فقط همان‌هایی را اضافه می‌کنید که لازم دارید.
+
+```sh
+dotnet new web -n Hello && cd Hello
+dotnet add package Naravel.Cache
+```
+
+محتوای `Program.cs` را با این جایگزین کنید:
+
+```csharp
+using Naravel.Cache;
+using Naravel.Cache.Abstractions;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddNaravelCache(builder.Configuration);   // یک store درون‌حافظه، مگر اینکه store دیگری پیکربندی کنید
+
+var app = builder.Build();
+app.MapGet("/", (ICacheStore cache) =>
+    cache.RememberAsync("greeting", TimeSpan.FromMinutes(10), () => Task.FromResult($"Hello at {DateTime.UtcNow:T} UTC")));
+app.Run();
+```
+
+اجرایش کنید و صفحه را دوباره بارگذاری کنید: ساعت ده دقیقه ثابت می‌ماند، چون `RememberAsync` آن را از cache برمی‌گرداند.
+
+اینکه هر بسته چه چیزی می‌دهد و کدام فراخوانی آن را ثبت می‌کند در [شروع کار](docs/fa/getting-started.md) است. اول می‌خواهید یک برنامهٔ کامل را ببینید؟ دستور `dotnet run --project samples/Naravel.Sample/Naravel.Sample.csproj` [برنامهٔ نمونه](samples/Naravel.Sample/README.md) را راه می‌اندازد.
+
 ## چرا Naravel
 
 - **نام‌های آشنا، .NET معمولی.** `RememberAsync`، `DelayFor` و `Prefix().Group()`: واژگان لاراول روی متدهایی که `async` هستند، `CancellationToken` می‌گیرند و از تزریق وابستگی می‌آیند.
-- **اول بومی، با صراحت.** session، هش گذرواژه و مجوزدهی route از قبل در ASP.NET Core و .NET هست، پس Naravel به‌جای بسته، دستورالعمل مستند می‌دهد (PDR-015، PDR-016، PDR-019). جایی هم که بسته اضافه می‌کند، یک PDR دلیلش را ثبت می‌کند.
+- **فقط آنچه لازم دارید را نصب کنید.** برای هر ماژول و هر provider یک بستهٔ NuGet جدا، همه با یک نسخه. Redis می‌شود `Naravel.Cache.Redis` و وابستگیِ همه نیست.
+- **اول بومی، با صراحت.** Naravel یک ایدهٔ لاراولی را فقط وقتی می‌پذیرد که نسبت به امکانات خود .NET ارزش عملی اضافه کند. session، هش گذرواژه و مجوزدهی route از قبل در ASP.NET Core و .NET هست، پس به‌جای بسته، دستورالعمل مستند می‌دهد (PDR-015، PDR-016، PDR-019)؛ جایی هم که بسته اضافه می‌کند، یک PDR دلیلش را ثبت می‌کند.
 - **صادق دربارهٔ تضمین‌ها.** jobهای صف at-least-once هستند و باید idempotent باشند؛ Kafka تحویل با تأخیر را رد می‌کند؛ throttle در routeها فقط در یک پردازه اعمال می‌شود. محدودیت‌ها کنار قابلیت‌ها نوشته شده‌اند، نه اینکه در production کشف شوند.
 - **fake برای تست، بدون global state.** ماژول‌های Cache، Events، Mail، Notifications، Queue، Filesystem، Broadcasting، Database و Scheduling هرکدام یک fake دارند (`MailFake`، `QueueFake`، `StorageFake`...) که مثل هر وابستگی دیگر به کد می‌دهید و رویش assert می‌کنید، بدون broker، mail server، دیسک، bucket یا پایگاه داده.
+- **مستند به دو زبان فارسی و انگلیسی.** هر راهنما و هر تصمیم طراحی به هر دو زبان نوشته شده است.
 
-می‌خواهید اول اجرایش را ببینید؟ بخش «برنامهٔ نمونه» در پایین با یک دستور راه می‌افتد.
+```csharp
+var fake = new MailFake { DefaultFrom = "app@example.com" };
+await new SignupService(fake).RegisterAsync("ada@example.com");   // کد شما؛ یک IMailer می‌گیرد
+
+fake.AssertSent(m => m.To.Contains("ada@example.com") && m.Subject == "Welcome");
+fake.AssertNothingQueued();
+```
 
 ## ماژول‌ها
 
-### Naravel.Foundation
-
-زیرساخت مشترک مدیریت درایورها برای ماژول‌های مبتنی بر driver: resolve و cache درایورهای نام‌دار، `Extend` در زمان اجرا، واکنش به تغییر تنظیمات و مدیریت آزادسازی درایورها. برنامه‌ها معمولاً به‌جای ثبت مستقیم Foundation، از آن از مسیر Cache، Queue یا Filesystem استفاده می‌کنند. برای نمونه، manager فایل‌سیستم می‌تواند درایو local را در زمان اجرا اضافه کند:
-
-```csharp
-using Microsoft.Extensions.DependencyInjection;
-using Naravel.Filesystem;
-using Naravel.Filesystem.Drivers;
-
-var storage = app.Services.GetRequiredService<StorageManager>();
-storage.Extend("scratch", _ => new LocalStorageDriver("storage/scratch", "/scratch"));
-var scratch = storage.Disk("scratch");
-```
-
-راهنمای کامل بسته در [docs/fa/foundation.md](docs/fa/foundation.md) (فارسی) و [docs/en/foundation.md](docs/en/foundation.md) (English) در دسترس است.
-
-### Naravel.Cache
-
-storeهای نام‌دار Memory، Redis و Memcached؛ `RememberAsync`؛ scope صریح user/tenant؛ بی‌اعتبارسازی مبتنی بر نسخهٔ tag؛ lock توکنی؛ و rate limiter پنجره‌ای مبتنی بر Cache. providerهای Redis و Memcached بسته‌های اختیاری‌اند.
-
-```csharp
-using Naravel.Cache;                // RememberAsync
-using Naravel.Cache.Abstractions;   // ICacheStore
-using Naravel.Cache.Redis;          // AddNaravelRedisCache
-
-builder.Services.AddNaravelCache(builder.Configuration)
-    .AddNaravelRedisCache(builder.Configuration);
-
-public sealed class SettingsService(ICacheStore cache)
-{
-    public Task<string> GetAsync(CancellationToken ct) =>
-        cache.RememberAsync("site-name", TimeSpan.FromMinutes(10), _ => Task.FromResult("Naravel"), ct);
-}
-```
-
-برای store پیش‌فرض، `ICacheStore` را تزریق کنید؛ برای انتخاب store نام‌دار یا ساخت scope از `CacheManager` استفاده کنید. رفتار و محدودیت providerها، از جمله اثر `FlushAsync` روی کل cluster در Memcached، در [docs/fa/cache.md](docs/fa/cache.md) و [docs/en/cache.md](docs/en/cache.md) آمده است.
-
-### Naravel.Queue
-
-صف پس‌زمینهٔ async با درایورهای نام‌دار، dispatch تأخیردار و اولویت‌دار، retry و backoff، زنجیره، batch، مدیریت jobهای ناموفق، worker میزبانی‌شده و telemetry. تحویل **حداقل یک‌بار** است؛ jobها باید idempotent باشند. درایور Memory فقط در همان پردازه است؛ Redis، File و Database برای بازیابی از visibility timeout استفاده می‌کنند و Kafka و RabbitMQ به redelivery بروکر متکی‌اند. Kafka تحویل با تأخیر را پشتیبانی نمی‌کند (dispatch تأخیری رد می‌شود و retry فوری است)؛ [docs/fa/queue.md](docs/fa/queue.md#kafka-بدون-تحویل-با-تأخیر) را ببینید.
-
-```csharp
-using Naravel.Queue.Extensions;
-using Naravel.Queue.Dispatch;
-using Naravel.Queue.Jobs;
-using Naravel.Queue.Redis;   // AddRedisDriver
-
-builder.Services.AddQueue(builder.Configuration)
-    .AddRedisDriver(builder.Configuration);
-builder.Services.AddJob<SendWelcomeEmailJob>("mail.welcome");
-builder.Services.AddQueueWorker(w => { w.Queues = new[] { "default" }; w.Concurrency = 4; });
-
-var app = builder.Build();
-var dispatcher = app.Services.GetRequiredService<IJobDispatcher>();
-await dispatcher.DispatchAsync(new SendWelcomeEmailJob("ali@example.com"));
-```
-
-برای تعریف job، تنظیمات، مدیریت jobهای ناموفق، batchهای پایدار، کنترل worker و راه‌اندازی providerها به [docs/fa/queue.md](docs/fa/queue.md) و [docs/en/queue.md](docs/en/queue.md) مراجعه کنید.
-
-### Naravel.Events
-
-رویدادهای تایپ‌شدهٔ ناهمگام و درون‌فرایندی. listenerهای `IEventListener<TEvent>` که در DI ثبت شده‌اند به ترتیب ثبت اجرا می‌شوند و پس از آن‌ها callbackهای `Listen` مخصوص scope جاری فراخوانی می‌شوند (هرکدام یک subscription از نوع `IDisposable` برمی‌گردانند). هر listener می‌تواند با `context.Stop()` ادامهٔ انتشار را متوقف کند؛ نخستین exception به caller منتقل می‌شود و dispatch متوقف می‌گردد. listenerها بر اساس همان نوع دقیقی انتخاب می‌شوند که به `DispatchAsync<TEvent>` داده می‌شود، بدون fan-out بر اساس کلاس پایه یا interface. dispatcher از نوع scoped است، `Meter` و `ActivitySource` با نام `Naravel.Events` منتشر می‌کند و `Naravel.Events.Testing.EventFake` رویدادهای dispatch‌شده را برای تست ثبت می‌کند.
-
-```csharp
-using Naravel.Events;
-
-builder.Services.AddNaravelEvents();
-builder.Services.AddScoped<IEventListener<OrderPaid>, UpdateOrderReadModel>();
-
-public sealed record OrderPaid(string OrderId);
-
-public sealed class UpdateOrderReadModel : IEventListener<OrderPaid>
-{
-    public Task HandleAsync(OrderPaid evt, EventDispatchContext context, CancellationToken ct = default) =>
-        Task.CompletedTask;
-}
-
-public sealed class CheckoutService(IEventDispatcher events)
-{
-    public Task PayAsync(string orderId, CancellationToken ct) =>
-        events.DispatchAsync(new OrderPaid(orderId), ct);
-}
-```
-
-adapter اختیاری `Naravel.Events.Queue` یک listener را به‌جای اجرای مستقیم، از طریق `Naravel.Queue` اجرا می‌کند. `IQueuedEventListener<TEvent>` را پیاده‌سازی و با یک alias صریح ثبت کنید؛ آنچه در صف ذخیره می‌شود alias است، نه نام نوع CLR. Queue و یک driver را مثل همیشه پیکربندی کنید. adapter روی connection پیش‌فرض و queue با نام `default` dispatch می‌کند و رویداد را با `System.Text.Json` serialize می‌کند؛ پس رویدادها را کوچک و قابل serialize نگه دارید. اجرای صف‌شده مانند هر job دیگر Queue به‌صورت at-least-once است.
-
-```csharp
-builder.Services.AddNaravelEventsQueue();
-builder.Services.AddQueuedEventListener<OrderPaid, SendReceipt>("order-paid.receipt");
-```
-
-جزئیات: [docs/fa/events.md](docs/fa/events.md) و [docs/en/events.md](docs/en/events.md). برای یک مثال قابل اجرا، صفحهٔ `/events` در sample را اجرا کنید.
-
-### Naravel.Mail
-
-ایمیل تایپ‌شده بدون وابستگی شبکه‌ای در بستهٔ هسته: کلاس `Mailable` پیام را توصیف می‌کند، یک transport نام‌دار (به‌طور پیش‌فرض `log`، برای تست `array` و `smtp` از طریق بستهٔ اختیاری `Naravel.Mail.Smtp`) آن را تحویل می‌دهد و `MailFake` آن را قابل تست می‌کند. شکست transport به فراخواننده گزارش می‌شود و هرگز بی‌صدا تکرار نمی‌شود.
-
-```csharp
-builder.Services.AddNaravelMail(builder.Configuration);   // مقدار پیش‌فرض Mail:Default برابر "log" است
-
-public class WelcomeMail(User user) : Mailable
-{
-    public override MailMessage Build(MailBuilder mail) =>
-        mail.From("app@example.com").Subject("Welcome").Text($"Hi {user.Name}").Build();
-}
-
-await mailer.To(user.Email).SendAsync(new WelcomeMail(user), cancellationToken);
-
-// اختیاری Naravel.Mail.Queue: services.AddNaravelMailQueue(); سپس
-await mailer.To(user.Email).QueueAsync(new WelcomeMail(user), cancellationToken);   // فقط دادهٔ پیام ذخیره می‌شود، at-least-once
-```
-
-جزئیات: [docs/fa/mail.md](docs/fa/mail.md) و [docs/en/mail.md](docs/en/mail.md).
-
-### Naravel.Redis
-
-اتصال‌های Redis نام‌دار و مشترک: یک multiplexer از StackExchange.Redis برای هر نام (خودِ `IConnectionMultiplexer` واقعی، بدون پوشاندن دستورها) که یک manager مالک و dispose‌کنندهٔ آن است. storeهای Cache و Queue با `Connection` نام یک اتصال را می‌دهند؛ `ConnectionString` قدیمی همچنان کار می‌کند و رشته‌های برابر یک اتصال مشترک می‌گیرند. نگاه کنید به [docs/en/redis.md](docs/en/redis.md) و [docs/fa/redis.md](docs/fa/redis.md).
-
-```csharp
-builder.Services.AddNaravelRedis(builder.Configuration);   // Redis:Default و Redis:Stores:<name>:ConnectionString
-var multiplexer = redis.Connection("main").Multiplexer;
-```
-
-### Naravel.Notifications
-
-یک اعلان تایپ‌شده که از راه channelهایی که نام می‌برید، به همان ترتیب، برای یک گیرنده فرستاده می‌شود، با یک fake برای تست. بستهٔ هسته هیچ وابستگی به mail، queue یا شبکه ندارد؛ Mail (`Naravel.Notifications.Mail`) و Queue (`Naravel.Notifications.Queue`) بسته‌های اختیاری‌اند و هر channel دیگری یک کلاس یا delegate است. channel ثبت‌نشده پیش از ارسال هر چیزی شکست می‌خورد؛ channel ناموفق ارسال را متوقف می‌کند و `NotificationDeliveryException` می‌گوید کدام channel شکست خورد و کدام‌ها پیش‌تر تحویل داده بودند.
-
-```csharp
-builder.Services.AddNaravelNotifications();
-builder.Services.AddLogNotificationChannel<InvoiceReady>();          // یک channel با نام "log"
-
-await notifications.SendAsync(user, new InvoiceReady(7), ["log"], cancellationToken);   // notifications یک INotificationSender تزریق‌شده است
-
-// اختیاری Naravel.Notifications.Mail: services.AddMailNotificationChannel<InvoiceReady>(c => c.GetRecipient<User>().Email, n => new InvoiceMail(n));
-// اختیاری Naravel.Notifications.Queue: services.AddNaravelNotificationQueue(); services.AddQueuedNotification<InvoicePayload>("invoice.ready", handler);
-//   await notificationQueue.QueueAsync("invoice.ready", payload);   // فقط alias و داده‌ٔ ساده ذخیره می‌شود، at-least-once
-```
-
-جزئیات: [docs/fa/notifications.md](docs/fa/notifications.md) و [docs/en/notifications.md](docs/en/notifications.md).
-
-### Naravel.Encryption
-
-یک facade نازک `Encrypt` / `Decrypt` روی ASP.NET Core Data Protection (بدون رمزنگاری سفارشی)، مقدارهای تایپ‌شده، جداسازی با `ForPurpose` و `DecryptException`. `Naravel.Queue.Encryption` payload جاب‌های علامت‌دار با `IShouldBeEncrypted` را رمزشده ذخیره می‌کند؛ نوع جاب همچنان فقط با alias registry انتخاب می‌شود. **تولیدکننده و worker باید key ring و نام برنامهٔ Data Protection را به‌اشتراک بگذارند.** نگاه کنید به [docs/en/encryption.md](docs/en/encryption.md) و [docs/fa/encryption.md](docs/fa/encryption.md).
-
-```csharp
-builder.Services.AddNaravelEncryption();
-var token = encrypter.Encrypt("secret");
-var text = encrypter.Decrypt(token);
-// اختیاری Naravel.Queue.Encryption: services.AddNaravelQueueEncryption(); class MyJob : Job, IShouldBeEncrypted
-```
-
-### Naravel.Scheduling
-
-کارهای نام‌دار طبق یک برنامه، که یک hosted service درون میزبان شما اجرا می‌کند: بدون خط cron و بدون دستور برای شروع. فرکانس‌ها و فیلترها مثل Laravel خوانده می‌شوند (`EveryFiveMinutes`، `DailyAt`، `Weekdays`، `Cron`) و دو محافظ بین چند نمونه روی قفل‌های کش کار می‌کنند: `WithoutOverlapping` و `OnOneServer` (اگر درایور قفل مشترک نباشد راه‌اندازی شکست می‌خورد). هر اجرا دامنه‌ی DI تازه می‌گیرد؛ `SchedulerFake` برنامه را در زمان‌هایی که انتخاب می‌کنید اجرا می‌کند. نیمه‌ی Artisan بسته نیست: دستورها یک دستورالعمل مستند با `System.CommandLine` هستند (PDR-017).
-
-```csharp
-builder.Services.AddNaravelScheduling(schedule =>
-{
-    schedule.Call("prune-sessions", (sp, ct) => sp.GetRequiredService<SessionPruner>().RunAsync(ct)).EveryFiveMinutes().WithoutOverlapping();
-    schedule.Call("daily-digest", (sp, ct) => sp.GetRequiredService<Digest>().SendAsync(ct)).DailyAt(8, 0).OnOneServer();
-});
-```
-
-نگاه کنید به [docs/en/scheduling.md](docs/en/scheduling.md) و [docs/fa/scheduling.md](docs/fa/scheduling.md).
-
-### Naravel.Broadcasting
-
-لایه‌ای نازک روی SignalR برای رویدادهای بلادرنگ تایپ‌دار: `IBroadcastable` می‌گوید رویداد به کدام کانال‌ها می‌رود، `Channels.Authorize("private-orders.{id}", ...)` تصمیم می‌گیرد چه کسی بپیوندد (کانال `private-` یا `presence-` بدون قاعدهٔ منطبق **رد می‌شود**)، و driverهای `signalr`، `log` و `null` با پیکربندی انتخاب می‌شوند. رویدادها یکی‌یکی با `AddBroadcastOn<TEvent>()` اضافه می‌شوند چون `Naravel.Events` با نوع دقیق dispatch می‌کند. کانال‌های `presence-` فهرست اعضا را در cache مشترک نگه می‌دارند (`MemberJoined`، `MemberLeft`، `IPresence`)، یک عضو برای هر کاربر در همه‌ی نمونه‌ها. تحویل درون‌خطی و حداکثر یک‌بار است. `BroadcastFake` برای آزمون broadcastها را ضبط می‌کند (PDR-018).
-
-```csharp
-builder.Services.AddNaravelBroadcasting(builder.Configuration, o => o.Channels.Authorize("private-orders.{id}", (user, id) => user.FindFirst("order")?.Value == id));
-app.MapNaravelBroadcasting("/hubs/broadcast");
-await broadcaster.BroadcastAsync(new OrderShipped(7));   // record OrderShipped(int OrderId) : IBroadcastable { Channels() => [$"private-orders.{OrderId}"] }
-```
-
-[docs/en/broadcasting.md](docs/en/broadcasting.md) و [docs/fa/broadcasting.md](docs/fa/broadcasting.md) را ببینید.
-
-### Naravel.Database
-
-query builder به سبک Laravel با اتصال‌های نام‌دار و SQL با پارامتر، برای SQLite، MySQL، PostgreSQL و SQL Server (Dapper ردیف‌ها را map می‌کند؛ EF Core همچنان ابزار entity و migration است). **امروز:** اتصال‌ها، درایورهای SQLite، MySQL، PostgreSQL و SQL Server، builder با خانوادهٔ کامل where (مقدار، null، between، ستون، بخش تاریخ، any/all/none، الگو، متن کامل، مسیر JSON، exists و زیرکوئری)، شرطی‌ها، join، group by و having، کمک‌های ترتیب، limit، union، زیرکوئری و join جانبی (lateral)، CTE، عبارت raw همراه با binding، قفل ردیف و `ToSql`/`ToRawSql` که برای هر چهار دیالکت کامپایل می‌شود و روی هر چهار اجرا می‌شود (یک suite قرارداد مشترک در CI)، و مشاهده‌پذیری (meter و activity با نام `Naravel.Database` بدون SQL در tagها، `IQueryListener`، query log اختیاری) به‌همراه `DatabaseFake` برای تست. aggregate (`CountAsync`، `SumAsync`، `ExistsAsync`...)، chunk و استریم `IAsyncEnumerable` شامل هستند؛ نوشتن هم هست: `InsertAsync`، `InsertGetIdAsync`، `UpdateAsync`، `IncrementAsync`، `UpsertAsync`، `DeleteAsync`، `TruncateAsync` و `*ReturningAsync` و برای update و delete `where` صریح لازم است؛ تراکنش (`TransactionAsync` با savepoint و تکرار هنگام deadlock، `BeginTransactionAsync`، که `IDatabase` تزریق‌شده هم به آن می‌پیوندد) و آداپتور اختیاری EF Core (`Naravel.Database.EntityFrameworkCore`: `dbContext.Query("table")` و `db.Using(dbContext)` اتصال و تراکنش context را به اشتراک می‌گذارند)؛ صفحه‌بندی (`PaginateAsync`، `SimplePaginateAsync` و `CursorPaginateAsync` که نوع‌های `Naravel.Pagination` را برمی‌گردانند) هم شامل است (رفتار در هر موتور فرق دارد و قراردادی مستند است: [docs/fa/database-dialects.md](docs/fa/database-dialects.md)؛ «به سبک Laravel» در اینجا فقط به زیرمجموعهٔ تست‌شده اشاره دارد؛ برنامهٔ متد‌به‌متد در [roadmap/QUERY-BUILDER-COVERAGE.md](roadmap/QUERY-BUILDER-COVERAGE.md)).
-
-```csharp
-builder.Services.AddNaravelDatabase(builder.Configuration);
-builder.Services.AddNaravelSqliteDatabase(builder.Configuration);   // Database:Connections:main = { Driver: sqlite, Path: app.db }
-
-var adults = await db.Table("users").Where("active", true).Where("age", ">=", 18).OrderBy("name").GetAsync(cancellationToken);
-var ada    = await db.Table("users").Where("email", email).FirstAsync<UserRow>(cancellationToken);   // email پارامتر می‌شود، هرگز به متن SQL نمی‌چسبد
-
-var authors = await db.Table("users")                       // join، مسیر JSON، exists، گروه‌بندی: همان نام‌های Laravel
-    .Join("posts", "users.id", "posts.user_id")
-    .WhereLike("users.name", "a%")
-    .Where("users.settings->theme", "dark")                  // مسیر JSON، به‌صورت پارامتر bind می‌شود
-    .WhereExists(s => s.Table("comments").WhereColumn("comments.post_id", "posts.id"))
-    .When(onlyRecent, q => q.Where("posts.created_at", ">=", DateTime.UtcNow.AddDays(-7)))
-    .Select("users.name").GroupBy("users.name")
-    .GetAsync(cancellationToken);
-```
-
-مقدارها همیشه پارامتر می‌شوند، شناسه‌ها اعتبارسنجی می‌شوند و SQL خام فقط در متدهای `*Raw` وجود دارد. [docs/fa/database.md](docs/fa/database.md) و [docs/en/database.md](docs/en/database.md) را ببینید.
-
-### Naravel.Filesystem
-
-دیسک‌های نام‌دار برای ذخیره‌سازی local و S3/S3-compatible. درایور local مسیرهای بیرون از ریشهٔ تنظیم‌شده را رد می‌کند. Naravel برای فایل‌ها endpoint عمومی HTTP نمی‌سازد؛ ارائه یا کنترل دسترسی را جداگانه با ASP.NET Core انجام دهید.
-
-```csharp
-using Naravel.Filesystem;
-
-builder.Services.AddNaravelFilesystem(builder.Configuration);
-
-public sealed class ArchiveService(IStorageDriver storage)
-{
-    public Task SaveAsync(string key, Stream contents, CancellationToken ct) =>
-        storage.PutAsync(key, contents, ct);
-}
-```
-
-تنظیم دیسک، upload، URLهای S3 و نکات امنیتی: [docs/fa/filesystem.md](docs/fa/filesystem.md) و [docs/en/filesystem.md](docs/en/filesystem.md).
-
-### Naravel.Routing
-
-لایه‌ای نازک روی routing در ASP.NET Core: گروه‌های تودرتو، نام مسیر و ساخت URL، constraint، resource route، model binding و alias/group/parameter برای middleware مسیر.
-
-```csharp
-var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddNaravelRouting();
-var app = builder.Build();
-app.UseNaravelRouting();
-app.MapNaravel(routes => routes
-    .Prefix("admin").Name("admin.")
-    .Group(group => group.Get("users/{id}", (int id) => Results.Ok(new { id }))
-        .Name("users.show")));
-```
-
-aliasهای آمادهٔ route middleware عبارت‌اند از `throttle` (پنجرهٔ ثابت در سطح فرایند)، `signed`، `maintenance`، `cache.headers`، `trim`، `convert.empty` و `guest`؛ aliasها، groupها و پارامترهای سفارشی هم پشتیبانی می‌شوند. وضعیت throttle و maintenance در سطح فرایند است و signed URL برای چند instance به key ring مشترک و پایدار Data Protection نیاز دارد. جزئیات: [docs/fa/routing.md](docs/fa/routing.md) و [docs/en/routing.md](docs/en/routing.md).
-
-### Naravel.Pagination
-
-بستهٔ `Naravel.Pagination` (بدون وابستگی به EF Core) صفحه‌هایی با شکل Laravel و `data`، `links` و `meta` برمی‌گرداند؛ `Naravel.Pagination.EntityFrameworkCore` متدهای `PaginateAsync`، `SimplePaginateAsync` و `CursorPaginateAsync` را به queryهای EF Core اضافه می‌کند. صفحه‌بندی cursor کلیدها را یک بار اعلام می‌کند و هم `ORDER BY` و هم `WHERE` را می‌نویسد؛ cursor یک موقعیتِ بدون امضاست که سخت‌گیرانه خوانده می‌شود (`InvalidCursorException`) و اندازهٔ صفحه حداکثر ۱۰۰ است.
-
-```csharp
-var page = await db.Posts.OrderBy(p => p.Id).PaginateAsync(page: 2, perPage: 15);
-var next = await db.Posts.CursorPaginateAsync(k => k.By(p => p.CreatedAt).Then(p => p.Id), 15, cursor);
-```
-
-راهنما: [docs/en/pagination.md](docs/en/pagination.md) و [docs/fa/pagination.md](docs/fa/pagination.md).
-
-## بسته‌های provider
-
-بستهٔ اصلی و فقط providerهای موردنیاز storeهای پیکربندی‌شده را ثبت کنید. نمونه‌های زیر انتخاب‌های جایگزین‌اند؛ درایور Database علاوه بر این‌ها به EF Core context و نگاشت `ConfigureQueueJobs()` نیاز دارد. نیازمندی‌های هر provider در مستندات ماژول آمده است.
-
-| بسته | نمونهٔ ثبت |
+هر ماژول راهنمایی با یک مثال کوتاه و تضمین‌هایی که باید بدانید دارد. بسته‌های provider اختیاری‌اند و فقط برای storeها و driverهایی هستند که استفاده می‌کنید.
+
+| ماژول | چه چیزی می‌دهد | بسته‌های اختیاری |
+|---|---|---|
+| [`Naravel.Cache`](docs/fa/cache.md) | storeهای نام‌دار، `RememberAsync`، tag، lock توکنی، rate limiter | `.Redis`، `.Memcached` |
+| [`Naravel.Queue`](docs/fa/queue.md) | jobهای پس‌زمینه: تأخیر، اولویت، retry و backoff، زنجیره، batch، worker میزبانی‌شده | driverهای `.Memory` `.File` `.Redis` `.Database` `.RabbitMQ` `.Kafka`؛ `.Coordination`، `.Encryption` |
+| [`Naravel.Events`](docs/fa/events.md) | رویدادها و listenerهای تایپ‌شدهٔ درون‌فرایندی | `.Queue` برای listenerهای صف‌شده |
+| [`Naravel.Mail`](docs/fa/mail.md) | کلاس‌های `Mailable`، transportهای log و array و SMTP، `MailFake` | `.Smtp`، `.Queue` |
+| [`Naravel.Notifications`](docs/fa/notifications.md) | یک اعلان از راه channelهایی که نام می‌برید، به همان ترتیب | `.Mail`، `.Queue` |
+| [`Naravel.Database`](docs/fa/database.md) | query builder با پارامتر bind‌شده روی SQLite، MySQL، PostgreSQL و SQL Server؛ تراکنش | dialectهای `.Sqlite` `.MySql` `.Postgres` `.SqlServer`؛ `.EntityFrameworkCore` |
+| [`Naravel.Pagination`](docs/fa/pagination.md) | صفحه‌هایی با شکل Laravel: کامل، ساده و cursor | `.EntityFrameworkCore` |
+| [`Naravel.Filesystem`](docs/fa/filesystem.md) | دیسک‌های نام‌دار local و سازگار با S3 | ندارد |
+| [`Naravel.Routing`](docs/fa/routing.md) | گروه مسیر، نام مسیر، resource route و route middleware روی ASP.NET Core | ندارد |
+| [`Naravel.Scheduling`](docs/fa/scheduling.md) | کارهای زمان‌بندی‌شده در یک hosted service، با `WithoutOverlapping` و `OnOneServer` | ندارد |
+| [`Naravel.Broadcasting`](docs/fa/broadcasting.md) | رویدادهای بلادرنگ تایپ‌دار روی SignalR، با مجوزدهی کانال | ندارد |
+| [`Naravel.Encryption`](docs/fa/encryption.md) | `Encrypt` و `Decrypt` روی ASP.NET Core Data Protection | ندارد |
+| [`Naravel.Redis`](docs/fa/redis.md) | اتصال‌های Redis نام‌دار و مشترک | ندارد |
+| [`Naravel.Foundation`](docs/fa/foundation.md) | پایهٔ مدیریت driver که بقیه روی آن ساخته شده‌اند | خودکار نصب می‌شود |
+
+بسته نیست، عمداً: session، هش گذرواژه و مجوزدهی route از قبل بخشی از ASP.NET Core و .NET هستند و راهنماها دستورالعملشان را نشان می‌دهند ([session](docs/fa/session.md)، [auth](docs/fa/auth.md)، [hashing](docs/fa/hashing.md)). مثال‌های همهٔ ماژول‌ها در [ماژول‌ها](docs/fa/modules.md) یک‌جا جمع شده است.
+
+## وضعیت
+
+> **نسخهٔ 0.x (پیش از 1.0).** API عمومی ممکن است بین نسخه‌های minor عوض شود؛ هر تغییر ناسازگار در [CHANGELOG](CHANGELOG.md) فهرست می‌شود (OD-09). Jobهای صف «دست‌کم یک‌بار» (at-least-once) اجرا می‌شوند. هنوز هیچ بسته‌ای سازگاری با trim یا Native AOT را اعلام نکرده است ([docs/fa/trimming-aot.md](docs/fa/trimming-aot.md)). اول روی یک شاخهٔ آزمایشی امتحانش کنید و تضمین‌های کنار هر قابلیت را بخوانید.
+
+**وضعیت ماژول‌ها و نقشه‌راه:** مرجع رسمی [ROADMAP.md](ROADMAP.md) است. نتیجهٔ build و test در [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml) گزارش می‌شود.
+
+## مستندات
+
+| | |
 |---|---|
-| `Naravel.Cache` (Memory) | `builder.Services.AddNaravelCache(configuration);` |
-| `Naravel.Redis` | `builder.Services.AddNaravelRedis(configuration);` |
-| `Naravel.Cache.Redis` | `builder.Services.AddNaravelRedisCache(configuration);` |
-| `Naravel.Cache.Memcached` | `builder.Services.AddNaravelMemcachedCache(configuration);` |
-| `Naravel.Queue.Memory` | `builder.Services.AddMemoryDriver(configuration);` |
-| `Naravel.Queue.File` | `builder.Services.AddFileDriver(configuration);` |
-| `Naravel.Queue.Redis` | `builder.Services.AddRedisDriver(configuration);` |
-| `Naravel.Queue.Database` | `builder.Services.AddDatabaseDriver<AppDbContext>(configuration);` |
-| `Naravel.Queue.RabbitMQ` | `builder.Services.AddRabbitMqDriver(configuration);` |
-| `Naravel.Queue.Kafka` | `builder.Services.AddKafkaDriver(configuration);` |
-| `Naravel.Events.Queue` (adapter) | `builder.Services.AddNaravelEventsQueue();` |
-| `Naravel.Mail` | `builder.Services.AddNaravelMail(configuration);` |
-| `Naravel.Mail.Queue` | `builder.Services.AddNaravelMailQueue();` |
-| `Naravel.Mail.Smtp` | `builder.Services.AddNaravelMailSmtp(configuration);` |
-| `Naravel.Notifications` | `builder.Services.AddNaravelNotifications();` |
-| `Naravel.Notifications.Mail` | `builder.Services.AddMailNotificationChannel<TNotification>(address, mailable);` |
-| `Naravel.Notifications.Queue` | `builder.Services.AddNaravelNotificationQueue();` |
-| `Naravel.Encryption` | `builder.Services.AddNaravelEncryption();` |
-| `Naravel.Queue.Encryption` | `builder.Services.AddNaravelQueueEncryption();` |
-| `Naravel.Scheduling` | `builder.Services.AddNaravelScheduling(schedule => schedule.Call("name", handler).EveryFiveMinutes());` |
-| `Naravel.Broadcasting` | `builder.Services.AddNaravelBroadcasting(configuration); app.MapNaravelBroadcasting("/hubs/broadcast");` |
-| `Naravel.Database` | `builder.Services.AddNaravelDatabase(configuration);` |
-| `Naravel.Database.Sqlite` | `builder.Services.AddNaravelSqliteDatabase(configuration);` |
-| `Naravel.Database.MySql` | `builder.Services.AddNaravelMySqlDatabase(configuration);` |
-| `Naravel.Database.Postgres` | `builder.Services.AddNaravelPostgresDatabase(configuration);` |
-| `Naravel.Database.SqlServer` | `builder.Services.AddNaravelSqlServerDatabase(configuration);` |
+| [شروع کار](docs/fa/getting-started.md) | کدام بسته را نصب کنیم، کدام فراخوانی آن را ثبت می‌کند، برنامهٔ نمونه |
+| [ماژول‌ها](docs/fa/modules.md) | هر ماژول با یک مثال و تضمین‌هایش |
+| [راهنماها](docs/fa) | برای هر ماژول یک راهنمای کامل، هرکدام با [نسخهٔ انگلیسی](docs/en) |
+| [parity با لاراول](docs/fa/laravel-parity.md) و [PDRها](docs/pdr/fa) | چه چیزی منتقل، تطبیق داده یا رد شد و چرا |
+| [معماری](docs/fa/architecture.md)، [benchmarkها](docs/fa/benchmarks.md) | ماژول‌ها چطور ساخته شده‌اند و چه هزینه‌ای دارند |
+| [فهرست مستندات](docs/README.md) | همهٔ موارد بالا به فارسی و انگلیسی |
 
-extension methodهای Queue در `Naravel.Queue.Extensions` قرار دارند. بخش تنظیمات Queue به‌طور پیش‌فرض `NaravelQueue:Stores`، Cache بخش `Cache:Stores` و Filesystem بخش `Filesystem:Stores` است؛ برای هرکدام می‌توان نام بخش دیگری تعیین کرد.
+## مشارکت
 
-### Hashing (بومی، بدون بسته)
+مشارکت شما پذیرفته است: [CONTRIBUTING.fa.md](CONTRIBUTING.fa.md) و [آیین‌نامهٔ رفتار](CODE_OF_CONDUCT.fa.md) را بخوانید. پرسش و گزارش باگ در [GitHub issues](https://github.com/km-arc/Naravel/issues) است؛ مشکل امنیتی را طبق [SECURITY.md](SECURITY.md) گزارش کنید. قواعد مشارکت‌کنندگان و ایجنت‌ها در [AGENTS.md](AGENTS.md) است.
 
-هش گذرواژه از قبل در .NET هست: `PasswordHasher<TUser>` از `Microsoft.Extensions.Identity.Core` کار `Hash::make`، `Hash::check` و `Hash::needsRehash` را انجام می‌دهد (PDR-019، `DECLINED`). تنها چیزی که باید عوض کنید هزینهٔ کار است: مقدار پیش‌فرض ۱۰۰٬۰۰۰ iteration برای HMAC-SHA512 کمتر از عدد OWASP است، پس `PasswordHasherOptions.IterationCount` را خودتان تنظیم کنید. [docs/fa/hashing.md](docs/fa/hashing.md) و [docs/en/hashing.md](docs/en/hashing.md) را ببینید.
-
-### Session و middleware احراز هویت (بومی، بدون بسته)
-
-Session از قبل در ASP.NET Core هست: `AddSession` روی هر `IDistributedCache`، و `TempData` و `ModelState` برای داده‌های flash و ورودی قبلی (PDR-015، `DECLINED`). مجوزدهی route با `NaravelRoute.Configure(b => b.RequireAuthorization("policy"))` انجام می‌شود؛ aliasهای `auth`، `can` و `verified` وجود ندارند و alias داخلی `guest` می‌ماند (PDR-016، `DECLINED`). [docs/fa/session.md](docs/fa/session.md)، [docs/fa/auth.md](docs/fa/auth.md) و نسخه‌های انگلیسی آن‌ها در `docs/en/` را ببینید.
-
-## برنامهٔ نمونه
-
-`samples/Naravel.Sample` یک برنامهٔ وب قابل اجراست که ماژول‌ها را نشان می‌دهد و هرگز pack نمی‌شود.
-
-```sh
-dotnet run --project samples/Naravel.Sample/Naravel.Sample.csproj
-```
-
-| نشانی | چه چیزی را نشان می‌دهد |
-|---|---|
-| `/queue` | dispatch در Queue، تأخیر، اولویت، retry/backoff، زنجیره و batch (به‌طور پیش‌فرض روی فایل) |
-| `/events` | dispatch رویداد `OrderPlaced`: listenerهای DI، توقف انتشار، callback از نوع `Listen` و listener صف‌شده |
-| `/routing/` | گروه مسیر، constraint، resource، model binding و route middleware |
-| `/database` | query builder روی SQLite درون‌حافظه: شرط‌هایی که به‌ازای هر پارامتر درخواست اضافه می‌شوند، مقدارهای bind‌شده، نام ستون ردشده، `WhereYear`، `FindAsync` و query log |
-
-برای تعویض provider و headerهای نمونه، [samples/Naravel.Sample/README.md](samples/Naravel.Sample/README.md) را ببینید.
-
-## ساخت و تست
-
-به .NET 10 SDK نیاز است. از ریشهٔ مخزن اجرا کنید:
-
-```sh
-dotnet restore Naravel.slnx
-dotnet build Naravel.slnx -c Release
-dotnet test Naravel.slnx -c Release
-```
-
-این مخزن monorepo است: `Naravel.slnx` همهٔ ماژول‌ها، providerها، تست‌ها و sampleها را دربرمی‌گیرد. نسخه‌های مرکزی packageها در `Directory.Packages.props` و تنظیمات مشترک build و نسخهٔ lock-step در `Directory.Build.props` نگهداری می‌شوند.
+Naravel با [مجوز MIT](LICENSE) منتشر شده است.
