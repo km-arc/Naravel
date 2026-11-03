@@ -51,3 +51,22 @@ The version comes from `Directory.Build.props`; the tag only names the release. 
 version the tag names (`v0.1.0` means `0.1.0`), before the NuGet login and before anything is pushed. A tag cut from an older
 commit or one that disagrees with `VersionPrefix`/`VersionSuffix` (for example `v0.1.0-preview` once the suffix is gone) stops there.
 The `pins` job runs the script's `--self-test` on every pull request, because the publish job itself only runs on tags.
+
+## GitHub releases
+
+Every package's NuGet "Release notes" link points at `/releases/tag/v<version>`, so that GitHub Release has to exist.
+`.github/workflows/release-notes.yml` creates it with no manual step, with the body taken from the matching `## [<version>]`
+section of `CHANGELOG.md` (`.github/scripts/release-notes.py`; the `pins` job runs its `--self-test`):
+
+- Pushing a version tag creates the release for that tag. A tag whose changelog section is missing or empty fails the run instead of
+  creating an empty release.
+- A push to `main`, or a manual run (Actions → GitHub release notes → Run workflow, tag left empty), creates the release of every
+  version tag that has none yet. This is how tags that were pushed before the workflow existed are filled in, and how a failed run is
+  repaired. Tags without a changelog section (an old preview tag) are skipped, existing releases are never edited, and only the
+  highest stable version is marked "Latest".
+- A pull request that touches the changelog, the workflow or the script gets a dry run with a read-only token, which prints the
+  releases it would create and publishes nothing.
+
+It is a separate workflow, so a failure there never affects a NuGet publish. It uses only the workflow's own `GITHUB_TOKEN`
+(`contents: write`); the repository's About text, topics, Wiki, Discussions and security features are settings that token cannot
+change, so they stay in Settings.
