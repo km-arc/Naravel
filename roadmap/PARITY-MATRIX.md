@@ -304,3 +304,11 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 - Naravel: a script installs every packed package into a consumer outside the repository, loads every assembly and runs the existing smoke program against the packages, in CI before anything is pushed and on demand against a published version.
 - Value: a missing dependency, a framework reference that does not flow or a version range that does not resolve is found before an immutable version reaches nuget.org, instead of by the first user.
 - Native baseline: `dotnet restore`/`build` with NuGet package source mapping; no new dependency.
+
+## R31 — Shared store for the route `throttle` middleware (PDR-024)
+
+- Laravel surface: `throttle` middleware backed by the cache store, so one quota is shared by every server that uses the same cache (Laravel's `RateLimiter` over Redis).
+- Naravel: Routing gets a small `IThrottleStore` seam with today's in-process limiter as the default; a new package adds `AddNaravelSharedThrottle(storeName)`, a clock-aligned fixed-window counter over `ICacheStore.IncrementAsync` (one store call per request, no lock). A store failure degrades to the per-instance limiter by default, with a per-policy `FailClosed` opt-in, a store timeout and one circuit breaker per store.
+- Value: N instances behind a load balancer enforce one limit instead of N, and a restarted instance keeps the quota, without making every Routing user depend on Cache or a Redis round trip. Laravel's behavior on a store outage (an exception, so a 500) is deliberately not copied.
+- Native baseline: `System.Threading.RateLimiting` stays the default and the degraded limiter; it cannot share state between processes, and no native .NET component does.
+
