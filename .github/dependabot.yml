@@ -33,8 +33,11 @@ updates:
         update-types: [ "minor", "patch" ]
     ignore:
       # Deliberate exceptions recorded in Directory.Packages.props and AGENTS.md rule 8.
+      # FluentAssertions 8.x and later need a paid commercial licence, so the tests stay on 7.x. The rule is a major-update ignore and
+      # not a `versions` entry on purpose: for NuGet, `versions` takes NuGet's own pattern (`7.*`), not a comparison like ">=8", and a
+      # pattern that does not parse would leave 8.x proposable. The repository is on 7.2.2, so every 8.x or later is a major update.
       - dependency-name: FluentAssertions
-        versions: [ ">=8" ]            # 8.x and later need a paid commercial licence; the tests stay on 7.x
+        update-types: [ "version-update:semver-major" ]
       - dependency-name: xunit
         update-types: [ "version-update:semver-major" ]   # the move to xunit.v3 is a migration of every test project (AUDIT D-65)
       - dependency-name: SQLitePCLRaw.lib.e_sqlite3
