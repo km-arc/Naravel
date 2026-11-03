@@ -54,9 +54,19 @@ The `pins` job runs the script's `--self-test` on every pull request, because th
 
 ## GitHub releases
 
-Every package's NuGet "Release notes" link points at `/releases/tag/v<version>`. `.github/workflows/release-notes.yml` creates that
-release when a version tag is pushed, with the body taken from the matching `## [<version>]` section of `CHANGELOG.md`
-(`.github/scripts/changelog-section.py`; the `pins` job runs its `--self-test`). It is a separate workflow, so a failure there never
-affects a NuGet publish. A tag whose changelog section is missing or empty fails the workflow instead of creating an empty release.
-To create the release for a tag that already exists, run the workflow by hand (Actions → GitHub release notes → Run workflow) and
-give the tag.
+Every package's NuGet "Release notes" link points at `/releases/tag/v<version>`, so that GitHub Release has to exist.
+`.github/workflows/release-notes.yml` creates it with no manual step, with the body taken from the matching `## [<version>]`
+section of `CHANGELOG.md` (`.github/scripts/release-notes.py`; the `pins` job runs its `--self-test`):
+
+- Pushing a version tag creates the release for that tag. A tag whose changelog section is missing or empty fails the run instead of
+  creating an empty release.
+- A push to `main`, or a manual run (Actions → GitHub release notes → Run workflow, tag left empty), creates the release of every
+  version tag that has none yet. This is how tags that were pushed before the workflow existed are filled in, and how a failed run is
+  repaired. Tags without a changelog section (an old preview tag) are skipped, existing releases are never edited, and only the
+  highest stable version is marked "Latest".
+- A pull request that touches the changelog, the workflow or the script gets a dry run with a read-only token, which prints the
+  releases it would create and publishes nothing.
+
+It is a separate workflow, so a failure there never affects a NuGet publish. It uses only the workflow's own `GITHUB_TOKEN`
+(`contents: write`); the repository's About text, topics, Wiki, Discussions and security features are settings that token cannot
+change, so they stay in Settings.

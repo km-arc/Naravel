@@ -1,60 +1,78 @@
 name: GitHub release notes
 
-# Creates the GitHub Release for a version tag from that version's section of CHANGELOG.md. Every package's NuGet "Release notes"
-# link points at /releases/tag/v<version>, so the release has to exist. This is separate from the NuGet publish job in ci.yml on
-# purpose: a failure here never blocks, repeats or approves a publish. To create the release for a tag that already exists, run
-# this workflow by hand (Actions -> GitHub release notes -> Run workflow) and give the tag.
+# Every package's NuGet "Release notes" link points at /releases/tag/v<version>, so that GitHub Release has to exist. This workflow
+# creates it, from the matching "## [<version>]" section of CHANGELOG.md, without anyone clicking anything:
+#   - when a version tag is pushed, it creates the release for that tag (a missing changelog section fails the run);
+#   - when main changes (and on a manual run), it creates the release of every version tag that has none yet, so tags that
+#     were pushed before this workflow existed are filled in the first time it lands on main, and a failed run is repaired by the next;
+#   - on a pull request it only prints what it would create (a dry run, read-only token).
+# It is separate from the NuGet publish job in ci.yml on purpose: a failure here never blocks, repeats or approves a publish.
+# Existing releases are never edited. See .github/scripts/release-notes.py.
 on:
   push:
+    branches: [ main ]
     tags: [ 'v*.*.*' ]
+  pull_request:
+    paths:
+      - CHANGELOG.md
+      - .github/workflows/release-notes.yml
+      - .github/scripts/release-notes.py
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing version tag to create the release for, for example v0.1.1
-        required: true
+        description: Only this existing version tag, for example v0.1.1. Leave empty to create every release that is missing.
+        required: false
 
 permissions:
-  contents: write
+  contents: read
 
+# Release runs queue one behind the other; a newer pull request push replaces the older dry run.
 concurrency:
-  group: release-notes-${{ github.event.inputs.tag || github.ref_name }}
-  cancel-in-progress: false
+  group: release-notes-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || 'release' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  release:
-    name: Create the GitHub release
+  preview:
+    name: Dry run (publishes nothing)
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     env:
       GH_TOKEN: ${{ github.token }}
-      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      GH_REPO: ${{ github.repository }}
     steps:
-      - name: Tag must look like a version
-        run: |
-          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "Not a version tag: $TAG" >&2
-            exit 1
-          fi
-
       - uses: actions/checkout@v4
         with:
-          ref: refs/tags/${{ env.TAG }}
+          fetch-depth: 0
+          fetch-tags: true
 
-      - name: Take the notes from CHANGELOG.md
-        run: |
-          python3 .github/scripts/changelog-section.py "${TAG#v}" > release-notes.md
-          {
-            echo
-            echo "---"
-            echo "All Naravel packages share this version, for example [Naravel.Foundation ${TAG#v}](https://www.nuget.org/packages/Naravel.Foundation/${TAG#v})."
-          } >> release-notes.md
+      - name: Show the releases that would be created
+        run: python3 .github/scripts/release-notes.py --dry-run
 
-      - name: Create the release
+  release:
+    name: Create the missing GitHub releases
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      # Passed through the environment, never pasted into the script; release-notes.py rejects anything that is not a version tag.
+      TAG: ${{ github.event.inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name || '') }}
+    steps:
+      # The default branch carries the newest CHANGELOG.md; for a tag the script falls back to the file as it was at the tag.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Create the releases
         run: |
-          if gh release view "$TAG" > /dev/null 2>&1; then
-            echo "Release $TAG already exists; leaving it as it is."
-            exit 0
-          fi
-          prerelease=()
-          if [[ "$TAG" == *-* ]]; then prerelease=(--prerelease); fi
-          gh release create "$TAG" --verify-tag --title "Naravel ${TAG#v}" --notes-file release-notes.md "${prerelease[@]}"
+          args=()
+          if [[ -n "$TAG" ]]; then args+=(--tag "$TAG"); fi
+          python3 .github/scripts/release-notes.py "${args[@]}"
