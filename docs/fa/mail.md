@@ -6,21 +6,38 @@
 
 ## شروع سریع
 
-```csharp
-builder.Services.AddNaravelMail(builder.Configuration);   // مقدار پیش‌فرض Mail:Default برابر "log" است: چیزی تحویل داده نمی‌شود
-
-public class WelcomeMail(User user) : Mailable
-{
-    public override MailMessage Build(MailBuilder mail) =>
-        mail.Subject("Welcome").Text($"Hi {user.Name}").Html($"<p>Hi {user.Name}</p>").Build();
-}
-
-await mailer.To(user.Email).SendAsync(new WelcomeMail(user), cancellationToken);   // mailer همان IMailer تزریق‌شده است
+```sh
+dotnet add package Naravel.Mail
 ```
 
 ```json
-{ "Mail": { "Default": "log", "From": "app@example.com" } }
+{ "Mail": { "From": "app@example.com" } }
 ```
+
+```csharp
+using Naravel.Mail;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddNaravelMail(builder.Configuration);   // مقدار پیش‌فرض Mail:Default برابر "log" است: پیام فقط log می‌شود و چیزی تحویل داده نمی‌شود
+
+var app = builder.Build();
+
+app.MapPost("/welcome", async (string email, string name, IMailer mailer, CancellationToken ct) =>
+{
+    await mailer.To(email).SendAsync(new WelcomeMail(name), ct);
+    return Results.Accepted();
+});
+
+app.Run();
+
+public sealed class WelcomeMail(string name) : Mailable
+{
+    public override MailMessage Build(MailBuilder mail) =>
+        mail.Subject("Welcome").Text($"Hi {name}").Html($"<p>Hi {name}</p>").Build();
+}
+```
+
+`POST /welcome?email=ada@example.com&name=Ada` پاسخ `202 Accepted` می‌دهد و log برنامه یک خط با فرستنده، گیرنده و موضوع نشان می‌دهد. برای تحویل واقعی، `Mail:Default` را به یک transport از نوع SMTP وصل کنید ([پایین‌تر](#smtp-naravelmailsmtp)).
 
 اگر `Mail:From` تنظیم نشده، داخل `Build` متد `mail.From("app@example.com")` را صدا بزنید؛ ایمیل بدون فرستنده `InvalidOperationException` می‌دهد که نام `Mail:From` را می‌آورد.
 
@@ -43,6 +60,21 @@ await mailer.SendAsync(new MailMessage("app@example.com", "user@example.com", "R
 - `Build` **باید خالص (pure) باشد**: بدون I/O، بدون خواندن ساعت، بدون تصادف. adapter صف آن را پیش از enqueue صدا می‌زند و فقط دادهٔ حاصل را ذخیره می‌کند.
 - `mailer.To(a).To(b)` گیرنده اضافه می‌کند؛ `To(...)` یک `PendingMail` با `SendAsync(Mailable)` و `QueueAsync(Mailable)` برمی‌گرداند.
 - `Build`ی که `null` برگرداند `InvalidOperationException` با نام کلاس می‌دهد.
+
+رونوشت و فرستندهٔ اختصاصی:
+
+```csharp
+public sealed class MonthlyReport : Mailable
+{
+    public override MailMessage Build(MailBuilder mail) =>
+        mail.From("reports@example.com")               // برای همین ایمیل جای Mail:From را می‌گیرد
+            .Cc("manager@example.com")
+            .Bcc("archive@example.com")                // فقط برای تحویل؛ هرگز در headerها نوشته نمی‌شود
+            .Subject("Monthly report")
+            .Text("Your monthly report is ready.")
+            .Build();
+}
+```
 
 ### رندر کردن view
 
@@ -172,6 +204,46 @@ fake.AssertNothingQueued();
 | `Mail:From` | فرستنده‌ای که وقتی mailable متد `From(...)` را صدا نزند استفاده می‌شود. | ندارد |
 | `Mail:Mailers:<name>:Driver` | `log`، `array` یا driver یک بستهٔ نصب‌شده. | - |
 | `Mail:Mailers:<name>:*` | تنظیمات مخصوص driver. تغییر آن فقط همان transport را دوباره می‌سازد؛ کلیدهای نامرتبط هرگز. | - |
+
+## خطاها
+
+| چه وقت | exception و پیام |
+|---|---|
+| ایمیل فرستنده ندارد (نه `Mail:From` و نه `From(...)`) | `InvalidOperationException`: `The mail has no sender. Call From(...) in Mailable.Build or set Mail:From in configuration.` |
+| `Mailable.Build` مقدار `null` برگرداند | `InvalidOperationException`: `WelcomeMail.Build returned null. Return mail.Build().` (نام کلاس، نام کلاس خودتان است) |
+| یک آدرس معتبر نیست | `ArgumentException`: `'not-an-address' is not a valid e-mail address.` |
+| گیرنده‌ای نیست | `ArgumentException`: `A mail message needs at least one recipient.` |
+| نه بدنهٔ متنی هست و نه HTML | `ArgumentException`: `A mail message needs a text body, an HTML body, or both.` |
+| `QueueAsync` بدون adapter صف | `InvalidOperationException`: `No mail queue adapter is registered. Install Naravel.Mail.Queue and call services.AddNaravelMailQueue(), or use SendAsync.` |
+| transport نتواند تحویل دهد | exception خودِ transport، بدون تغییر؛ چیزی برای شما دوباره تلاش نمی‌شود. |
+
+پیام `ArgumentException` با ` (Parameter 'to')` یا نام آرگومان خطادار تمام می‌شود. سه حالت `ArgumentException` هنگام ساخته‌شدن `MailMessage` رخ می‌دهند، پیش از آنکه به transport دست زده شود.
+
+transport از نوع `smtp` تنظیم نادرست را نخستین بار که استفاده می‌شود گزارش می‌کند و نام کلید را می‌آورد:
+
+| تنظیم | پیام |
+|---|---|
+| `Host` ندارد | `The smtp mail transport needs a Host (Mail:Mailers:<name>:Host).` |
+| `Port` عدد نیست | `Mail:Mailers:relay:Port 'abc' is not a number.` |
+| `Port` بیرون از ۱ تا ۶۵۵۳۵ | `The smtp mail transport Port 70000 is not between 1 and 65535.` |
+| `Security` ناشناخته | `Mail:Mailers:relay:Security 'x' must be StartTls, SslOnConnect or None.` |
+| `Timeout` عدد مثبت نیست | `Mail:Mailers:relay:Timeout 'x' must be a positive number of seconds.` |
+
+خطاهای خود Foundation (نام transport ناشناخته، نبودن پیش‌فرض) در [راهنمای Foundation](foundation.md#خطاها) آمده است.
+
+assertionهای `MailFake` با `InvalidOperationException` شکست می‌خورند:
+
+| assertion | پیام |
+|---|---|
+| `AssertSent()` وقتی چیزی ارسال نشده | `No mail message was sent.` |
+| `AssertSent(predicate)` وقتی هیچ پیامی مطابقت ندارد | `No matching mail message was sent (1 sent in total).` |
+| `AssertSentCount(2)` وقتی یکی ارسال شده | `Expected 2 sent mail message(s), but found 1.` |
+| `AssertNothingSent()` وقتی یکی ارسال شده | `Expected no mail to be sent, but 1 message(s) were sent.` |
+| `AssertNothingQueued()` وقتی یکی در صف رفته | `Expected no mail to be queued, but 1 message(s) were queued.` |
+
+`AssertQueued` همین دو پیام را با `queued` به‌جای `sent` دارد.
+
+`tests/Naravel.Mail.Tests/DocsExampleTests.cs` مثال quickstart، مثال رونوشت و همهٔ پیام‌های بالا را، جز جدول `smtp`، اجرا می‌کند؛ تنظیمات SMTP را `tests/Naravel.Mail.Smtp.Tests` می‌پوشاند. یکی را عوض کردید، دیگری را هم عوض کنید.
 
 ## مثال کامل
 

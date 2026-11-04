@@ -6,14 +6,33 @@ Decisions: [PDR-014](../pdr/en/PDR-014-notifications.md). Persian version: [docs
 
 ## Quickstart
 
-```csharp
-builder.Services.AddNaravelNotifications();
-builder.Services.AddLogNotificationChannel<InvoiceReady>();          // a channel named "log"
-
-public sealed record InvoiceReady(int InvoiceId);
-
-await notifications.SendAsync(user, new InvoiceReady(7), ["log"], cancellationToken);   // notifications is an injected INotificationSender
+```sh
+dotnet add package Naravel.Notifications
 ```
+
+```csharp
+using Naravel.Notifications;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddNaravelNotifications();
+builder.Services.AddLogNotificationChannel<InvoiceReady>();   // a channel named "log"
+
+var app = builder.Build();
+
+app.MapPost("/invoices/{id:int}/notify", async (int id, INotificationSender notifications, CancellationToken ct) =>
+{
+    var recipient = new User("Ada");                                            // any object: it is passed to the channels as is
+    await notifications.SendAsync(recipient, new InvoiceReady(id), ["log"], ct);
+    return Results.Accepted();
+});
+
+app.Run();
+
+public sealed record User(string Name);
+public sealed record InvoiceReady(int InvoiceId);
+```
+
+`POST /invoices/7/notify` answers `202 Accepted`, and the log channel writes one line naming the types `InvoiceReady` and `User` (never their contents). Add the [mail channel](#mail-channel-naravelnotificationsmail) or your own channel class to deliver for real.
 
 A channel is registered **per notification type** and chosen **by name** on every call. Nothing is inferred from the recipient or from registration order.
 
@@ -97,6 +116,56 @@ fake.AssertNothingSent();                               // after Reset(), or whe
 ```
 
 Register it with `services.AddSingleton<INotificationSender>(fake)`. It applies the same argument checks as the real sender (empty or duplicate channel names throw), so a bad call fails in the test too; it records the **requested** channel names and runs no channel. To test a channel itself, call `SendAsync` on it directly, or register it with the real sender and an `array` mail transport.
+
+## Errors
+
+**Arguments.** These are raised before any channel runs.
+
+| When | Exception and message |
+|---|---|
+| A `null` recipient, notification or channel list | `ArgumentNullException` |
+| `channels` is empty | `ArgumentException`: `At least one channel name is required.` |
+| A channel name is blank | `ArgumentException`: `A channel name must not be blank.` |
+| A name is listed twice (compared ignoring case) | `ArgumentException`: `The channel 'log' is listed more than once.` |
+
+**Channels.** Every name is resolved before the first delivery, so none of these has sent anything.
+
+| When | Exception and message |
+|---|---|
+| A name has no registered channel for this notification type | `InvalidOperationException`: `No notification channel 'sms' is registered for InvoiceReady. Registered: log.` (`Registered: none.` when there are none) |
+| The same name is registered twice for one type | `InvalidOperationException`: `The channel 'sms' is registered more than once for InvoiceReady; channel names must be unique per notification type.` |
+| `GetRecipient<User>()` on another type | `InvalidOperationException`: `Channel 'sms' expects a recipient of type User but got String.` |
+
+**Delivery.** A channel that throws stops the dispatch and surfaces as `NotificationDeliveryException`, with the original exception as `InnerException`:
+
+| Channels that had delivered | `Message` |
+|---|---|
+| none | `Notification channel 'boom' failed; no channel had delivered yet.` |
+| `log` | `Notification channel 'boom' failed after delivering to: log.` |
+
+`Channel` is `boom`, and `DeliveredChannels` lists the earlier channels in order. `OperationCanceledException` is never wrapped.
+
+**Mail channel.** `AddMailNotificationChannel` throws `InvalidOperationException`: `The mailable factory for InvoiceReady returned null.` when your `mailable` delegate returns `null`; an invalid address fails the channel with Naravel.Mail's own error (see the [Mail guide](mail.md#errors)).
+
+**Queue adapter.**
+
+| When | Exception and message |
+|---|---|
+| `QueueAsync` with an alias that is not registered | `InvalidOperationException`: `No queued notification is registered under the alias 'invoice.ready'. Register it with AddQueuedNotification.` |
+| `QueueAsync` with a payload of another type | `ArgumentException`: `The alias 'invoice.ready' was registered for payload type InvoicePayload, not String.` |
+| One alias registered twice | `InvalidOperationException`: `The queued notification alias 'invoice.ready' is registered more than once.` |
+| The worker reads an empty payload | `InvalidOperationException`: `The stored payload for 'invoice.ready' is empty.` |
+
+`NotificationFake` assertions throw `InvalidOperationException`:
+
+| Assertion | Message |
+|---|---|
+| `AssertSent<InvoiceReady>()` when none was sent | `No InvoiceReady notification was sent.` |
+| `AssertSent<InvoiceReady>(2)` when one was sent | `Expected 2 InvoiceReady notifications to be sent, but found 1.` |
+| `AssertNotSent<InvoiceReady>()` when one was sent | `Expected no InvoiceReady notification, but 1 were sent.` |
+| `AssertNothingSent()` when one was sent | `Expected no notifications, but 1 were sent.` |
+
+`tests/Naravel.Notifications.Tests/DocsExampleTests.cs` runs the quickstart and the argument, channel, delivery and `NotificationFake` messages above. The mail and queue messages come from the source and are not run there. Change one, change the other.
 
 ## Complete example
 

@@ -6,16 +6,35 @@
 
 ## شروع سریع
 
-```csharp
-builder.Services.AddNaravelNotifications();
-builder.Services.AddLogNotificationChannel<InvoiceReady>();          // یک channel با نام "log"
-
-public sealed record InvoiceReady(int InvoiceId);
-
-await notifications.SendAsync(user, new InvoiceReady(7), ["log"], cancellationToken);   // notifications یک INotificationSender تزریق‌شده است
+```sh
+dotnet add package Naravel.Notifications
 ```
 
-هر channel **برای یک نوع اعلان** ثبت می‌شود و در هر فراخوانی **با نام** انتخاب می‌شود. هیچ چیز از روی گیرنده یا ترتیب ثبت حدس زده نمی‌شود.
+```csharp
+using Naravel.Notifications;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddNaravelNotifications();
+builder.Services.AddLogNotificationChannel<InvoiceReady>();   // channelی با نام "log"
+
+var app = builder.Build();
+
+app.MapPost("/invoices/{id:int}/notify", async (int id, INotificationSender notifications, CancellationToken ct) =>
+{
+    var recipient = new User("Ada");                                            // هر object؛ همان‌طور که هست به channelها می‌رسد
+    await notifications.SendAsync(recipient, new InvoiceReady(id), ["log"], ct);
+    return Results.Accepted();
+});
+
+app.Run();
+
+public sealed record User(string Name);
+public sealed record InvoiceReady(int InvoiceId);
+```
+
+`POST /invoices/7/notify` پاسخ `202 Accepted` می‌دهد و channel log یک خط می‌نویسد که نام نوع‌های `InvoiceReady` و `User` را دارد (نه محتوایشان را). برای تحویل واقعی، [channel mail](#channel-ایمیل-naravelnotificationsmail) یا کلاس channel خودتان را اضافه کنید.
+
+channel **برای هر نوع notification** ثبت می‌شود و در **هر فراخوانی با نام** انتخاب می‌گردد. چیزی از روی گیرنده یا ترتیب ثبت حدس زده نمی‌شود.
 
 ## نحوهٔ استفاده
 
@@ -97,6 +116,56 @@ fake.AssertNothingSent();                               // بعد از Reset()،
 ```
 
 آن را با `services.AddSingleton<INotificationSender>(fake)` ثبت کنید. همان بررسی آرگومان‌های فرستندهٔ واقعی را انجام می‌دهد (نام خالی یا تکراری استثنا می‌دهد)، پس فراخوانی غلط در تست هم شکست می‌خورد؛ نام channelهای **درخواست‌شده** را ثبت می‌کند و هیچ channel ای را اجرا نمی‌کند. برای تست خود channel، مستقیم روی آن `SendAsync` را صدا بزنید، یا آن را با فرستندهٔ واقعی و transport ایمیل `array` ثبت کنید.
+
+## خطاها
+
+**آرگومان‌ها.** این‌ها پیش از اجرای هر channel پرتاب می‌شوند.
+
+| چه وقت | exception و پیام |
+|---|---|
+| گیرنده، notification یا فهرست channelها `null` باشد | `ArgumentNullException` |
+| `channels` خالی است | `ArgumentException`: `At least one channel name is required.` |
+| نام یک channel خالی است | `ArgumentException`: `A channel name must not be blank.` |
+| یک نام دو بار آمده (بدون تفاوت حروف بزرگ و کوچک) | `ArgumentException`: `The channel 'log' is listed more than once.` |
+
+**channelها.** همهٔ نام‌ها پیش از نخستین تحویل resolve می‌شوند؛ پس در هیچ‌کدام از این حالت‌ها چیزی ارسال نشده است.
+
+| چه وقت | exception و پیام |
+|---|---|
+| برای نامی در این نوع notification channelی ثبت نشده | `InvalidOperationException`: `No notification channel 'sms' is registered for InvoiceReady. Registered: log.` (اگر channelی نباشد `Registered: none.`) |
+| یک نام دو بار برای یک نوع ثبت شده | `InvalidOperationException`: `The channel 'sms' is registered more than once for InvoiceReady; channel names must be unique per notification type.` |
+| `GetRecipient<User>()` روی نوع دیگر | `InvalidOperationException`: `Channel 'sms' expects a recipient of type User but got String.` |
+
+**تحویل.** channelی که exception پرتاب کند dispatch را متوقف می‌کند و به شکل `NotificationDeliveryException` ظاهر می‌شود؛ exception اصلی در `InnerException` است:
+
+| channelهایی که تحویل داده بودند | `Message` |
+|---|---|
+| هیچ‌کدام | `Notification channel 'boom' failed; no channel had delivered yet.` |
+| `log` | `Notification channel 'boom' failed after delivering to: log.` |
+
+`Channel` برابر `boom` است و `DeliveredChannels` channelهای قبلی را به ترتیب می‌آورد. `OperationCanceledException` هرگز wrap نمی‌شود.
+
+**channel mail.** اگر delegate با نام `mailable` مقدار `null` برگرداند، `AddMailNotificationChannel` این را پرتاب می‌کند: `InvalidOperationException`: `The mailable factory for InvoiceReady returned null.`؛ آدرس نامعتبر channel را با خطای خود Naravel.Mail شکست می‌دهد (به [راهنمای Mail](mail.md#خطاها) نگاه کنید).
+
+**adapter صف.**
+
+| چه وقت | exception و پیام |
+|---|---|
+| `QueueAsync` با aliasی که ثبت نشده | `InvalidOperationException`: `No queued notification is registered under the alias 'invoice.ready'. Register it with AddQueuedNotification.` |
+| `QueueAsync` با payloadی از نوع دیگر | `ArgumentException`: `The alias 'invoice.ready' was registered for payload type InvoicePayload, not String.` |
+| یک alias دو بار ثبت شود | `InvalidOperationException`: `The queued notification alias 'invoice.ready' is registered more than once.` |
+| worker payload خالی بخواند | `InvalidOperationException`: `The stored payload for 'invoice.ready' is empty.` |
+
+assertionهای `NotificationFake` با `InvalidOperationException` شکست می‌خورند:
+
+| assertion | پیام |
+|---|---|
+| `AssertSent<InvoiceReady>()` وقتی چیزی ارسال نشده | `No InvoiceReady notification was sent.` |
+| `AssertSent<InvoiceReady>(2)` وقتی یکی ارسال شده | `Expected 2 InvoiceReady notifications to be sent, but found 1.` |
+| `AssertNotSent<InvoiceReady>()` وقتی یکی ارسال شده | `Expected no InvoiceReady notification, but 1 were sent.` |
+| `AssertNothingSent()` وقتی یکی ارسال شده | `Expected no notifications, but 1 were sent.` |
+
+`tests/Naravel.Notifications.Tests/DocsExampleTests.cs` مثال quickstart و پیام‌های آرگومان، channel، تحویل و `NotificationFake` را اجرا می‌کند. پیام‌های mail و صف از روی سورس آمده‌اند و آنجا اجرا نمی‌شوند. یکی را عوض کردید، دیگری را هم عوض کنید.
 
 ## مثال کامل
 
