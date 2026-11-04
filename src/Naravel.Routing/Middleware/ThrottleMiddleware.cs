@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Security.Claims;
-using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Options;
@@ -8,29 +7,42 @@ using Microsoft.Extensions.Options;
 namespace Naravel.Routing;
 
 internal sealed class ThrottleMiddleware(
-    ThrottleLimiterRegistry limiters,
+    ThrottleGuard guard,
     IOptions<RoutingOptions> options) : IRouteMiddleware
 {
     public async Task InvokeAsync(HttpContext context, RequestDelegate next, MiddlewareArguments arguments)
     {
         var (name, policy) = ResolvePolicy(arguments, options.Value);
-        var limiter = limiters.Get(name, policy.PermitLimit, policy.Window);
-        using var lease = await limiter.AcquireAsync(context, 1, context.RequestAborted).ConfigureAwait(false);
-        var remaining = limiter.GetStatistics(context)?.CurrentAvailablePermits ?? 0;
+        var attempt = await guard
+            .AttemptAsync(GetPartitionKey(context, name), name, policy, context.RequestAborted)
+            .ConfigureAwait(false);
 
-        context.Response.Headers["X-RateLimit-Limit"] = policy.PermitLimit.ToString(CultureInfo.InvariantCulture);
-        context.Response.Headers["X-RateLimit-Remaining"] = Math.Max(0, remaining).ToString(CultureInfo.InvariantCulture);
-
-        if (lease.IsAcquired)
+        if (attempt.Kind == ThrottleAttemptKind.Unlimited)
         {
             await next(context).ConfigureAwait(false);
             return;
         }
 
-        var retryAfter = lease.TryGetMetadata(MetadataName.RetryAfter, out TimeSpan value)
-            ? value
-            : policy.Window;
-        context.Response.Headers.RetryAfter = Math.Max(1, (long)Math.Ceiling(retryAfter.TotalSeconds))
+        if (attempt.Kind == ThrottleAttemptKind.Unavailable)
+        {
+            context.Response.Headers.RetryAfter = Math.Max(1, (long)Math.Ceiling(attempt.RetryAfter.TotalSeconds))
+                .ToString(CultureInfo.InvariantCulture);
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            return;
+        }
+
+        var decision = attempt.Decision;
+
+        context.Response.Headers["X-RateLimit-Limit"] = policy.PermitLimit.ToString(CultureInfo.InvariantCulture);
+        context.Response.Headers["X-RateLimit-Remaining"] = Math.Max(0, decision.Remaining).ToString(CultureInfo.InvariantCulture);
+
+        if (decision.Allowed)
+        {
+            await next(context).ConfigureAwait(false);
+            return;
+        }
+
+        context.Response.Headers.RetryAfter = Math.Max(1, (long)Math.Ceiling(decision.RetryAfter.TotalSeconds))
             .ToString(CultureInfo.InvariantCulture);
         context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
     }
@@ -54,30 +66,6 @@ internal sealed class ThrottleMiddleware(
 
         throw new InvalidOperationException("Throttle middleware expects a configured policy name or positive permit-limit and window-minute arguments.");
     }
-}
-
-internal sealed class ThrottleLimiterRegistry : IDisposable
-{
-    private readonly record struct LimiterKey(string Name, int PermitLimit, long WindowTicks);
-
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<LimiterKey, PartitionedRateLimiter<HttpContext>> _limiters = new();
-
-    public PartitionedRateLimiter<HttpContext> Get(string name, int permitLimit, TimeSpan window)
-    {
-        var key = new LimiterKey(name, permitLimit, window.Ticks);
-        return _limiters.GetOrAdd(key, static limiterKey =>
-            PartitionedRateLimiter.Create<HttpContext, string>(context =>
-            {
-                var partition = GetPartitionKey(context, limiterKey.Name);
-                return RateLimitPartition.GetFixedWindowLimiter(partition, _ => new FixedWindowRateLimiterOptions
-                {
-                    PermitLimit = limiterKey.PermitLimit,
-                    Window = TimeSpan.FromTicks(limiterKey.WindowTicks),
-                    QueueLimit = 0,
-                    AutoReplenishment = true
-                });
-            }));
-    }
 
     private static string GetPartitionKey(HttpContext context, string policyName)
     {
@@ -91,11 +79,5 @@ internal sealed class ThrottleLimiterRegistry : IDisposable
             ?? context.Request.Path.Value
             ?? "/";
         return $"{policyName}|{endpoint}|{subject}";
-    }
-
-    public void Dispose()
-    {
-        foreach (var limiter in _limiters.Values) limiter.Dispose();
-        _limiters.Clear();
     }
 }

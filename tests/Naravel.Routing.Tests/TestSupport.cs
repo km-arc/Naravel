@@ -129,7 +129,8 @@ public sealed class TestApp : IAsyncDisposable
         Action<IRouteRegistrar>? routes = null,
         Action<RoutingOptions>? options = null,
         Action<WebApplication>? native = null,
-        bool controllers = false)
+        bool controllers = false,
+        Action<IServiceCollection>? services = null)
     {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
@@ -143,6 +144,7 @@ public sealed class TestApp : IAsyncDisposable
                 .Alias<Deny>("deny").Alias<Terminating>("t").Alias<Stamp>("stamp");
             options?.Invoke(o);
         });
+        services?.Invoke(builder.Services);
 
         if (controllers)
         {

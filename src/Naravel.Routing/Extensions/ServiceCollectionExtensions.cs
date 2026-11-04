@@ -24,7 +24,8 @@ public static class NaravelRoutingServiceCollectionExtensions
         if (configure is not null) services.Configure(configure);
 
         services.TryAddSingleton<MiddlewarePipelineFactory>();
-        services.TryAddSingleton<ThrottleLimiterRegistry>();
+        services.TryAddSingleton<IThrottleStore, InProcessThrottleStore>();
+        services.TryAddSingleton<ThrottleGuard>();
         services.TryAddSingleton<SignedUrlService>(sp => new SignedUrlService(sp.GetRequiredService<IDataProtectionProvider>()));
         services.TryAddSingleton<MaintenanceModeService>();
         services.TryAddSingleton<IUrlGenerator, UrlGenerator>();
