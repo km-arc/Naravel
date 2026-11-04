@@ -9,6 +9,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 - CI: `.github/workflows/release-notes.yml` creates the GitHub Release for each version tag from that version's section of this changelog (`.github/scripts/release-notes.py`, whose self-test the `pins` job runs), so every package's NuGet "Release notes" link leads somewhere. It runs when a tag is pushed and when `main` changes, where it also creates the release of any version tag that has none (the `v0.1.1` tag predates it); pull requests get a read-only dry run. It is separate from the NuGet publish job and never edits an existing release.
 - Repository: `README.md` and `README.fa.md` are now a short front page (banner, a Laravel-to-Naravel comparison, a runnable quickstart, the module table, status and links). The install matrix, the registration calls, the sample-app notes and every module's example moved, unchanged, to `docs/en/getting-started.md`, `docs/en/modules.md` and their Persian twins, and `docs/README.md` indexes every guide in both languages. No code or package content changed.
 
+### Changed
+- Docs: the module guides are being rewritten with complete, source-checked examples, the exact error messages and a testing section, in English and Persian together. Done so far: `Naravel.Foundation` (also the NuGet package page) and the database dialect contract, whose Persian twin was a summary and is now the full page.
+
 ## [0.1.1] - 2026-11-02
 
 ### Added

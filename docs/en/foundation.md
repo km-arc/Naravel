@@ -1,57 +1,181 @@
 # Naravel.Foundation
 
-`Naravel.Foundation` is the shared driver-manager foundation for Naravel modules. Install it directly when authoring a driver-based module; applications normally receive it as a dependency of the module they use.
+`Naravel.Foundation` is the shared base that Naravel's driver-based modules (Cache, Queue, Filesystem, Mail and others) are built on. It resolves **named drivers** for a contract (for example "the `redis` cache store"), builds each one once, caches it, and lets you add or replace drivers while the application runs.
+
+Applications normally never install it: it arrives as a dependency of the module you use. Install it directly when you are **writing a driver-based module** of your own.
 
 ## Quickstart
 
-Define a driver contract, options, and a manager. Register the manager and a named driver before building the service provider:
+A driver-based module has four parts: a driver contract, its options, a manager, and one or more drivers. This is the smallest complete example. Create a web project (`dotnet new web`), add the package (`dotnet add package Naravel.Foundation`) and replace `Program.cs`:
 
 ```csharp
-using System; using Microsoft.Extensions.Configuration; using Microsoft.Extensions.DependencyInjection; using Microsoft.Extensions.Options; using Microsoft.AspNetCore.Builder; using Naravel.Foundation;
+using System;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Naravel.Foundation;
+
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddNaravelManager<GreeterManager, IGreeter, GreeterOptions>(builder.Configuration.GetSection("Greeter"));
+
+// 1. Register the manager, its driver registry and the configuration section it reads.
+builder.Services.AddNaravelManager<GreeterManager, IGreeter, GreeterOptions>(
+    builder.Configuration.GetSection("Greeter"));
+
+// 2. Register a built-in driver under a name.
 builder.Services.AddNaravelDriver<IGreeter>("polite", _ => new PoliteGreeter());
+
 var app = builder.Build();
-app.MapGet("/hello", (GreeterManager manager) => manager.Driver("polite").Greet("Ada")); app.Run();
+app.MapGet("/hello", (GreeterManager manager) => manager.Driver("polite").Greet("Ada"));
+app.Run();
+
+// 3. The contract, the options and the manager. The manager is only a constructor.
 public interface IGreeter { string Greet(string name); }
+
 public sealed class GreeterOptions : ManagerOptions { }
-public sealed class GreeterManager(IServiceProvider sp, IDriverRegistry<IGreeter> registry, IOptionsMonitor<GreeterOptions> options) : Manager<IGreeter, GreeterOptions>(sp, registry, options) { }
-public sealed class PoliteGreeter : IGreeter { public string Greet(string name) => $"Hello, {name}!"; }
+
+public sealed class GreeterManager(IServiceProvider sp, IDriverRegistry<IGreeter> registry, IOptionsMonitor<GreeterOptions> options)
+    : Manager<IGreeter, GreeterOptions>(sp, registry, options) { }
+
+public sealed class PoliteGreeter : IGreeter
+{
+    public string Greet(string name) => $"Hello, {name}!";
+}
 ```
 
-Set `Greeter:Default` to `polite` in configuration to use `Driver()` without a name.
+Run it and open `/hello`: it answers `Hello, Ada!`.
+
+### Using a default driver
+
+`manager.Driver()` without a name uses the `Default` option. Set it in `appsettings.json`:
+
+```json
+{ "Greeter": { "Default": "polite" } }
+```
+
+```csharp
+app.MapGet("/hi", (GreeterManager manager) => manager.Driver().Greet("Ada"));   // uses "polite"
+```
+
+Without a default, `Driver()` throws `InvalidOperationException`: `No default driver is configured for IGreeter. Set the 'Default' option or pass a driver name explicitly.`
 
 ## What the package provides
 
-- `Manager<TDriver, TOptions>` resolves a driver by name, creates it once under concurrent access, caches it, and supports runtime registration through `Extend`.
-- `IDriverRegistry<TDriver>` is the thread-safe, case-insensitive registry for synchronous and asynchronous factories.
-- `ManagerOptions` supplies the `Default` driver name and named `Stores` configuration sections.
-- `AddNaravelManager` registers the manager, registry, and direct default-driver service. `AddNaravelDriver` and `ConfigureNaravelDrivers` register built-in factories.
-- `IOptionsMonitor<TOptions>` changes invalidate cached drivers only when the `Stores` configuration changes.
+| Piece | What it does |
+|---|---|
+| `Manager<TDriver, TOptions>` | Resolves a driver by name, creates it once even under concurrent access, caches it, and accepts new drivers at runtime through `Extend`. |
+| `IDriverRegistry<TDriver>` | The thread-safe, case-insensitive registry of synchronous and asynchronous factories. |
+| `ManagerOptions` | `Default` (the default driver's name) and `Stores` (named configuration sections, one per configured driver). |
+| `AddNaravelManager` | Registers the manager, the registry and a direct `TDriver` service for the default driver. |
+| `AddNaravelDriver`, `ConfigureNaravelDrivers` | Register built-in driver factories (one, or several together). |
+
+When the `Stores` configuration changes, `IOptionsMonitor<TOptions>` invalidates the cached drivers; a change elsewhere in the section does not.
+
+## Drivers that read their settings
+
+A driver usually needs settings. Each configured driver has a section under `Stores:<name>`, and `GetStore(name)` returns it:
+
+```json
+{
+  "Greeter": {
+    "Default": "friendly",
+    "Stores": {
+      "friendly": { "Greeting": "Hi" }
+    }
+  }
+}
+```
+
+```csharp
+builder.Services.AddNaravelDriver<IGreeter>("friendly", sp =>
+{
+    var options = sp.GetRequiredService<IOptionsMonitor<GreeterOptions>>().CurrentValue;
+    var store = options.GetStore("friendly");                 // the "Stores:friendly" section
+    return new FriendlyGreeter(store["Greeting"] ?? "Hello");
+});
+
+public sealed class FriendlyGreeter(string greeting) : IGreeter
+{
+    public string Greet(string name) => $"{greeting}, {name}!";
+}
+```
+
+If the section is missing, `GetStore` throws `InvalidOperationException`: `Store 'friendly' is not configured. Configured stores: (none).` (the message lists the stores that do exist).
+
+## Adding a driver while the application runs
+
+`Extend` registers a driver on a manager that is already built (Laravel's `Cache::extend`). Use the asynchronous form when creating the driver needs I/O:
+
+```csharp
+var manager = app.Services.GetRequiredService<GreeterManager>();
+
+manager.Extend("shout", _ => new ShoutingGreeter());                 // synchronous factory
+
+manager.Extend("remote", async (sp, ct) =>                           // asynchronous factory
+{
+    var greeter = new RemoteGreeter();
+    await greeter.ConnectAsync(ct);
+    return greeter;
+});
+
+var shout = manager.Driver("shout");                                 // sync factories work with Driver()
+var remote = await manager.DriverAsync("remote", ct);                // async-only factories need DriverAsync()
+```
+
+Registering a name again replaces its factory and retires the cached instance: the next call builds one from the new factory, while code that already holds the old instance keeps using it until the manager is disposed.
 
 ## Choosing the registration overload
 
-`AddNaravelManager<TManager, TDriver, TOptions>(services, configuration)` binds the configuration section for you. That overload uses reflection-based configuration binding and is annotated for trimming and dynamic-code warnings.
+`AddNaravelManager<TManager, TDriver, TOptions>(services, configuration)` binds the configuration section for you. It uses reflection-based configuration binding, so it carries trimming and dynamic-code warnings.
 
-For trimmed or Native AOT applications, bind the concrete options type yourself with `services.Configure<TOptions>(section)`, enable the configuration binding generator in the project that performs the binding, and call the overload without the `IConfiguration` argument:
+For trimmed or Native AOT applications, bind the concrete options type yourself with `services.Configure<TOptions>(section)`, enable the configuration binding generator in the project that does the binding, and call the overload without the `IConfiguration` argument:
 
 ```csharp
 services.Configure<GreeterOptions>(configuration.GetSection("Greeter"));
 services.AddNaravelManager<GreeterManager, IGreeter, GreeterOptions>();
 ```
 
-Use `AddNaravelDriver` for a single factory, or `ConfigureNaravelDrivers` when a module needs to register several factories together. The provider-aware overload receives the root `IServiceProvider` when the registry is first created; do not resolve scoped services from it.
+Use `AddNaravelDriver` for a single factory and `ConfigureNaravelDrivers` when a module registers several together. The overload that takes a provider receives the root `IServiceProvider` when the registry is first created, so do not resolve scoped services from it.
 
-## Resolution, concurrency, and lifetime
+## Resolution, concurrency and lifetime
 
-`Driver(name)` returns the cached driver for that name. `DriverAsync(name, cancellationToken)` supports both synchronous and asynchronous factories. Concurrent callers share one creation; cancelling a caller cancels only that caller's wait, not the shared factory operation. Failed creations are not cached.
+- `Driver(name)` returns the cached driver for that name. `DriverAsync(name, cancellationToken)` also supports asynchronous factories.
+- Concurrent callers share one creation. Cancelling a caller cancels only that caller's wait, not the shared factory call. A failed creation is not cached, so the next call tries again.
+- The synchronous `Driver` never blocks on an asynchronous-only factory. Until such a driver exists it throws `InvalidOperationException`: `Driver 'remote' is registered with an asynchronous factory and has not been created yet. Use DriverAsync to create it.` Once `DriverAsync` has created it, `Driver` returns it.
+- `Forget(name)` and `ForgetAll()` retire cached instances so the next call builds a new one. Retired drivers stay alive until the manager is disposed, so code that already holds one is not disrupted.
+- The manager disposes the drivers its factories created. If the default driver was resolved through the direct `TDriver` service that `AddNaravelManager` registers, dependency injection owns and disposes that instance and the manager skips it. A factory should therefore return an instance the manager may own, never an unrelated container-owned singleton.
 
-The synchronous `Driver` method does not block on an asynchronous-only factory. Use `DriverAsync` until that driver has been created.
+## Errors
 
-`Forget(name)` and `ForgetAll()` retire cached instances; retired drivers remain alive until the manager is disposed so existing users are not disrupted. The manager disposes the factory-created drivers it owns. If the default driver is resolved through the direct `TDriver` service registered by `AddNaravelManager`, dependency injection owns and disposes that instance and the manager skips it. Factories should return instances the manager may own; do not return an unrelated container-owned singleton.
+| When | Exception and message |
+|---|---|
+| The name is blank | `ArgumentException`: `Driver name must not be blank.` |
+| No name given and no `Default` set | `InvalidOperationException`: `No default driver is configured for IGreeter. Set the 'Default' option or pass a driver name explicitly.` |
+| The name is not registered | `DriverNotRegisteredException`: `Driver 'x' is not registered for IGreeter. Available drivers: polite, shout.` It exposes `DriverName`, `DriverType` and `AvailableDrivers`. |
+| `Driver()` on an async-only driver not yet created | `InvalidOperationException`; use `DriverAsync`. |
+| `GetStore` on a missing section | `InvalidOperationException`: `Store 'x' is not configured. Configured stores: a, b.` |
+| The manager was disposed | `ObjectDisposedException` |
 
-## Dependencies and guidance
+## Testing a module built on Foundation
 
-The package depends on `Microsoft.Extensions.*` abstractions and has no dependency on another Naravel module. See the [architecture guide](https://github.com/km-arc/Naravel/blob/main/docs/en/architecture.md), [module authoring guide](https://github.com/km-arc/Naravel/blob/main/docs/en/module-authoring-guide.md), and [trimming/AOT guide](https://github.com/km-arc/Naravel/blob/main/docs/en/trimming-aot.md) for the full contracts and examples.
+Register a fake under a name, so the code under test resolves it like any other driver and no real backend is needed:
+
+```csharp
+manager.Extend("fake", _ => new FakeGreeter());
+Assert.Equal("Hello, Ada!", manager.Driver("fake").Greet("Ada"));
+```
+
+## Laravel equivalent
+
+| Laravel (`Illuminate\Support\Manager`) | Naravel.Foundation |
+|---|---|
+| `driver('redis')` | `manager.Driver("redis")`, `DriverAsync("redis", ct)` |
+| `getDefaultDriver()` | `manager.DefaultDriverName` (from `Default`) |
+| `extend('name', $callback)` | `manager.Extend("name", factory)` |
+| `__call` forwarding methods to the driver | Not ported on purpose: call the driver you resolved. |
+
+## Dependencies and further reading
+
+The package depends on `Microsoft.Extensions.*` abstractions and on no other Naravel module. The [architecture guide](https://github.com/km-arc/Naravel/blob/main/docs/en/architecture.md), the [module authoring guide](https://github.com/km-arc/Naravel/blob/main/docs/en/module-authoring-guide.md) and the [trimming and AOT guide](https://github.com/km-arc/Naravel/blob/main/docs/en/trimming-aot.md) give the full contracts.
 
 Persian documentation: [راهنمای فارسی Foundation](https://github.com/km-arc/Naravel/blob/main/docs/fa/foundation.md).

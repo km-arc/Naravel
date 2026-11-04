@@ -12,6 +12,16 @@ Persian version: [docs/fa/database-dialects.md](../fa/database-dialects.md). Met
 | **Compile-only** | The SQL is generated and asserted, never run on that engine. |
 | **Refused** | The call throws a documented exception on that engine (executed as a test of the refusal). |
 
+## The differences that surprise people most
+
+- **Upsert keys.** On MySQL `uniqueBy` is ignored and *any* unique key of the table can trigger the update; SQL Server throws on a collision with another unique key.
+- **Returning.** `*ReturningAsync` is not available on MySQL (`NotSupportedException`).
+- **Insert or ignore.** `InsertOrIgnoreAsync` is not available on SQL Server (`NotSupportedException`).
+- **Row locks and full text.** SQLite refuses `LockForUpdate`, `SharedLock` and `WhereFullText`.
+- **`Having` on an alias.** PostgreSQL and SQL Server refuse a `Having` on a select alias (the engine rejects it).
+
+The table below has every difference, engine by engine.
+
 ## Same call, different meaning
 
 | Call | SQLite | MySQL | PostgreSQL | SQL Server |
