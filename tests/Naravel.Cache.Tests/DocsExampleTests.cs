@@ -1,7 +1,9 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Naravel.Cache.Abstractions;
 using Naravel.Cache.RateLimiting;
+using Naravel.Cache.Stores;
 using Naravel.Cache.Tagging;
 
 namespace Naravel.Cache.Tests;
@@ -45,6 +47,56 @@ public sealed class DocsExampleTests
 
         (await cache.PullAsync<string>("k")).Should().Be("v");
         (await cache.ExistsAsync("k")).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task The_operations_return_what_the_guide_says()
+    {
+        await using var provider = Build();
+        var cache = provider.GetRequiredService<ICacheStore>();
+        var ct = CancellationToken.None;
+
+        await cache.SetAsync("greeting", "hello", TimeSpan.FromMinutes(10), ct);
+        var (found, value) = await cache.TryGetAsync<string>("greeting", ct);
+        found.Should().BeTrue();
+        value.Should().Be("hello");
+        (await cache.ExistsAsync("greeting", ct)).Should().BeTrue();
+        (await cache.RemoveAsync("greeting", ct)).Should().BeTrue();
+        (await cache.RemoveAsync("greeting", ct)).Should().BeFalse();
+
+        (await cache.IncrementAsync("visits:home", 1, TimeSpan.FromHours(1), ct)).Should().Be(1);
+        (await cache.IncrementAsync("visits:home", 1, TimeSpan.FromHours(1), ct)).Should().Be(2);
+        (await cache.IncrementAsync("stock:42", 10, ct)).Should().Be(10);
+        (await cache.DecrementAsync("stock:42", 3, ct)).Should().Be(7);
+
+        var loads = 0;
+        Func<Task<string>> loadRates = () => { loads++; return Task.FromResult("rates"); };
+        (await cache.RememberForeverAsync("exchange-rates", loadRates, ct)).Should().Be("rates");
+        (await cache.RememberForeverAsync("exchange-rates", loadRates, ct)).Should().Be("rates");
+        loads.Should().Be(1);
+
+        await cache.SetAsync("flash:message", "saved", TimeSpan.FromMinutes(1), ct);
+        (await cache.PullAsync<string>("flash:message", ct)).Should().Be("saved");
+        (await cache.PullAsync<string>("flash:message", ct)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task An_async_only_store_needs_DriverAsync_before_Store_can_return_it()
+    {
+        await using var provider = Build();
+        var manager = provider.GetRequiredService<CacheManager>();
+        manager.Extend("remote", async (sp, ct) =>
+        {
+            await Task.Yield();
+            return new MemoryCacheStore("remote", sp.GetRequiredService<IMemoryCache>());
+        });
+
+        Action early = () => manager.Store("remote");
+        early.Should().Throw<InvalidOperationException>().WithMessage("*Use DriverAsync to create it.*");
+
+        await manager.DriverAsync("remote");
+        await manager.Store("remote").SetAsync("k", "v", TimeSpan.FromMinutes(1));
+        (await manager.Store("remote").TryGetAsync<string>("k")).Found.Should().BeTrue();
     }
 
     [Fact]

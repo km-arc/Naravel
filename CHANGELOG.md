@@ -10,7 +10,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 - Repository: `README.md` and `README.fa.md` are now a short front page (banner, a Laravel-to-Naravel comparison, a runnable quickstart, the module table, status and links). The install matrix, the registration calls, the sample-app notes and every module's example moved, unchanged, to `docs/en/getting-started.md`, `docs/en/modules.md` and their Persian twins, and `docs/README.md` indexes every guide in both languages. No code or package content changed.
 
 ### Changed
-- Docs: the module guides are being rewritten with complete, source-checked examples, the exact error messages and a testing section, in English and Persian together. Done so far: `Naravel.Foundation` (also the NuGet package page) and the database dialect contract, whose Persian twin was a summary and is now the full page.
+- Docs: the module guides are being rewritten with complete, source-checked examples, the exact error messages and a testing section, in English and Persian together. Done so far: `Naravel.Foundation` (also the NuGet package page), the database dialect contract, whose Persian twin was a summary and is now the full page, `Naravel.Cache` (a runnable memory-only quickstart, every operation with its return value, how `BlockAsync` waits and releases, creating an asynchronous-only store, an Errors section) and `Naravel.Events` (a runnable quickstart, an Errors section including the queued-listener messages; the duplicate testing and example sections were merged). `tests/Naravel.Cache.Tests/DocsExampleTests.cs` gained two tests that run the new Cache snippets.
 
 ## [0.1.1] - 2026-11-02
 
