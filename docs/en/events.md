@@ -8,13 +8,52 @@ Use `Naravel.Events` to decouple "something happened" from "what should happen n
 
 ## Quickstart
 
-```csharp
-services.AddNaravelEvents();
-events.Listen<OrderPaid>((evt, context, ct) => listener.HandleAsync(evt, context, ct));
-await dispatcher.DispatchAsync(new OrderPaid(orderId));
+```sh
+dotnet add package Naravel.Events
 ```
 
-`Listen<TEvent>` registers a callback in the current DI scope and returns an `IDisposable` subscription. DI-registered `IEventListener<TEvent>` services run first in their registration order; `Listen` callbacks run next, also in registration order. A listener can call `context.Stop()` to stop further listeners. The first listener exception propagates and stops dispatch.
+```csharp
+using Naravel.Events;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddNaravelEvents();
+builder.Services.AddScoped<IEventListener<OrderPaid>, WriteAuditLine>();   // a listener is an ordinary DI service
+
+var app = builder.Build();
+
+app.MapPost("/orders/{id}/pay", async (string id, IEventDispatcher events, CancellationToken ct) =>
+{
+    await events.DispatchAsync(new OrderPaid(id, 42m), ct);   // every listener of OrderPaid has run when this returns
+    return Results.Ok($"Order {id} paid");
+});
+
+app.Run();
+
+public sealed record OrderPaid(string OrderId, decimal Total);
+
+public sealed class WriteAuditLine : IEventListener<OrderPaid>
+{
+    public Task HandleAsync(OrderPaid evt, EventDispatchContext context, CancellationToken cancellationToken = default)
+    {
+        Console.WriteLine($"audit: order {evt.OrderId} paid, total {evt.Total}");
+        return Task.CompletedTask;
+    }
+}
+```
+
+`POST /orders/7/pay` prints the audit line and then answers. That is the whole mechanism: an event is a record, a listener is a class with `HandleAsync`, and `DispatchAsync` calls every listener registered for that exact event type.
+
+| Member | What it does |
+|---|---|
+| `AddNaravelEvents()` | Registers the scoped `IEventDispatcher`. It uses `TryAdd`, so an application can replace the dispatcher. |
+| `IEventDispatcher.DispatchAsync<TEvent>(evt, ct)` | Runs every listener of exactly `TEvent`, in order. |
+| `IEventDispatcher.Listen<TEvent>(callback)` | Adds a callback in the current DI scope and returns an `IDisposable`; dispose it to remove the callback. |
+| `IEventListener<TEvent>.HandleAsync(evt, context, ct)` | The listener contract. |
+| `IQueuedEventListener<TEvent>` | A listener that runs later on a queue worker (needs `Naravel.Events.Queue`). |
+| `EventDispatchContext.Stop()` and `.StopPropagation` | Skip the remaining listeners, and tell whether someone did. |
+| `Naravel.Events.Testing.EventFake` | A test double that records dispatched events and runs no listener. |
+
+How a dispatch runs: DI-registered `IEventListener<TEvent>` services run first in their registration order; `Listen` callbacks run next, also in registration order. A listener can call `context.Stop()` to stop further listeners. The first listener exception propagates and stops dispatch.
 
 ## DI listeners
 
@@ -113,7 +152,7 @@ Adapter limits to know about:
 - A queued listener runs later with a fresh `EventDispatchContext`: it cannot stop propagation, the dispatching code does not wait for it, and its exceptions follow Queue retry and failed-job rules rather than the first-exception policy. Execution is at-least-once, so make listeners idempotent.
 - A listener that implements `IQueuedEventListener<TEvent>` but was not registered with `AddQueuedEventListener` throws `InvalidOperationException` at dispatch because it has no alias.
 
-## Complete example
+## The three listener kinds together
 
 One event, a DI listener that can stop propagation, a queued listener and a request-scoped `Listen` callback. `IOrderReadStore` and `IMailer` stand for your own services. A runnable version is in `samples/Naravel.Sample` (`/events`).
 
@@ -160,29 +199,32 @@ app.MapPost("/orders/{id}/pay", async (string id, string email, decimal total, I
 
 Order of execution for a total of 120: `UpdateOrderReadModel`, then the `Listen` callback; `SendReceipt` runs later in the queue worker (run a worker on the default connection and the `default` queue). For a total above 10,000 the first listener stops propagation, so nothing else runs.
 
-## Testing a dispatcher call
+## Errors
 
-```csharp
-[Fact]
-public async Task Paying_an_order_dispatches_OrderPaid()
-{
-    var fake = new EventFake();                                  // replaces IEventDispatcher in the test
-    var handler = new PayOrderHandler(fake);                     // your code under test
+| When | What happens |
+|---|---|
+| `DispatchAsync(null)` | `ArgumentNullException`. |
+| The token is cancelled before or between listeners | `OperationCanceledException`; no further listener runs and it is not counted as a failure. |
+| A listener throws | The same exception reaches the caller of `DispatchAsync`; later listeners do not run, and the dispatch is counted as failed. |
+| A queued listener was not registered with `AddQueuedEventListener` | `InvalidOperationException` at dispatch: `Queued listener 'MyApp.SendReceipt' for event 'MyApp.OrderPaid' has no explicit queue alias registration.` |
+| A blank alias passed to `AddQueuedEventListener` | `ArgumentException`. |
+| The same alias registered twice | `InvalidOperationException`: `Queued event listener alias 'order-paid.receipt' is registered more than once.` |
+| The same listener registered twice for one event | `InvalidOperationException`: `Queued event listener 'MyApp.SendReceipt' for 'MyApp.OrderPaid' is registered more than once.` |
+| A worker receives a job whose alias it does not know (for example from an older or newer deployment) | `InvalidOperationException`: `Queued event listener alias 'order-paid.receipt' is not registered.` The job then follows Queue's retry and failed-job rules. |
+| A queued payload deserializes to `null` | `InvalidDataException`: `Queued event payload for alias 'order-paid.receipt' was null.` |
 
-    await handler.PayAsync("o-1", "ali@example.com", 120m);
+The two duplicate-registration errors are raised when the queued-listener registry is first created from the registrations, not when `AddQueuedEventListener` is called.
 
-    var evt = fake.AssertDispatched<OrderPaid>();                // throws if none was dispatched
-    Assert.Equal("o-1", evt.OrderId);
-    fake.AssertDispatched<OrderPaid>(expectedCount: 1);          // exact count
-    fake.Reset();
-}
-```
+`EventFake` assertions throw `InvalidOperationException`:
 
-`EventFake` records events and does not run listeners, so test listeners by calling `HandleAsync` directly.
+| Assertion | Message |
+|---|---|
+| `AssertDispatched<OrderPaid>()` when none was dispatched | `No OrderPaid event was dispatched.` |
+| `AssertDispatched<OrderPaid>(1)` when there were none | `Expected 1 OrderPaid events to be dispatched, but found 0.` |
 
 ## Observability and testing
 
-`Meter` and `ActivitySource` are both named `Naravel.Events`. `Naravel.Events.Testing.EventFake` records dispatched events and supports type/count assertions and reset; it does not execute listeners. `AddNaravelEvents()` uses `TryAdd`, so an application can replace `IEventDispatcher` explicitly.
+`Meter` and `ActivitySource` are both named `Naravel.Events`. The metrics are `naravel.events.dispatched` and `naravel.events.failed` (counters) and `naravel.events.dispatch.duration` (a histogram in milliseconds); the span is `events.dispatch`. `Naravel.Events.Testing.EventFake` records dispatched events and supports type/count assertions and reset; it does not execute listeners. `AddNaravelEvents()` uses `TryAdd`, so an application can replace `IEventDispatcher` explicitly.
 
 ### Testing code that dispatches events
 

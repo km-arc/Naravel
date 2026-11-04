@@ -4,10 +4,35 @@
 
 ## شروع سریع
 
+بسته را اضافه کنید، ثبتش کنید و `ICacheStore` را تزریق کنید. بدون هیچ تنظیمی یک store درون‌حافظه‌ای دارید که برای امتحان هر چیزِ این صفحه کافی است.
+
+```sh
+dotnet add package Naravel.Cache
+```
+
 ```csharp
-builder.Services.AddNaravelCache(configuration).AddNaravelRedisCache(configuration);
-builder.Services.AddNaravelRateLimiter("redis");
-var decision = await limiter.AttemptAsync("login", subjectKey, 5, TimeSpan.FromMinutes(1), cancellationToken);
+using Naravel.Cache;
+using Naravel.Cache.Abstractions;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddNaravelCache(builder.Configuration);
+
+var app = builder.Build();
+
+app.MapGet("/time", (ICacheStore cache) =>
+    cache.RememberAsync("server-time", TimeSpan.FromSeconds(30),
+        () => Task.FromResult(DateTime.UtcNow.ToString("T"))));
+
+app.Run();
+```
+
+`/time` را چند بار بارگذاری کنید: مقدار ۳۰ ثانیه ثابت می‌ماند و بعد factory دوباره اجرا می‌شود.
+
+برای اشتراک یک cache میان چند نمونه از برنامه، provider مربوط به Redis را اضافه کنید و آن را store پیش‌فرض کنید (`"Default": "redis"` در [تنظیمات](#تنظیمات)):
+
+```csharp
+builder.Services.AddNaravelCache(builder.Configuration).AddNaravelRedisCache(builder.Configuration);
+builder.Services.AddNaravelRateLimiter("redis");   // اختیاری: محدودکنندهٔ ورود که پایین‌تر می‌آید، با شمارش در همان store
 ```
 
 ## ثبت providerها
@@ -91,7 +116,46 @@ var settings = await cache.RememberAsync(
     cancellationToken);
 ```
 
-عملیات دیگر شامل `ExistsAsync`، `RemoveAsync`، `PullAsync`، `IncrementAsync`، `DecrementAsync` و `FlushAsync` هستند. دامنهٔ `FlushAsync` به backend بستگی دارد؛ محدودیت‌ها را ببینید.
+همهٔ عملیات و خروجی هر کدام:
+
+| متد | خروجی | کاری که می‌کند |
+|---|---|---|
+| `TryGetAsync<T>(key, ct)` | `(bool Found, T? Value)` | مقدار را می‌خواند. `Found` کلید ناموجود را از `default` ذخیره‌شده جدا می‌کند. |
+| `SetAsync<T>(key, value, ttl, ct)` | `Task` | مقدار را ذخیره می‌کند. `ttl: null` یعنی بدون انقضا. |
+| `ExistsAsync(key, ct)` | `bool` | آیا مقدار زنده‌ای ذخیره شده است. |
+| `RemoveAsync(key, ct)` | `bool` | کلید را حذف می‌کند؛ اگر وجود داشت `true`. |
+| `PullAsync<T>(key, ct)` | `T?` | با یک فراخوانی می‌خواند و حذف می‌کند؛ اگر کلید نبود `default`. |
+| `RememberAsync<T>(key, ttl, factory, ct)` | `T` | مقدار ذخیره‌شده را برمی‌گرداند، وگرنه `factory` را اجرا می‌کند، نتیجه را ذخیره می‌کند و برمی‌گرداند. |
+| `RememberForeverAsync<T>(key, factory, ct)` | `T` | همان، بدون انقضا. |
+| `IncrementAsync(key, by, ct)` و `IncrementAsync(key, by, ttl, ct)` | `long` | `by` را به یک شمارنده اضافه می‌کند و مقدار جدید را برمی‌گرداند. overload دارای `ttl` فقط وقتی کلید را می‌سازد انقضا می‌گذارد. |
+| `DecrementAsync(key, by, ct)` | `long` | `by` را کم می‌کند و مقدار جدید را برمی‌گرداند. |
+| `FlushAsync(ct)` | `Task` | store را خالی می‌کند. دامنه به provider بستگی دارد؛ [محدودیت‌ها](#رفتار-و-محدودیت-providerها) را ببینید. |
+
+`PullAsync`، `RememberAsync` و `RememberForeverAsync` متدهای extension در namespace `Naravel.Cache` هستند؛ پس کنار `using Naravel.Cache.Abstractions;` بنویسید `using Naravel.Cache;`. `RememberAsync` factory را با یا بدون `CancellationToken` می‌پذیرد: `() => ...` یا `ct => ...`.
+
+```csharp
+await cache.SetAsync("greeting", "hello", TimeSpan.FromMinutes(10), ct);
+
+var (found, value) = await cache.TryGetAsync<string>("greeting", ct);   // found == true و value == "hello"
+var removed = await cache.RemoveAsync("greeting", ct);                  // true: وجود داشت
+var removedAgain = await cache.RemoveAsync("greeting", ct);             // false: دیگر نیست
+
+var visits = await cache.IncrementAsync("visits:home", 1, TimeSpan.FromHours(1), ct);   // 1، بعد 2، بعد 3 ...
+var stock = await cache.IncrementAsync("stock:42", 10, ct);                              // 10
+stock = await cache.DecrementAsync("stock:42", 3, ct);                                   // 7
+
+var rates = await cache.RememberForeverAsync("exchange-rates", () => LoadRatesAsync(ct), ct);   // یک بار بارگذاری می‌شود؛ LoadRatesAsync متد خودتان است
+
+await cache.SetAsync("flash:message", "saved", TimeSpan.FromMinutes(1), ct);
+var message = await cache.PullAsync<string>("flash:message", ct);       // "saved"؛ کلید حالا حذف شده است
+```
+
+پیش از تکیه بر این متدها سه نکته را بدانید:
+
+- **`RememberAsync` قفل نمی‌گیرد.** اگر دو درخواست هم‌زمان روی یک کلید miss کنند، هر دو factory را اجرا می‌کنند و نوشتن آخر برنده است. برای factoryِ سنگین یا دارای اثر جانبی، فراخوانی را داخل یک [lock](#lock) بگذارید.
+- **شمارنده‌ای که باید منقضی شود، overload دارای `ttl` را می‌خواهد.** در store حافظه‌ای، `IncrementAsync(key, by, ct)` بدون ttl شمارنده را بدون انقضا نگه می‌دارد.
+- **TTL مثبت بدهید، یا `null` برای بدون انقضا.** `CacheFake` برای TTL صفر یا منفی `ArgumentOutOfRangeException` پرتاب می‌کند، تا تست اشتباه را زود بگیرد.
+
 
 ## انتخاب store
 
@@ -116,6 +180,22 @@ var custom = cacheManager.Store("custom");
 ```
 
 اگر store سفارشی lock هم پشتیبانی می‌کند، باید جداگانه با `LockManager.Extend` ثبت شود؛ قرارداد cache و lock عمداً جدا هستند.
+
+storeای که با factory ناهمگام (async) ثبت شده است (مثلاً یک store سفارشی که پیش از اولین استفاده باید وصل شود) را `Store()` نمی‌تواند بسازد، چون همگام (sync) است. آن را یک بار با `DriverAsync` بسازید، مثلاً هنگام startup؛ از آن به بعد `Store` آن را برمی‌گرداند:
+
+```csharp
+cacheManager.Extend("remote", async (sp, ct) =>
+{
+    var store = new MyRemoteCacheStore("remote");
+    await store.ConnectAsync(ct);
+    return store;
+});
+
+await cacheManager.DriverAsync("remote", cancellationToken);   // store را می‌سازد و cache می‌کند
+var remote = cacheManager.Store("remote");                     // حالا کار می‌کند؛ پیش از DriverAsync پرتاب می‌شود
+```
+
+اگر `Store("remote")` را پیش از `DriverAsync` صدا بزنید، `InvalidOperationException` پرتاب می‌شود: `Driver 'remote' is registered with an asynchronous factory and has not been created yet. Use DriverAsync to create it.` متد `DriverAsync` store خام را بدون prefix برنامه برمی‌گرداند؛ برای نمایی که کد شما باید با آن بخواند و بنویسد از `Store`، `ForUser` یا `Scope` استفاده کنید. storeهای داخلی Memory، Redis و Memcached همگام هستند و به هیچ‌کدام از این‌ها نیاز ندارند.
 
 ## Scope و tag
 
@@ -155,6 +235,14 @@ public sealed class OrderProcessor(LockManager locks)
 ```
 
 هر acquisition موفق token یکتایی برمی‌گرداند و فقط همان token می‌تواند lock را آزاد کند. Redis از `SET NX` و compare-and-delete اتمیک استفاده می‌کند. lock حافظه‌ای فقط در همان process معتبر است. acquisition در Memcached اتمیک است، اما release فاصلهٔ زمانی کوچکی بین خواندن و حذف دارد؛ برای critical section توزیع‌شده از Redis استفاده کنید.
+
+رفتار `BlockAsync` را بدانید تا دو مدت را درست انتخاب کنید:
+
+- تلاش می‌کند lock را بگیرد و تا وقتی دست کس دیگری است، تقریباً هر ۱۵۰ میلی‌ثانیه دوباره تلاش می‌کند تا `wait` تمام شود. سپس `false` برمی‌گرداند و callback اجرا نمی‌شود. `TryRunAsync(name, ttl, callback)` همین است بدون انتظار: یک تلاش، و اگر lock دست دیگری بود `false`.
+- وقتی `true` برمی‌گرداند، callback اجرا شده است. lock پس از آن آزاد می‌شود، حتی اگر callback exception پرتاب کند؛ آنگاه exception به کد شما می‌رسد.
+- `ttl` عمر lock است و تمدید نمی‌شود. اگر callback بیشتر از `ttl` طول بکشد، lock منقضی می‌شود و دیگری می‌تواند آن را بگیرد. `ttl` را بزرگ‌تر از کندترین اجرای قابل‌انتظار بگذارید.
+- `ReleaseAsync(name, token)` وقتی token مال مالک فعلی نباشد `false` برمی‌گرداند، مثلاً پس از انقضای lock و گرفتن آن توسط دیگری. exception پرتاب نمی‌کند.
+
 
 ## محدودسازی نرخ
 
@@ -225,6 +313,35 @@ benchmark نرخ عملیات روی Memory با نام `MemoryRateLimiterAttemp
 ```sh
 dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*MemoryRateLimiterAttempt*' --job short
 ```
+
+## خطاها
+
+فراخوانی نادرست یک متد، زود و با exception استاندارد .NET شکست می‌خورد. پیام‌های زیر همان‌هایی هستند که کد پرتاب می‌کند.
+
+| چه وقت | exception و پیام |
+|---|---|
+| `key`، نام lock یا scope خالی | `ArgumentException` (برای `null` همان `ArgumentNullException`) |
+| `ForUser(null)` | `ArgumentNullException` |
+| `Tags()` بدون هیچ tag غیرخالی | `ArgumentException`: `At least one non-empty cache tag is required.` |
+| `IncrementAsync(key, by, ttl)` با `by` یا `ttl` صفر یا منفی | `ArgumentOutOfRangeException` |
+| `BlockAsync` با `ttl` صفر یا منفی یا `wait` منفی (`AcquireAsync` در lock حافظه‌ای هم `ttl` صفر یا منفی را رد می‌کند) | `ArgumentOutOfRangeException` |
+| `AttemptAsync` با `maxAttempts` یا `window` صفر یا منفی | `ArgumentOutOfRangeException` |
+| `AttemptAsync` در ۵ ثانیه نتواند lock را بگیرد | `TimeoutException`: `Could not acquire the cache rate-limit lock within the configured wait period.` |
+| نام storeای که ثبت نشده | `DriverNotRegisteredException`: `Driver 'x' is not registered for ICacheStore. Available drivers: …` |
+| `Store()` روی store فقط-async که هنوز ساخته نشده | `InvalidOperationException`؛ اول `DriverAsync` را صدا بزنید ([انتخاب store](#انتخاب-store)). |
+| لغو شدن token | `OperationCanceledException` |
+| backend از دسترس خارج است | exception خودِ client آن backend، بدون تغییر (در Redis، exception مربوط به StackExchange.Redis). |
+
+خطاهای خود Foundation (نبودن store پیش‌فرض، manager دورانداخته‌شده) در [راهنمای Foundation](foundation.md#خطاها) آمده است.
+
+assertionهای `CacheFake` با این پیام‌ها `InvalidOperationException` پرتاب می‌کنند:
+
+| assertion | پیام |
+|---|---|
+| `AssertHas("k")` روی کلید ناموجود یا منقضی | `Expected cache key 'k' to exist, but it does not.` |
+| `AssertHas<int>("k")` وقتی مقدار string است | `Cache key 'k' holds String, not Int32.` |
+| `AssertMissing("k")` روی کلید ذخیره‌شده | `Expected cache key 'k' to be missing, but it exists.` |
+| `AssertEmpty()` در حالی که دو کلید مانده | `Expected an empty cache, but found 2 key(s): a, b.` |
 
 ## رفتار و محدودیت providerها
 

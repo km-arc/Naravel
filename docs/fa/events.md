@@ -8,16 +8,52 @@
 
 ## شروع سریع
 
-```csharp
-services.AddNaravelEvents();
-events.Listen<OrderPaid>((evt, context, ct) => listener.HandleAsync(evt, context, ct));
-await events.DispatchAsync(new OrderPaid(orderId));
+```sh
+dotnet add package Naravel.Events
 ```
 
-`Listen<TEvent>` یک callback را در scope جاری DI ثبت و `IDisposable` برای لغو subscription برمی‌گرداند. سرویس‌های
-DI با قرارداد `IEventListener<TEvent>` ابتدا و به ترتیب ثبت اجرا می‌شوند؛ callbackهای `Listen` پس از آن و به ترتیب ثبت
-فراخوانی می‌شوند. listener می‌تواند با `context.Stop()` ادامهٔ انتشار را متوقف کند. نخستین exception به caller منتقل
-می‌شود و dispatch متوقف می‌گردد.
+```csharp
+using Naravel.Events;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddNaravelEvents();
+builder.Services.AddScoped<IEventListener<OrderPaid>, WriteAuditLine>();   // listener یک سرویس معمولی DI است
+
+var app = builder.Build();
+
+app.MapPost("/orders/{id}/pay", async (string id, IEventDispatcher events, CancellationToken ct) =>
+{
+    await events.DispatchAsync(new OrderPaid(id, 42m), ct);   // وقتی برمی‌گردد، همهٔ listenerهای OrderPaid اجرا شده‌اند
+    return Results.Ok($"Order {id} paid");
+});
+
+app.Run();
+
+public sealed record OrderPaid(string OrderId, decimal Total);
+
+public sealed class WriteAuditLine : IEventListener<OrderPaid>
+{
+    public Task HandleAsync(OrderPaid evt, EventDispatchContext context, CancellationToken cancellationToken = default)
+    {
+        Console.WriteLine($"audit: order {evt.OrderId} paid, total {evt.Total}");
+        return Task.CompletedTask;
+    }
+}
+```
+
+`POST /orders/7/pay` خط audit را چاپ می‌کند و بعد پاسخ می‌دهد. کل سازوکار همین است: رویداد یک record است، listener کلاسی با `HandleAsync` است و `DispatchAsync` همهٔ listenerهای ثبت‌شده برای همان نوع دقیق رویداد را صدا می‌زند.
+
+| عضو | کاری که می‌کند |
+|---|---|
+| `AddNaravelEvents()` | `IEventDispatcher` با lifetime از نوع scoped را ثبت می‌کند. از `TryAdd` استفاده می‌کند، پس برنامه می‌تواند dispatcher را جایگزین کند. |
+| `IEventDispatcher.DispatchAsync<TEvent>(evt, ct)` | همهٔ listenerهای دقیقاً `TEvent` را به ترتیب اجرا می‌کند. |
+| `IEventDispatcher.Listen<TEvent>(callback)` | یک callback را در scope جاری DI اضافه می‌کند و `IDisposable` برمی‌گرداند؛ با dispose آن callback حذف می‌شود. |
+| `IEventListener<TEvent>.HandleAsync(evt, context, ct)` | قرارداد listener. |
+| `IQueuedEventListener<TEvent>` | listenerی که بعداً روی worker صف اجرا می‌شود (به `Naravel.Events.Queue` نیاز دارد). |
+| `EventDispatchContext.Stop()` و `.StopPropagation` | listenerهای باقی‌مانده را رد می‌کند، و نشان می‌دهد کسی این کار را کرده یا نه. |
+| `Naravel.Events.Testing.EventFake` | یک test double که رویدادهای dispatch‌شده را ثبت می‌کند و هیچ listenerی اجرا نمی‌کند. |
+
+dispatch چطور اجرا می‌شود: سرویس‌های DI با قرارداد `IEventListener<TEvent>` ابتدا و به ترتیب ثبت اجرا می‌شوند؛ callbackهای `Listen` پس از آن و به ترتیب ثبت فراخوانی می‌شوند. listener می‌تواند با `context.Stop()` ادامهٔ انتشار را متوقف کند. نخستین exception listener به caller منتقل می‌شود و dispatch متوقف می‌گردد.
 
 ## Listenerهای DI
 
@@ -118,7 +154,7 @@ Events وابستگی به Queue ندارد و نه assembly scan انجام م�
 - listener صف‌شده بعداً و با یک `EventDispatchContext` تازه اجرا می‌شود: نمی‌تواند انتشار را متوقف کند، کدِ dispatch‌کننده منتظر آن نمی‌ماند و exceptionهای آن از قواعد retry و failed-job در Queue پیروی می‌کنند، نه سیاست نخستین exception. اجرا at-least-once است؛ listenerها را idempotent بنویسید.
 - listenerی که `IQueuedEventListener<TEvent>` را پیاده‌سازی کرده اما با `AddQueuedEventListener` ثبت نشده، چون alias ندارد در زمان dispatch با `InvalidOperationException` شکست می‌خورد.
 
-## مثال کامل
+## سه نوع listener کنار هم
 
 یک رویداد، یک listener در DI که می‌تواند انتشار را متوقف کند، یک listener صف‌شده و یک callback از نوع `Listen` در محدودهٔ درخواست. `IOrderReadStore` و `IMailer` نمایندهٔ سرویس‌های خودتان هستند. نسخهٔ قابل اجرا در `samples/Naravel.Sample` (صفحهٔ `/events`) است.
 
@@ -165,29 +201,32 @@ app.MapPost("/orders/{id}/pay", async (string id, string email, decimal total, I
 
 ترتیب اجرا برای مبلغ 120: ابتدا `UpdateOrderReadModel`، بعد callback مربوط به `Listen`؛ `SendReceipt` بعداً در worker صف اجرا می‌شود (workerی روی connection پیش‌فرض و queue با نام `default` اجرا کنید). برای مبلغ بالاتر از 10,000 listener اول انتشار را متوقف می‌کند و چیز دیگری اجرا نمی‌شود.
 
-## تست فراخوانی dispatcher
+## خطاها
 
-```csharp
-[Fact]
-public async Task Paying_an_order_dispatches_OrderPaid()
-{
-    var fake = new EventFake();                                  // replaces IEventDispatcher in the test
-    var handler = new PayOrderHandler(fake);                     // your code under test
+| چه وقت | چه می‌شود |
+|---|---|
+| `DispatchAsync(null)` | `ArgumentNullException`. |
+| token پیش از listenerها یا میان آن‌ها لغو شود | `OperationCanceledException`؛ listener دیگری اجرا نمی‌شود و شکست حساب نمی‌شود. |
+| یک listener exception پرتاب کند | همان exception به caller متد `DispatchAsync` می‌رسد؛ listenerهای بعدی اجرا نمی‌شوند و dispatch شکست‌خورده شمرده می‌شود. |
+| listener صف با `AddQueuedEventListener` ثبت نشده باشد | `InvalidOperationException` هنگام dispatch: `Queued listener 'MyApp.SendReceipt' for event 'MyApp.OrderPaid' has no explicit queue alias registration.` |
+| alias خالی به `AddQueuedEventListener` داده شود | `ArgumentException`. |
+| یک alias دو بار ثبت شود | `InvalidOperationException`: `Queued event listener alias 'order-paid.receipt' is registered more than once.` |
+| یک listener دو بار برای یک رویداد ثبت شود | `InvalidOperationException`: `Queued event listener 'MyApp.SendReceipt' for 'MyApp.OrderPaid' is registered more than once.` |
+| worker jobی با aliasی بگیرد که نمی‌شناسد (مثلاً از استقرار قدیمی‌تر یا جدیدتر) | `InvalidOperationException`: `Queued event listener alias 'order-paid.receipt' is not registered.` سپس job از قواعد retry و failed-job در Queue پیروی می‌کند. |
+| payload صف به `null` deserialize شود | `InvalidDataException`: `Queued event payload for alias 'order-paid.receipt' was null.` |
 
-    await handler.PayAsync("o-1", "ali@example.com", 120m);
+دو خطای ثبت تکراری وقتی پرتاب می‌شوند که registry مربوط به listenerهای صف برای نخستین بار از روی ثبت‌ها ساخته شود، نه هنگام فراخوانی `AddQueuedEventListener`.
 
-    var evt = fake.AssertDispatched<OrderPaid>();                // throws if none was dispatched
-    Assert.Equal("o-1", evt.OrderId);
-    fake.AssertDispatched<OrderPaid>(expectedCount: 1);          // exact count
-    fake.Reset();
-}
-```
+assertionهای `EventFake` با `InvalidOperationException` شکست می‌خورند:
 
-`EventFake` رویدادها را فقط ثبت می‌کند و listener اجرا نمی‌کند؛ پس listenerها را با فراخوانی مستقیم `HandleAsync` تست کنید.
+| assertion | پیام |
+|---|---|
+| `AssertDispatched<OrderPaid>()` وقتی هیچ رویدادی dispatch نشده | `No OrderPaid event was dispatched.` |
+| `AssertDispatched<OrderPaid>(1)` وقتی هیچ رویدادی نبوده | `Expected 1 OrderPaid events to be dispatched, but found 0.` |
 
 ## مشاهده‌پذیری و تست
 
-نام `Meter` و `ActivitySource` هر دو `Naravel.Events` است. `Naravel.Events.Testing.EventFake` رویدادها را ثبت می‌کند
+نام `Meter` و `ActivitySource` هر دو `Naravel.Events` است. متریک‌ها `naravel.events.dispatched` و `naravel.events.failed` (شمارنده) و `naravel.events.dispatch.duration` (histogram به میلی‌ثانیه) هستند؛ نام span برابر `events.dispatch` است. `Naravel.Events.Testing.EventFake` رویدادها را ثبت می‌کند
 و assertion نوع/تعداد و reset دارد؛ listener اجرا نمی‌کند. `AddNaravelEvents()` از `TryAdd` استفاده می‌کند، پس برنامه
 می‌تواند `IEventDispatcher` را صریح جایگزین کند.
 
