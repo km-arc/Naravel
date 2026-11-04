@@ -7,15 +7,31 @@ using Microsoft.Extensions.Options;
 namespace Naravel.Routing;
 
 internal sealed class ThrottleMiddleware(
-    IThrottleStore store,
+    ThrottleGuard guard,
     IOptions<RoutingOptions> options) : IRouteMiddleware
 {
     public async Task InvokeAsync(HttpContext context, RequestDelegate next, MiddlewareArguments arguments)
     {
         var (name, policy) = ResolvePolicy(arguments, options.Value);
-        var decision = await store
-            .AttemptAsync(GetPartitionKey(context, name), policy.PermitLimit, policy.Window, context.RequestAborted)
+        var attempt = await guard
+            .AttemptAsync(GetPartitionKey(context, name), name, policy, context.RequestAborted)
             .ConfigureAwait(false);
+
+        if (attempt.Kind == ThrottleAttemptKind.Unlimited)
+        {
+            await next(context).ConfigureAwait(false);
+            return;
+        }
+
+        if (attempt.Kind == ThrottleAttemptKind.Unavailable)
+        {
+            context.Response.Headers.RetryAfter = Math.Max(1, (long)Math.Ceiling(attempt.RetryAfter.TotalSeconds))
+                .ToString(CultureInfo.InvariantCulture);
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            return;
+        }
+
+        var decision = attempt.Decision;
 
         context.Response.Headers["X-RateLimit-Limit"] = policy.PermitLimit.ToString(CultureInfo.InvariantCulture);
         context.Response.Headers["X-RateLimit-Remaining"] = Math.Max(0, decision.Remaining).ToString(CultureInfo.InvariantCulture);

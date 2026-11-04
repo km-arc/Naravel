@@ -32,6 +32,9 @@ public sealed class RoutingOptions
     /// <summary>Aliases, groups and priority of route middleware.</summary>
     public MiddlewareOptions Middleware { get; } = new();
 
+    /// <summary>Timing of the guard around a registered <see cref="IThrottleStore"/> (store timeout and breaker period).</summary>
+    public ThrottleOptions Throttle { get; } = new();
+
     /// <summary>Global regex constraints applied to every route parameter with that name (<c>Route::pattern</c>).</summary>
     public IDictionary<string, string> Patterns { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
@@ -49,12 +52,22 @@ public sealed class RoutingOptions
     /// <param name="permitLimit">Number of requests allowed in each window.</param>
     /// <param name="window">Length of the fixed window.</param>
     /// <remarks>The policy uses process-local <see cref="System.Threading.RateLimiting.RateLimiter"/> state and does not coordinate across instances.</remarks>
-    public RoutingOptions ConfigureThrottlePolicy(string name, int permitLimit, TimeSpan window)
+    public RoutingOptions ConfigureThrottlePolicy(string name, int permitLimit, TimeSpan window) =>
+        ConfigureThrottlePolicy(name, permitLimit, window, ThrottleFailureMode.DegradeToLocal);
+
+    /// <summary>Registers a named fixed-window throttle policy and says what to do when the registered <see cref="IThrottleStore"/> cannot answer.</summary>
+    /// <param name="name">Policy name used as <c>throttle:name</c>.</param>
+    /// <param name="permitLimit">Number of requests allowed in each window.</param>
+    /// <param name="window">Length of the fixed window.</param>
+    /// <param name="failureMode">What a store failure means for this policy; see <see cref="ThrottleFailureMode"/>.</param>
+    /// <remarks>The failure mode only matters for a store you registered; the default in-process store cannot fail.</remarks>
+    public RoutingOptions ConfigureThrottlePolicy(string name, int permitLimit, TimeSpan window, ThrottleFailureMode failureMode)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(permitLimit);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(window, TimeSpan.Zero);
-        _throttlePolicies[name] = new ThrottlePolicy(permitLimit, window);
+        if (!Enum.IsDefined(failureMode)) throw new ArgumentOutOfRangeException(nameof(failureMode), failureMode, "Unknown throttle failure mode.");
+        _throttlePolicies[name] = new ThrottlePolicy(permitLimit, window, failureMode);
         return this;
     }
 
@@ -76,5 +89,8 @@ public sealed class RoutingOptions
     internal bool TryGetThrottlePolicy(string name, out ThrottlePolicy policy) =>
         _throttlePolicies.TryGetValue(name, out policy);
 
-    internal readonly record struct ThrottlePolicy(int PermitLimit, TimeSpan Window);
+    internal readonly record struct ThrottlePolicy(
+        int PermitLimit,
+        TimeSpan Window,
+        ThrottleFailureMode FailureMode = ThrottleFailureMode.DegradeToLocal);
 }
