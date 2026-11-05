@@ -220,7 +220,7 @@ fake.AssertNothingQueued();
 
 `ArgumentException` messages end with ` (Parameter 'to')` or the name of the offending argument. The three `ArgumentException` cases are raised when the `MailMessage` is built, before any transport is touched.
 
-The `smtp` transport reports a bad setting the first time it is used, naming the key:
+The `smtp` transport reads its settings when the transport is first created, which is the first send through that mailer. `AddNaravelMailSmtp` only registers it and reads nothing, so a bad value does not stop the application from starting; it fails that first send and names the key:
 
 | Setting | Message |
 |---|---|
@@ -244,7 +244,7 @@ Foundation's own errors (an unknown transport name, no default) are in the [Foun
 
 `AssertQueued` has the same two messages with `queued` in place of `sent`.
 
-`tests/Naravel.Mail.Tests/DocsExampleTests.cs` runs the quickstart mailable, the copies example and every message above except the `smtp` table, whose settings are covered by `tests/Naravel.Mail.Smtp.Tests`. Change one, change the other.
+`tests/Naravel.Mail.Tests/DocsExampleTests.cs` runs the quickstart mailable, the copies example and every message above except the `smtp` table, whose settings are covered by `tests/Naravel.Mail.Smtp.Tests`, including that a malformed value fails when the transport is first created and not at registration. Change one, change the other.
 
 ## Complete example
 

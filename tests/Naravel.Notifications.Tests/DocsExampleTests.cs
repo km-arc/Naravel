@@ -85,6 +85,25 @@ public sealed class DocsExampleTests
     }
 
     [Fact]
+    public async Task An_exception_thrown_inside_a_channel_reaches_the_caller_wrapped()
+    {
+        await using var provider = Build(s => s.AddNotificationChannel<InvoiceReady>("sms", (context, _, _) =>
+        {
+            context.GetRecipient<User>();
+            return Task.CompletedTask;
+        }));
+        using var scope = provider.CreateScope();
+        var sender = scope.ServiceProvider.GetRequiredService<INotificationSender>();
+
+        var thrown = await FluentActions.Awaiting(() => sender.SendAsync("just a string", new InvoiceReady(7), ["sms"]))
+            .Should().ThrowAsync<NotificationDeliveryException>();
+
+        thrown.Which.Message.Should().Be("Notification channel 'sms' failed; no channel had delivered yet.");
+        thrown.Which.InnerException.Should().BeOfType<InvalidOperationException>()
+            .Which.Message.Should().Be("Channel 'sms' expects a recipient of type User but got String.");
+    }
+
+    [Fact]
     public async Task NotificationFake_assertions_fail_with_the_messages_in_the_guide()
     {
         var fake = new NotificationFake();

@@ -132,11 +132,10 @@ fake.AssertNothingSent();                               // بعد از Reset()،
 
 | چه وقت | exception و پیام |
 |---|---|
-| برای نامی در این نوع notification channelی ثبت نشده | `InvalidOperationException`: `No notification channel 'sms' is registered for InvoiceReady. Registered: log.` (اگر channelی نباشد `Registered: none.`) |
+| برای نامی در این نوع notification channelای ثبت نشده | `InvalidOperationException`: `No notification channel 'sms' is registered for InvoiceReady. Registered: log.` (اگر channelای نباشد `Registered: none.`) |
 | یک نام دو بار برای یک نوع ثبت شده | `InvalidOperationException`: `The channel 'sms' is registered more than once for InvoiceReady; channel names must be unique per notification type.` |
-| `GetRecipient<User>()` روی نوع دیگر | `InvalidOperationException`: `Channel 'sms' expects a recipient of type User but got String.` |
 
-**تحویل.** channelی که exception پرتاب کند dispatch را متوقف می‌کند و به شکل `NotificationDeliveryException` ظاهر می‌شود؛ exception اصلی در `InnerException` است:
+**تحویل.** هر چیزی که **داخل یک channel** پرتاب شود dispatch را متوقف می‌کند و به شکل خودش به caller نمی‌رسد: `SendAsync` یک `NotificationDeliveryException` پرتاب می‌کند و exception اصلی همان `InnerException` آن است.
 
 | channelهایی که تحویل داده بودند | `Message` |
 |---|---|
@@ -145,7 +144,17 @@ fake.AssertNothingSent();                               // بعد از Reset()،
 
 `Channel` برابر `boom` است و `DeliveredChannels` channelهای قبلی را به ترتیب می‌آورد. `OperationCanceledException` هرگز wrap نمی‌شود.
 
-**channel mail.** اگر delegate با نام `mailable` مقدار `null` برگرداند، `AddMailNotificationChannel` این را پرتاب می‌کند: `InvalidOperationException`: `The mailable factory for InvoiceReady returned null.`؛ آدرس نامعتبر channel را با خطای خود Naravel.Mail شکست می‌دهد (به [راهنمای Mail](mail.md#خطاها) نگاه کنید).
+آنچه به‌عنوان `InnerException` می‌رسد:
+
+| پرتاب‌شده داخل channel | `InnerException` |
+|---|---|
+| کد channel خودتان | هر چه پرتاب کرده باشد. |
+| `context.GetRecipient<User>()` روی گیرنده‌ای از نوع دیگر | `InvalidOperationException`: `Channel 'sms' expects a recipient of type User but got String.` |
+| channel ایمیل، وقتی delegate با نام `mailable` مقدار `null` برگرداند | `InvalidOperationException`: `The mailable factory for InvoiceReady returned null.` |
+| channel ایمیل، با آدرس نامعتبر | `ArgumentException` خود Naravel.Mail، مثلاً `'not-an-address' is not a valid e-mail address.` (به [راهنمای Mail](mail.md#خطاها) نگاه کنید) |
+| channel ایمیل، وقتی transport ایمیل شکست بخورد | exception خودِ transport. |
+
+صدا زدن مستقیم `GetRecipient` یا `SendAsync` یک channel، همان‌طور که تست یک channel می‌کند، این exceptionها را بدون wrap پرتاب می‌کند.
 
 **adapter صف.**
 
@@ -165,7 +174,7 @@ assertionهای `NotificationFake` با `InvalidOperationException` شکست م�
 | `AssertNotSent<InvoiceReady>()` وقتی یکی ارسال شده | `Expected no InvoiceReady notification, but 1 were sent.` |
 | `AssertNothingSent()` وقتی یکی ارسال شده | `Expected no notifications, but 1 were sent.` |
 
-`tests/Naravel.Notifications.Tests/DocsExampleTests.cs` مثال quickstart و پیام‌های آرگومان، channel، تحویل و `NotificationFake` را اجرا می‌کند. پیام‌های mail و صف از روی سورس آمده‌اند و آنجا اجرا نمی‌شوند. یکی را عوض کردید، دیگری را هم عوض کنید.
+`tests/Naravel.Notifications.Tests/DocsExampleTests.cs` مثال quickstart و پیام‌های آرگومان، channel، تحویل و `NotificationFake` را اجرا می‌کند. پیام `returned null` مربوط به channel ایمیل را `tests/Naravel.Notifications.Mail.Tests` اجرا می‌کند؛ پیام‌های adapter صف از روی سورس آمده‌اند و اجرا نمی‌شوند. یکی را عوض کردید، دیگری را هم عوض کنید.
 
 ## مثال کامل
 

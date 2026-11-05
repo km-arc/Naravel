@@ -133,6 +133,30 @@ public sealed class SmtpMailTransportTests
     }
 
     [Fact]
+    public void A_malformed_setting_fails_when_the_transport_is_first_created_not_when_it_is_registered()
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Mail:Default"] = "relay",
+            ["Mail:From"] = "app@example.com",
+            ["Mail:Mailers:relay:Driver"] = "smtp",
+            ["Mail:Mailers:relay:Host"] = "mail.example.com",
+            ["Mail:Mailers:relay:Security"] = "tls13"
+        }).Build();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddNaravelMail(configuration);
+
+        var register = () => services.AddNaravelMailSmtp(configuration);
+        register.Should().NotThrow();
+
+        using var provider = services.BuildServiceProvider();
+        var manager = provider.GetRequiredService<MailManager>();
+        var create = () => manager.Driver("relay");
+        create.Should().Throw<InvalidOperationException>().WithMessage("*Mail:Mailers:relay:Security*");
+    }
+
+    [Fact]
     public void Configuration_errors_name_the_offending_key()
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>

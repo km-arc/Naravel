@@ -219,7 +219,7 @@ fake.AssertNothingQueued();
 
 پیام `ArgumentException` با ` (Parameter 'to')` یا نام آرگومان خطادار تمام می‌شود. سه حالت `ArgumentException` هنگام ساخته‌شدن `MailMessage` رخ می‌دهند، پیش از آنکه به transport دست زده شود.
 
-transport از نوع `smtp` تنظیم نادرست را نخستین بار که استفاده می‌شود گزارش می‌کند و نام کلید را می‌آورد:
+transport از نوع `smtp` تنظیم‌هایش را وقتی می‌خواند که transport برای نخستین بار ساخته شود، یعنی نخستین ارسال از آن mailer. `AddNaravelMailSmtp` فقط آن را ثبت می‌کند و چیزی نمی‌خواند؛ پس مقدار نادرست جلوی راه‌اندازی برنامه را نمی‌گیرد، همان ارسال اول را شکست می‌دهد و نام کلید را می‌آورد:
 
 | تنظیم | پیام |
 |---|---|
@@ -243,7 +243,7 @@ assertionهای `MailFake` با `InvalidOperationException` شکست می‌خو
 
 `AssertQueued` همین دو پیام را با `queued` به‌جای `sent` دارد.
 
-`tests/Naravel.Mail.Tests/DocsExampleTests.cs` مثال quickstart، مثال رونوشت و همهٔ پیام‌های بالا را، جز جدول `smtp`، اجرا می‌کند؛ تنظیمات SMTP را `tests/Naravel.Mail.Smtp.Tests` می‌پوشاند. یکی را عوض کردید، دیگری را هم عوض کنید.
+`tests/Naravel.Mail.Tests/DocsExampleTests.cs` مثال quickstart، مثال رونوشت و همهٔ پیام‌های بالا را، جز جدول `smtp`، اجرا می‌کند؛ تنظیمات SMTP را `tests/Naravel.Mail.Smtp.Tests` می‌پوشاند، از جمله اینکه مقدار نادرست هنگام نخستین ساخته‌شدن transport شکست می‌خورد و نه هنگام ثبت. یکی را عوض کردید، دیگری را هم عوض کنید.
 
 ## مثال کامل
 
