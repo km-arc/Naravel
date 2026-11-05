@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Naravel.Routing.Cache</PackageId>
+    <Description>A shared store for the Naravel.Routing throttle middleware, counting in a Naravel.Cache store (for example Redis) so every application instance uses one quota.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>routing;throttle;rate-limit;cache;redis;laravel;naravel</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Naravel.Routing.Cache</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The ASP.NET Core framework comes with Naravel.Routing; it is named here because this project uses its DI and logging types directly. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Direction of dependency (PDR-024): Routing.Cache -> Routing and Cache. Routing never references Cache. -->
+    <ProjectReference Include="..\Naravel.Routing\Naravel.Routing.csproj" />
+    <ProjectReference Include="..\Naravel.Cache\Naravel.Cache.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Naravel.Routing.Cache.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\docs\nuget\Naravel.Routing.Cache.md" Pack="true" PackagePath="README.md" />
+  </ItemGroup>
+</Project>

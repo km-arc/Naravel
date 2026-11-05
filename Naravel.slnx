@@ -24,6 +24,7 @@
     <Project Path="src/Naravel.Database.EntityFrameworkCore/Naravel.Database.EntityFrameworkCore.csproj" />
     <Project Path="src/Naravel.Foundation/Naravel.Foundation.csproj" />
     <Project Path="src/Naravel.Routing/Naravel.Routing.csproj" />
+    <Project Path="src/Naravel.Routing.Cache/Naravel.Routing.Cache.csproj" />
     <Project Path="src/Naravel.Broadcasting/Naravel.Broadcasting.csproj" />
     <Project Path="src/Naravel.Scheduling/Naravel.Scheduling.csproj" />
     <Project Path="src/Naravel.Queue/Naravel.Queue.csproj" />
