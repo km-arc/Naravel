@@ -134,9 +134,8 @@ Register it with `services.AddSingleton<INotificationSender>(fake)`. It applies 
 |---|---|
 | A name has no registered channel for this notification type | `InvalidOperationException`: `No notification channel 'sms' is registered for InvoiceReady. Registered: log.` (`Registered: none.` when there are none) |
 | The same name is registered twice for one type | `InvalidOperationException`: `The channel 'sms' is registered more than once for InvoiceReady; channel names must be unique per notification type.` |
-| `GetRecipient<User>()` on another type | `InvalidOperationException`: `Channel 'sms' expects a recipient of type User but got String.` |
 
-**Delivery.** A channel that throws stops the dispatch and surfaces as `NotificationDeliveryException`, with the original exception as `InnerException`:
+**Delivery.** Anything that throws **inside a channel** stops the dispatch, and it does not reach the caller as itself: `SendAsync` throws a `NotificationDeliveryException` and the original exception is its `InnerException`.
 
 | Channels that had delivered | `Message` |
 |---|---|
@@ -145,7 +144,17 @@ Register it with `services.AddSingleton<INotificationSender>(fake)`. It applies 
 
 `Channel` is `boom`, and `DeliveredChannels` lists the earlier channels in order. `OperationCanceledException` is never wrapped.
 
-**Mail channel.** `AddMailNotificationChannel` throws `InvalidOperationException`: `The mailable factory for InvoiceReady returned null.` when your `mailable` delegate returns `null`; an invalid address fails the channel with Naravel.Mail's own error (see the [Mail guide](mail.md#errors)).
+What arrives as the `InnerException`:
+
+| Thrown inside the channel | `InnerException` |
+|---|---|
+| Your own channel code | Whatever it threw. |
+| `context.GetRecipient<User>()` on a recipient of another type | `InvalidOperationException`: `Channel 'sms' expects a recipient of type User but got String.` |
+| The mail channel, when your `mailable` delegate returns `null` | `InvalidOperationException`: `The mailable factory for InvoiceReady returned null.` |
+| The mail channel, with an invalid address | Naravel.Mail's own `ArgumentException`, for example `'not-an-address' is not a valid e-mail address.` (see the [Mail guide](mail.md#errors)) |
+| The mail channel, when the mail transport fails | The transport's own exception. |
+
+Calling `GetRecipient` or a channel's `SendAsync` directly, as a unit test of the channel does, throws these exceptions unwrapped.
 
 **Queue adapter.**
 
@@ -165,7 +174,7 @@ Register it with `services.AddSingleton<INotificationSender>(fake)`. It applies 
 | `AssertNotSent<InvoiceReady>()` when one was sent | `Expected no InvoiceReady notification, but 1 were sent.` |
 | `AssertNothingSent()` when one was sent | `Expected no notifications, but 1 were sent.` |
 
-`tests/Naravel.Notifications.Tests/DocsExampleTests.cs` runs the quickstart and the argument, channel, delivery and `NotificationFake` messages above. The mail and queue messages come from the source and are not run there. Change one, change the other.
+`tests/Naravel.Notifications.Tests/DocsExampleTests.cs` runs the quickstart and the argument, channel, delivery and `NotificationFake` messages above. The mail channel's `returned null` message is run by `tests/Naravel.Notifications.Mail.Tests`; the queue adapter messages come from the source and are not run. Change one, change the other.
 
 ## Complete example
 
