@@ -106,6 +106,22 @@ public sealed class MailChannelTests
     }
 
     [Fact]
+    public async Task A_mailable_factory_that_returns_null_fails_the_channel_with_the_documented_message()
+    {
+        await using var provider = Build(s => s.AddMailNotificationChannel<InvoiceReady>(
+            c => c.GetRecipient<User>().Email,
+            n => null!));
+        var act = () => provider.GetRequiredService<INotificationSender>().SendAsync(new User("ada@example.com"), new InvoiceReady(1), ["mail"]);
+
+        var exception = (await act.Should().ThrowAsync<NotificationDeliveryException>()).Which;
+
+        exception.Channel.Should().Be("mail");
+        exception.InnerException.Should().BeOfType<InvalidOperationException>()
+            .Which.Message.Should().Be("The mailable factory for InvoiceReady returned null.");
+        (await TransportAsync(provider, "primary")).Sent.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task A_recipient_of_the_wrong_type_is_reported_by_the_channel()
     {
         await using var provider = Build(s => s.AddMailNotificationChannel<InvoiceReady>(
