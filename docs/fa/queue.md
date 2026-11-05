@@ -6,11 +6,61 @@
 
 ## شروع سریع
 
-```csharp
-builder.Services.AddQueue(builder.Configuration).AddRedisDriver(builder.Configuration);
-builder.Services.AddQueueWorker();
-await app.Services.GetRequiredService<IJobDispatcher>().DispatchAsync(new MyJob());
+کوتاه‌ترین راه‌اندازی کارا: یک job، یک worker درون‌فرایندی و بدون broker. درایور memory به چیزی جز `Naravel.Queue.Memory` نیاز ندارد؛ پس می‌توانید پیش از انتخاب درایور واقعی همهٔ این صفحه را امتحان کنید.
+
+```sh
+dotnet add package Naravel.Queue.Memory
 ```
+
+```json
+{
+  "NaravelQueue": {
+    "Default": "local",
+    "Stores": { "local": { "Driver": "memory" } }
+  }
+}
+```
+
+```csharp
+using Naravel.Queue.Dispatch;
+using Naravel.Queue.Extensions;
+using Naravel.Queue.Jobs;
+using Naravel.Queue.Memory;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddQueue(builder.Configuration).AddMemoryDriver(builder.Configuration);
+builder.Services.AddQueueWorker();                          // worker: یک hosted service که jobها را اجرا می‌کند
+
+var app = builder.Build();
+
+app.MapPost("/welcome", async (string email, IJobDispatcher jobs, CancellationToken ct) =>
+{
+    var id = await jobs.DispatchAsync(new SendWelcomeEmailJob(email), cancellationToken: ct);
+    return Results.Accepted(value: new { id });             // بلافاصله پاسخ می‌دهد؛ job روی worker اجرا می‌شود
+});
+
+app.Run();
+
+public sealed class SendWelcomeEmailJob : Job
+{
+    public string ToEmail { get; set; } = default!;
+
+    public SendWelcomeEmailJob() { }                        // worker، job را از JSON بازسازی می‌کند؛ پس به این constructor نیاز دارد
+    public SendWelcomeEmailJob(string toEmail) => ToEmail = toEmail;
+
+    public override Task HandleAsync(JobContext context, CancellationToken cancellationToken)
+    {
+        Console.WriteLine($"Sending to {ToEmail} (attempt {context.Attempt} of {context.MaxAttempts})");
+        return Task.CompletedTask;
+    }
+}
+```
+
+`POST /welcome?email=ada@example.com` پاسخ `202 Accepted` همراه با شناسهٔ پیام می‌دهد و کمی بعد خطِ job در console دیده می‌شود. worker از صف `default` و هر بار یک job برمی‌دارد.
+
+آرگومان دوم `DispatchAsync` گزینه‌های dispatch است (`o => o.DelayFor(...)`)؛ پس token را با نام بدهید: `cancellationToken: ct`.
+
+jobهای memory در خود فرایند می‌مانند: با توقف فرایند از بین می‌روند و فرایند دوم آن‌ها را نمی‌بیند. برای jobهایی که باید از restart جان به در ببرند یا روی ماشین دیگر اجرا شوند، یک درایور از جدول زیر انتخاب کنید؛ کد برنامه همان می‌ماند.
 
 ## پکیج‌ها
 
@@ -50,7 +100,9 @@ await app.Services.GetRequiredService<IJobDispatcher>().DispatchAsync(new MyJob(
 وصل می‌شوند)، که دقیقاً همان چیزی است که helper ثبت درایور (`AddQueueDriver`، داخلی در `Naravel.Queue`)
 برایش ساخته شده.
 
-## شروع سریع
+## همان job با Redis و تنظیمات worker
+
+همان job شروع سریع، این بار با درایور Redis و تنظیمات صریح worker.
 
 ```csharp
 using Naravel.Queue.Jobs;
@@ -372,7 +424,7 @@ context باید جدول jobها را map کرده باشد (`ConfigureQueueJob
 
 تحویل at-least-once است؛ پس jobی که پول، موجودی یا هر وضعیت بیرونی را تغییر می‌دهد باید بتواند دو بار اجرا شود، بی‌آنکه آسیبی بزند. Naravel **ذخیره‌ی idempotency-key یا نتیجه‌ی ذخیره‌شده‌ی job ندارد**. دو قابلیت شبیه آن هستند ولی آن نیستند:
 
-- `IUniqueJob` (نگاه کنید به [queue-coordination](queue-coordination.md#unique-jobs-iuniquejob)) تا وقتی job مشابه در صف یا در حال اجراست، *dispatch دوم* را رد می‌کند. جلوی *تحویل مجدد* همان پیام را نمی‌گیرد و بعد از پایان job کلید دوباره آزاد می‌شود.
+- `IUniqueJob` (نگاه کنید به [queue-coordination](queue-coordination.md#jobهای-یکتا-iuniquejob)) تا وقتی job مشابه در صف یا در حال اجراست، *dispatch دوم* را رد می‌کند. جلوی *تحویل مجدد* همان پیام را نمی‌گیرد و بعد از پایان job کلید دوباره آزاد می‌شود.
 - `WithoutOverlapping` و بقیه‌ی middlewareهای coordination اجرای هم‌زمان و تکراری را کم می‌کنند، ولی job را «دقیقاً یک بار» نمی‌کنند.
 
 الگوی قابل‌اعتماد این است که یک کلید یکتای عملیات را **در همان تراکنش دیتابیسی که تغییر کسب‌وکار را انجام می‌دهد** ثبت کنید. job تحویل‌داده‌شده‌ی دوباره، کلید را می‌بیند و کاری نمی‌کند؛ دو تحویل هم‌زمان را هم کلید یکتا از هم جدا می‌کند.
@@ -591,6 +643,56 @@ Redis، Database و RabbitMQ فوراً B و C را اجرا می‌کنند و 
   کد/فایل کانفیگ و ری‌استارت اجازهٔ افزودن کانکشن نام‌دار جدید را نمی‌دهد.
 - ردیابی Batch به‌صورت پیش‌فرض درون‌حافظه‌ای است؛ برای state پایدار و چندپروسه‌ای از
   `AddDatabaseBatchRepository<TContext>()` یا `AddRedisBatchRepository()` استفاده کنید.
+
+## خطاها
+
+**راه‌اندازی.** هنگام شروع برنامه یا نخستین استفاده از یک store پرتاب می‌شوند.
+
+| چه وقت | exception و پیام |
+|---|---|
+| یک store تنظیم لازم را ندارد (Redis: `ConnectionString` مگر اینکه از اتصال Redis مشترک استفاده کند؛ Kafka: `BootstrapServers`) | `InvalidOperationException`: `Naravel.Queue store 'NaravelQueue:Stores:redis' is missing required setting 'ConnectionString'.` |
+| store پیش‌فرض تنظیم نشده یا نام store ناشناخته است | خطاهای Foundation؛ [راهنمای Foundation](foundation.md#خطاها) را ببینید. |
+| visibility timeout درایور از `QueueWorkerOptions.JobTimeout` کوتاه‌تر است | `InvalidOperationException` که در سطح error هم log می‌شود و worker شروع نمی‌شود: `Naravel.Queue: visibility timeout 00:01:00 on connection 'redis' is shorter than the worker JobTimeout 00:05:00; a running job would be reclaimed and executed twice. Raise the driver's visibility timeout or lower JobTimeout.` به [اعتبارسنجی visibility timeout در startup](#اعتبارسنجی-visibility-timeout-هنگام-راهاندازی) نگاه کنید. |
+
+**ثبت job.** registry نخستین بار که لازم شود ساخته می‌شود؛ پس alias تکراری همان‌وقت آشکار می‌شود، نه هنگام `AddJob`.
+
+| چه وقت | exception و پیام |
+|---|---|
+| دو نوع job یک alias دارند | `InvalidOperationException`: `Queue job alias 'mail.welcome' is already registered for 'MyApp.OldWelcomeJob'.` |
+| نوع، `IJob` غیرانتزاعی نیست | `ArgumentException`: `'MyApp.IWelcome' must be a concrete IJob type.` |
+| alias خالی | `ArgumentException`: `A job alias cannot be empty.` |
+| JSON type info مال نوع دیگری است | `ArgumentException`: `The JSON type info must describe the registered job type.` |
+| worker پیامی با aliasی بخواند که نمی‌شناسد (فرایند فقط-worker که job را ثبت نکرده، یا کلاسی که بدون alias تغییر نام داده) | `UnknownJobTypeException`: `Queue job type alias 'mail.welcome' is not registered.` به [ثبت job](#ثبت-job) نگاه کنید. |
+| payload یک job نیست | `InvalidDataException`: `Queue payload for alias 'mail.welcome' did not deserialize to an IJob.` |
+
+**dispatch.**
+
+| چه وقت | exception و پیام |
+|---|---|
+| یک `IUniqueJob` بدون بستهٔ coordination | `InvalidOperationException`: `SendWelcomeEmailJob implements IUniqueJob, but no IUniqueJobGate is registered, so uniqueness cannot be enforced. Call services.AddQueueCoordination() (package Naravel.Queue.Coordination, which needs AddNaravelCache()).` |
+| یک `IUniqueJob` داخل chain یا batch | `ArgumentException`: `ReportJob implements IUniqueJob and cannot be part of a chain: a rejected duplicate would stall the sequence. Dispatch it on its own.` (برای batch به‌جای آن `a batch`) |
+| `Chain()` بدون هیچ job | `ArgumentException`: `A chain must contain at least one job.` |
+| callback یک batch دو بار ثبت شود | `InvalidOperationException`: `A batch callback is already registered as 'done'.` |
+| worker batchی را تمام کند که aliasِ callback آن را ثبت نکرده | `InvalidOperationException`: `No batch callback is registered as 'done'.` |
+
+**اجرا.**
+
+| چه وقت | چه می‌شود |
+|---|---|
+| middleware بدون صدا زدن `next`، `JobContext.Release` یا `JobContext.Skip` برگردد | job اجرا نمی‌شود و با `InvalidOperationException` شکست می‌خورد: `A job middleware returned without calling next and without calling JobContext.Release or JobContext.Skip, so the job was not run. Call one of them, or call next.` |
+| `JobContext.Release` با delay منفی | `ArgumentOutOfRangeException`: `The delay cannot be negative.` |
+| یک job exception پرتاب کند | بر اساس `MaxAttempts` و `Backoff` دوباره تلاش می‌شود، سپس به failed-job store می‌رود؛ [Jobهای ناموفق](#jobهای-ناموفق) را ببینید. |
+
+assertionهای `QueueFake` با `InvalidOperationException` شکست می‌خورند:
+
+| assertion | پیام |
+|---|---|
+| `AssertDispatched<SendWelcomeEmailJob>()` وقتی چیزی dispatch نشده | `No SendWelcomeEmailJob job was dispatched.` |
+| `AssertNotDispatched<SendWelcomeEmailJob>()` وقتی یکی dispatch شده | `Expected no SendWelcomeEmailJob job to be dispatched, but 1 was.` (برای بیشتر `but 2 were.`) |
+| `AssertDispatchedCount<SendWelcomeEmailJob>(2)` وقتی یکی dispatch شده | `Expected 2 SendWelcomeEmailJob dispatch(es), but found 1.` |
+| `AssertChained<SendWelcomeEmailJob>()` وقتی در هیچ chainی نیست | `No SendWelcomeEmailJob job was found in a dispatched chain.` |
+
+`tests/Naravel.Queue.Tests/DocsExampleTests.cs` مثال quickstart و پیام‌های ثبت job و `QueueFake` بالا را اجرا می‌کند. پیام‌های دیگر از روی سورس آمده‌اند و آنجا اجرا نمی‌شوند. یکی را عوض کردید، دیگری را هم عوض کنید.
 
 ## تست‌ها
 

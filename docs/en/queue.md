@@ -6,11 +6,61 @@ A Laravel-inspired, driver-based background job queue for .NET, built on `Narave
 
 ## Quickstart
 
-```csharp
-builder.Services.AddQueue(builder.Configuration).AddRedisDriver(builder.Configuration);
-builder.Services.AddQueueWorker();
-await app.Services.GetRequiredService<IJobDispatcher>().DispatchAsync(new MyJob());
+The shortest working setup: one job, one in-process worker, no broker. The memory driver needs no package beyond `Naravel.Queue.Memory`, so you can try everything on this page before choosing a real driver.
+
+```sh
+dotnet add package Naravel.Queue.Memory
 ```
+
+```json
+{
+  "NaravelQueue": {
+    "Default": "local",
+    "Stores": { "local": { "Driver": "memory" } }
+  }
+}
+```
+
+```csharp
+using Naravel.Queue.Dispatch;
+using Naravel.Queue.Extensions;
+using Naravel.Queue.Jobs;
+using Naravel.Queue.Memory;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddQueue(builder.Configuration).AddMemoryDriver(builder.Configuration);
+builder.Services.AddQueueWorker();                          // the worker: a hosted service that runs the jobs
+
+var app = builder.Build();
+
+app.MapPost("/welcome", async (string email, IJobDispatcher jobs, CancellationToken ct) =>
+{
+    var id = await jobs.DispatchAsync(new SendWelcomeEmailJob(email), cancellationToken: ct);
+    return Results.Accepted(value: new { id });             // answers at once; the job runs on the worker
+});
+
+app.Run();
+
+public sealed class SendWelcomeEmailJob : Job
+{
+    public string ToEmail { get; set; } = default!;
+
+    public SendWelcomeEmailJob() { }                        // the worker rebuilds the job from JSON, so it needs this constructor
+    public SendWelcomeEmailJob(string toEmail) => ToEmail = toEmail;
+
+    public override Task HandleAsync(JobContext context, CancellationToken cancellationToken)
+    {
+        Console.WriteLine($"Sending to {ToEmail} (attempt {context.Attempt} of {context.MaxAttempts})");
+        return Task.CompletedTask;
+    }
+}
+```
+
+`POST /welcome?email=ada@example.com` answers `202 Accepted` with the message id, and the console shows the line from the job a moment later. The worker takes jobs from the `default` queue, one at a time.
+
+The second argument of `DispatchAsync` is the dispatch options (`o => o.DelayFor(...)`), so pass the token by name: `cancellationToken: ct`.
+
+Memory jobs live in the process: they are gone when it stops, and a second process cannot see them. For jobs that must survive a restart or run on another machine, choose a driver from the table below; the application code stays the same.
 
 ## Packages
 
@@ -50,7 +100,9 @@ type with different settings** (`redis` and `backup` above are both Redis, point
 servers), which is exactly what the driver-registration helper (`AddQueueDriver`, internal to
 `Naravel.Queue`) was built to support.
 
-## Quick start
+## The same job on Redis, with worker settings
+
+The quickstart job again, with the Redis driver and explicit worker settings.
 
 ```csharp
 using Naravel.Queue.Jobs;
@@ -600,6 +652,56 @@ to `true`; only the Kafka driver returns `false`.
   also does not let you add a new named connection without a code/config file change and a restart.
 - Batch tracking is in-memory by default; use `AddDatabaseBatchRepository<TContext>()` or
   `AddRedisBatchRepository()` for durable multi-process state.
+
+## Errors
+
+**Setup.** Raised when the application starts or when a store is first used.
+
+| When | Exception and message |
+|---|---|
+| A store lacks a required setting (Redis: `ConnectionString` unless it uses a shared Redis connection; Kafka: `BootstrapServers`) | `InvalidOperationException`: `Naravel.Queue store 'NaravelQueue:Stores:redis' is missing required setting 'ConnectionString'.` |
+| No default store is configured, or a store name is unknown | Foundation's errors, see the [Foundation guide](foundation.md#errors). |
+| The driver's visibility timeout is shorter than `QueueWorkerOptions.JobTimeout` | `InvalidOperationException`, also logged at error level, so the worker does not start: `Naravel.Queue: visibility timeout 00:01:00 on connection 'redis' is shorter than the worker JobTimeout 00:05:00; a running job would be reclaimed and executed twice. Raise the driver's visibility timeout or lower JobTimeout.` See [startup validation](#startup-validation-of-the-visibility-timeout). |
+
+**Job registration.** The registry is built the first time it is needed, so a duplicate alias surfaces then, not at `AddJob`.
+
+| When | Exception and message |
+|---|---|
+| Two job types share one alias | `InvalidOperationException`: `Queue job alias 'mail.welcome' is already registered for 'MyApp.OldWelcomeJob'.` |
+| The type is not a concrete `IJob` | `ArgumentException`: `'MyApp.IWelcome' must be a concrete IJob type.` |
+| An empty alias | `ArgumentException`: `A job alias cannot be empty.` |
+| The JSON type info is for another type | `ArgumentException`: `The JSON type info must describe the registered job type.` |
+| A worker reads a message whose alias it does not know (a worker-only process that never registered the job, or a renamed class without an alias) | `UnknownJobTypeException`: `Queue job type alias 'mail.welcome' is not registered.` See [job registration](#job-registration). |
+| The payload is not a job | `InvalidDataException`: `Queue payload for alias 'mail.welcome' did not deserialize to an IJob.` |
+
+**Dispatching.**
+
+| When | Exception and message |
+|---|---|
+| An `IUniqueJob` without the coordination package | `InvalidOperationException`: `SendWelcomeEmailJob implements IUniqueJob, but no IUniqueJobGate is registered, so uniqueness cannot be enforced. Call services.AddQueueCoordination() (package Naravel.Queue.Coordination, which needs AddNaravelCache()).` |
+| An `IUniqueJob` inside a chain or a batch | `ArgumentException`: `ReportJob implements IUniqueJob and cannot be part of a chain: a rejected duplicate would stall the sequence. Dispatch it on its own.` (`a batch` for a batch) |
+| `Chain()` with no job | `ArgumentException`: `A chain must contain at least one job.` |
+| A batch callback registered twice | `InvalidOperationException`: `A batch callback is already registered as 'done'.` |
+| A worker finishes a batch whose callback alias it never registered | `InvalidOperationException`: `No batch callback is registered as 'done'.` |
+
+**Running.**
+
+| When | What happens |
+|---|---|
+| A middleware returns without calling `next`, `JobContext.Release` or `JobContext.Skip` | The job is not run and fails with `InvalidOperationException`: `A job middleware returned without calling next and without calling JobContext.Release or JobContext.Skip, so the job was not run. Call one of them, or call next.` |
+| `JobContext.Release` with a negative delay | `ArgumentOutOfRangeException`: `The delay cannot be negative.` |
+| A job throws | It is retried by `MaxAttempts` and `Backoff`, then goes to the failed-job store; see [Failed jobs](#failed-jobs). |
+
+`QueueFake` assertions throw `InvalidOperationException`:
+
+| Assertion | Message |
+|---|---|
+| `AssertDispatched<SendWelcomeEmailJob>()` when none was dispatched | `No SendWelcomeEmailJob job was dispatched.` |
+| `AssertNotDispatched<SendWelcomeEmailJob>()` when one was | `Expected no SendWelcomeEmailJob job to be dispatched, but 1 was.` (`but 2 were.` for more) |
+| `AssertDispatchedCount<SendWelcomeEmailJob>(2)` when one was | `Expected 2 SendWelcomeEmailJob dispatch(es), but found 1.` |
+| `AssertChained<SendWelcomeEmailJob>()` when no chain holds one | `No SendWelcomeEmailJob job was found in a dispatched chain.` |
+
+`tests/Naravel.Queue.Tests/DocsExampleTests.cs` runs the quickstart and the registration and `QueueFake` messages above. The other messages come from the source and are not run there. Change one, change the other.
 
 ## Testing
 
