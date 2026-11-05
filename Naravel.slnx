@@ -68,5 +68,6 @@
     <Project Path="tests/Naravel.Cache.Tests/Naravel.Cache.Tests.csproj" />
     <Project Path="tests/Naravel.Filesystem.Tests/Naravel.Filesystem.Tests.csproj" />
     <Project Path="tests/Naravel.Routing.Tests/Naravel.Routing.Tests.csproj" />
+    <Project Path="tests/Naravel.Routing.Cache.Tests/Naravel.Routing.Cache.Tests.csproj" />
   </Folder>
 </Solution>

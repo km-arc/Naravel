@@ -291,6 +291,15 @@ jobs:
           --results-directory TestResults/Providers/Cache
           --collect:"XPlat Code Coverage"
 
+      - name: Shared route throttle on Redis
+        run: >-
+          dotnet test tests/Naravel.Routing.Cache.Tests/Naravel.Routing.Cache.Tests.csproj
+          -c Release --no-build --no-restore
+          --filter "FullyQualifiedName~Redis"
+          --logger "trx;LogFileName=RoutingCacheRedis.trx"
+          --results-directory TestResults/Providers/RoutingCache
+          --collect:"XPlat Code Coverage"
+
       - name: S3 storage integration tests
         run: >-
           dotnet test tests/Naravel.Filesystem.Tests/Naravel.Filesystem.Tests.csproj
