@@ -6,21 +6,38 @@ Decisions: [PDR-013](../pdr/en/PDR-013-mail.md) and [PDR-013a](../pdr/en/PDR-013
 
 ## Quickstart
 
-```csharp
-builder.Services.AddNaravelMail(builder.Configuration);   // Mail:Default defaults to "log": nothing is delivered
-
-public class WelcomeMail(User user) : Mailable
-{
-    public override MailMessage Build(MailBuilder mail) =>
-        mail.Subject("Welcome").Text($"Hi {user.Name}").Html($"<p>Hi {user.Name}</p>").Build();
-}
-
-await mailer.To(user.Email).SendAsync(new WelcomeMail(user), cancellationToken);   // mailer is an injected IMailer
+```sh
+dotnet add package Naravel.Mail
 ```
 
 ```json
-{ "Mail": { "Default": "log", "From": "app@example.com" } }
+{ "Mail": { "From": "app@example.com" } }
 ```
+
+```csharp
+using Naravel.Mail;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddNaravelMail(builder.Configuration);   // Mail:Default is "log": the message is logged, nothing is delivered
+
+var app = builder.Build();
+
+app.MapPost("/welcome", async (string email, string name, IMailer mailer, CancellationToken ct) =>
+{
+    await mailer.To(email).SendAsync(new WelcomeMail(name), ct);
+    return Results.Accepted();
+});
+
+app.Run();
+
+public sealed class WelcomeMail(string name) : Mailable
+{
+    public override MailMessage Build(MailBuilder mail) =>
+        mail.Subject("Welcome").Text($"Hi {name}").Html($"<p>Hi {name}</p>").Build();
+}
+```
+
+`POST /welcome?email=ada@example.com&name=Ada` answers `202 Accepted`, and the application log shows one line with the sender, the recipient and the subject. To deliver for real, point `Mail:Default` at an SMTP transport ([below](#smtp-naravelmailsmtp)).
 
 Without `Mail:From`, call `mail.From("app@example.com")` inside `Build`; a mail with no sender throws `InvalidOperationException` that names `Mail:From`.
 
@@ -43,6 +60,21 @@ await mailer.SendAsync(new MailMessage("app@example.com", "user@example.com", "R
 - `Build` **must be pure**: no I/O, no clock reads, no randomness. The queue adapter calls it before enqueueing and stores only the resulting data.
 - `mailer.To(a).To(b)` adds recipients; `To(...)` returns a `PendingMail` with `SendAsync(Mailable)` and `QueueAsync(Mailable)`.
 - A `Build` that returns `null` throws `InvalidOperationException` naming the class.
+
+Copies and a sender of your own:
+
+```csharp
+public sealed class MonthlyReport : Mailable
+{
+    public override MailMessage Build(MailBuilder mail) =>
+        mail.From("reports@example.com")               // overrides Mail:From for this mail
+            .Cc("manager@example.com")
+            .Bcc("archive@example.com")                // delivery only; never written into the headers
+            .Subject("Monthly report")
+            .Text("Your monthly report is ready.")
+            .Build();
+}
+```
 
 ### Rendering views
 
@@ -173,6 +205,46 @@ fake.AssertNothingQueued();
 | `Mail:From` | Sender used when a mailable does not call `From(...)`. | none |
 | `Mail:Mailers:<name>:Driver` | `log`, `array`, or a driver from an installed package. | - |
 | `Mail:Mailers:<name>:*` | Driver-specific settings. A change rebuilds only that transport; unrelated keys never do. | - |
+
+## Errors
+
+| When | Exception and message |
+|---|---|
+| The mail has no sender (no `Mail:From` and no `From(...)`) | `InvalidOperationException`: `The mail has no sender. Call From(...) in Mailable.Build or set Mail:From in configuration.` |
+| `Mailable.Build` returns `null` | `InvalidOperationException`: `WelcomeMail.Build returned null. Return mail.Build().` (the class name is yours) |
+| An address is not valid | `ArgumentException`: `'not-an-address' is not a valid e-mail address.` |
+| There is no recipient | `ArgumentException`: `A mail message needs at least one recipient.` |
+| There is no text and no HTML body | `ArgumentException`: `A mail message needs a text body, an HTML body, or both.` |
+| `QueueAsync` without the queue adapter | `InvalidOperationException`: `No mail queue adapter is registered. Install Naravel.Mail.Queue and call services.AddNaravelMailQueue(), or use SendAsync.` |
+| A transport fails to deliver | The transport's own exception, unchanged; nothing is retried for you. |
+
+`ArgumentException` messages end with ` (Parameter 'to')` or the name of the offending argument. The three `ArgumentException` cases are raised when the `MailMessage` is built, before any transport is touched.
+
+The `smtp` transport reports a bad setting the first time it is used, naming the key:
+
+| Setting | Message |
+|---|---|
+| No `Host` | `The smtp mail transport needs a Host (Mail:Mailers:<name>:Host).` |
+| `Port` not a number | `Mail:Mailers:relay:Port 'abc' is not a number.` |
+| `Port` outside 1 to 65535 | `The smtp mail transport Port 70000 is not between 1 and 65535.` |
+| `Security` not recognised | `Mail:Mailers:relay:Security 'x' must be StartTls, SslOnConnect or None.` |
+| `Timeout` not a positive number | `Mail:Mailers:relay:Timeout 'x' must be a positive number of seconds.` |
+
+Foundation's own errors (an unknown transport name, no default) are in the [Foundation guide](foundation.md#errors).
+
+`MailFake` assertions throw `InvalidOperationException`:
+
+| Assertion | Message |
+|---|---|
+| `AssertSent()` when nothing was sent | `No mail message was sent.` |
+| `AssertSent(predicate)` when nothing matches | `No matching mail message was sent (1 sent in total).` |
+| `AssertSentCount(2)` when one was sent | `Expected 2 sent mail message(s), but found 1.` |
+| `AssertNothingSent()` when one was sent | `Expected no mail to be sent, but 1 message(s) were sent.` |
+| `AssertNothingQueued()` when one was queued | `Expected no mail to be queued, but 1 message(s) were queued.` |
+
+`AssertQueued` has the same two messages with `queued` in place of `sent`.
+
+`tests/Naravel.Mail.Tests/DocsExampleTests.cs` runs the quickstart mailable, the copies example and every message above except the `smtp` table, whose settings are covered by `tests/Naravel.Mail.Smtp.Tests`. Change one, change the other.
 
 ## Complete example
 
