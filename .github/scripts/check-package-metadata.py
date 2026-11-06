@@ -7,7 +7,7 @@ too late. This reads the .nuspec inside every .nupkg in a directory and fails on
 - description is missing or is the SDK default ("Package Description") or is too short to say what the package is;
 - license is not the MIT expression, or the repository / project URL is missing;
 - copyright differs from the "Copyright (c) ..." line in LICENSE;
-- tags are missing;
+- tags are missing or fewer than four (Microsoft: "include several tags with key terms related to your package"; nuget.org search matches on them);
 - release notes do not link to the GitHub release for that package's own version (v<version>);
 - icon does not match build/icon.png (declared and packed when the file exists, absent when it does not).
 
@@ -24,6 +24,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 MIN_DESCRIPTION = 40
+MIN_TAGS = 4
 SDK_DEFAULT_DESCRIPTION = "Package Description"
 
 
@@ -76,8 +77,11 @@ def check_package(package: Path, copyright_line: str | None, icon_exists: bool) 
         if repository is None or not repository.get("url"):
             problems.append("repository url is missing")
 
-        if not text(fields, "tags"):
+        tags = text(fields, "tags").split()
+        if not tags:
             problems.append("tags are missing")
+        elif len(tags) < MIN_TAGS:
+            problems.append(f"only {len(tags)} tags ({' '.join(tags)}); give at least {MIN_TAGS} key terms, because nuget.org search matches on tags")
 
         actual_copyright = text(fields, "copyright")
         if not actual_copyright:
