@@ -109,28 +109,83 @@ in .NET give your type a static `BindAsync`/`TryParse` (native Minimal API).
 
 The built-in route aliases are `throttle`, `signed`, `maintenance`, `cache.headers`, `trim`, `convert.empty`, and `guest`.
 
-`throttle` uses the process-local `System.Threading.RateLimiting` fixed-window limiter. The inline form uses `throttle:60,1` (permit limit, window in minutes); named policies are registered during setup:
+`throttle` counts attempts in an `IThrottleStore`. The default store is the process-local `System.Threading.RateLimiting` fixed-window limiter; the separate package `Naravel.Routing.Cache` adds a store that all instances share (see below). The inline form uses `throttle:60,1` (permit limit, window in minutes); named policies are registered during setup:
 
 ```csharp
 builder.Services.AddNaravelRouting(o => o.ConfigureThrottlePolicy("login", 5, TimeSpan.FromMinutes(1)));
 app.MapNaravel(r => r.Post("/login", Login).Middleware("throttle:login"));
 ```
 
-Partitions use the authenticated name identifier (or identity name), falling back to the remote IP, and are isolated by endpoint and policy. Responses include `X-RateLimit-Limit` and `X-RateLimit-Remaining`; rejected requests return 429 and `Retry-After`. A fixed window can admit up to 2x the limit across a short adjacent-window boundary interval. The counters live in the memory of each process; read the next section before running more than one instance.
+Partitions use the authenticated name identifier (or identity name), falling back to the remote IP, and are isolated by endpoint and policy. Responses include `X-RateLimit-Limit` and `X-RateLimit-Remaining`; rejected requests return 429 and `Retry-After`. A fixed window can admit up to 2x the limit across a short adjacent-window boundary interval. With the default store the counters live in the memory of each process; read the next section before running more than one instance.
 
 #### Throttle behind more than one server
 
+The default store counts in the memory of each process:
+
 - **One quota per instance.** With N instances every caller is counted N times separately. Behind a round-robin load balancer a caller can send up to N times the limit in one window, and gets 429 from one server while another still answers 200. The limit is looser than configured, not stricter.
 - **A restart resets every quota.** Counters are not persisted: a deploy, a crash, a scale-in or a scale-out starts the affected instance with empty counters, so callers get a fresh window.
+
+Whichever store counts, the caller is identified the same way:
+
 - **Callers behind a proxy.** An anonymous caller is identified by `RemoteIpAddress`. Behind a load balancer or reverse proxy that is the proxy's address unless you enable ASP.NET Core's forwarded headers (`UseForwardedHeaders` with the proxy listed in `KnownProxies` or `KnownNetworks`); without it every anonymous caller shares one bucket and the limit is far too strict. Naravel does not re-implement this (PDR-009).
 
-What to do today:
+##### Share one quota between instances (`Naravel.Routing.Cache`)
 
-1. Use `throttle` where roughly N times the limit is acceptable (damping scrapers, protecting a single instance's CPU), not as a security boundary.
-2. For a quota that must be shared by all instances and counts explicit attempts (failed logins, one-time codes), use the Cache-backed `IRateLimiter` on a shared Redis store, in the handler. The tested login example in [cache.md](cache.md) does this. It takes a lock per subject and makes several store calls, so it suits attempt counters, not a blanket throttle on a busy route. Redis is the safer store for a critical shared quota; read the backend table in cache.md first.
-3. Or enforce the limit at the edge (reverse proxy or API gateway), where all traffic passes exactly once.
+`Naravel.Routing.Cache` counts `throttle` attempts in a [Naravel.Cache](cache.md) store. Every instance that uses the same store shares one quota per policy and caller, and a restarted instance keeps it. Routing itself does not reference Cache, so nobody who only wants the in-process throttle pulls it in. The package is new and is not in the 0.1.1 packages; it ships with the next version (see [CHANGELOG.md](../../CHANGELOG.md)).
 
-A built-in shared store for `throttle` is not built yet. Its design is approved in [PDR-024](../pdr/en/PDR-024-shared-throttle-store.md); the work is tracked in [ROADMAP.md](../../ROADMAP.md). Until it is released, the options above are the way to share a quota.
+```csharp
+// appsettings.json: "Cache": { "Stores": { "shared": { "Driver": "redis", "ConnectionString": "localhost:6379", "Prefix": "myapp" } } }
+builder.Services.AddNaravelCache(builder.Configuration);
+builder.Services.AddNaravelRedisCache(builder.Configuration);
+builder.Services.AddNaravelRouting(o =>
+{
+    o.ConfigureThrottlePolicy("api", 120, TimeSpan.FromMinutes(1));
+    o.ConfigureThrottlePolicy("login", 5, TimeSpan.FromMinutes(1), ThrottleFailureMode.FailClosed);
+});
+builder.Services.AddNaravelSharedThrottle("shared");
+```
+
+Policies, `throttle:login`, `throttle:60,1`, the `X-RateLimit-*` headers and the 429 response stay as they are. `AddNaravelSharedThrottle` may come before or after `AddNaravelRouting`; the last call wins. An unknown store name throws `DriverNotRegisteredException` (it lists the stores that exist) the first time the throttle is used.
+
+How it counts:
+
+- **One atomic call, no lock.** Each request makes one `ICacheStore.IncrementAsync` call on the named store. Nothing waits on a lock, so a burst from one caller is not queued behind itself. A rejected attempt is counted too.
+- **A hashed key.** The key is `throttle:{SHA-256 of policy|endpoint|subject}:{window index}`: a fixed length, accepted by every provider (Memcached included) and without the client address in it. The counter expires with its window.
+- **A window aligned to the clock.** The window index is `floor(UtcNow / window)`, so one-minute windows start at the top of each minute on every instance, not at a caller's first request. `Retry-After` is the time left in the window.
+- **What that costs.** A caller can use the limit at the end of one window and again at the start of the next: up to 2x the limit in a short time, as with the default store. There is no sliding window and no token bucket. Instances need clocks within the usual NTP skew; a skew of a few milliseconds moves that instance's window boundary by that much and does nothing else. Do not change a policy's window while old and new instances run side by side: the window length is not part of the key, so for a short time both read one counter with different meanings.
+- **Memory is process-local.** `AddNaravelSharedThrottle("memory")` counts per process and shares nothing, like the default store; use it in development and tests. Nothing checks at run time whether a store is shared (the cache contract does not say), so name one that is. Redis is the safer choice for a critical quota; read the backend table in [cache.md](cache.md) first.
+- **Maintenance mode is still process-local.** Only `throttle` has a shared store; the state of `maintenance` is not shared.
+
+##### When the shared store fails
+
+A throttle sits on the request path, so a slow or unavailable backend must not take the application down, and must not silently remove the limit either (Laravel lets the cache exception escape, which is a 500). Each store call is limited by `Throttle.StoreTimeout` (250 milliseconds by default). A call that throws or times out is a failure and opens one breaker for the store, shared by every policy, for `Throttle.BreakerPeriod` (5 seconds by default): the store is not called in that time. Then one request probes the store; if it answers, the breaker closes, otherwise it opens for another period. A client that went away is not a failure. While the breaker is open, each request follows its policy's `ThrottleFailureMode`:
+
+| Mode | A request while the store is failing | Use it for |
+|---|---|---|
+| `DegradeToLocal` (the default) | This instance's in-process limiter, with the policy's numbers. Never unlimited, never a 500 | Most routes |
+| `FailClosed` | `503` with `Retry-After` (the time the breaker stays open, at least 1 second) and no `X-RateLimit-*` headers | Credential endpoints: admitting more attempts than the shared limit is worse than refusing |
+| `FailOpen` | Admitted with no limit | Only as an explicit opt-in; it removes the limit for as long as the store is down |
+
+The mode is set per policy, as in the snippet above; the inline `throttle:60,1` form always degrades to the local limiter. Both timing numbers are options on `RoutingOptions.Throttle`, read once at startup:
+
+```csharp
+builder.Services.AddNaravelRouting(o =>
+{
+    o.Throttle.StoreTimeout = TimeSpan.FromMilliseconds(100);
+    o.Throttle.BreakerPeriod = TimeSpan.FromSeconds(10);
+});
+```
+
+Each time the breaker opens, one warning is logged with the exception. The meter `Naravel.Routing` counts `naravel.routing.throttle` (tags `policy` and `outcome`: `allowed`, `rejected` or `degraded`; a `FailClosed` refusal counts as `rejected`, a `FailOpen` admission as `allowed`) and `naravel.routing.throttle.store_failures` (tags `policy` and `reason`: `error` or `timeout`). The tags are never the caller, the address or the key. The default in-process store, which cannot fail, is counted too.
+
+The first use of a store creates it. The package does that off the request thread, so a Redis that cannot be reached at that moment costs a request at most `StoreTimeout`.
+
+##### Which one to use
+
+1. Behind more than one instance, register `AddNaravelSharedThrottle`. Keep the default store where roughly N times the limit is acceptable (damping scrapers, protecting a single instance's CPU); it is not a security boundary.
+2. Opt credential endpoints (logins, one-time codes, password resets) into `FailClosed`.
+3. For an explicit attempt counter in a handler (failed logins per account), the Cache-backed `IRateLimiter` stays the tool: see the tested login example in [cache.md](cache.md). It takes a lock per subject and makes several store calls, so it suits attempt counters, not a blanket throttle on a busy route.
+4. Or enforce the limit at the edge (reverse proxy or API gateway), where all traffic passes exactly once.
 
 `IUrlGenerator.SignedRoute(name, values)` and `TemporarySignedRoute(name, expiresAt, values)` create signed relative URLs. Attach `.Middleware("signed")` to validate them. The signature covers the path and query, not the host. Temporary URLs are rejected once expired. Data Protection keys must be persisted and shared by instances that generate and validate the same links; protect the key ring at rest in production.
 
@@ -252,21 +307,23 @@ app.MapNaravel(r =>
 
 ## Native middleware
 
-CORS, proxy headers, host filtering, request-size limits and cookie encryption are native ASP.NET Core features and are not re-implemented (see PDR-009). Auth- and Session-backed middleware are native too: route authorization is `RequireAuthorization` through `NaravelRoute.Configure` and sessions are `AddSession` (PDR-016 and PDR-015, both `DECLINED`; see [auth.md](auth.md) and [session.md](session.md)). There is no Naravel Console package (PDR-017 declines it in favour of `System.CommandLine`), so there are no `route:list` or maintenance `down`/`up` commands. A Redis-backed `throttle` is not part of this package; PDR-009 leaves a shared throttle store to a separate PDR.
+CORS, proxy headers, host filtering, request-size limits and cookie encryption are native ASP.NET Core features and are not re-implemented (see PDR-009). Auth- and Session-backed middleware are native too: route authorization is `RequireAuthorization` through `NaravelRoute.Configure` and sessions are `AddSession` (PDR-016 and PDR-015, both `DECLINED`; see [auth.md](auth.md) and [session.md](session.md)). There is no Naravel Console package (PDR-017 declines it in favour of `System.CommandLine`), so there are no `route:list` or maintenance `down`/`up` commands. A shared store for `throttle` is the separate package `Naravel.Routing.Cache` (PDR-024), so Routing needs no Cache or Redis reference.
 
-## What the tests cover (`tests/Naravel.Routing.Tests`)
+## What the tests cover (`tests/Naravel.Routing.Tests`, `tests/Naravel.Routing.Cache.Tests`)
 
 - The guide's "Complete example" (group with prefix, name prefix and middleware, route model binding, API resource, an alias with an argument, a throttle policy, named URLs): `DocsExampleTests.cs`. Change one, change the other.
 - Resolution (no HTTP): aliases, arguments, groups (nesting, cycles, mutators), exclusion, de-duplication, priority, per-endpoint caching, controller attributes.
 - End to end on `TestServer`: verbs, groups and name prefixes, URL generation, `Where`/global patterns (anchoring), domains, fallback, redirects,
   middleware order, short-circuit, `WithoutMiddleware`, inline and aliased delegates, `IMiddleware` adapter, terminable, priority, native endpoints and groups,
     controller attributes (`Only`/`Except`/`WithoutMiddleware`), model binding, Minimal API and MVC resource routes, throttling, signed URLs, maintenance, cache headers, input normalization and guest middleware.
+- The throttle store seam and its failure handling (`ThrottleStoreTests.cs`, `ThrottleFailureTests.cs`): a test double of `IThrottleStore` that counts calls, throws or hangs, and a manual `TimeProvider`, so no test waits for a breaker period.
+- The shared store (`tests/Naravel.Routing.Cache.Tests`): one store contract on the in-process store, the Memory store, `CacheFake` and Redis; the clock-aligned window and the 2x boundary with a manual clock; one increment per request and no lock; hashed keys; two hosts sharing one quota; an outage following the policy; the falling Memory entry count; and the snippets of "Share one quota between instances" (`SharedThrottleDocsExampleTests.cs`, with a Memory store in place of Redis; change one, change the other). The Redis cases need `NARAVEL_TEST_REDIS`: they run in the provider job and show as skipped, never as passed, without it.
 
 ## Limitations of this stage
 
 - Controller resource mapping expects conventional MVC action names and route templates; controller-specific route templates are not composed with the resource map.
 - No `route:list` command: there is no Naravel Console package (PDR-017), and whether to add one over the endpoint metadata is not decided.
-- Maintenance mode state and throttling are process-local: with N instances the throttle admits up to N times its limit and every restart resets it (see "Throttle behind more than one server"); use shared infrastructure if instances need coordinated state.
+- Maintenance mode state is process-local. So is throttling with the default store: with N instances it admits up to N times its limit and every restart resets it; `Naravel.Routing.Cache` shares the throttle quota, not the maintenance state (see "Throttle behind more than one server").
 - Signed URLs require a shared, durable Data Protection key ring for multi-instance use and are path/query-bound rather than host-bound.
 - Middleware attached to a native `MapGroup` uses ASP.NET Core's metadata order; exclusions are order-independent.
 - Route configuration is read once at startup (no hot reload).

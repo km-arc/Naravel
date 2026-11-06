@@ -90,7 +90,7 @@ fake.AssertNothingQueued();
 | [`Naravel.Database`](docs/fa/database.md) | query builder با پارامتر bind‌شده روی SQLite، MySQL، PostgreSQL و SQL Server؛ تراکنش | dialectهای `.Sqlite` `.MySql` `.Postgres` `.SqlServer`؛ `.EntityFrameworkCore` |
 | [`Naravel.Pagination`](docs/fa/pagination.md) | صفحه‌هایی با شکل Laravel: کامل، ساده و cursor | `.EntityFrameworkCore` |
 | [`Naravel.Filesystem`](docs/fa/filesystem.md) | دیسک‌های نام‌دار local و سازگار با S3 | ندارد |
-| [`Naravel.Routing`](docs/fa/routing.md) | گروه مسیر، نام مسیر، resource route و route middleware روی ASP.NET Core | ندارد |
+| [`Naravel.Routing`](docs/fa/routing.md) | گروه مسیر، نام مسیر، resource route و route middleware روی ASP.NET Core | `.Cache` برای سهمیهٔ throttle مشترک بین instanceها |
 | [`Naravel.Scheduling`](docs/fa/scheduling.md) | کارهای زمان‌بندی‌شده در یک hosted service، با `WithoutOverlapping` و `OnOneServer` | ندارد |
 | [`Naravel.Broadcasting`](docs/fa/broadcasting.md) | رویدادهای بلادرنگ تایپ‌دار روی SignalR، با مجوزدهی کانال | ندارد |
 | [`Naravel.Encryption`](docs/fa/encryption.md) | `Encrypt` و `Decrypt` روی ASP.NET Core Data Protection | ندارد |

@@ -26,7 +26,7 @@ Keep all Naravel packages in a project on one version: they are built and tested
 | Query builder | `Naravel.Database` and one dialect: `Naravel.Database.Sqlite`, `.MySql`, `.Postgres` or `.SqlServer`; `Naravel.Database.EntityFrameworkCore` to share an EF Core context's connection | `AddNaravelDatabase(configuration)` and the dialect's `AddNaravel...Database` |
 | Pagination | `Naravel.Pagination`; `Naravel.Pagination.EntityFrameworkCore` for EF Core queries | none |
 | Files | `Naravel.Filesystem` | `AddNaravelFilesystem(configuration)` |
-| Routing | `Naravel.Routing` (ASP.NET Core) | `AddNaravelRouting()` |
+| Routing | `Naravel.Routing` (ASP.NET Core); add `Naravel.Routing.Cache` for a throttle quota shared between instances | `AddNaravelRouting()` and, for the shared quota, `AddNaravelSharedThrottle(storeName)` |
 | Encryption | `Naravel.Encryption`; add `Naravel.Queue.Encryption` for encrypted jobs | `AddNaravelEncryption()` |
 | Scheduling | `Naravel.Scheduling` | `AddNaravelScheduling(...)` |
 | Broadcasting | `Naravel.Broadcasting` (ASP.NET Core, SignalR) | `AddNaravelBroadcasting(configuration)` |
@@ -44,6 +44,7 @@ Register the core package and only the providers your configured stores use. The
 | `Naravel.Redis` | `builder.Services.AddNaravelRedis(configuration);` |
 | `Naravel.Cache.Redis` | `builder.Services.AddNaravelRedisCache(configuration);` |
 | `Naravel.Cache.Memcached` | `builder.Services.AddNaravelMemcachedCache(configuration);` |
+| `Naravel.Routing.Cache` | `builder.Services.AddNaravelSharedThrottle("redis");` |
 | `Naravel.Queue.Memory` | `builder.Services.AddMemoryDriver(configuration);` |
 | `Naravel.Queue.File` | `builder.Services.AddFileDriver(configuration);` |
 | `Naravel.Queue.Redis` | `builder.Services.AddRedisDriver(configuration);` |

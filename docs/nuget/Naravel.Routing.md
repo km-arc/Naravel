@@ -10,7 +10,7 @@ Part of [Naravel](https://github.com/km-arc/Naravel): Laravel's names, .NET's ty
 dotnet add package Naravel.Routing
 ```
 
-Targets .NET 10.
+Targets .NET 10. Add [`Naravel.Routing.Cache`](https://www.nuget.org/packages/Naravel.Routing.Cache) to share the `throttle` quota between application instances through a Naravel.Cache store such as Redis.
 
 ## Documentation
 

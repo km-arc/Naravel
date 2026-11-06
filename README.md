@@ -90,7 +90,7 @@ Each module has a guide with a short example and the guarantees worth knowing. P
 | [`Naravel.Database`](docs/en/database.md) | A query builder with bound parameters on SQLite, MySQL, PostgreSQL and SQL Server; transactions | dialects `.Sqlite` `.MySql` `.Postgres` `.SqlServer`; `.EntityFrameworkCore` |
 | [`Naravel.Pagination`](docs/en/pagination.md) | Laravel-shaped pages: length-aware, simple and cursor | `.EntityFrameworkCore` |
 | [`Naravel.Filesystem`](docs/en/filesystem.md) | Named local and S3-compatible disks | none |
-| [`Naravel.Routing`](docs/en/routing.md) | Route groups, names, resource routes and route middleware on ASP.NET Core | none |
+| [`Naravel.Routing`](docs/en/routing.md) | Route groups, names, resource routes and route middleware on ASP.NET Core | `.Cache` for a throttle quota shared between instances |
 | [`Naravel.Scheduling`](docs/en/scheduling.md) | Scheduled tasks in a hosted service, with `WithoutOverlapping` and `OnOneServer` | none |
 | [`Naravel.Broadcasting`](docs/en/broadcasting.md) | Typed real-time events over SignalR, with channel authorization | none |
 | [`Naravel.Encryption`](docs/en/encryption.md) | `Encrypt` and `Decrypt` over ASP.NET Core Data Protection | none |
