@@ -19,5 +19,5 @@ Targets .NET 10. It depends on `Naravel.Foundation`, which NuGet installs with i
 
 ## Documentation
 
-- Cache: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/cache.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/cache.md)
+- Cache: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/cache.md)
 - [Changelog](https://github.com/km-arc/Naravel/blob/main/CHANGELOG.md) · [Source and issues](https://github.com/km-arc/Naravel) · MIT license
