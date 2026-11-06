@@ -235,7 +235,7 @@ app.MapNaravel(routes => routes
         .Name("users.show")));
 ```
 
-aliasهای آمادهٔ route middleware عبارت‌اند از `throttle` (پنجرهٔ ثابت در سطح فرایند)، `signed`، `maintenance`، `cache.headers`، `trim`، `convert.empty` و `guest`؛ aliasها، groupها و پارامترهای سفارشی هم پشتیبانی می‌شوند. وضعیت throttle و maintenance در سطح فرایند است و signed URL برای چند instance به key ring مشترک و پایدار Data Protection نیاز دارد. جزئیات: [docs/fa/routing.md](routing.md) و [docs/en/routing.md](../en/routing.md).
+aliasهای آمادهٔ route middleware عبارت‌اند از `throttle` (پنجرهٔ ثابت، به‌صورت پیش‌فرض در سطح فرایند؛ `Naravel.Routing.Cache` آن را بین instanceها مشترک می‌کند)، `signed`، `maintenance`، `cache.headers`، `trim`، `convert.empty` و `guest`؛ aliasها، groupها و پارامترهای سفارشی هم پشتیبانی می‌شوند. وضعیت maintenance در سطح فرایند است و signed URL برای چند instance به key ring مشترک و پایدار Data Protection نیاز دارد. برای اشتراک سهمیهٔ throttle بین instanceها `Naravel.Routing.Cache` را اضافه کنید و `AddNaravelSharedThrottle("redis")` را با نام یک store مشترک Cache فراخوانی کنید. جزئیات: [docs/fa/routing.md](routing.md) و [docs/en/routing.md](../en/routing.md).
 
 ## Naravel.Pagination
 

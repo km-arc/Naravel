@@ -26,7 +26,7 @@ dotnet add package Naravel.Cache.Redis    # یک provider، فقط اگر از R
 | Query builder | `Naravel.Database` و یک dialect: `Naravel.Database.Sqlite`، `.MySql`، `.Postgres` یا `.SqlServer`؛ برای اشتراک اتصال یک context در EF Core، `Naravel.Database.EntityFrameworkCore` | `AddNaravelDatabase(configuration)` و `AddNaravel...Database` همان dialect |
 | Pagination | `Naravel.Pagination`؛ برای کوئری‌های EF Core، `Naravel.Pagination.EntityFrameworkCore` | لازم نیست |
 | فایل | `Naravel.Filesystem` | `AddNaravelFilesystem(configuration)` |
-| Routing | `Naravel.Routing` (ASP.NET Core) | `AddNaravelRouting()` |
+| Routing | `Naravel.Routing` (ASP.NET Core)؛ برای سهمیهٔ throttle مشترک بین instanceها `Naravel.Routing.Cache` را هم اضافه کنید | `AddNaravelRouting()` و برای سهمیهٔ مشترک `AddNaravelSharedThrottle(storeName)` |
 | Encryption | `Naravel.Encryption`؛ برای jobهای رمزگذاری‌شده `Naravel.Queue.Encryption` | `AddNaravelEncryption()` |
 | Scheduling | `Naravel.Scheduling` | `AddNaravelScheduling(...)` |
 | Broadcasting | `Naravel.Broadcasting` (ASP.NET Core، SignalR) | `AddNaravelBroadcasting(configuration)` |
@@ -44,6 +44,7 @@ dotnet add package Naravel.Cache.Redis    # یک provider، فقط اگر از R
 | `Naravel.Redis` | `builder.Services.AddNaravelRedis(configuration);` |
 | `Naravel.Cache.Redis` | `builder.Services.AddNaravelRedisCache(configuration);` |
 | `Naravel.Cache.Memcached` | `builder.Services.AddNaravelMemcachedCache(configuration);` |
+| `Naravel.Routing.Cache` | `builder.Services.AddNaravelSharedThrottle("redis");` |
 | `Naravel.Queue.Memory` | `builder.Services.AddMemoryDriver(configuration);` |
 | `Naravel.Queue.File` | `builder.Services.AddFileDriver(configuration);` |
 | `Naravel.Queue.Redis` | `builder.Services.AddRedisDriver(configuration);` |

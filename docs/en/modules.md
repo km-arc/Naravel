@@ -235,7 +235,7 @@ app.MapNaravel(routes => routes
         .Name("users.show")));
 ```
 
-Ready-made route middleware aliases are `throttle` (process-local fixed window), `signed`, `maintenance`, `cache.headers`, `trim`, `convert.empty`, and `guest`; custom aliases, groups, and parameters are supported too. Throttling and maintenance state are process-local, and signed URLs need a shared, persisted Data Protection key ring across instances. See [docs/en/routing.md](routing.md) and [docs/fa/routing.md](../fa/routing.md).
+Ready-made route middleware aliases are `throttle` (a fixed window, process-local by default; `Naravel.Routing.Cache` shares it between instances), `signed`, `maintenance`, `cache.headers`, `trim`, `convert.empty`, and `guest`; custom aliases, groups, and parameters are supported too. Maintenance state is process-local, and signed URLs need a shared, persisted Data Protection key ring across instances. To share the throttle quota between instances, add `Naravel.Routing.Cache` and call `AddNaravelSharedThrottle("redis")` with the name of a shared cache store. See [docs/en/routing.md](routing.md) and [docs/fa/routing.md](../fa/routing.md).
 
 ## Naravel.Pagination
 

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Naravel.Routing\Naravel.Routing.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Routing.Cache\Naravel.Routing.Cache.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Cache\Naravel.Cache.csproj" />
+    <!-- The provider job: the contract, the two-host quota and the burst also run over a real Redis (NARAVEL_TEST_REDIS). -->
+    <ProjectReference Include="..\..\src\Naravel.Cache.Redis\Naravel.Cache.Redis.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The same test host as the Routing tests: real ASP.NET Core on TestServer with the aliases a, b, c, d, deny, t and stamp. -->
+    <Compile Include="..\Naravel.Routing.Tests\TestSupport.cs" Link="TestSupport.cs" />
+    <Compile Include="..\Shared\ServiceFactAttribute.cs" Link="ServiceFactAttribute.cs" />
+  </ItemGroup>
+</Project>

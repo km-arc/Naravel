@@ -304,7 +304,7 @@ increments never slide the fixed-window boundary.
 | Redis | yes (atomic Lua increment, `SET NX` lock) | one limit for all replicas |
 | Memcached | yes, but its lock release has a read/delete race | one limit; a rare double admit is possible, and an evicted key resets the window |
 | Memory | **no** (per process) | **each replica admits the full limit**, so the effective limit is N times higher |
-| route `throttle` middleware | **no** (`System.Threading.RateLimiting`, per process) | same as Memory |
+| route `throttle` middleware | **no** by default (`System.Threading.RateLimiting`, per process). `Naravel.Routing.Cache` counts in the store you name, with its own one-call counter and no lock (it does not use `IRateLimiter`) | default store: same as Memory; shared store: as the named store above |
 
 Failure behaviour: if the lock cannot be taken within 5 seconds, `AttemptAsync` throws `TimeoutException` (it neither admits nor rejects, so decide in the caller whether to fail open or closed); a backend outage surfaces the backend's exception. The counter and lock are not rolled back if your own work after an allowed attempt fails.
 
