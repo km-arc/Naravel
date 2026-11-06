@@ -44,7 +44,7 @@ metadata and the lock-step version live only in `Directory.Build.props`.
 
 ## Making a change
 
-Keep a pull request to one concern. Branch from `main` and name the branch for the kind of change (`fix/...`, `feat/...`,
+Keep a pull request to one concern. Default limit: **500 changed non-generated lines (additions + deletions) and 20 changed files**. Split work before opening the PR if either limit is exceeded. Only a genuinely indivisible or explicitly owner-requested bulk migration/removal may exceed the limit; get owner approval first and record the reason and approval in the PR description. Branch from `main` and name the branch for the kind of change (`fix/...`, `feat/...`,
 `docs/...`, `test/...`, `ci/...`).
 
 A change is ready when:
@@ -64,7 +64,8 @@ A change is ready when:
   package page `docs/nuget/<PackageId>.md` packed as `README.md`; the rest of what NuGet shows comes from
   `Directory.Build.props`. CI checks every packed package (`.github/scripts/check-package-metadata.py` and
   `check-package-readmes.py`), because NuGet cannot edit a version once it is pushed.
-- **Docs are English-only and source-verified.** Update the relevant `docs/en/*`, `docs/pdr/en/*`, and `docs/nuget/*` pages in the same change. Verify API names, signatures, defaults, exceptions, provider behavior, compatibility claims, and examples against current source and tests. Add or update executable documentation tests for copyable code samples; clearly label any illustrative pseudocode. Never add translated docs or `.fa.md` files.
+- **Docs are English-only and source-verified.** Update the relevant `docs/en/*`, `docs/pdr/en/*`, and `docs/nuget/*` pages in the same change. Verify API names, signatures, defaults, exceptions, provider behavior, compatibility claims, and examples against current source and tests. Add or update executable documentation tests for copyable code samples; clearly label any illustrative pseudocode. Never create, generate, translate, sync, scaffold, or publish Persian documentation, including temporary drafts, `docs/fa/`, `docs/pdr/fa/`, or `*.fa.md` files.
+- **Documentation links must close in the same change.** Before editing, deleting, or renaming a document, search all tracked repository files for inbound references, including NuGet package pages, root docs, PDRs, templates, scripts, and workflows. Update every affected reference. Re-scan for removed paths, validate affected local Markdown links, and run `/usr/bin/python3 roadmap/check.py` before committing. A passing CI job does not replace this review.
 - **`CHANGELOG.md` has a line under `[Unreleased]`** for anything a user of a package could notice.
 - **The roadmap check passes:** `python3 roadmap/check.py`.
 - **You say what you did not run.** If you could not run `dotnet build`, `dotnet test` or a provider's service, write
