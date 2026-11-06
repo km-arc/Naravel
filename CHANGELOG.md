@@ -14,6 +14,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 
 ### Changed
 - Docs: the module guides are being rewritten with complete, source-checked examples, the exact error messages and a testing section, in English and Persian together. Done so far: `Naravel.Foundation` (also the NuGet package page), the database dialect contract, whose Persian twin was a summary and is now the full page, `Naravel.Cache` (a runnable memory-only quickstart, every operation with its return value, how `BlockAsync` waits and releases, creating an asynchronous-only store, an Errors section), `Naravel.Events` (a runnable quickstart, an Errors section including the queued-listener messages; the duplicate testing and example sections were merged), `Naravel.Mail` and `Naravel.Notifications` (a runnable quickstart each, an Errors section with the exact messages, copies and a sender of your own for a mailable) and `Naravel.Queue` (a quickstart that runs on the memory driver with an in-process worker, an Errors section; the Redis walkthrough is kept as its own section). The `DocsExampleTests.cs` files in the Cache, Mail, Notifications and Queue test projects run the new snippets and assert the documented messages.
+- Docs: the "Honest about guarantees" line of `README.md` and `README.fa.md` no longer says that route throttling is always process-local. It is by default; the routing guide describes the shared store and what it does not cover.
 
 ## [0.1.1] - 2026-11-02
 
