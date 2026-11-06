@@ -87,7 +87,7 @@ Routing tests use a test double of `IThrottleStore` (counts calls, can throw, ha
 
 **Memory provider:** the adapter over the Memory store takes no `MemoryLock`; many distinct subjects over several short windows leave the entry count falling after the windows expire (the test uses a real window of a few hundred milliseconds because `MemoryCacheStore` reads the system clock); the tests that PR #192 adds for AUDIT D-74 passed in CI run #497. <!-- check:allow-count -->
 
-A benchmark of the in-process path (must not regress) and of the shared path on Redis (the claim is one store call per request), reviewed before merge. Docs EN/FA, `CHANGELOG.md`, public API files. Build, tests and benchmarks are verified by CI only.
+A benchmark of the in-process path (must not regress) and of the shared path on Redis (the claim is one store call per request), reviewed before merge. English docs, `CHANGELOG.md`, and public API files. Build, tests and benchmarks are verified by CI only.
 
 ## Alternatives considered
 

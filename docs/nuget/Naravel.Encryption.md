@@ -14,5 +14,5 @@ Targets .NET 10.
 
 ## Documentation
 
-- Encryption: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/encryption.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/encryption.md)
+- Encryption: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/encryption.md)
 - [Changelog](https://github.com/km-arc/Naravel/blob/main/CHANGELOG.md) · [Source and issues](https://github.com/km-arc/Naravel) · MIT license

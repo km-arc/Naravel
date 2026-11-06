@@ -1,6 +1,6 @@
 # Password hashing
 
-**Naravel has no hashing package.** .NET already does what Laravel's `Hash` facade does, so nothing is ported ([PDR-019](../pdr/en/PDR-019-hashing.md), status `DECLINED`). This page is the recipe that replaces it. Persian version: [docs/fa/hashing.md](../fa/hashing.md).
+**Naravel has no hashing package.** .NET already does what Laravel's `Hash` facade does, so nothing is ported ([PDR-019](../pdr/en/PDR-019-hashing.md), status `DECLINED`). This page is the recipe that replaces it..
 
 ## Quickstart
 

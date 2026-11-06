@@ -14,6 +14,6 @@ Targets .NET 10. It depends on `Naravel.Encryption` and `Naravel.Queue`, which N
 
 ## Documentation
 
-- Encryption: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/encryption.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/encryption.md)
-- Queue: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/queue.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/queue.md)
+- Encryption: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/encryption.md)
+- Queue: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/queue.md)
 - [Changelog](https://github.com/km-arc/Naravel/blob/main/CHANGELOG.md) · [Source and issues](https://github.com/km-arc/Naravel) · MIT license

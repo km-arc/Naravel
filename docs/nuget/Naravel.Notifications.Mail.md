@@ -14,6 +14,6 @@ Targets .NET 10. It depends on `Naravel.Notifications` and `Naravel.Mail`, which
 
 ## Documentation
 
-- Notifications: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/notifications.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/notifications.md)
-- Mail: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/mail.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/mail.md)
+- Notifications: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/notifications.md)
+- Mail: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/mail.md)
 - [Changelog](https://github.com/km-arc/Naravel/blob/main/CHANGELOG.md) · [Source and issues](https://github.com/km-arc/Naravel) · MIT license

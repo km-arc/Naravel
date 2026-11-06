@@ -6,8 +6,7 @@ quickstart), S2 (no reflection on hot paths, async + `CancellationToken`, benchm
 Fake) from the Definition of done in `ROADMAP.md`. Binding owner decisions are `OD-01…OD-09` in `ROADMAP.md`.
 
 ## Roadmap quickstart
-The authoritative roadmap and sole `NEXT` pointer are in [ROADMAP.md](ROADMAP.md). Persian owner overview:
-[ROADMAP.fa.md](ROADMAP.fa.md). The roadmap table is the only place for stage status; consult
+The authoritative roadmap and sole `NEXT` pointer are in [ROADMAP.md](ROADMAP.md). The roadmap table is the only place for stage status; consult
 [roadmap/AUDIT.md](roadmap/AUDIT.md), [roadmap/PARITY-MATRIX.md](roadmap/PARITY-MATRIX.md), and
 [roadmap/BACKLOG.md](roadmap/BACKLOG.md) for their named purposes.
 
@@ -47,9 +46,9 @@ dotnet restore Naravel.slnx && dotnet build Naravel.slnx -c Release && dotnet te
 | `src/Naravel.<Module>.<Provider>` | A driver that pulls a heavy dependency (Redis, RabbitMQ, EF Core ...), so users only install what they use. |
 | `tests/Naravel.<Module>.Tests` | xUnit + FluentAssertions (7.x) tests for that module. |
 | `samples/` | Runnable samples (never packed). |
-| `docs/en`, `docs/fa` | Parallel English / Persian docs (same file names). |
-| `docs/README.md`, `docs/assets` | Documentation index (English and Persian) and the README images. The README stays a short front page: put detail in `docs/en` and `docs/fa`, not in the README. |
-| `docs/pdr/en`, `docs/pdr/fa` | **PDRs** — Parity Decision Records: why each Laravel feature was adopted, adapted or rejected. |
+| `docs/en` | Authoritative English module guides. |
+| `docs/README.md`, `docs/assets` | English documentation index and README images. The README stays a short front page: put detail in `docs/en`, not in the README. |
+| `docs/pdr/en` | **PDRs** — Parity Decision Records: why each Laravel feature was adopted, adapted or rejected. |
 | `docs/en/next-agent-prompt.md` | Ready-to-paste task prompt for the next agent. |
 | `docs/nuget` | English NuGet package pages: one `<PackageId>.md` per package, packed as its root `README.md` and checked by CI. A new package adds its file here and the `PackageReadmeFile` metadata. |
 
@@ -73,7 +72,7 @@ history and the accepted PDR-009 decisions remain in [PROGRESS-ROUTING.md](PROGR
 1. **PDR first.** Before adding any Laravel-equivalent feature, write a PDR (Laravel feature → native .NET option → value added? → decision → rejected alternatives). Get owner approval for large decisions.
 2. **Never re-implement** driver resolution, caching of driver instances, runtime `Extend`, or config-driven default selection. Subclass `Manager<TDriver, TOptions>`.
 3. **Dependencies point one way.** Foundation depends on no module. Modules depend on Foundation. A module may depend on another module only if a PDR says so (for example Events → Queue for queued listeners); no cycles.
-4. **Docs in both languages.** Every module ships `docs/en/*` and `docs/fa/*` and PDRs in both. Public types have XML docs with: purpose, *Laravel equivalent*, *why it exists*, *what was intentionally not ported*.
+4. **English-only, source-verified docs.** English is the sole documentation language. Keep maintained guides in `docs/en/`, PDRs in `docs/pdr/en/`, and package pages in `docs/nuget/`. Never add translated documentation or `.fa.md` twins. Documentation is part of the public contract: every API name and signature, default, option, exception, provider, framework target, behavior, guarantee, and example must be checked against the current implementation, tests, project metadata, and CI. Source code and executable tests win over old docs, Laravel behavior, assumptions, or memory. Public types have XML docs with: purpose, *Laravel equivalent*, *why it exists*, *what was intentionally not ported*.
 5. **Tests are mandatory**, including a runtime `Extend` test and (if config-driven) a config-reload test.
 6. **Don't port PHP mechanics** (magic `__call`, array configs, reflection tricks) just for resemblance.
 7. **Async-first** for anything that touches I/O; `CancellationToken` on every async API.
@@ -87,7 +86,7 @@ history and the accepted PDR-009 decisions remain in [PROGRESS-ROUTING.md](PROGR
 1. Read the PDRs; write the module's PDR; wait for approval.
 2. Create `src/Naravel.<Module>` (+ provider projects) and `tests/Naravel.<Module>.Tests`; add all to `Naravel.slnx`.
 3. Add new package versions to `Directory.Packages.props` only.
-4. Implement on `Manager<TDriver, TOptions>`; add tests; add EN + FA docs; update the parity tables and the **Module status** table above.
+4. Implement on `Manager<TDriver, TOptions>`; add tests; update the English docs and PDRs against the implementation; update the parity tables and the **Module status** table above.
 5. Run the verify command above (or rely on CI) and report exactly what was and was not verified.
 
 ## Verify
@@ -95,3 +94,12 @@ history and the accepted PDR-009 decisions remain in [PROGRESS-ROUTING.md](PROGR
 dotnet restore Naravel.slnx
 dotnet test Naravel.slnx
 ```
+
+## Documentation is an implementation contract
+
+- English is the only maintained documentation language. Do not add Persian translations, `*.fa.md` files, `docs/fa/`, or `docs/pdr/fa/`.
+- Before documenting a public API, inspect its current declaration and implementation in `src/`, its tests, package metadata, and the relevant provider registration. Do not copy Laravel signatures or infer .NET behavior from Laravel.
+- Verify every code sample against the current API. Prefer executable documentation tests in the relevant test project; if a snippet cannot be executed, label it clearly as illustrative and keep it minimal.
+- Document actual defaults, overloads, cancellation behavior, exceptions, provider differences, platform/framework support, and failure guarantees. Do not promise behavior that is not implemented and tested.
+- Update the guide, NuGet package page, XML docs, parity record, and changelog in the same change whenever the affected public behavior or package contract changes.
+- In the pull request, list the source files and tests used to verify documentation claims. A passing build alone does not prove that prose is accurate.

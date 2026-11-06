@@ -16,7 +16,9 @@ Closes #
 - [ ] One concern per pull request, branched from the current `main`.
 - [ ] Tests added or updated (runtime `Extend` / config-reload / contract tests for a driver module).
 - [ ] New public API is declared in `PublicAPI.Unshipped.txt` and has XML docs.
-- [ ] Docs updated in English and Persian (`docs/en` and `docs/fa`).
+- [ ] Maintained docs are English-only and updated against the current implementation (`docs/en`, `docs/pdr/en`, `docs/nuget`).
+- [ ] API names, signatures, defaults, exceptions, provider behavior, compatibility claims, and examples were checked against source and tests; executable examples have test coverage or are explicitly labelled illustrative.
+- [ ] PR description lists the source files and tests used as evidence for documentation accuracy.
 - [ ] `CHANGELOG.md` has a line under `[Unreleased]` for anything a package user could notice.
 - [ ] `python3 roadmap/check.py` passes; no status or test count copied outside `ROADMAP.md`.
 

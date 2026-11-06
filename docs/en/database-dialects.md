@@ -2,7 +2,7 @@
 
 One query-builder call is **not** guaranteed to mean the same thing on every engine. This page is the public contract for where it differs. If behaviour is not listed here or not covered by a test, do not assume it is portable.
 
-Persian version: [docs/fa/database-dialects.md](../fa/database-dialects.md). Method ownership: [roadmap/QUERY-BUILDER-COVERAGE.md](../../roadmap/QUERY-BUILDER-COVERAGE.md).
+Method ownership: [roadmap/QUERY-BUILDER-COVERAGE.md](../../roadmap/QUERY-BUILDER-COVERAGE.md).
 
 ## How to read the evidence
 

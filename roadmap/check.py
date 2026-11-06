@@ -210,17 +210,33 @@ def main() -> int:
         if proj.relative_to(ROOT).as_posix() not in slnx:
             errors.append(f"{proj.relative_to(ROOT).as_posix()} is not in Naravel.slnx")
 
-    for kind in ("docs", "docs/pdr"):
-        en = {p.name for p in (ROOT / kind / "en").glob("*.md")}
-        fa = {p.name for p in (ROOT / kind / "fa").glob("*.md")}
-        if en != fa:
-            errors.append(f"{kind}: EN/FA file mismatch: {sorted(en ^ fa)}")
+    # Documentation is maintained in English only. Reject translated documentation paths
+    # and stale links in maintained documentation and contributor guidance.
+    if tracked_files is not None:
+        localized_docs = [
+            path for path in tracked_files
+            if re.search(r"(?:^|/)docs/fa/", path)
+            or re.search(r"(?:^|/)docs/pdr/fa/", path)
+            or re.search(r"(?:^|/)[^/]+\.fa\.md$", path)
+        ]
+        if localized_docs:
+            errors.append(f"localized documentation is not maintained; remove these files: {localized_docs}")
 
-    fa_text = (ROOT / "ROADMAP.fa.md").read_text(encoding="utf-8")
-    fa_next = re.search(r"(?m)^NEXT:\s*(R\d{2}|none)\s*$", fa_text)
-    fa_next_id = None if fa_next and fa_next.group(1) == "none" else (fa_next.group(1) if fa_next else None)
-    if not fa_next or fa_next_id != next_id:
-        errors.append("ROADMAP.fa.md NEXT pointer differs from ROADMAP.md")
+        maintained_prefixes = ("docs/en/", "docs/pdr/en/", "docs/nuget/")
+        maintained_exact = {
+            "AGENTS.md", "CONTRIBUTING.md", "README.md", "CODE_OF_CONDUCT.md",
+            "docs/README.md", ".github/PULL_REQUEST_TEMPLATE.md",
+        }
+        stale_doc_ref = re.compile(r"docs/(?:fa|pdr/fa)/|(?:README|ROADMAP|CONTRIBUTING|CODE_OF_CONDUCT)\.fa\.md")
+        for path in tracked_files:
+            if path not in maintained_exact and not path.startswith(maintained_prefixes):
+                continue
+            file_path = ROOT / path
+            if not file_path.is_file():
+                continue
+            for number, line in enumerate(file_path.read_text(encoding="utf-8").splitlines(), 1):
+                if stale_doc_ref.search(line):
+                    errors.append(f"{path}:{number} links to removed translated documentation")
 
     # stage-file structure (STAGE-TEMPLATE.md)
     for stage_id, (_, status) in rows.items():

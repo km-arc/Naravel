@@ -2,7 +2,7 @@
 
 `Naravel.Broadcasting` is a thin layer over SignalR. SignalR already delivers messages (`IHubContext<T>`, groups, backplanes); this package adds what it does not have: an event class that says which channels it goes to, a registered rule for who may join `private-orders.{id}`, one place to switch the transport, and a fake for tests. It does not replace SignalR.
 
-Decision and reasons: [PDR-018](../pdr/en/PDR-018-broadcasting.md). Persian version: [docs/fa/broadcasting.md](../fa/broadcasting.md).
+Decision and reasons: [PDR-018](../pdr/en/PDR-018-broadcasting.md)..
 
 ## Quickstart
 

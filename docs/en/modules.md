@@ -16,7 +16,7 @@ storage.Extend("scratch", _ => new LocalStorageDriver("storage/scratch", "/scrat
 var scratch = storage.Disk("scratch");
 ```
 
-See [docs/en/foundation.md](foundation.md) (English) and [docs/fa/foundation.md](../fa/foundation.md) (فارسی) for the Foundation package guide.
+See the [Foundation package guide](foundation.md).
 
 ## Naravel.Cache
 
@@ -37,7 +37,7 @@ public sealed class SettingsService(ICacheStore cache)
 }
 ```
 
-Use `ICacheStore` for the default store and `CacheManager` to choose a named store or create a scope. Provider behavior and limitations, including Memcached's cluster-wide `FlushAsync`, are documented in [docs/en/cache.md](cache.md) and [docs/fa/cache.md](../fa/cache.md).
+Use `ICacheStore` for the default store and `CacheManager` to choose a named store or create a scope. Provider behavior and limitations, including Memcached's cluster-wide `FlushAsync`, are documented in [docs/en/cache.md](cache.md).
 
 ## Naravel.Queue
 
@@ -59,7 +59,7 @@ var dispatcher = app.Services.GetRequiredService<IJobDispatcher>();
 await dispatcher.DispatchAsync(new SendWelcomeEmailJob("ali@example.com"));
 ```
 
-See [docs/en/queue.md](queue.md) and [docs/fa/queue.md](../fa/queue.md) for job definitions, configuration, failed jobs, persistent batches, worker controls, and provider-specific setup.
+See [docs/en/queue.md](queue.md) for job definitions, configuration, failed jobs, persistent batches, worker controls, and provider-specific setup.
 
 ## Naravel.Events
 
@@ -93,7 +93,7 @@ builder.Services.AddNaravelEventsQueue();
 builder.Services.AddQueuedEventListener<OrderPaid, SendReceipt>("order-paid.receipt");
 ```
 
-See [docs/en/events.md](events.md) and [docs/fa/events.md](../fa/events.md), and run the sample's `/events` page for a working example.
+See [docs/en/events.md](events.md), and run the sample's `/events` page for a working example.
 
 ## Naravel.Mail
 
@@ -114,11 +114,11 @@ await mailer.To(user.Email).SendAsync(new WelcomeMail(user), cancellationToken);
 await mailer.To(user.Email).QueueAsync(new WelcomeMail(user), cancellationToken);   // stores message data only, at-least-once
 ```
 
-See [docs/en/mail.md](mail.md) and [docs/fa/mail.md](../fa/mail.md).
+See [docs/en/mail.md](mail.md).
 
 ## Naravel.Redis
 
-Named, shared Redis connections: one StackExchange.Redis multiplexer per name (the real `IConnectionMultiplexer`, no command wrapper), owned and disposed by one manager. Cache and Queue stores name a connection with `Connection`; the old `ConnectionString` still works and equal strings share one connection. See [docs/en/redis.md](redis.md) and [docs/fa/redis.md](../fa/redis.md).
+Named, shared Redis connections: one StackExchange.Redis multiplexer per name (the real `IConnectionMultiplexer`, no command wrapper), owned and disposed by one manager. Cache and Queue stores name a connection with `Connection`; the old `ConnectionString` still works and equal strings share one connection. See [docs/en/redis.md](redis.md).
 
 ```csharp
 builder.Services.AddNaravelRedis(builder.Configuration);   // Redis:Default, Redis:Stores:<name>:ConnectionString
@@ -140,11 +140,11 @@ await notifications.SendAsync(user, new InvoiceReady(7), ["log"], cancellationTo
 //   await notificationQueue.QueueAsync("invoice.ready", payload);   // stores an alias and plain data only, at-least-once
 ```
 
-See [docs/en/notifications.md](notifications.md) and [docs/fa/notifications.md](../fa/notifications.md).
+See [docs/en/notifications.md](notifications.md).
 
 ## Naravel.Encryption
 
-A thin `Encrypt` / `Decrypt` facade over ASP.NET Core Data Protection (no custom cryptography), typed values, `ForPurpose` isolation and `DecryptException`. `Naravel.Queue.Encryption` stores the payload of jobs marked `IShouldBeEncrypted` encrypted; the job type is still chosen by the alias registry only. **Producer and worker must share the Data Protection key ring and application name.** See [docs/en/encryption.md](encryption.md) and [docs/fa/encryption.md](../fa/encryption.md).
+A thin `Encrypt` / `Decrypt` facade over ASP.NET Core Data Protection (no custom cryptography), typed values, `ForPurpose` isolation and `DecryptException`. `Naravel.Queue.Encryption` stores the payload of jobs marked `IShouldBeEncrypted` encrypted; the job type is still chosen by the alias registry only. **Producer and worker must share the Data Protection key ring and application name.** See [docs/en/encryption.md](encryption.md).
 
 ```csharp
 builder.Services.AddNaravelEncryption();
@@ -165,7 +165,7 @@ builder.Services.AddNaravelScheduling(schedule =>
 });
 ```
 
-See [docs/en/scheduling.md](scheduling.md) and [docs/fa/scheduling.md](../fa/scheduling.md).
+See [docs/en/scheduling.md](scheduling.md).
 
 ## Naravel.Broadcasting
 
@@ -177,7 +177,7 @@ app.MapNaravelBroadcasting("/hubs/broadcast");
 await broadcaster.BroadcastAsync(new OrderShipped(7));   // record OrderShipped(int OrderId) : IBroadcastable { Channels() => [$"private-orders.{OrderId}"] }
 ```
 
-See [docs/en/broadcasting.md](broadcasting.md) and [docs/fa/broadcasting.md](../fa/broadcasting.md).
+See [docs/en/broadcasting.md](broadcasting.md).
 
 ## Naravel.Database
 
@@ -200,7 +200,7 @@ var authors = await db.Table("users")                       // joins, JSON paths
     .GetAsync(cancellationToken);
 ```
 
-Values are always bound as parameters, identifiers are validated, and raw SQL exists only in `*Raw` methods. See [docs/en/database.md](database.md) and [docs/fa/database.md](../fa/database.md).
+Values are always bound as parameters, identifiers are validated, and raw SQL exists only in `*Raw` methods. See [docs/en/database.md](database.md).
 
 ## Naravel.Filesystem
 
@@ -218,7 +218,7 @@ public sealed class ArchiveService(IStorageDriver storage)
 }
 ```
 
-See [docs/en/filesystem.md](filesystem.md) and [docs/fa/filesystem.md](../fa/filesystem.md) for disk configuration, uploads, S3 URLs, and security notes.
+See [docs/en/filesystem.md](filesystem.md) for disk configuration, uploads, S3 URLs, and security notes.
 
 ## Naravel.Routing
 
@@ -235,7 +235,7 @@ app.MapNaravel(routes => routes
         .Name("users.show")));
 ```
 
-Ready-made route middleware aliases are `throttle` (a fixed window, process-local by default; `Naravel.Routing.Cache` shares it between instances), `signed`, `maintenance`, `cache.headers`, `trim`, `convert.empty`, and `guest`; custom aliases, groups, and parameters are supported too. Maintenance state is process-local, and signed URLs need a shared, persisted Data Protection key ring across instances. To share the throttle quota between instances, add `Naravel.Routing.Cache` and call `AddNaravelSharedThrottle("redis")` with the name of a shared cache store. See [docs/en/routing.md](routing.md) and [docs/fa/routing.md](../fa/routing.md).
+Ready-made route middleware aliases are `throttle` (a fixed window, process-local by default; `Naravel.Routing.Cache` shares it between instances), `signed`, `maintenance`, `cache.headers`, `trim`, `convert.empty`, and `guest`; custom aliases, groups, and parameters are supported too. Maintenance state is process-local, and signed URLs need a shared, persisted Data Protection key ring across instances. To share the throttle quota between instances, add `Naravel.Routing.Cache` and call `AddNaravelSharedThrottle("redis")` with the name of a shared cache store. See [docs/en/routing.md](routing.md).
 
 ## Naravel.Pagination
 
@@ -246,7 +246,7 @@ var page = await db.Posts.OrderBy(p => p.Id).PaginateAsync(page: 2, perPage: 15)
 var next = await db.Posts.CursorPaginateAsync(k => k.By(p => p.CreatedAt).Then(p => p.Id), 15, cursor);
 ```
 
-See [docs/en/pagination.md](pagination.md) and [docs/fa/pagination.md](../fa/pagination.md).
+See [docs/en/pagination.md](pagination.md).
 
 ## Native in .NET (no package)
 
@@ -254,8 +254,8 @@ Some Laravel features are already part of ASP.NET Core or .NET. Naravel document
 
 ### Hashing (native, no package)
 
-Password hashing is already in .NET: `PasswordHasher<TUser>` from `Microsoft.Extensions.Identity.Core` does `Hash::make`, `Hash::check` and `Hash::needsRehash` (PDR-019, `DECLINED`). The one thing to change is the work factor: the default of 100,000 iterations is below the OWASP figure for HMAC-SHA512, so set `PasswordHasherOptions.IterationCount` yourself. See [docs/en/hashing.md](hashing.md) and [docs/fa/hashing.md](../fa/hashing.md).
+Password hashing is already in .NET: `PasswordHasher<TUser>` from `Microsoft.Extensions.Identity.Core` does `Hash::make`, `Hash::check` and `Hash::needsRehash` (PDR-019, `DECLINED`). The one thing to change is the work factor: the default of 100,000 iterations is below the OWASP figure for HMAC-SHA512, so set `PasswordHasherOptions.IterationCount` yourself. See [docs/en/hashing.md](hashing.md).
 
 ### Session and auth middleware (native, no package)
 
-Session is already in ASP.NET Core: `AddSession` over any `IDistributedCache`, with `TempData` and `ModelState` for flash data and old input (PDR-015, `DECLINED`). Route authorization is `NaravelRoute.Configure(b => b.RequireAuthorization("policy"))`; there are no `auth`, `can` or `verified` aliases, and the built-in `guest` alias stays (PDR-016, `DECLINED`). See [docs/en/session.md](session.md), [docs/en/auth.md](auth.md) and the Persian twins under `docs/fa/`.
+Session is already in ASP.NET Core: `AddSession` over any `IDistributedCache`, with `TempData` and `ModelState` for flash data and old input (PDR-015, `DECLINED`). Route authorization is `NaravelRoute.Configure(b => b.RequireAuthorization("policy"))`; there are no `auth`, `can` or `verified` aliases, and the built-in `guest` alias stays (PDR-016, `DECLINED`). See [docs/en/session.md](session.md), [docs/en/auth.md](auth.md).

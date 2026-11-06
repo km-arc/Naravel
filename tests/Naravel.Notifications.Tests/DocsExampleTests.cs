@@ -3,7 +3,7 @@ using Naravel.Notifications.Testing;
 
 namespace Naravel.Notifications.Tests;
 
-// Runs the quickstart and the error messages of docs/en/notifications.md and docs/fa/notifications.md.
+// Runs the quickstart and the error messages of docs/en/notifications.md.
 // If a test here needs a change, the guide needs the same change.
 public sealed class DocsExampleTests
 {

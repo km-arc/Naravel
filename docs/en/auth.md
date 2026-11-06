@@ -1,6 +1,6 @@
 # Auth middleware (`auth`, `guest`, `can`, `verified`)
 
-**Naravel has no auth package and no `auth`, `can` or `verified` aliases.** ASP.NET Core authentication and authorization already attach to a route as endpoint metadata, and `Naravel.Routing` exposes that builder ([PDR-016](../pdr/en/PDR-016-auth-lite.md), status `DECLINED`). The built-in `guest` alias stays. This page is the recipe. Persian version: [docs/fa/auth.md](../fa/auth.md).
+**Naravel has no auth package and no `auth`, `can` or `verified` aliases.** ASP.NET Core authentication and authorization already attach to a route as endpoint metadata, and `Naravel.Routing` exposes that builder ([PDR-016](../pdr/en/PDR-016-auth-lite.md), status `DECLINED`). The built-in `guest` alias stays. This page is the recipe..
 
 ## Quickstart
 

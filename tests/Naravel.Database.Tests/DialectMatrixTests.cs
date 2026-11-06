@@ -3,7 +3,7 @@ using Naravel.Database;
 namespace Naravel.Database.Tests;
 
 /// <summary>
-/// The R21 and R24 dialect matrices of docs/en/database.md and docs/fa/database.md, as code: a call a dialect cannot express throws
+/// The R21 and R24 dialect matrices of docs/en/database.md, as code: a call a dialect cannot express throws
 /// <see cref="NotSupportedException"/> naming the dialect when compiled; every other call compiles on all four. Change this table and the docs together.
 /// </summary>
 public class DialectMatrixTests

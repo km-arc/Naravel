@@ -10,7 +10,7 @@
 [![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-[Get started](#get-started) · [Modules](#modules) · [Documentation](docs/README.md) · [Laravel parity](docs/en/laravel-parity.md) · [Changelog](CHANGELOG.md) · [فارسی](README.fa.md)
+[Get started](#get-started) · [Modules](#modules) · [Documentation](docs/README.md) · [Laravel parity](docs/en/laravel-parity.md) · [Changelog](CHANGELOG.md)
 
 </div>
 

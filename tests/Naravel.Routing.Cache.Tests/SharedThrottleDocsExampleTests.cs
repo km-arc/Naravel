@@ -7,7 +7,7 @@ using Naravel.Routing.Tests;
 
 namespace Naravel.Routing.Cache.Tests;
 
-// Runs "Share one quota between instances" of docs/en/routing.md and docs/fa/routing.md. The guide's store is Redis
+// Runs "Share one quota between instances" of docs/en/routing.md. The guide's store is Redis
 // (Driver "redis" and AddNaravelRedisCache); here the same store name is a Memory store (Driver "memory", which
 // AddNaravelCache registers itself) so the example runs on every build. The Redis variant is covered by
 // RedisSharedThrottleTests in the provider job. If a test here needs a change, the guide needs the same change.

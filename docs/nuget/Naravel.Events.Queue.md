@@ -14,6 +14,6 @@ Targets .NET 10. It depends on `Naravel.Events` and `Naravel.Queue`, which NuGet
 
 ## Documentation
 
-- Events: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/events.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/events.md)
-- Queue: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/queue.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/queue.md)
+- Events: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/events.md)
+- Queue: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/queue.md)
 - [Changelog](https://github.com/km-arc/Naravel/blob/main/CHANGELOG.md) · [Source and issues](https://github.com/km-arc/Naravel) · MIT license

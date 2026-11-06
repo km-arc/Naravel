@@ -10,7 +10,7 @@ using Naravel.Queue.Testing;
 
 namespace Naravel.Queue.Tests;
 
-// Runs the quickstart and the registration and QueueFake messages of docs/en/queue.md and docs/fa/queue.md.
+// Runs the quickstart and the registration and QueueFake messages of docs/en/queue.md.
 // If a test here needs a change, the guide needs the same change.
 public sealed class DocsExampleTests
 {

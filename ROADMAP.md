@@ -1,7 +1,7 @@
 # ROADMAP — Naravel: closing the Laravel ⇄ .NET gap
 
 Goal: **Laravel's simplicity with .NET's speed.** Port an idea only if it adds practical value in .NET (rule zero);
-otherwise use the native solution and record it in a PDR. Persian owner overview: [ROADMAP.fa.md](ROADMAP.fa.md).
+otherwise use the native solution and record it in a PDR. 
 Audit: [roadmap/AUDIT.md](roadmap/AUDIT.md) · Matrix: [roadmap/PARITY-MATRIX.md](roadmap/PARITY-MATRIX.md) ·
 Backlog: [roadmap/BACKLOG.md](roadmap/BACKLOG.md) · Review: [roadmap/REVIEW-01.md](roadmap/REVIEW-01.md) ·
 Stage template: [roadmap/STAGE-TEMPLATE.md](roadmap/STAGE-TEMPLATE.md).
@@ -22,10 +22,10 @@ NEXT: R30
 ```
 
 ## Stages
-Gate: `-` none · `PDR` an EN+FA PDR must exist **and be owner-approved** before code · `GO` owner must say go.
+Gate: `-` none · `PDR` an English PDR must exist **and be owner-approved** before code · `GO` owner must say go.
 Status lives **only here**: `TODO` · `DOING` · `DONE (date, verification)` · `BLOCKED (reason)` · `DECLINED (PDR-nnn, reason)`.
 `DECLINED` = the PDR concluded native .NET is enough; it is a valid result, counts as satisfying dependents, and still
-needs the EN+FA PDR.
+needs the English PDR.
 
 | ID | Title | Deps | Gate | Status |
 |---|---|---|---|---|
@@ -95,7 +95,7 @@ PDR numbers are fixed: 007a RateLimiter · 008 Filesystem · 009 Routing (done) 
 | OD-09 | Pre-1.0 (`0.x`): breaking changes are allowed if listed in `CHANGELOG.md`; revisit before 1.0.0. |
 
 ## PDR-batching rule
-If `NEXT` has gate `PDR`/`GO` and no approved PDR exists, do **not** idle: write the EN+FA PDRs for **every stage of
+If `NEXT` has gate `PDR`/`GO` and no approved PDR exists, do **not** idle: write the English PDRs for **every stage of
 that wave** (a PDR is a document, so dependency status does not matter), set those rows `BLOCKED (awaiting PDR approval)`,
 and stop. The owner approves the wave in one review; afterwards the stages run without further stops.
 - **Wave A:** PDR-007a (R04), PDR-012 (R07); GO for R05.
@@ -115,7 +115,7 @@ Every PDR opens with a **native-first verdict** (can plain .NET do this in ≤ 3
 4. **S3 Observable & testable:** I/O modules emit `System.Diagnostics.Metrics` (`Meter` named after the package) and
    `ActivitySource` spans; every module ships a Fake/in-memory test double (`Naravel.<Module>.Testing` namespace).
 5. Tests: runtime `Extend`, config-reload (config-driven modules), contract tests for every driver, fake usage.
-6. XML docs on public types (purpose, *Laravel equivalent*, *why it exists*, *not ported*); EN+FA docs and PDRs; update
+6. XML docs on public types (purpose, *Laravel equivalent*, *why it exists*, *not ported*); English-only docs and PDRs verified against source and tests; update
    both parity tables, `CHANGELOG.md`, and this table.
 7. Run `dotnet restore Naravel.slnx && dotnet build Naravel.slnx -c Release && dotnet test Naravel.slnx -c Release` and
    `/usr/bin/python3 roadmap/check.py`. Record the actual result in the status cell; if impossible write `NOT RUN: <reason>`.

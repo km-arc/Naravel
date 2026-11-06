@@ -1,7 +1,7 @@
 # Code of Conduct
 
 Naravel is a small project that people from different countries, languages and levels of experience build together. This page
-says how we treat each other wherever the project happens. Persian: [CODE_OF_CONDUCT.fa.md](CODE_OF_CONDUCT.fa.md).
+says how we treat each other wherever the project happens. 
 
 ## Our pledge
 
@@ -16,7 +16,7 @@ What we encourage:
 - being kind and patient, above all with a newcomer's question;
 - giving and accepting feedback about the work, not about the person;
 - owning a mistake, apologising for it and learning from it;
-- assuming good faith. English and Persian are both welcome here, plain wording is fine, and so is a translation tool.
+- assuming good faith. Use clear, plain language; translation tools are welcome.
 
 What we do not accept:
 
@@ -47,7 +47,7 @@ when that is what keeps the project a decent place to work. They decide each cas
   under GitHub's own terms.
 - To reach the maintainers privately, use the contact details on the project's GitHub profile (<https://github.com/km-arc>).
   If there are none, open an issue that says only that you want to raise a conduct concern, and **put no details in it**; a
-  private channel will be arranged. English or Persian is fine.
+  private channel will be arranged. Use clear, respectful language.
 
 This is a small project, so we cannot promise a response time. Every report is read, handled fairly, and kept as private as the
 situation allows, and nobody is punished for reporting in good faith. Maintainers who are part of a report do not decide on it.

@@ -7,7 +7,7 @@ using Naravel.Queue.Memory;
 
 namespace Naravel.Events.Tests.DocsExample;
 
-// Mirrors "A complete example" in docs/en/events.md and docs/fa/events.md. If this test needs a change,
+// Mirrors "A complete example" in docs/en/events.md. If this test needs a change,
 // the guide needs the same change.
 public sealed record OrderPaid(string OrderId, decimal Total);
 

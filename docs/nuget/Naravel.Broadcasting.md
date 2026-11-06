@@ -14,5 +14,5 @@ Targets .NET 10. It depends on `Naravel.Foundation`, `Naravel.Cache` and `Narave
 
 ## Documentation
 
-- Broadcasting: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/broadcasting.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/broadcasting.md)
+- Broadcasting: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/broadcasting.md)
 - [Changelog](https://github.com/km-arc/Naravel/blob/main/CHANGELOG.md) · [Source and issues](https://github.com/km-arc/Naravel) · MIT license
