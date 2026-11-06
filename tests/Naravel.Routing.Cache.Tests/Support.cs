@@ -133,6 +133,18 @@ internal static class Backends
         return services.BuildServiceProvider();
     }
 
+    /// <summary>Like <see cref="Provider"/>, but the store is made by <paramref name="open"/> the first time Naravel.Cache needs it, so a test controls that moment.</summary>
+    public static ServiceProvider ProviderOpening(Func<IServiceProvider, ICacheStore> open, TimeProvider clock)
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(clock);
+        services.AddNaravelCache(new ConfigurationBuilder().Build());
+        services.AddNaravelDriver<ICacheStore>(StoreName, open);
+        services.AddNaravelSharedThrottle(StoreName);
+        return services.BuildServiceProvider();
+    }
+
     /// <summary>A container whose shared throttle counts in the real Memory store of Naravel.Cache (the <c>memory</c> store that <c>AddNaravelCache</c> registers).</summary>
     public static ServiceProvider MemoryProvider(TimeProvider clock, Action<IServiceCollection>? configure = null)
     {

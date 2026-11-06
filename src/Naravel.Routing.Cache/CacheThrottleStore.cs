@@ -36,10 +36,16 @@ namespace Naravel.Routing.Cache;
 internal sealed class CacheThrottleStore(CacheManager caches, string storeName, TimeProvider time) : IThrottleStore
 {
     // Naravel.Cache creates a store on first use, and a provider may connect while doing that (Naravel.Redis opens the connection
-    // synchronously). The throttle guard bounds a store call with StoreTimeout only from the moment the call returns a task, so that
-    // first creation must not run on the caller's thread. Until a store has been created once, the call hops to the thread pool first;
-    // afterwards the lookup is a dictionary read and the request path has no extra hop. (A store re-created after a cache
-    // configuration reload is created inline once; the cost is the same as for any other Naravel.Cache caller.)
+    // synchronously, and a second caller that asks for the same store meanwhile waits for it on its own thread). Two things follow:
+    //  - The throttle guard bounds a store call with StoreTimeout only from the moment the call returns a task, so the first creation
+    //    must not run on the caller's thread: it runs once, on a pool thread, and every attempt that arrives meanwhile awaits that one
+    //    task. A burst of first requests therefore holds one pool thread (the one connecting), not one per request, and the thread
+    //    that connecting needs is never queued behind threads that are only waiting for it.
+    //  - A failed creation is not remembered: the next attempt starts a new one (the breaker in front decides how often that is).
+    // Once a store has been created, the lookup is a dictionary read and the request path has no extra hop. (A store re-created after
+    // a cache configuration reload is created inline once; the cost is the same as for any other Naravel.Cache caller.)
+    private readonly object _gate = new();
+    private Task<ICacheStore>? _opening;
     private volatile bool _opened;
 
     public async ValueTask<ThrottleDecision> AttemptAsync(
@@ -58,7 +64,7 @@ internal sealed class CacheThrottleStore(CacheManager caches, string storeName, 
         var bucket = ticks / window.Ticks;
         var untilNextWindow = TimeSpan.FromTicks(window.Ticks - (ticks % window.Ticks));
 
-        var store = await OpenAsync().ConfigureAwait(false);
+        var store = await OpenAsync(cancellationToken).ConfigureAwait(false);
         var count = await store
             .IncrementAsync(BuildKey(partitionKey, bucket), 1, window, cancellationToken)
             .ConfigureAwait(false);
@@ -75,16 +81,40 @@ internal sealed class CacheThrottleStore(CacheManager caches, string storeName, 
         return string.Concat("throttle:", Convert.ToHexStringLower(hash), ":", bucket.ToString(CultureInfo.InvariantCulture));
     }
 
-    private async ValueTask<ICacheStore> OpenAsync()
+    private async ValueTask<ICacheStore> OpenAsync(CancellationToken cancellationToken)
     {
         if (_opened)
         {
             return caches.Store(storeName);
         }
 
-        await Task.Yield();
-        var store = caches.Store(storeName);
+        Task<ICacheStore> opening;
+        lock (_gate)
+        {
+            opening = _opening ??= Task.Run<ICacheStore>(OpenOnce, CancellationToken.None);
+        }
+
+        // WaitAsync lets a caller whose client went away stop waiting without cancelling the creation the others are waiting for.
+        var store = await opening.WaitAsync(cancellationToken).ConfigureAwait(false);
         _opened = true;
         return store;
+    }
+
+    private ICacheStore OpenOnce()
+    {
+        try
+        {
+            return caches.Store(storeName);
+        }
+        catch
+        {
+            // Every attempt waiting for this creation gets this failure; the next attempt starts a new one.
+            lock (_gate)
+            {
+                _opening = null;
+            }
+
+            throw;
+        }
     }
 }

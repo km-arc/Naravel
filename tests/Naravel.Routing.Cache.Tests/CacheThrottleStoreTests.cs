@@ -282,4 +282,77 @@ public sealed class CacheThrottleStoreTests
         again.IsCompleted.Should().BeTrue("once the store exists a call completes on the caller's thread, with no hop");
         (await again).Allowed.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task Attempts_that_arrive_while_the_store_is_being_created_wait_for_that_one_creation_without_a_thread_each()
+    {
+        // A burst of first requests must not start one creation per request, and must not park a pool thread per request while the one
+        // creation connects: the thread that connecting needs would then queue behind threads that only wait for it. The attempts below
+        // are made one after another on this thread, so each of them returns a pending task while the creation is still blocked.
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var creations = 0;
+        var clock = new ManualClock(Backends.MidMinute);
+        var cache = new CacheFake("fake", clock);
+        using var provider = Backends.ProviderOpening(
+            _ =>
+            {
+                Interlocked.Increment(ref creations);
+                entered.Set();
+                release.Wait(TimeSpan.FromSeconds(10));
+                return cache;
+            },
+            clock);
+        var store = Backends.Throttle(provider);
+
+        var attempts = Enumerable.Range(0, 50).Select(_ => store.AttemptAsync("p", 100, Minute, CancellationToken.None).AsTask()).ToArray();
+
+        entered.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue("the store is being created on another thread");
+        attempts.Should().OnlyContain(attempt => !attempt.IsCompleted, "every attempt waits for the store");
+
+        release.Set();
+        var decisions = await Task.WhenAll(attempts);
+
+        creations.Should().Be(1, "fifty attempts, one creation");
+        decisions.Count(d => d.Allowed).Should().Be(50);
+    }
+
+    [Fact]
+    public async Task A_failed_creation_reaches_every_attempt_waiting_for_it_and_the_next_attempt_tries_again()
+    {
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var creations = 0;
+        var clock = new ManualClock(Backends.MidMinute);
+        var cache = new CacheFake("fake", clock);
+        using var provider = Backends.ProviderOpening(
+            _ =>
+            {
+                if (Interlocked.Increment(ref creations) > 1)
+                {
+                    return cache;
+                }
+
+                entered.Set();
+                release.Wait(TimeSpan.FromSeconds(10));
+                throw new InvalidOperationException("the shared store could not be opened");
+            },
+            clock);
+        var store = Backends.Throttle(provider);
+
+        var waiting = Enumerable.Range(0, 5).Select(_ => store.AttemptAsync("p", 3, Minute, CancellationToken.None).AsTask()).ToArray();
+        entered.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
+        release.Set();
+
+        foreach (var attempt in waiting)
+        {
+            Func<Task> act = async () => await attempt;
+            await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("the shared store could not be opened");
+        }
+
+        creations.Should().Be(1, "the five attempts shared one creation, and so one failure");
+
+        (await AttemptAsync(store, "p", 3)).Allowed.Should().BeTrue("a failed creation is not remembered; this attempt created the store again");
+        creations.Should().Be(2);
+    }
 }
