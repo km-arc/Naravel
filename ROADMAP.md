@@ -1,13 +1,13 @@
 # ROADMAP — Naravel: closing the Laravel ⇄ .NET gap
 
 Goal: **Laravel's simplicity with .NET's speed.** Port an idea only if it adds practical value in .NET (rule zero);
-otherwise use the native solution and record it in a PDR. 
+otherwise use the native solution and record it in a PDR.
 Audit: [roadmap/AUDIT.md](roadmap/AUDIT.md) · Matrix: [roadmap/PARITY-MATRIX.md](roadmap/PARITY-MATRIX.md) ·
 Backlog: [roadmap/BACKLOG.md](roadmap/BACKLOG.md) · Review: [roadmap/REVIEW-01.md](roadmap/REVIEW-01.md) ·
 Stage template: [roadmap/STAGE-TEMPLATE.md](roadmap/STAGE-TEMPLATE.md).
 
 ## How to run one pass (agents: follow exactly, read nothing else)
-1. Read [AGENTS.md](AGENTS.md), this file, and `roadmap/stages/<NEXT>-*.md`. Do **not** read other stage files, FA files,
+1. Read [AGENTS.md](AGENTS.md), this file, and `roadmap/stages/<NEXT>-*.md`. Do **not** read other stage files,
    `PROGRESS*.md` or other docs unless the stage's `Read:` line lists them.
 2. Gate check (see *Gates*). If unmet, follow the *PDR-batching rule* and stop.
 3. Do the tasks in order. Each task has an **Accept:** line = the verifiable condition. Tick `- [x]` only when it holds.
