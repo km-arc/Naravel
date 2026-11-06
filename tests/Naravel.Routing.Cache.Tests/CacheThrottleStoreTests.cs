@@ -182,6 +182,23 @@ public sealed class CacheThrottleStoreTests
     }
 
     [Fact]
+    public async Task A_policy_with_another_window_length_counts_in_another_key()
+    {
+        // The window index is floor(now / window) and now is about 6.4e17 ticks, so two window lengths never give the same index.
+        // A deploy that changes a window therefore splits the count between old and new instances; it never mixes two meanings.
+        var clock = new ManualClock(Backends.MidMinute);
+        var recording = new RecordingStore(new CacheFake("fake", clock));
+        using var provider = Backends.Provider(recording, clock);
+        var store = Backends.Throttle(provider);
+
+        await store.AttemptAsync("login|/login|203.0.113.7", 5, Minute, CancellationToken.None);
+        await store.AttemptAsync("login|/login|203.0.113.7", 5, TimeSpan.FromMinutes(2), CancellationToken.None);
+        await store.AttemptAsync("login|/login|203.0.113.7", 5, TimeSpan.FromSeconds(61), CancellationToken.None);
+
+        recording.Increments.Select(call => call.Key).Distinct().Should().HaveCount(3);
+    }
+
+    [Fact]
     public void The_same_partition_and_window_share_a_key_and_nothing_else_does()
     {
         CacheThrottleStore.BuildKey("p", 7).Should().Be(CacheThrottleStore.BuildKey("p", 7));
