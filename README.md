@@ -64,7 +64,7 @@ Which package gives you what, and which call registers it, is in [Getting starte
 - **Familiar names, ordinary .NET.** `RememberAsync`, `DelayFor`, `Prefix().Group()`: Laravel's vocabulary on methods that are `async`, take a `CancellationToken` and come from dependency injection.
 - **Install only what you use.** One NuGet package per module and per provider, all on one version. Redis is `Naravel.Cache.Redis`, not a dependency of everyone.
 - **Native first, said out loud.** Naravel adopts a Laravel idea only when it adds practical value beyond what .NET already provides. Sessions, password hashing and route authorization already exist in ASP.NET Core and .NET, so it documents the recipe instead of shipping a package (PDR-015, PDR-016, PDR-019); where it does add a package, a PDR records why.
-- **Honest about guarantees.** Queue jobs are at-least-once and should be idempotent; Kafka rejects delayed dispatch; route throttling is process-local. The limits are written next to the features instead of being discovered in production.
+- **Honest about guarantees.** Queue jobs are at-least-once and should be idempotent; Kafka rejects delayed dispatch; route throttling is process-local by default (the routing guide shows how to share it between instances). The limits are written next to the features instead of being discovered in production.
 - **Fakes for tests, no global state.** Cache, Events, Mail, Notifications, Queue, Filesystem, Broadcasting, Database and Scheduling each ship a fake (`MailFake`, `QueueFake`, `StorageFake`...) that you pass in like any other dependency and assert on, without a broker, mail server, disk, bucket or database.
 - **Documented in English and Persian.** Every guide and every design decision exists in both languages.
 
