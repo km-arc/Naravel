@@ -137,7 +137,7 @@ def main() -> int:
     # Stage status and NEXT live only in the ROADMAP.md table. A verified test count may appear only in the dated
     # evidence of a ROADMAP.md status cell (R00.T06); live numbers come from the CI run summary. Historical records keep
     # dated snapshots. Every other Markdown file must link instead of copying a count or a stage status.
-    # (\d matches Persian digits too, so the Persian documents are covered.)
+    # The test-count scan covers every maintained Markdown file, regardless of script or locale.
     count_ratio = re.compile(r"(?<![\d/.])\d+\s*/\s*\d+(?![\d/])")
     count_tests = re.compile(
         r"(?i)\b\d+\s+(?:[a-z-]+\s+){0,2}(?:tests?|passed|skipped|succeeded|failed)\b|(?<![A-Za-z\d])\d+\s+\u062a\u0633\u062a"
