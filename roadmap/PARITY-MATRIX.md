@@ -287,7 +287,7 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 ## R28 — NuGet README for every package
 
 - Laravel surface: none; this is a package-distribution and consumer-documentation correction, not a Laravel feature.
-- Naravel: every package embeds a short English package page as its root `README.md` and declares it through NuGet's `readme` metadata; the page links the existing English and Persian guides.
+- Naravel: every package embeds a short English package page as its root `README.md` and declares it through NuGet's `readme` metadata; the page links the authoritative English module guide.
 - Value: nuget.org shows what each package is, how to install it, what it depends on and where its guide is, instead of reporting a missing README (or, for Routing, the repository overview).
 - Native baseline: the SDK's `PackageReadmeFile` MSBuild property and a packed Markdown file, as in R27; no custom packaging dependency.
 
