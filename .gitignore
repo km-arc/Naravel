@@ -39,3 +39,7 @@ storage/
 ## Secrets - never commit real connection strings/credentials
 appsettings.*.local.json
 *.local.json
+
+# Python bytecode (the CI scripts under .github/scripts and roadmap/check.py are run with python3)
+__pycache__/
+*.pyc

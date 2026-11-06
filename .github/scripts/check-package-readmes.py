@@ -21,7 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-FENCE = re.compile(r"^(```|~~~).*?^\1[ \t]*$", re.MULTILINE | re.DOTALL)
+FENCE_OPEN = re.compile(r"^[ \t]*(`{3,}|~{3,})(.*)$")
 INLINE_CODE = re.compile(r"`[^`\n]*`")
 TARGETS = (
     re.compile(r"!?\[[^\]\n]*\]\(\s*<?([^)\s>]+)"),  # [text](target) and ![alt](target)
@@ -31,9 +31,28 @@ TARGETS = (
 ABSOLUTE = ("https://", "http://", "mailto:", "#")
 
 
+def without_fenced_code(markdown: str) -> str:
+    """The Markdown without its fenced code blocks, following CommonMark: a fence closes with the same character, at least as
+    many times as it opened (so a four-backtick block can show a three-backtick example), and a fence that never closes runs to
+    the end of the file."""
+    kept: list[str] = []
+    fence: re.Pattern[str] | None = None
+    for line in markdown.splitlines():
+        if fence is not None:
+            if fence.match(line):
+                fence = None
+            continue
+        opener = FENCE_OPEN.match(line)
+        if opener and not (opener[1][0] == "`" and "`" in opener[2]):  # a backtick fence's info string has no backtick
+            fence = re.compile(rf"^[ \t]*{re.escape(opener[1][0])}{{{len(opener[1])},}}[ \t]*$")
+            continue
+        kept.append(line)
+    return "\n".join(kept)
+
+
 def relative_targets(markdown: str) -> list[str]:
     """Link and image targets that are neither absolute nor an in-page anchor, ignoring code."""
-    prose = INLINE_CODE.sub("", FENCE.sub("", markdown))
+    prose = INLINE_CODE.sub("", without_fenced_code(markdown))
     found = [target for pattern in TARGETS for target in pattern.findall(prose)]
     return sorted({target for target in found if not target.lower().startswith(ABSOLUTE)})
 
