@@ -6,7 +6,9 @@ Usage: check-package-readmes.py <directory-containing-nupkgs>
 For each src/*/*.csproj the script finds the `None` item that packs a file at the package path README.md, then checks the
 produced package: README.md at the package root with the same bytes as that file, and <readme>README.md</readme> in the
 nuspec. It also fails when a project declares no README, when a project produced no package (or two), and when the directory
-holds a package no project accounts for. The symbol packages (.snupkg) are not looked at.
+holds a package no project accounts for. It also fails when the README has a relative link or image: nuget.org does not
+render a relative image and a relative link has no page to point at, and a package README cannot be corrected after the version
+is published. The symbol packages (.snupkg) are not looked at.
 """
 
 from __future__ import annotations
@@ -18,6 +20,22 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+
+FENCE = re.compile(r"^(```|~~~).*?^\1[ \t]*$", re.MULTILINE | re.DOTALL)
+INLINE_CODE = re.compile(r"`[^`\n]*`")
+TARGETS = (
+    re.compile(r"!?\[[^\]\n]*\]\(\s*<?([^)\s>]+)"),  # [text](target) and ![alt](target)
+    re.compile(r"^\s{0,3}\[[^\]\n]+\]:\s*<?(\S+)", re.MULTILINE),  # [label]: target
+    re.compile(r"""\b(?:src|href)\s*=\s*["']([^"']+)["']""", re.IGNORECASE),  # raw HTML
+)
+ABSOLUTE = ("https://", "http://", "mailto:", "#")
+
+
+def relative_targets(markdown: str) -> list[str]:
+    """Link and image targets that are neither absolute nor an in-page anchor, ignoring code."""
+    prose = INLINE_CODE.sub("", FENCE.sub("", markdown))
+    found = [target for pattern in TARGETS for target in pattern.findall(prose)]
+    return sorted({target for target in found if not target.lower().startswith(ABSOLUTE)})
 
 
 def local_name(tag: str) -> str:
@@ -84,6 +102,9 @@ def main() -> int:
                     errors.append(f"{package.name} does not contain README.md at the package root")
                 elif archive.read("README.md") != source.read_bytes():
                     errors.append(f"README.md in {package.name} is not the content of {source.relative_to(ROOT)}")
+                else:
+                    for target in relative_targets(archive.read("README.md").decode("utf-8")):
+                        errors.append(f"README.md in {package.name} has a relative link or image ({target}); use an absolute https URL")
 
                 nuspecs = [name for name in names if name.lower().endswith(".nuspec")]
                 if len(nuspecs) != 1:
