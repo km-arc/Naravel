@@ -22,7 +22,7 @@ builder.Services.AddNaravelMailQueue();
 await mailer.To(user.Email).QueueAsync(new WelcomeMail(user), ct);
 ```
 
-`QueueAsync` builds the mailable and queues the message data; the mailable object itself is never stored. `AddNaravelMailQueue` registers neither a queue nor a worker: add `AddQueueWorker` in the process that should send. Without this package, `QueueAsync` throws an exception that says what to install.
+`WelcomeMail` is your own `Mailable`, `user` is your own object and `mailer` is an injected `IMailer`. `QueueAsync` builds the mailable and queues the message data; the mailable object itself is never stored. `AddNaravelMailQueue` registers neither a queue nor a worker: add `AddQueueWorker` in the process that should send. Without this package, `QueueAsync` throws an exception that says what to install.
 
 ## Documentation
 

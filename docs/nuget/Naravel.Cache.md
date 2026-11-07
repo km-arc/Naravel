@@ -19,10 +19,11 @@ using Naravel.Cache;
 using Naravel.Cache.Abstractions;
 
 builder.Services.AddNaravelCache(builder.Configuration);   // no configuration needed: the default store is "memory"
+builder.Services.AddSingleton(TimeProvider.System);        // the clock the endpoint reads; a test registers its own
 
-app.MapGet("/time", (ICacheStore cache) =>
+app.MapGet("/time", (ICacheStore cache, TimeProvider clock) =>
     cache.RememberAsync("server-time", TimeSpan.FromSeconds(30),
-        () => Task.FromResult(DateTime.UtcNow.ToString("T"))));
+        () => Task.FromResult(clock.GetUtcNow().ToString("T"))));
 ```
 
 The value stays the same for 30 seconds, then the factory runs again. Add a provider package from the list below to share one cache between several instances of the application.

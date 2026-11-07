@@ -25,7 +25,7 @@ builder.Services.AddQueuedNotification<InvoicePayload>("invoice.ready", async (p
 await notificationQueue.QueueAsync("invoice.ready", new InvoicePayload(user.Id, 7), ct);   // INotificationQueue
 ```
 
-The queue stores the alias and the payload as JSON, nothing else: no type name, no notification object, no recipient. Never rename an alias while jobs that use it are queued.
+`InvoicePayload`, `InvoiceReady`, `IUserRepository` and `user` are your own types and objects, and `notificationQueue` is an injected `INotificationQueue`. The queue stores the alias and the payload as JSON, nothing else: no type name, no notification object, no recipient. Never rename an alias while jobs that use it are queued.
 
 ## Documentation
 
