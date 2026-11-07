@@ -602,6 +602,8 @@ jobs:
         run: python3 .github/scripts/check-image-pins.py
       - name: Validate the roadmap
         run: /usr/bin/python3 roadmap/check.py
+      - name: Report documentation names the source does not define (report only)
+        run: python3 .github/scripts/check-doc-names.py
       - name: Validate lock-step package versions
         run: python3 .github/scripts/check-package-versions.py
       - name: Publishing must wait for every required job
