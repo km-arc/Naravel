@@ -110,7 +110,7 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 ## R11 — Session
 
 - Laravel surface: `Illuminate\Contracts\Session\Session`, session store and HTTP middleware.
-- Naravel: none. PDR-015 `DECLINED`; recipe in `docs/en|fa/session.md`.
+- Naravel: none. PDR-015 `DECLINED`; recipe in `docs/en/session.md`.
 - Value: framework-neutral session access and consistent middleware integration where ASP.NET defaults are insufficient.
 - Native baseline: ASP.NET Core `ISession` and session middleware first.
 - API reference: [Illuminate Session](https://api.laravel.com/docs/13.x/Illuminate/Session/Store.html).
@@ -118,7 +118,7 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 ## R12 — Auth-lite and deferred middleware
 
 - Laravel surface: guards, user resolution, `auth`, `can`, `verified`, password confirmation.
-- Naravel: none. PDR-016 `DECLINED`; recipe in `docs/en|fa/auth.md`; the built-in `guest` alias stays.
+- Naravel: none. PDR-016 `DECLINED`; recipe in `docs/en/auth.md`; the built-in `guest` alias stays.
 - Value: concise composition over ASP.NET Core Identity/authentication/authorization, not a replacement identity system.
 - Native baseline: ASP.NET Core Authentication, Authorization and Identity.
 - API reference: [Illuminate Auth](https://api.laravel.com/docs/13.x/Illuminate/Auth/AuthManager.html).
@@ -134,7 +134,7 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 ## R14 — Broadcasting
 
 - Laravel surface: `Illuminate\Contracts\Broadcasting\Factory` and broadcaster channels.
-- Naravel: `Naravel.Broadcasting` (PDR-018): `IBroadcastable`, channel rules, presence member lists in the shared cache, `signalr`/`log`/`null` drivers, `BroadcastFake`; see `docs/en|fa/broadcasting.md`.
+- Naravel: `Naravel.Broadcasting` (PDR-018): `IBroadcastable`, channel rules, presence member lists in the shared cache, `signalr`/`log`/`null` drivers, `BroadcastFake`; see `docs/en/broadcasting.md`.
 - Value: typed real-time event delivery behind provider-specific transports.
 - Native baseline: ASP.NET Core SignalR.
 - API reference: [Illuminate Broadcasting](https://api.laravel.com/docs/13.x/Illuminate/Contracts/Broadcasting/Factory.html).
@@ -287,7 +287,7 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 ## R28 — NuGet README for every package
 
 - Laravel surface: none; this is a package-distribution and consumer-documentation correction, not a Laravel feature.
-- Naravel: every package embeds a short English package page as its root `README.md` and declares it through NuGet's `readme` metadata; the page links the existing English and Persian guides.
+- Naravel: every package embeds a short English package page as its root `README.md` and declares it through NuGet's `readme` metadata; the page links the authoritative English module guide.
 - Value: nuget.org shows what each package is, how to install it, what it depends on and where its guide is, instead of reporting a missing README (or, for Routing, the repository overview).
 - Native baseline: the SDK's `PackageReadmeFile` MSBuild property and a packed Markdown file, as in R27; no custom packaging dependency.
 

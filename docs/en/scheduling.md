@@ -2,7 +2,7 @@
 
 `Naravel.Scheduling` runs named tasks on a schedule inside your host. A task is a delegate; the schedule says when it is due; a hosted service wakes once a minute and starts what is due. Two guards work across several running instances: `WithoutOverlapping` (do not start a run while the previous one is still going) and `OnOneServer` (run a due minute on one instance only). Both use the cache locks of `Naravel.Cache`.
 
-Decision and reasons: [PDR-017](../pdr/en/PDR-017-console-and-scheduling.md). Persian version: [docs/fa/scheduling.md](../fa/scheduling.md).
+Decision and reasons: [PDR-017](../pdr/en/PDR-017-console-and-scheduling.md)..
 
 ## Quickstart
 

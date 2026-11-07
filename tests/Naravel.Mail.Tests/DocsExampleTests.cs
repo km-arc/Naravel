@@ -5,7 +5,7 @@ using Naravel.Mail.Transports;
 
 namespace Naravel.Mail.Tests;
 
-// Runs the snippets and the error messages of docs/en/mail.md and docs/fa/mail.md. If a test here needs a change,
+// Runs the snippets and the error messages of docs/en/mail.md. If a test here needs a change,
 // the guide needs the same change.
 public sealed class DocsExampleTests
 {

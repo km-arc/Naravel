@@ -14,6 +14,6 @@ Targets .NET 10. It depends on `Naravel.Notifications` and `Naravel.Queue`, whic
 
 ## Documentation
 
-- Notifications: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/notifications.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/notifications.md)
-- Queue: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/queue.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/queue.md)
+- Notifications: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/notifications.md)
+- Queue: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/queue.md)
 - [Changelog](https://github.com/km-arc/Naravel/blob/main/CHANGELOG.md) · [Source and issues](https://github.com/km-arc/Naravel) · MIT license

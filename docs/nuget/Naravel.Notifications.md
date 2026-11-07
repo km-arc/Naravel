@@ -19,5 +19,5 @@ Targets .NET 10.
 
 ## Documentation
 
-- Notifications: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/notifications.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/notifications.md)
+- Notifications: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/notifications.md)
 - [Changelog](https://github.com/km-arc/Naravel/blob/main/CHANGELOG.md) · [Source and issues](https://github.com/km-arc/Naravel) · MIT license

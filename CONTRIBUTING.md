@@ -2,7 +2,7 @@
 
 Thank you for helping. Naravel is a .NET port of the *ideas* of Laravel, not a line-by-line clone, so most of the work is
 deciding what is worth porting and then doing it small and well. This guide is the short path; the binding rules are in
-[AGENTS.md](AGENTS.md) and [ROADMAP.md](ROADMAP.md). Persian: [CONTRIBUTING.fa.md](CONTRIBUTING.fa.md). Everyone who takes part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+[AGENTS.md](AGENTS.md) and [ROADMAP.md](ROADMAP.md). Everyone who takes part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Ways to help
 
@@ -11,15 +11,14 @@ deciding what is worth porting and then doing it small and well. This guide is t
 | A bug | Open a [bug report](https://github.com/km-arc/Naravel/issues/new?template=bug_report.yml). The form asks for the package, the version and a minimal reproduction; a failing test is the best reproduction. |
 | A missing or wrong Laravel-style feature | Open a [feature request](https://github.com/km-arc/Naravel/issues/new?template=feature_request.yml) **before** writing code. A new Laravel equivalent needs a PDR first (see below), and a large one needs owner approval. |
 | A security problem | Do **not** open a public issue. Follow [SECURITY.md](SECURITY.md). |
-| A typo, a broken link, an unclear sentence | A pull request is welcome without an issue. Docs exist in English and Persian; fix both or say which one you could not. |
+| A typo, a broken link, an unclear sentence | A pull request is welcome without an issue. Documentation is maintained in English only. |
 | A question | Open an issue and say what you tried. Questions that expose a missing line in the docs become docs fixes. |
 
 ## Before you write code
 
 1. **Rule zero.** Implement a Laravel feature only if it brings value in .NET. If .NET already solves the problem
    idiomatically (sessions, password hashing, route authorization), the right change is a documented recipe, not a package.
-2. **PDR first.** A new Laravel equivalent starts as a Parity Decision Record in [docs/pdr/en](docs/pdr/en) and
-   [docs/pdr/fa](docs/pdr/fa): Laravel feature, native .NET option, value added, decision, rejected alternatives.
+2. **PDR first.** A new Laravel equivalent starts as a Parity Decision Record in [docs/pdr/en](docs/pdr/en): Laravel feature, native .NET option, value added, decision, rejected alternatives.
 3. **Read what applies.** [AGENTS.md](AGENTS.md) lists the hard rules (one-way dependencies, `Manager<TDriver, TOptions>`
    for driver modules, async with `CancellationToken`, no CLR type resolved from stored data, no new dependency beyond
    `Microsoft.Extensions.*` without a PDR). [docs/en/module-authoring-guide.md](docs/en/module-authoring-guide.md) walks
@@ -45,7 +44,7 @@ metadata and the lock-step version live only in `Directory.Build.props`.
 
 ## Making a change
 
-Keep a pull request to one concern. Branch from `main` and name the branch for the kind of change (`fix/...`, `feat/...`,
+Keep a pull request to one concern. Default limit: **500 changed non-generated lines (additions + deletions) and 20 changed files**. Split work before opening the PR if either limit is exceeded. Only a genuinely indivisible or explicitly owner-requested bulk migration/removal may exceed the limit; get owner approval first and record the reason and approval in the PR description. Branch from `main` and name the branch for the kind of change (`fix/...`, `feat/...`,
 `docs/...`, `test/...`, `ci/...`).
 
 A change is ready when:
@@ -65,8 +64,8 @@ A change is ready when:
   package page `docs/nuget/<PackageId>.md` packed as `README.md`; the rest of what NuGet shows comes from
   `Directory.Build.props`. CI checks every packed package (`.github/scripts/check-package-metadata.py` and
   `check-package-readmes.py`), because NuGet cannot edit a version once it is pushed.
-- **Docs are in both languages.** A change to behaviour updates `docs/en/*` and `docs/fa/*` together. Put the *reason* for
-  a decision in the docs or the commit message, not only the decision.
+- **Docs are English-only and source-verified.** Update the relevant `docs/en/*`, `docs/pdr/en/*`, and `docs/nuget/*` pages in the same change. Verify API names, signatures, defaults, exceptions, provider behavior, compatibility claims, and examples against current source and tests. Add or update executable documentation tests for copyable code samples; clearly label any illustrative pseudocode. Never create, generate, translate, sync, scaffold, or publish Persian documentation, including temporary drafts, `docs/fa/`, `docs/pdr/fa/`, or `*.fa.md` files.
+- **Documentation links must close in the same change.** Before editing, deleting, or renaming a document, search all tracked repository files for inbound references, including NuGet package pages, root docs, PDRs, templates, scripts, and workflows. Update every affected reference. Re-scan for removed paths, validate affected local Markdown links, and run `/usr/bin/python3 roadmap/check.py` before committing. A passing CI job does not replace this review.
 - **`CHANGELOG.md` has a line under `[Unreleased]`** for anything a user of a package could notice.
 - **The roadmap check passes:** `python3 roadmap/check.py`.
 - **You say what you did not run.** If you could not run `dotnet build`, `dotnet test` or a provider's service, write
@@ -78,7 +77,7 @@ Commit subjects follow `type(scope): summary` in the imperative, for example `fi
 behind` or `docs(roadmap): close D-76`. Types in use: `feat`, `fix`, `docs`, `test`, `build`, `ci`, `chore`. The body says
 why; the diff already says what.
 
-Open the pull request against `main`. The pull request template asks for the same things as the list above. `main` is
+Open the pull request against `main`. The pull request template asks for the same things as the list above, including evidence that documentation claims were checked against source and tests. `main` is
 protected: the aggregate check **`ci-ok`** must pass and the branch must be up to date (see
 [.github/BRANCH-PROTECTION.md](.github/BRANCH-PROTECTION.md)). Follow-up commits are better than force-pushes while a
 review is open.

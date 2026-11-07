@@ -178,4 +178,3 @@ Assert.Equal("Hello, Ada!", manager.Driver("fake").Greet("Ada"));
 
 The package depends on `Microsoft.Extensions.*` abstractions and on no other Naravel module. The [architecture guide](https://github.com/km-arc/Naravel/blob/main/docs/en/architecture.md), the [module authoring guide](https://github.com/km-arc/Naravel/blob/main/docs/en/module-authoring-guide.md) and the [trimming and AOT guide](https://github.com/km-arc/Naravel/blob/main/docs/en/trimming-aot.md) give the full contracts.
 
-Persian documentation: [راهنمای فارسی Foundation](https://github.com/km-arc/Naravel/blob/main/docs/fa/foundation.md).

@@ -1,6 +1,6 @@
 # Session
 
-**Naravel has no session package.** ASP.NET Core already does what Laravel's session does, so nothing is ported ([PDR-015](../pdr/en/PDR-015-session.md), status `DECLINED`). This page is the recipe that replaces it. Persian version: [docs/fa/session.md](../fa/session.md).
+**Naravel has no session package.** ASP.NET Core already does what Laravel's session does, so nothing is ported ([PDR-015](../pdr/en/PDR-015-session.md), status `DECLINED`). This page is the recipe that replaces it..
 
 ## Quickstart
 

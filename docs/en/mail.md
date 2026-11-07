@@ -2,7 +2,7 @@
 
 `Naravel.Mail` is a typed mail contract: a `Mailable` class describes a message, a named *transport* delivers it, and a fake makes it testable. The core package has **no network dependency**; SMTP lives in the optional `Naravel.Mail.Smtp` package and queued sending in the optional `Naravel.Mail.Queue` adapter (both are available now).
 
-Decisions: [PDR-013](../pdr/en/PDR-013-mail.md) and [PDR-013a](../pdr/en/PDR-013a-mail-mailable-and-transports.md). Persian version: [docs/fa/mail.md](../fa/mail.md).
+Decisions: [PDR-013](../pdr/en/PDR-013-mail.md) and [PDR-013a](../pdr/en/PDR-013a-mail-mailable-and-transports.md)..
 
 ## Quickstart
 

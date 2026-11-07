@@ -20,7 +20,7 @@ public sealed class RequireRole : IRouteMiddleware
     }
 }
 
-// Runs "Complete example" of docs/en/routing.md and docs/fa/routing.md. IBookStore is replaced by a lookup
+// Runs "Complete example" of docs/en/routing.md. IBookStore is replaced by a lookup
 // table. If a test here needs a change, the guide needs the same change.
 public class DocsExampleTests
 {

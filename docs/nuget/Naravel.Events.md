@@ -18,5 +18,5 @@ Targets .NET 10.
 
 ## Documentation
 
-- Events: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/events.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/events.md)
+- Events: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/events.md)
 - [Changelog](https://github.com/km-arc/Naravel/blob/main/CHANGELOG.md) · [Source and issues](https://github.com/km-arc/Naravel) · MIT license

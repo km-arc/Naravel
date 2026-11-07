@@ -1,13 +1,13 @@
 # ROADMAP — Naravel: closing the Laravel ⇄ .NET gap
 
 Goal: **Laravel's simplicity with .NET's speed.** Port an idea only if it adds practical value in .NET (rule zero);
-otherwise use the native solution and record it in a PDR. Persian owner overview: [ROADMAP.fa.md](ROADMAP.fa.md).
+otherwise use the native solution and record it in a PDR.
 Audit: [roadmap/AUDIT.md](roadmap/AUDIT.md) · Matrix: [roadmap/PARITY-MATRIX.md](roadmap/PARITY-MATRIX.md) ·
 Backlog: [roadmap/BACKLOG.md](roadmap/BACKLOG.md) · Review: [roadmap/REVIEW-01.md](roadmap/REVIEW-01.md) ·
 Stage template: [roadmap/STAGE-TEMPLATE.md](roadmap/STAGE-TEMPLATE.md).
 
 ## How to run one pass (agents: follow exactly, read nothing else)
-1. Read [AGENTS.md](AGENTS.md), this file, and `roadmap/stages/<NEXT>-*.md`. Do **not** read other stage files, FA files,
+1. Read [AGENTS.md](AGENTS.md), this file, and `roadmap/stages/<NEXT>-*.md`. Do **not** read other stage files,
    `PROGRESS*.md` or other docs unless the stage's `Read:` line lists them.
 2. Gate check (see *Gates*). If unmet, follow the *PDR-batching rule* and stop.
 3. Do the tasks in order. Each task has an **Accept:** line = the verifiable condition. Tick `- [x]` only when it holds.
@@ -22,10 +22,10 @@ NEXT: R30
 ```
 
 ## Stages
-Gate: `-` none · `PDR` an EN+FA PDR must exist **and be owner-approved** before code · `GO` owner must say go.
+Gate: `-` none · `PDR` an English PDR must exist **and be owner-approved** before code · `GO` owner must say go.
 Status lives **only here**: `TODO` · `DOING` · `DONE (date, verification)` · `BLOCKED (reason)` · `DECLINED (PDR-nnn, reason)`.
 `DECLINED` = the PDR concluded native .NET is enough; it is a valid result, counts as satisfying dependents, and still
-needs the EN+FA PDR.
+needs the English PDR.
 
 | ID | Title | Deps | Gate | Status |
 |---|---|---|---|---|
@@ -40,11 +40,11 @@ needs the EN+FA PDR.
 | R08 | Queue completion B: unique/overlap/rate-limited/throttle middleware (needs Cache) | R04, R07 | PDR | DONE (2026-10-14; PDR-012b approved; tasks T01-T03 merged; CI green on main at 3822d78 on ubuntu/windows/macos plus the services job; roadmap check passed; no local .NET SDK, so CI is the verification; the sample from the original T03 scope was skipped, see PDR-012b) |
 | R09 | Mail (PDR-013) | R06, R07 | PDR | DONE (2026-10-17; PDR-013 and PDR-013a approved; tasks T01-T04 merged; CI green on main at 545ca02 on ubuntu/windows/macos plus the services job; roadmap check passed; no local .NET SDK, so CI is the verification; no benchmark added because mail sending is I/O-bound, not a hot path; attachments deferred, see BACKLOG) |
 | R10 | Notifications (PDR-014) | R07, R09 | PDR | DONE (2026-10-24; PDR-014 approved 2026-10-07; tasks T01-T03 merged; the core sender, typed channels, log channel and fake, the Mail adapter and the Queue adapter (alias and plain payload only, Memory queue worker end to end) are proven by tests; docs EN/FA, README and parity updated; roadmap check passed; no benchmark because dispatch is I/O-bound; the stage file's `INotifiable`/`Via()`/manager plan was replaced by the approved PDR, see AUDIT D-60 to D-62; no local .NET SDK, so CI is the verification: green on PR #124 head 03d2465, run 40097461927, on three OSs and the services job) |
-| R11 | Session (PDR-015) | R04, R05 | PDR | DECLINED (PDR-015 approved 2026-10-25: native `ISession` over `IDistributedCache` is enough; the recipe is in docs/en and docs/fa session.md; roadmap check passed; no code was added, so there was nothing to build or test) |
-| R12 | Auth-lite route middleware (legacy 4c, PDR-016) | R05, R11 | PDR | DECLINED (PDR-016 approved 2026-10-25: native `RequireAuthorization` through `NaravelRoute.Configure` is enough and the built-in `guest` alias stays; the recipe is in docs/en and docs/fa auth.md; roadmap check passed; no code was added, so there was nothing to build or test) |
+| R11 | Session (PDR-015) | R04, R05 | PDR | DECLINED (PDR-015 approved 2026-10-25: native `ISession` over `IDistributedCache` is enough; the recipe is in docs/en/session.md; roadmap check passed; no code was added, so there was nothing to build or test) |
+| R12 | Auth-lite route middleware (legacy 4c, PDR-016) | R05, R11 | PDR | DECLINED (PDR-016 approved 2026-10-25: native `RequireAuthorization` through `NaravelRoute.Configure` is enough and the built-in `guest` alias stays; the recipe is in docs/en/auth.md; roadmap check passed; no code was added, so there was nothing to build or test) |
 | R13 | Console + Scheduling (PDR-017) | R04, R05, R07 | PDR | DONE (2026-10-25; PDR-017 approved 2026-10-24 (D1 to D4); tasks T01-T04 merged; Scheduling is proven by tests with an injected clock, two scheduler instances over one shared lock (overlap and one-server), failure isolation and the startup refusal of `OnOneServer` on a lock that is not shared; Commands are `DECLINED` with a System.CommandLine recipe, so no code; docs EN/FA, README and parity updated; roadmap check passed; no benchmark because the loop wakes once a minute; no local .NET SDK, so CI is the verification: green on main, run 40225281995 (merge of PR #136, workflow run #306), as reported by the owner; the session that wrote this had no read access to GitHub and did not open the run) |
 | R14 | Broadcasting (PDR-018) | R06, R07 | PDR | DONE (2026-10-25; PDR-018 approved; tasks T01-T03 merged; SignalR delivery, channel authorization, presence (also on a real Redis with two connections, D-69) and the fake are proven by tests; CI green on main at c07df9e on ubuntu/windows/macos plus the services and database jobs, run 40226651634; roadmap check passed) |
-| R15 | Hashing (PDR-019) | - | PDR | DECLINED (PDR-019 approved 2026-10-19: native `PasswordHasher<TUser>` is enough; the recipe is in docs/en and docs/fa hashing.md; roadmap check passed; no code was added, so there was nothing to build or test) |
+| R15 | Hashing (PDR-019) | - | PDR | DECLINED (PDR-019 approved 2026-10-19: native `PasswordHasher<TUser>` is enough; the recipe is in docs/en/hashing.md; roadmap check passed; no code was added, so there was nothing to build or test) |
 | R16 | Pagination (PDR-020) | - | PDR | DONE (2026-10-19; PDR-020 approved; tasks T01-T04 merged except T04 in review; build, tests and benchmark NOT RUN locally (no .NET SDK), CI is the verification and the first benchmark baseline is still open; roadmap check passed) |
 | R17 | Release hardening + re-audit | R01, R03, R04, R05, R06, R07, R08, R09, R10, R11, R12, R13, R14, R15, R16, R18, R19, R20, R21, R22, R23, R24, R25, R26 | owner approvals | DONE (2026-11-01; T01-T08 complete. T08 closed by PRs #199 and #200 (merge 582982a); exactly-once DI/manager disposal, Filesystem configuration/programmatic registration and the shared provider-aware driver registry are covered by regressions. CI [run #527](https://github.com/km-arc/Naravel/actions/runs/41340354146) on the #200 merge commit passed the roadmap, package-version and service-image gates, Ubuntu/macOS/Windows build-and-test jobs, Provider integration, MySQL, PostgreSQL, SQL Server and ci-ok. NuGet publish was skipped because this was not a version-tag event; tests were not run locally because no .NET SDK was available. Released as 0.1.0 on 2026-11-01: tag `v0.1.0` on `9bcc543`, [publish run #530 attempt 2](https://github.com/km-arc/Naravel/actions/runs/41341820867) pushed every packable source package to NuGet.org and the owner confirmed them there; attempt 1 stopped at the NuGet login before any push because of a policy Environment typo, details in the R17 stage file.) |
 | R18 | Encryption facade + encrypted jobs (PDR-021) | R07 | PDR | DONE (2026-10-25; PDR-021 A1 approved 2026-10-24; tasks T01-T04; build and tests NOT RUN locally (no .NET SDK), CI is the verification: green on PR #131 at 780bb46, run 40167171254; Data Protection 10.0.13 pin confirmed by the owner on 2026-10-31, AUDIT D-64) |
@@ -95,7 +95,7 @@ PDR numbers are fixed: 007a RateLimiter · 008 Filesystem · 009 Routing (done) 
 | OD-09 | Pre-1.0 (`0.x`): breaking changes are allowed if listed in `CHANGELOG.md`; revisit before 1.0.0. |
 
 ## PDR-batching rule
-If `NEXT` has gate `PDR`/`GO` and no approved PDR exists, do **not** idle: write the EN+FA PDRs for **every stage of
+If `NEXT` has gate `PDR`/`GO` and no approved PDR exists, do **not** idle: write the English PDRs for **every stage of
 that wave** (a PDR is a document, so dependency status does not matter), set those rows `BLOCKED (awaiting PDR approval)`,
 and stop. The owner approves the wave in one review; afterwards the stages run without further stops.
 - **Wave A:** PDR-007a (R04), PDR-012 (R07); GO for R05.
@@ -115,7 +115,7 @@ Every PDR opens with a **native-first verdict** (can plain .NET do this in ≤ 3
 4. **S3 Observable & testable:** I/O modules emit `System.Diagnostics.Metrics` (`Meter` named after the package) and
    `ActivitySource` spans; every module ships a Fake/in-memory test double (`Naravel.<Module>.Testing` namespace).
 5. Tests: runtime `Extend`, config-reload (config-driven modules), contract tests for every driver, fake usage.
-6. XML docs on public types (purpose, *Laravel equivalent*, *why it exists*, *not ported*); EN+FA docs and PDRs; update
+6. XML docs on public types (purpose, *Laravel equivalent*, *why it exists*, *not ported*); English-only docs and PDRs verified against source and tests; update
    both parity tables, `CHANGELOG.md`, and this table.
 7. Run `dotnet restore Naravel.slnx && dotnet build Naravel.slnx -c Release && dotnet test Naravel.slnx -c Release` and
    `/usr/bin/python3 roadmap/check.py`. Record the actual result in the status cell; if impossible write `NOT RUN: <reason>`.

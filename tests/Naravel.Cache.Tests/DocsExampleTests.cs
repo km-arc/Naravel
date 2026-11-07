@@ -8,7 +8,7 @@ using Naravel.Cache.Tagging;
 
 namespace Naravel.Cache.Tests;
 
-// Runs the snippets of docs/en/cache.md and docs/fa/cache.md against the Memory store and lock.
+// Runs the snippets of docs/en/cache.md against the Memory store and lock.
 // If a test here needs a change, the guide needs the same change.
 public sealed class DocsExampleTests
 {

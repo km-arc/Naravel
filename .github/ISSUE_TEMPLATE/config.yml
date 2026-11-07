@@ -5,4 +5,4 @@ contact_links:
     about: Do not open a public issue for a vulnerability. SECURITY.md explains how to report it privately.
   - name: Documentation
     url: https://github.com/km-arc/Naravel/tree/main/docs/en
-    about: Module guides, the Laravel parity table and the decision records. Persian twins are in docs/fa.
+    about: Module guides, the Laravel parity table and the decision records.

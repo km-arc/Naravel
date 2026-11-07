@@ -14,6 +14,6 @@ Targets .NET 10. It depends on `Naravel.Queue` and `Naravel.Redis`, which NuGet 
 
 ## Documentation
 
-- Queue: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/queue.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/queue.md)
-- Redis: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/redis.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/redis.md)
+- Queue: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/queue.md)
+- Redis: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/redis.md)
 - [Changelog](https://github.com/km-arc/Naravel/blob/main/CHANGELOG.md) · [Source and issues](https://github.com/km-arc/Naravel) · MIT license

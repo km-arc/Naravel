@@ -25,6 +25,6 @@ Policies and `throttle:login` stay as they are. Without this package the throttl
 
 ## Documentation
 
-- Routing: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/routing.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/routing.md)
-- Cache: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/cache.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/cache.md)
+- Routing: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/routing.md)
+- Cache: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/cache.md)
 - [Changelog](https://github.com/km-arc/Naravel/blob/main/CHANGELOG.md) · [Source and issues](https://github.com/km-arc/Naravel) · MIT license

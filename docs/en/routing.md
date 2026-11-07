@@ -3,7 +3,7 @@
 A thin Laravel-style layer on top of ASP.NET Core routing. It reuses the native router and pipeline and adds what Laravel developers miss:
 nested groups (`prefix`, `name`, `domain`, `middleware`), `where()` constraints, named routes with `route()`-style URL generation, route model
 binding, resource routes, and a full **route middleware** system (aliases, groups, parameters, priority, `withoutMiddleware`, terminable).
-Design: [PDR-009](../pdr/en/PDR-009-routing-and-http-middleware.md). Persian version: [../fa/routing.md](../fa/routing.md).
+Design: [PDR-009](../pdr/en/PDR-009-routing-and-http-middleware.md)..
 
 > Routing status and verification are tracked in [ROADMAP.md](../../ROADMAP.md) (R05). This guide describes the implemented behavior.
 

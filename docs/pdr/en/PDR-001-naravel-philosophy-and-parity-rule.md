@@ -13,7 +13,7 @@ reflection by naming convention) that .NET does not need and that make the resul
 2. If .NET solves it natively and idiomatically, use the native solution and document it.
 3. Keep Laravel's *concepts, vocabulary and structure* so Laravel developers feel at home; use .NET's *strengths* (types, async, DI, Options) to implement them.
 4. Every adopt/adapt/reject decision is recorded as a PDR **before** code, with rejected alternatives.
-5. Everything ships with tests and English + Persian documentation.
+5. Everything ships with tests and English documentation.
 
 ## Consequences
 - Some Laravel features will intentionally not exist (see `laravel-parity.md`).

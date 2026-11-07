@@ -14,5 +14,5 @@ Targets .NET 10. Add [`Naravel.Routing.Cache`](https://www.nuget.org/packages/Na
 
 ## Documentation
 
-- Routing: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/routing.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/routing.md)
+- Routing: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/routing.md)
 - [Changelog](https://github.com/km-arc/Naravel/blob/main/CHANGELOG.md) · [Source and issues](https://github.com/km-arc/Naravel) · MIT license

@@ -2,7 +2,7 @@
 
 `Naravel.Notifications` sends **one typed notification to a recipient through channels you name**, in the order you name them, and ships a fake that makes it testable. The core package has no mail, queue or network dependency: Mail and Queue are separate opt-in packages, and any other channel is an ordinary class or delegate you register.
 
-Decisions: [PDR-014](../pdr/en/PDR-014-notifications.md). Persian version: [docs/fa/notifications.md](../fa/notifications.md).
+Decisions: [PDR-014](../pdr/en/PDR-014-notifications.md)..
 
 ## Quickstart
 

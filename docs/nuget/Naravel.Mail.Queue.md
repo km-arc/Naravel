@@ -14,6 +14,6 @@ Targets .NET 10. It depends on `Naravel.Mail` and `Naravel.Queue`, which NuGet i
 
 ## Documentation
 
-- Mail: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/mail.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/mail.md)
-- Queue: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/queue.md) · [راهنمای فارسی](https://github.com/km-arc/Naravel/blob/main/docs/fa/queue.md)
+- Mail: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/mail.md)
+- Queue: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/queue.md)
 - [Changelog](https://github.com/km-arc/Naravel/blob/main/CHANGELOG.md) · [Source and issues](https://github.com/km-arc/Naravel) · MIT license

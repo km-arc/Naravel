@@ -8,7 +8,7 @@ body:
       value: |
         Naravel ports the *ideas* of Laravel, not every API. A new Laravel equivalent needs a PDR (Parity Decision Record) before code,
         and a large one needs owner approval, so please open an issue first and wait for a reply before sending a pull request.
-        English or Persian is fine. See [CONTRIBUTING.md](https://github.com/km-arc/Naravel/blob/main/CONTRIBUTING.md).
+        See [CONTRIBUTING.md](https://github.com/km-arc/Naravel/blob/main/CONTRIBUTING.md).
   - type: input
     id: laravel
     attributes:

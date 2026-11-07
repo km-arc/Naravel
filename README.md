@@ -10,7 +10,7 @@
 [![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-[Get started](#get-started) · [Modules](#modules) · [Documentation](docs/README.md) · [Laravel parity](docs/en/laravel-parity.md) · [Changelog](CHANGELOG.md) · [فارسی](README.fa.md)
+[Get started](#get-started) · [Modules](#modules) · [Documentation](docs/README.md) · [Laravel parity](docs/en/laravel-parity.md) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -66,7 +66,7 @@ Which package gives you what, and which call registers it, is in [Getting starte
 - **Native first, said out loud.** Naravel adopts a Laravel idea only when it adds practical value beyond what .NET already provides. Sessions, password hashing and route authorization already exist in ASP.NET Core and .NET, so it documents the recipe instead of shipping a package (PDR-015, PDR-016, PDR-019); where it does add a package, a PDR records why.
 - **Honest about guarantees.** Queue jobs are at-least-once and should be idempotent; Kafka rejects delayed dispatch; route throttling is process-local by default (the routing guide shows how to share it between instances). The limits are written next to the features instead of being discovered in production.
 - **Fakes for tests, no global state.** Cache, Events, Mail, Notifications, Queue, Filesystem, Broadcasting, Database and Scheduling each ship a fake (`MailFake`, `QueueFake`, `StorageFake`...) that you pass in like any other dependency and assert on, without a broker, mail server, disk, bucket or database.
-- **Documented in English and Persian.** Every guide and every design decision exists in both languages.
+- **Documented in English.** Every guide is in [docs/en](docs/en) and every design decision in [docs/pdr/en](docs/pdr/en).
 
 ```csharp
 var fake = new MailFake { DefaultFrom = "app@example.com" };
@@ -111,10 +111,10 @@ Not a package, on purpose: sessions, password hashing and route authorization ar
 |---|---|
 | [Getting started](docs/en/getting-started.md) | Which package to install, which call registers it, the sample app |
 | [Modules](docs/en/modules.md) | Every module with an example and its guarantees |
-| [Guides](docs/en) | One in-depth guide per module, each with a [Persian twin](docs/fa) |
+| [Guides](docs/en) | One in-depth guide per module |
 | [Laravel parity](docs/en/laravel-parity.md) and [PDRs](docs/pdr/en) | What was ported, adapted or declined, and why |
 | [Architecture](docs/en/architecture.md), [benchmarks](docs/en/benchmarks.md) | How the modules are built and what they cost |
-| [Documentation index](docs/README.md) | Everything above in English and Persian |
+| [Documentation index](docs/README.md) | Everything above in one place |
 
 ## Contributing
 
