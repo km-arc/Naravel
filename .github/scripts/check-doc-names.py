@@ -44,7 +44,7 @@ LITERAL_READS = (
     re.compile(r'GetValue<[^>]+>\(\s*"([A-Za-z][\w:]*)"'),
     re.compile(r'\bsectionName\s*=\s*"([A-Za-z]\w*)"', re.IGNORECASE),
     re.compile(r'\bconst\s+string\s+(?:Position|SectionName|\w*Section\w*)\s*=\s*"([A-Za-z][\w:]*)"'),
-    re.compile(r'\bGetOrDefault\(\s*"([A-Za-z]\w*)"'),  # a store's own settings: store.GetOrDefault("Key", ...)
+    re.compile(r'\bGet(?:OrDefault|Required)\(\s*"([A-Za-z]\w*)"'),  # a store's own settings: store.GetOrDefault("Key", ...), store.GetRequired("Key")
     re.compile(r'\bstore\[\s*"([A-Za-z]\w*)"\s*\]'),
 )
 ENUMERATED = re.compile(r'GetSection\(\s*"(\w+)"\s*\)\s*\.GetChildren\(\)')
