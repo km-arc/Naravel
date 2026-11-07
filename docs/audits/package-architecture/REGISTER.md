@@ -6,7 +6,7 @@ Inventory: **36** packable source projects. There are 35 package pages in `docs/
 
 | Order | Package ID | Source project | Package README | Status | Findings |
 |---:|---|---|---|---|---|
-| 01 | `Naravel.Foundation` | `src/Naravel.Foundation/Naravel.Foundation.csproj` | `docs/en/foundation.md` | PENDING | — |
+| 01 | `Naravel.Foundation` | `src/Naravel.Foundation/Naravel.Foundation.csproj` | `docs/en/foundation.md` | REVIEWED WITH FINDINGS | [Report](reports/01-Naravel.Foundation.md): 3 P2, 1 OBS |
 | 02 | `Naravel.Cache` | `src/Naravel.Cache/Naravel.Cache.csproj` | `docs/nuget/Naravel.Cache.md` | PENDING | — |
 | 03 | `Naravel.Redis` | `src/Naravel.Redis/Naravel.Redis.csproj` | `docs/nuget/Naravel.Redis.md` | PENDING | — |
 | 04 | `Naravel.Cache.Redis` | `src/Naravel.Cache.Redis/Naravel.Cache.Redis.csproj` | `docs/nuget/Naravel.Cache.Redis.md` | PENDING | — |
