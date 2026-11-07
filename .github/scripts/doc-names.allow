@@ -1,0 +1,38 @@
+# Names that the documentation uses and that Naravel's own source does not define (read by check-doc-names.py).
+#
+#   name: Method   an Add* method of Microsoft, the BCL or a third-party library, or a labelled illustration
+#   key: Path      a configuration key, or a section name, that is read in a way the checker cannot see
+#
+# Every entry needs a reason after the '#'. An entry that nothing uses any more can be deleted; the checker does not complain about it.
+
+# --- Microsoft.Extensions.* and ASP.NET Core -----------------------------------------------------------------------------------
+name: AddScoped                       # IServiceCollection (Microsoft.Extensions.DependencyInjection)
+name: AddSingleton                    # IServiceCollection
+name: AddControllers                  # IServiceCollection (ASP.NET Core)
+name: AddAuthentication               # ASP.NET Core authentication
+name: AddAuthorization                # ASP.NET Core authorization
+name: AddCookie                       # AuthenticationBuilder
+name: AddJwtBearer                    # AuthenticationBuilder (Microsoft.AspNetCore.Authentication.JwtBearer)
+name: AddPolicy                       # AuthorizationOptions
+name: AddSession                      # ASP.NET Core session
+name: AddDistributedMemoryCache       # Microsoft.Extensions.Caching.Memory
+name: AddStackExchangeRedisCache      # Microsoft.Extensions.Caching.StackExchangeRedis
+name: AddDataProtection               # ASP.NET Core data protection
+
+# --- Entity Framework Core ---------------------------------------------------------------------------------------------------
+name: AddDbContext                    # EF Core
+name: AddDbContextFactory             # EF Core
+name: AddAsync                        # DbSet<T>.AddAsync
+
+# --- OpenTelemetry -----------------------------------------------------------------------------------------------------------
+name: AddOpenTelemetry                # OpenTelemetry.Extensions.Hosting
+name: AddMeter                        # MeterProviderBuilder
+name: AddSource                       # TracerProviderBuilder
+
+# --- BCL -----------------------------------------------------------------------------------------------------------------------
+name: AddRange                        # List<T>
+name: AddDays                         # DateTime / DateTimeOffset
+
+# --- Labelled illustrations (docs/en/architecture.md and docs/en/foundation.md build a module called "Greeter" to show the shape) -
+name: AddNaravelGreeter               # the example module in architecture.md, not a shipped API
+key: Greeter                          # the example module's configuration section, not a shipped one
