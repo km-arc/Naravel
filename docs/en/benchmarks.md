@@ -60,6 +60,16 @@ dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*Pagi
 
 `PaginationBenchmarks` (PDR-020 S2) reads one page of 20 rows from a 50 000 row in-memory SQLite table with `OFFSET` (`OffsetFirstPage`, `SimpleOffsetFirstPage`, `SimpleOffsetDeepPage`, `OffsetDeepPage`) and with a cursor (`KeysetFirstPage`, `KeysetDeepPage`); the deep page is page 2 000, and `SimpleOffsetDeepPage` is the baseline. The first-page rows are the control: the two styles should be about equal there, and the keyset deep page should stay close to its first page while the offset deep page grows with the offset. **A report-only CI-runner baseline is recorded in the table below** (2026-10-28, [evidence run 40758969223](https://github.com/km-arc/Naravel/actions/runs/40758969223)). Shared-runner timings are noisy; use allocations and ratios as indicative comparisons, and re-run on target hardware before treating timing differences as regressions.
 
+Run the Throttle benchmarks with:
+
+```sh
+dotnet run -c Release --project benchmarks/Naravel.Benchmarks -- --filter '*Throttle*' --job short --warmupCount 1 --iterationCount 3 --launchCount 1
+```
+
+`ThrottleBenchmarks` (PDR-024 R31.T05) sends one request from one client address through the route middleware pipeline of an endpoint that has the `throttle` middleware. The limit is far above what a run sends, so every request is admitted. `InProcessStore` (baseline) is the default store; `SharedStoreOverMemory` is the shared store of `Naravel.Routing.Cache` over the Memory cache store, which adds the key hashing and one atomic increment but no network. The request context is created inside the measured call, as in the route middleware benchmark, so both rows include that cost and the difference between them is the store.
+
+`ThrottleRedisBenchmarks` is the same pair with the shared store over a real Redis. It needs a server: set `NARAVEL_BENCH_REDIS` (for example `localhost:6379`). Without it the class is left out and every other benchmark runs as before. A Redis on the same machine has no network in its number, so the result shows the client and one round trip over loopback; a remote Redis adds its own network time to every request. The `evidence.yml` workflow starts a Redis service for it. Rows for these benchmarks are added to the CI table below once the workflow has measured them.
+
 ## CI runner baselines (2026-10-28)
 
 Measured by the report-only `evidence.yml` workflow (run 40758969223, `--job short`, 1 warmup and 3 iterations, one launch) on a GitHub-hosted `ubuntu-latest` runner: AMD EPYC 9V45, 4 logical cores, .NET SDK 10.0.403, runtime 10.0.14. Shared runners are noisy: two runs of the same code differed by up to 40% in time (the database benchmarks ran 29.9 us in one run and 42.9 us in another), so read the **allocations** (deterministic) and the **ratios** as the baseline and the times as an order of magnitude. Re-run with the workflow, or with the commands above, before comparing a change.

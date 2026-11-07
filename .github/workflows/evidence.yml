@@ -104,6 +104,20 @@ jobs:
     name: Benchmark baselines (ubuntu-latest)
     runs-on: ubuntu-latest
     timeout-minutes: 75
+    # The Redis throttle benchmark (ThrottleRedisBenchmarks) counts in this server. It runs on the same machine, so its number has no
+    # network in it. The image is pinned to the exact version ci.yml uses (.github/scripts/check-image-pins.py checks both).
+    services:
+      redis:
+        image: redis:7.4.2
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NARAVEL_BENCH_REDIS: localhost:6379
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v5

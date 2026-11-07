@@ -18,8 +18,9 @@ RULES = {  # image -> regex the tag must match
     r"postgres": r"\d+\.\d+(\.\d+)?(-alpine(\d+\.\d+)?)?",
     r"mcr\.microsoft\.com/mssql/server": r"\d{4}-CU\d+(-ubuntu-\d+\.\d+)?",
 }
-# The CI workflow and the compose file developers use locally ("same images as the database job") are both checked.
-FILES = [".github/workflows/ci.yml", "docker-compose.yml"]
+# The CI workflow, the evidence workflow (its Redis service for the throttle benchmark) and the compose file developers use locally
+# ("same images as the database job") are all checked.
+FILES = [".github/workflows/ci.yml", ".github/workflows/evidence.yml", "docker-compose.yml"]
 bad = []
 seen = 0
 for file in FILES:
