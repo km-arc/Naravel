@@ -12,6 +12,42 @@ dotnet add package Naravel.Queue
 
 Targets .NET 10. It depends on `Naravel.Foundation`, which NuGet installs with it.
 
+## Use
+
+```json
+{
+  "NaravelQueue": {
+    "Default": "local",
+    "Stores": { "local": { "Driver": "memory" } }
+  }
+}
+```
+
+```csharp
+using Naravel.Queue.Dispatch;
+using Naravel.Queue.Extensions;
+using Naravel.Queue.Jobs;
+
+builder.Services.AddQueue(builder.Configuration);   // reads the "NaravelQueue" section; the driver package adds its own AddXxxDriver call after it
+builder.Services.AddQueueWorker();                  // the hosted service that runs the jobs; a process that only dispatches leaves it out
+
+public sealed class SendWelcomeEmail : Job
+{
+    public string ToEmail { get; set; } = "";
+
+    public SendWelcomeEmail() { }                   // the worker rebuilds the job from JSON, so it needs this constructor
+    public SendWelcomeEmail(string toEmail) => ToEmail = toEmail;
+
+    public override Task HandleAsync(JobContext context, CancellationToken cancellationToken) =>
+        Task.CompletedTask;                         // your work goes here
+}
+
+// jobs is an injected IJobDispatcher
+var id = await jobs.DispatchAsync(new SendWelcomeEmail("ada@example.com"), cancellationToken: ct);
+```
+
+The store above uses the `memory` driver, so it needs `Naravel.Queue.Memory` and its `AddMemoryDriver(builder.Configuration)` call; every other driver is chosen the same way, by the `Driver` of the store. `DispatchAsync` returns the message id, or `null` when the job is an `IUniqueJob` and an identical job is already waiting. The worker takes jobs from the `default` queue, one at a time, unless `AddQueueWorker` is given other `Queues` or a `Concurrency`.
+
 ## Related packages
 
 - [`Naravel.Queue.Memory`](https://www.nuget.org/packages/Naravel.Queue.Memory): In-process "memory" queue driver for Naravel.Queue - zero dependencies, ideal for tests and local development.
