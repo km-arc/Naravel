@@ -30,7 +30,7 @@ An audit report does not itself fix a finding. A finding remains OPEN until the 
 | CCH-007 | Naravel.Cache | OBS | Cache operation telemetry gap versus repository S3 DoD | OPEN — OWNER DECISION | [Report](reports/02-Naravel.Cache.md) |
 | CCH-008 | Naravel.Cache | OBS | Per-tag version metadata has no expiry | OPEN — OWNER DECISION | [Report](reports/02-Naravel.Cache.md) |
 | RED-001 | Naravel.Redis | P2 | FromConnectionString can collide with a configured implicit-prefixed name | OPEN | [Report](reports/03-Naravel.Redis.md) |
-| RED-002 | Naravel.Redis | P2 | Initial multiplexer connection is synchronous despite PDR async requirement | OPEN — OWNER DECISION | [Report](reports/03-Naravel.Redis.md) |
+| RED-002 | Naravel.Redis | OBS | Synchronous first connection is a documented D-66 deviation from the PDR wording | OPEN — OWNER DECISION | [Report](reports/03-Naravel.Redis.md) |
 | RED-003 | Naravel.Redis | OBS | The raw connection string is retained by a long-lived factory closure | OPEN — OWNER DECISION | [Report](reports/03-Naravel.Redis.md) |
 | CRD-001 | Naravel.Cache.Redis | P2 | Invalid Database configuration silently falls back to the connection default | OPEN | [Report](reports/04-Naravel.Cache.Redis.md) |
 | CRD-002 | Naravel.Cache.Redis | P2 | Redis FlushAsync skips disconnected endpoints and may report success without flushing | OPEN | [Report](reports/04-Naravel.Cache.Redis.md) |
