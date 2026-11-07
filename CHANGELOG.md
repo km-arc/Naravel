@@ -20,6 +20,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 - Docs: the "Honest about guarantees" line of `README.md` no longer says that route throttling is always process-local. It is by default; the routing guide describes the shared store and what it does not cover.
 - NuGet metadata: `Naravel.Notifications` has five tags instead of three, so a search for notification channels finds it; the change ships with the next version, because metadata cannot be edited after a version is pushed.
 - Repo: `.gitignore` ignores Python bytecode, and the two `.pyc` files that an earlier change committed by mistake are removed. The README check ignores fenced code with CommonMark rules (a four-backtick fence can show a three-backtick example).
+- NuGet package pages: twelve pages (`Naravel.Cache`, `.Cache.Redis`, `.Cache.Memcached`, `.Redis`, `.Events`, `.Events.Queue`, `.Mail`, `.Mail.Smtp`, `.Mail.Queue`, `.Notifications`, `.Notifications.Mail` and `.Notifications.Queue`) now have a `Use` section with the registration call, the configuration and a minimal example, so the package page on nuget.org says how to start, not only how to install. The other packages follow in small waves. Each name and configuration key was checked against the source and the public API baselines; the snippets are the tested ones from the module guides, not compiled by CI themselves.
 
 ## [0.1.1] - 2026-11-02
 
