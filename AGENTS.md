@@ -81,6 +81,7 @@ history and the accepted PDR-009 decisions remain in [PROGRESS-ROUTING.md](PROGR
 10. **Never resolve a CLR type from stored data** (queue/cache/session payloads) except through an explicit alias registry (OD-07).
 11. **Stay inside `Touch:`** of the active stage file; log anything else in `roadmap/AUDIT.md`.
 12. **Public API baseline.** New public API goes into the project's `PublicAPI.Unshipped.txt`. `PublicAPI.Shipped.txt` holds what a published version contains (0.1.0 since R29); do not edit its entries to make a build pass, because a removed or changed member is a breaking change that needs an owner decision and an AUDIT entry. When a version is released, move that version's `Unshipped` entries into `Shipped`.
+13. **Never invent an API, a package or a configuration key; verify it in the code or the docs first.** Check it where it is defined: a method, type or overload in the source under `src/` and in `PublicAPI.Shipped.txt` / `PublicAPI.Unshipped.txt`; a package ID in the `PackageId` (or project name) of `src/*/*.csproj` and in `docs/nuget`; a configuration key in the options class the module binds and in its registration code and tests; a default or an exception message in the implementation and its tests. Source and tests win over prose. If you cannot find it, stop and ask the owner; never guess. A name that is only a placeholder must be labelled as one (see "Evidence before claims" below).
 
 ## AI agent operating rules
 
