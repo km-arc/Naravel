@@ -29,7 +29,7 @@ internal readonly record struct ThrottleAttempt(ThrottleAttemptKind Kind, Thrott
 /// Counts one throttle attempt through the registered <see cref="IThrottleStore"/> and decides what a store failure means
 /// (PDR-024): a call that throws or exceeds <see cref="ThrottleOptions.StoreTimeout"/> is a failure and opens the breaker, and the
 /// policy's <see cref="ThrottleFailureMode"/> handles the request. A client that went away (the request token is cancelled) is not a
-/// failure. The default in-process store cannot fail, so it is called directly: no timeout, no breaker, no extra allocation on the
+/// failure, and a policy that fails open does not admit it either. The default in-process store cannot fail, so it is called directly: no timeout, no breaker, no extra allocation on the
 /// path that exists for a single instance.
 /// </summary>
 internal sealed class ThrottleGuard : IDisposable
@@ -148,6 +148,11 @@ internal sealed class ThrottleGuard : IDisposable
                 Count(policyName, "rejected");
                 return ThrottleAttempt.FailedClosed(_breaker.RemainingOpen());
             case ThrottleFailureMode.FailOpen:
+                // No store call is made on this path, so nothing here observes the request token (the local limiter that the default
+                // mode uses does). A client that has gone is not admitted: the request ends with the cancellation, as it would in a
+                // store call that observes the token, and it is not counted as admitted. A handler that does not watch the token
+                // would otherwise keep working, and keep its side effects, for a client that is not there.
+                cancellationToken.ThrowIfCancellationRequested();
                 Count(policyName, "allowed");
                 return ThrottleAttempt.FailedOpen();
             default:
