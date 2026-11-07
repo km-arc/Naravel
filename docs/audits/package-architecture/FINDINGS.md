@@ -29,6 +29,9 @@ An audit report does not itself fix a finding. A finding remains OPEN until the 
 | CCH-006 | Naravel.Cache | DOC | Cache guide quickstart uses DateTime.UtcNow | OPEN | [Report](reports/02-Naravel.Cache.md) |
 | CCH-007 | Naravel.Cache | OBS | Cache operation telemetry gap versus repository S3 DoD | OPEN — OWNER DECISION | [Report](reports/02-Naravel.Cache.md) |
 | CCH-008 | Naravel.Cache | OBS | Per-tag version metadata has no expiry | OPEN — OWNER DECISION | [Report](reports/02-Naravel.Cache.md) |
+| RED-001 | Naravel.Redis | P2 | FromConnectionString can collide with a configured implicit-prefixed name | OPEN | [Report](reports/03-Naravel.Redis.md) |
+| RED-002 | Naravel.Redis | P2 | Initial multiplexer connection is synchronous despite PDR async requirement | OPEN — OWNER DECISION | [Report](reports/03-Naravel.Redis.md) |
+| RED-003 | Naravel.Redis | OBS | The raw connection string is retained by a long-lived factory closure | OPEN — OWNER DECISION | [Report](reports/03-Naravel.Redis.md) |
 
 ## Remediation log
 
