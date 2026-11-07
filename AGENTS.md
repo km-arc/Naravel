@@ -130,6 +130,7 @@ State the exact uncertainty, evidence checked, and smallest decision needed. Do 
 - For security-sensitive, concurrency-sensitive, serialization, retry, throttling, expiration, and other critical business logic, request a review from a fresh agent/session that did not author the change. Give it the brief, relevant source/tests, and diff; ask it to identify defects and missing cases independently.
 - For such critical logic, use mutation testing when a suitable tool and test scope are available. Confirm that tests detect meaningful mutations (for example boundary changes, removed guards, inverted conditions, or altered retry/expiry behavior).
 - Do not claim independent review or mutation testing unless it was actually performed. If unavailable or out of scope, state that explicitly and explain the remaining risk.
+
 ## Adding or changing a module (monorepo checklist)
 1. Read the PDRs; write the module's PDR; wait for approval.
 2. Create `src/Naravel.<Module>` (+ provider projects) and `tests/Naravel.<Module>.Tests`; add all to `Naravel.slnx`.

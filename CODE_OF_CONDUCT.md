@@ -1,7 +1,7 @@
 # Code of Conduct
 
 Naravel is a small project that people from different countries, languages and levels of experience build together. This page
-says how we treat each other wherever the project happens. 
+says how we treat each other wherever the project happens.
 
 ## Our pledge
 

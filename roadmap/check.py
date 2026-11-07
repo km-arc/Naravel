@@ -227,7 +227,7 @@ def main() -> int:
             "AGENTS.md", "CONTRIBUTING.md", "README.md", "CODE_OF_CONDUCT.md",
             "docs/README.md", ".github/PULL_REQUEST_TEMPLATE.md",
         }
-        stale_doc_ref = re.compile(r"\]\([^)]*(?:docs/fa/|docs/pdr/fa/|(?:README|ROADMAP|CONTRIBUTING|CODE_OF_CONDUCT)\.fa\.md)")
+        stale_doc_ref = re.compile(r"\]\([^)]*(?:docs/fa\b|docs/pdr/fa\b|(?:README|ROADMAP|CONTRIBUTING|CODE_OF_CONDUCT)\.fa\.md)")
         for path in tracked_files:
             if path not in maintained_exact and not path.startswith(maintained_prefixes):
                 continue

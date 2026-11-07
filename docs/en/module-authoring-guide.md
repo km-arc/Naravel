@@ -60,7 +60,7 @@ Set `<EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenera
 - Manager wiring: default resolution, explicit name, runtime `Extend`, config reload rebuilding a driver.
 - Do not re-test Foundation behaviour (once-only creation, cancellation, disposal); that lives in Foundation's tests.
 
-## 6. Docs (mandatory, both languages)
+## 6. Docs (mandatory, English)
 `docs/en/<module>.md`, a row group in `laravel-parity.md`, English PDR(s), XML docs
 on every public member: purpose, **Laravel equivalent**, **why it exists / why not native**, **what was not ported**.
 
