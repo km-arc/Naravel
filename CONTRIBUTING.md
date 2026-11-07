@@ -21,7 +21,7 @@ deciding what is worth porting and then doing it small and well. This guide is t
 2. **PDR first.** A new Laravel equivalent starts as a Parity Decision Record in [docs/pdr/en](docs/pdr/en): Laravel feature, native .NET option, value added, decision, rejected alternatives.
 3. **Read what applies.** [AGENTS.md](AGENTS.md) lists the hard rules (one-way dependencies, `Manager<TDriver, TOptions>`
    for driver modules, async with `CancellationToken`, no CLR type resolved from stored data, no new dependency beyond
-   `Microsoft.Extensions.*` without a PDR). [docs/en/module-authoring-guide.md](docs/en/module-authoring-guide.md) walks
+   `Microsoft.Extensions.*` without a PDR, and no API, package or configuration key that you have not verified in the code or the docs). [docs/en/module-authoring-guide.md](docs/en/module-authoring-guide.md) walks
    through a new module. [ROADMAP.md](ROADMAP.md) is the only place for a stage's status; do not copy a status or a test
    count into another file (`roadmap/check.py` fails on it).
 
