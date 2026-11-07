@@ -307,6 +307,81 @@ public class ThrottleFailureTests
         logs.Count(LogLevel.Warning, "ThrottleGuard").Should().Be(0);
     }
 
+    // ----- a client that has gone is not admitted by a fallback decision -----
+
+    [Fact]
+    public async Task Fail_open_does_not_admit_a_client_that_has_gone_while_the_breaker_is_open()
+    {
+        using var metrics = new Measurements();
+        var gate = new Gate();
+        var store = new FlakyStore();
+        await using var app = await StartGatedAsync(store, new ManualTimeProvider(), gate);
+
+        // One request that reaches the failing store opens the breaker; the policy fails open, so it is admitted.
+        (await app.Client.GetAsync("/gated-open")).StatusCode.Should().Be(HttpStatusCode.OK);
+        gate.HandlerRuns.Should().Be(1);
+        store.Calls.Should().Be(1);
+
+        // The breaker is open: the next decision is made without a store call, so nothing else would look at the request token.
+        var ended = await GoneClientAsync(app, gate, "/gated-open?hold=1");
+
+        (ended is OperationCanceledException).Should().BeTrue("a client that has gone ends the request with the cancellation");
+        gate.HandlerRuns.Should().Be(1);
+        store.Calls.Should().Be(1);
+        metrics.Sum("naravel.routing.throttle", "open", "allowed").Should().Be(1);
+
+        // A client that is still there is admitted as before.
+        (await app.Client.GetAsync("/gated-open")).StatusCode.Should().Be(HttpStatusCode.OK);
+        gate.HandlerRuns.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Fail_open_does_not_admit_a_client_that_has_gone_when_the_store_fails_during_the_request()
+    {
+        using var metrics = new Measurements();
+        var gate = new Gate();
+        var store = new FlakyStore();
+        await using var app = await StartGatedAsync(store, new ManualTimeProvider(), gate);
+
+        // The breaker is closed, so this request calls the store, which fails; the failure is real and is recorded as one.
+        var ended = await GoneClientAsync(app, gate, "/gated-open?hold=1");
+
+        (ended is OperationCanceledException).Should().BeTrue("a client that has gone ends the request with the cancellation");
+        gate.HandlerRuns.Should().Be(0);
+        store.Calls.Should().Be(1);
+        metrics.Sum("naravel.routing.throttle.store_failures", "open").Should().Be(1);
+        metrics.Sum("naravel.routing.throttle", "open", "allowed").Should().Be(0);
+
+        // That failure opened the breaker: a client that is still there is admitted without a store call.
+        (await app.Client.GetAsync("/gated-open")).StatusCode.Should().Be(HttpStatusCode.OK);
+        gate.HandlerRuns.Should().Be(1);
+        store.Calls.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Degrade_to_local_does_not_admit_a_client_that_has_gone_and_does_not_use_a_local_permit_on_it()
+    {
+        using var metrics = new Measurements();
+        var gate = new Gate();
+        var store = new FlakyStore();
+        await using var app = await StartGatedAsync(store, new ManualTimeProvider(), gate);
+
+        // This one already held before the change that made fail open observe the token: the local limiter does. The test keeps it that way.
+        // The policy allows two a window. The first request opens the breaker and takes one local permit.
+        (await app.Client.GetAsync("/gated-api")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var ended = await GoneClientAsync(app, gate, "/gated-api?hold=1");
+
+        (ended is OperationCanceledException).Should().BeTrue("a client that has gone ends the request with the cancellation");
+        gate.HandlerRuns.Should().Be(1);
+        metrics.Sum("naravel.routing.throttle", "api", "degraded").Should().Be(1);
+
+        // The client that had gone took no permit: the second one is still there for the next client, and the third is over the limit.
+        (await app.Client.GetAsync("/gated-api")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await app.Client.GetAsync("/gated-api")).StatusCode.Should().Be((HttpStatusCode)429);
+        gate.HandlerRuns.Should().Be(2);
+    }
+
     [Fact]
     public async Task The_breaker_opening_is_logged_once_per_period()
     {
@@ -418,6 +493,96 @@ public class ThrottleFailureTests
         r.Get("/login", () => "ok").Middleware("throttle:login");
         r.Get("/api", () => "ok").Middleware("throttle:api");
         r.Get("/open", () => "ok").Middleware("throttle:open");
+    }
+
+    /// <summary>
+    /// What a test needs to hold one request in front of the throttle until its client has gone. <c>watch</c> is the first route
+    /// middleware and records how the pipeline ended; <c>hold</c> sits in front of <c>throttle</c> and, for a request with
+    /// <c>?hold=1</c>, waits until the test lets it go on and the request token is cancelled. Both let every other request through.
+    /// </summary>
+    private sealed class Gate
+    {
+        private int _handlerRuns;
+
+        public int HandlerRuns => Volatile.Read(ref _handlerRuns);
+
+        public TaskCompletionSource Held { get; } = NewSignal();
+
+        public TaskCompletionSource Release { get; } = NewSignal();
+
+        public TaskCompletionSource<Exception?> Finished { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public string Handler()
+        {
+            Interlocked.Increment(ref _handlerRuns);
+            return "ok";
+        }
+    }
+
+    private static Task<TestApp> StartGatedAsync(FlakyStore store, ManualTimeProvider clock, Gate gate) =>
+        StartAsync(
+            store,
+            clock,
+            options: o =>
+            {
+                o.Middleware.Alias("watch", async (context, next, _) =>
+                {
+                    if (!context.Request.Query.ContainsKey("hold"))
+                    {
+                        await next(context);
+                        return;
+                    }
+
+                    try
+                    {
+                        await next(context);
+                        gate.Finished.TrySetResult(null);
+                    }
+                    catch (Exception exception)
+                    {
+                        gate.Finished.TrySetResult(exception);
+                        throw;
+                    }
+                });
+                o.Middleware.Alias("hold", async (context, next, _) =>
+                {
+                    if (context.Request.Query.ContainsKey("hold"))
+                    {
+                        gate.Held.TrySetResult();
+                        await gate.Release.Task.WaitAsync(Patience);
+                        await WaitUntilAsync(() => context.RequestAborted.IsCancellationRequested);
+                    }
+
+                    await next(context);
+                });
+            },
+            routes: r =>
+            {
+                r.Get("/gated-open", gate.Handler).Middleware("watch", "hold", "throttle:open");
+                r.Get("/gated-api", gate.Handler).Middleware("watch", "hold", "throttle:api");
+                r.Get("/gated-login", gate.Handler).Middleware("watch", "hold", "throttle:login");
+            });
+
+    /// <summary>Sends a request that is held in front of the throttle, has its client go away, lets it go on, and returns how it ended.</summary>
+    private static async Task<Exception?> GoneClientAsync(TestApp app, Gate gate, string url)
+    {
+        using var cts = new CancellationTokenSource();
+        var pending = app.Client.GetAsync(url, cts.Token);
+        await gate.Held.Task.WaitAsync(Patience);
+        cts.Cancel();
+
+        // Let the held request go on before waiting for the client side: the test host does not return the client call until the
+        // response starts or the pipeline ends, and the held request goes on only after this release, so waiting first would make
+        // each wait for the other.
+        // The request token is already cancelled when Cancel returns, and the hold middleware checks that before it goes on.
+        gate.Release.TrySetResult();
+
+        // The client side ends cancelled, or with a response if the host finished first; a failure with any other exception is a
+        // fault in the test setup and is reported here instead of being swallowed.
+        await Task.WhenAny(pending).WaitAsync(Patience);
+        pending.IsFaulted.Should().BeFalse("the client call must not fail with an exception other than the cancellation: {0}", pending.Exception);
+
+        return await gate.Finished.Task.WaitAsync(Patience);
     }
 
     private static TaskCompletionSource NewSignal() => new(TaskCreationOptions.RunContinuationsAsynchronously);

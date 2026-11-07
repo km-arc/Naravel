@@ -21,7 +21,10 @@ public enum ThrottleFailureMode
     /// </summary>
     FailClosed = 1,
 
-    /// <summary>Admit the request without any limit. An explicit opt-in only; it removes the limit for as long as the store is down.</summary>
+    /// <summary>
+    /// Admit the request without any limit. An explicit opt-in only; it removes the limit for as long as the store is down. A request
+    /// whose client has already gone (its token is cancelled) is not admitted: it ends with the cancellation.
+    /// </summary>
     FailOpen = 2
 }
 
