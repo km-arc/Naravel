@@ -164,7 +164,7 @@ A throttle sits on the request path, so a slow or unavailable backend must not t
 |---|---|---|
 | `DegradeToLocal` (the default) | This instance's in-process limiter, with the policy's numbers. Never unlimited, never a 500 | Most routes |
 | `FailClosed` | `503` with `Retry-After` (the time the breaker stays open, at least 1 second) and no `X-RateLimit-*` headers | Credential endpoints: admitting more attempts than the shared limit is worse than refusing |
-| `FailOpen` | Admitted with no limit | Only as an explicit opt-in; it removes the limit for as long as the store is down |
+| `FailOpen` | Admitted with no limit, unless the client has already gone: that request ends with the cancellation and is not admitted | Only as an explicit opt-in; it removes the limit for as long as the store is down |
 
 The mode is set per policy, as in the snippet above; the inline `throttle:60,1` form always degrades to the local limiter. Both timing numbers are options on `RoutingOptions.Throttle`, read once at startup:
 
