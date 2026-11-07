@@ -8,7 +8,7 @@ This is an audit, not an implementation campaign. Do not change runtime code, pu
 
 ## Baseline and scope
 
-- Repository baseline: `main` at `e57d6e017c00e0a0d1c83fb7a767ba640ff4e20a`.
+- Repository baseline: `main` at `847d605adb21f1ab4b6a60b13fd1685bb5893179`. The audit branch was synchronized with that main commit before the Cache review; Foundation's source report is pinned to the earlier `e57d6e0` source snapshot, and the intervening main changes did not touch Foundation source or tests.
 - Target framework / repository version are determined from the checked-in project metadata at the baseline, not assumed from this document.
 - Audit order is dependency-aware; foundational projects are reviewed before their adapters/providers.
 - Include every packable project under `src/`, including `Naravel.Foundation`.
@@ -65,8 +65,35 @@ For each entry in `REGISTER.md`:
 7. Update the register with status, findings, and commit/report link.
 8. Present the result in the owner tracking thread before moving to the next package.
 
+## Finding lifecycle and closure
+
+Every finding receives a stable ID in `FINDINGS.md` and a state:
+
+- `OPEN`: evidence recorded; no remediation authorized or performed.
+- `APPROVED FOR REMEDIATION`: the owner explicitly authorized a separate fix task/PDR.
+- `IN REMEDIATION`: an approved change is being implemented on its own task/branch.
+- `FIXED — WAITING VERIFICATION`: code/docs changed, but required regression tests and CI are not yet proven green.
+- `VERIFIED CLOSED`: the exact regression tests, relevant package/solution verification, roadmap checks, and required CI jobs passed; evidence links are recorded.
+- `ACCEPTED RISK`: the owner explicitly chose not to fix the item and the rationale is recorded.
+
+A report's source-level finding must never be marked resolved merely because a proposed patch exists or a commit was created. No fix is made by this audit branch. The owner authorizes remediation separately; test weakening or warning suppression is never an acceptable closure path.
+
 ## Exit criteria
 
-A package is `REVIEWED` only when all review dimensions have been addressed, evidence is linked, tests run/not-run are explicit, and open owner decisions are identified. A package with findings can still be reviewed; findings remain open until the owner authorizes remediation and verification.
+A package is `REVIEWED WITH FINDINGS` when all review dimensions have been addressed, evidence is linked, tests run/not-run are explicit, and open owner decisions are identified. A package can be reviewed with open findings; findings remain open until the owner authorizes remediation and verification.
 
 The full audit is complete only when all 36 packages have reviewed reports, cross-package findings are deduplicated, and a prioritized remediation roadmap is proposed. No remediation is merged by this audit branch.
+
+
+## Finding lifecycle and closure
+
+Every finding receives a stable ID in `FINDINGS.md` and a state:
+
+- `OPEN`: evidence recorded; no remediation authorized or performed.
+- `APPROVED FOR REMEDIATION`: owner explicitly authorized a separate fix task/PDR.
+- `IN REMEDIATION`: an approved change is being implemented on its own task/branch.
+- `FIXED — WAITING VERIFICATION`: code/docs changed, but required regression tests and CI are not yet proven green.
+- `VERIFIED CLOSED`: exact regression tests, relevant package/solution verification, roadmap checks, and required CI jobs passed; evidence links are recorded.
+- `ACCEPTED RISK`: the owner explicitly chose not to fix the item and the rationale is recorded.
+
+A source-level finding must never be marked resolved merely because a proposed patch exists or a commit was created. No fix is made by this audit branch. The owner authorizes remediation separately; test weakening or warning suppression is never an acceptable closure path.

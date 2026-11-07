@@ -1,13 +1,13 @@
 # Package Review Register
 
-Baseline: `main` at `e57d6e017c00e0a0d1c83fb7a767ba640ff4e20a`.
+Baseline: `main` at `847d605adb21f1ab4b6a60b13fd1685bb5893179` (source review baseline; latest main includes only subsequent policy/package-doc changes outside the reviewed Foundation/Cache source and tests).
 
 Inventory: **36** packable source projects. There are 35 package pages in `docs/nuget/`; `Naravel.Foundation` uses `docs/en/foundation.md` as its packed README.
 
 | Order | Package ID | Source project | Package README | Status | Findings |
 |---:|---|---|---|---|---|
 | 01 | `Naravel.Foundation` | `src/Naravel.Foundation/Naravel.Foundation.csproj` | `docs/en/foundation.md` | REVIEWED WITH FINDINGS | [Report](reports/01-Naravel.Foundation.md): 3 P2, 1 OBS |
-| 02 | `Naravel.Cache` | `src/Naravel.Cache/Naravel.Cache.csproj` | `docs/nuget/Naravel.Cache.md` | PENDING | — |
+| 02 | `Naravel.Cache` | `src/Naravel.Cache/Naravel.Cache.csproj` | `docs/nuget/Naravel.Cache.md` | REVIEWED WITH FINDINGS | [Report](reports/02-Naravel.Cache.md): 4 P2, 1 P3, 1 DOC, 2 OBS |
 | 03 | `Naravel.Redis` | `src/Naravel.Redis/Naravel.Redis.csproj` | `docs/nuget/Naravel.Redis.md` | PENDING | — |
 | 04 | `Naravel.Cache.Redis` | `src/Naravel.Cache.Redis/Naravel.Cache.Redis.csproj` | `docs/nuget/Naravel.Cache.Redis.md` | PENDING | — |
 | 05 | `Naravel.Cache.Memcached` | `src/Naravel.Cache.Memcached/Naravel.Cache.Memcached.csproj` | `docs/nuget/Naravel.Cache.Memcached.md` | PENDING | — |
@@ -52,6 +52,10 @@ Inventory: **36** packable source projects. There are 35 package pages in `docs/
 - [x] Confirmed that `Naravel.Foundation` packs `docs/en/foundation.md` as `README.md`, which explains the 35-vs-36 documentation-page count.
 - [ ] Verify the final generated package count from a real `dotnet pack` archive (NOT RUN in this remote source-inspection pass).
 
+## Finding lifecycle
+
+Individual findings and their remediation states are tracked in [FINDINGS.md](FINDINGS.md). A finding remains OPEN until the owner authorizes remediation. It then moves through APPROVED FOR REMEDIATION, IN REMEDIATION, FIXED — WAITING VERIFICATION, and only becomes VERIFIED CLOSED after the exact regression tests and required CI checks pass. ACCEPTED RISK requires an explicit owner decision recorded with rationale. A package can be REVIEWED WITH FINDINGS while its findings remain open.
+
 ## Cross-package findings
 
-No architectural defect has been declared from inventory alone. Package-count/documentation placement is an inventory clarification, not yet a defect. Cross-package findings will be recorded here with affected package IDs and links to detailed reports.
+Cross-package findings are recorded once in [FINDINGS.md](FINDINGS.md), with every affected package linked. Package count and documentation placement are inventory clarifications, not implementation defects.

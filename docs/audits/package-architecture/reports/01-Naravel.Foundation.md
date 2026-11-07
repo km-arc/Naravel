@@ -32,7 +32,7 @@
 
 ## Findings
 
-### [P2] Configuration fingerprint is not an unambiguous encoding
+### [P2] FND-001 — Configuration fingerprint is not an unambiguous encoding
 
 - Status: CONFIRMED BY SOURCE-LEVEL ANALYSIS; runtime reproduction NOT RUN.
 - Evidence: src/Naravel.Foundation/Manager.cs:489-507, especially line 503; OnOptionsChanged compares the resulting string at lines 373-384.
@@ -47,7 +47,7 @@
 - Regression tests required: prove that the two configurations above have different fingerprints and that a reload retires/recreates the cached driver; add null-to-empty and empty-to-null coverage if those values are supported by the configuration contract.
 - Public API / PDR / release impact: implementation-only unless the team chooses to change documented reload semantics.
 
-### [P2] Sync Driver can race with runtime replacement and block on an async-only factory
+### [P2] FND-002 — Sync Driver can race with runtime replacement and block on an async-only factory
 
 - Status: CONFIRMED BY SOURCE-LEVEL CONTROL-FLOW ANALYSIS; deterministic reproduction NOT RUN.
 - Evidence: src/Naravel.Foundation/Manager.cs:102-130; src/Naravel.Foundation/DriverRegistry.cs:23-45 and 62-71.
@@ -64,7 +64,7 @@
 - Regression tests required: use barriers to pause a sync call after the check, replace the registration with an async-only factory, then resume and assert the sync call never waits for that async factory. Also test the reverse replacement direction.
 - Public API / PDR / release impact: implementation-only if the public contract remains unchanged; review concurrency semantics before remediation.
 
-### [P2] A throwing lifetime-cancellation callback can abort manager cleanup
+### [P2] FND-003 — A throwing lifetime-cancellation callback can abort manager cleanup
 
 - Status: CONFIRMED BY SOURCE-LEVEL CONTROL-FLOW ANALYSIS; runtime reproduction NOT RUN.
 - Evidence: src/Naravel.Foundation/Manager.cs:410-449, especially line 448; factory tokens are supplied by RunCreationAsync at lines 319-320.
@@ -76,7 +76,7 @@
 - Regression tests required: have a pending async factory register a throwing token callback, create an already-cached disposable driver, dispose the manager, and assert the cached driver is still disposed exactly once and the cancellation failure is observable.
 - Public API / PDR / release impact: implementation-only; no public API change should be needed.
 
-### [OBS] Disposal failures after late creation are intentionally swallowed
+### [OBS] FND-004 — Disposal failures after late creation are intentionally swallowed
 
 - Status: VERIFIED IMPLEMENTATION BEHAVIOR; NOT classified as a defect.
 - Evidence: src/Naravel.Foundation/Manager.cs:461-478.

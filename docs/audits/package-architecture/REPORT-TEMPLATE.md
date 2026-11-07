@@ -35,7 +35,9 @@ For each finding:
 
 ### [P0/P1/P2/P3/OBS/DOC] Short title
 
-- Status: CONFIRMED | UNCONFIRMED
+- Finding ID:
+- Remediation state: OPEN | APPROVED FOR REMEDIATION | IN REMEDIATION | FIXED — WAITING VERIFICATION | VERIFIED CLOSED | ACCEPTED RISK
+- Evidence status: CONFIRMED | UNCONFIRMED
 - Evidence: `path/to/file.cs:line`
 - Affected API/config/provider:
 - User impact:
