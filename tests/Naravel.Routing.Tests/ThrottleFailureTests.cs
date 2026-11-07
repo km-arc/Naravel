@@ -570,15 +570,18 @@ public class ThrottleFailureTests
         var pending = app.Client.GetAsync(url, cts.Token);
         await gate.Held.Task.WaitAsync(Patience);
         cts.Cancel();
-        try
-        {
-            await pending;
-        }
-        catch (OperationCanceledException)
-        {
-        }
 
+        // Let the held request go on before waiting for the client side: the test host does not return the client call until the
+        // response starts or the pipeline ends, and the held request goes on only after this release, so waiting first would make
+        // each wait for the other.
+        // The request token is already cancelled when Cancel returns, and the hold middleware checks that before it goes on.
         gate.Release.TrySetResult();
+
+        // The client side ends cancelled, or with a response if the host finished first; a failure with any other exception is a
+        // fault in the test setup and is reported here instead of being swallowed.
+        await Task.WhenAny(pending).WaitAsync(Patience);
+        pending.IsFaulted.Should().BeFalse("the client call must not fail with an exception other than the cancellation: {0}", pending.Exception);
+
         return await gate.Finished.Task.WaitAsync(Patience);
     }
 
