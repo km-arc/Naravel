@@ -12,6 +12,32 @@ dotnet add package Naravel.Mail
 
 Targets .NET 10. It depends on `Naravel.Foundation`, which NuGet installs with it.
 
+## Use
+
+```json
+{ "Mail": { "From": "app@example.com" } }
+```
+
+```csharp
+using Naravel.Mail;
+
+builder.Services.AddNaravelMail(builder.Configuration);   // Mail:Default is "log": the message is logged, nothing is delivered
+
+app.MapPost("/welcome", async (string email, string name, IMailer mailer, CancellationToken ct) =>
+{
+    await mailer.To(email).SendAsync(new WelcomeMail(name), ct);
+    return Results.Accepted();
+});
+
+public sealed class WelcomeMail(string name) : Mailable
+{
+    public override MailMessage Build(MailBuilder mail) =>
+        mail.Subject("Welcome").Text($"Hi {name}").Html($"<p>Hi {name}</p>").Build();
+}
+```
+
+To deliver for real, add `Naravel.Mail.Smtp`.
+
 ## Related packages
 
 - [`Naravel.Mail.Smtp`](https://www.nuget.org/packages/Naravel.Mail.Smtp): Optional SMTP transport for Naravel.Mail, built on MailKit.

@@ -12,6 +12,32 @@ dotnet add package Naravel.Events
 
 Targets .NET 10.
 
+## Use
+
+```csharp
+using Naravel.Events;
+
+builder.Services.AddNaravelEvents();
+builder.Services.AddScoped<IEventListener<OrderPaid>, WriteAuditLine>();   // a listener is an ordinary DI service
+
+app.MapPost("/orders/{id}/pay", async (string id, IEventDispatcher events, CancellationToken ct) =>
+{
+    await events.DispatchAsync(new OrderPaid(id, 42m), ct);   // every listener of OrderPaid has run when this returns
+    return Results.Ok($"Order {id} paid");
+});
+
+public sealed record OrderPaid(string OrderId, decimal Total);
+
+public sealed class WriteAuditLine : IEventListener<OrderPaid>
+{
+    public Task HandleAsync(OrderPaid evt, EventDispatchContext context, CancellationToken cancellationToken = default)
+    {
+        Console.WriteLine($"audit: order {evt.OrderId} paid, total {evt.Total}");
+        return Task.CompletedTask;
+    }
+}
+```
+
 ## Related packages
 
 - [`Naravel.Events.Queue`](https://www.nuget.org/packages/Naravel.Events.Queue): Optional Naravel.Events adapter for running selected event listeners through Naravel.Queue.
