@@ -8,7 +8,7 @@ Scope: the five reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.Red
 
 This is a principal-architect decision, not a suggestion list. Some of the designs below were explicitly approved in earlier PDRs and documented as intentional limitations. That historical approval explains the implementation; it does not make the trade-off safe or acceptable as the target architecture for a reliable, isolated and scalable platform.
 
-**AV-001 and AV-002 are P1 release blockers. AV-003 through AV-009 are mandatory P2 architecture work.** None is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
+**AV-001 and AV-002 are P1 release blockers. AV-003 through AV-010 are mandatory P2 architecture work.** None is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
 
 A veto does not authorize an uncontrolled runtime/API/dependency change. Remediation must be a separate, scoped task with an updated PDR where required. An old PDR approval alone is not a valid reason to move a veto to ACCEPTED RISK.
 
@@ -106,9 +106,19 @@ A veto does not authorize an uncontrolled runtime/API/dependency change. Remedia
 
 **Required proof:** inject failure on the Nth publish, during message construction and during cancellation; prove the batch identity and every member's final/recoverable state remain observable after repository recreation, without silently losing already-published jobs.
 
+### AV-010 — P2: In-process queue state must have a bounded lifetime
+
+**Affected finding:** MEM-001.
+
+**Why this is vetoed:** `MemoryQueueDriver` keeps queue lists, per-queue lock objects and failed message envelopes in static dictionaries for the lifetime of the process. Empty/misspelled queue probes allocate permanent list/lock entries; every terminal failure retains its full message payload in a private dictionary that has no read or removal path. The driver already has a separate `IFailedJobStore` at the worker layer, so the private failed copy is not an observable recovery interface.
+
+**Required target design:** preserve the documented sharing of same-name Memory connections within one process, but ensure empty queue/lock entries and failed-message state have a safe, bounded lifecycle. Do not remove a lock while a concurrent operation may still be using it. Remove the inaccessible duplicate failed store or define an explicit, bounded inspection/removal contract.
+
+**Required proof:** high-cardinality queue probe and terminal-failure tests demonstrate state reclamation; concurrent pop/ack/cleanup tests prove no duplicate reservation or lost message; two driver instances with the same connection name still share their queue correctly.
+
 ## Historical PDR decisions explicitly vetoed
 
-- PDR-007: cluster-wide Memcached flush (AV-001), non-atomic Memcached lock release and fixed rate-limit lock lease (AV-002), single shared Memcached pool (AV-005), blocking counter workaround (AV-004), unbounded tag version keys (AV-003), limiter-only Cache telemetry and high-cardinality limiter tags (AV-007); batch dispatch that can leave permanently-pending partial batches (AV-009).
+- PDR-007: cluster-wide Memcached flush (AV-001), non-atomic Memcached lock release and fixed rate-limit lock lease (AV-002), single shared Memcached pool (AV-005), blocking counter workaround (AV-004), unbounded tag version keys (AV-003), limiter-only Cache telemetry and high-cardinality limiter tags (AV-007); batch dispatch that can leave permanently-pending partial batches (AV-009); unbounded static Memory queue/lock/failed state (AV-010).
 - PDR-010 / D-66: synchronous first Redis connection (AV-004).
 
 The PDRs retain their original approval text as historical context and append the veto disposition. They must not be read as approval to ship these constraints as the final production architecture.
