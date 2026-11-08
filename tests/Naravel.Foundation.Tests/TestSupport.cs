@@ -83,7 +83,16 @@ internal static class TestKit
     public static readonly IServiceProvider EmptyProvider = new ServiceCollection().BuildServiceProvider();
 
     /// <summary>Builds options whose store sections come from a real in-memory configuration.</summary>
-    public static ManagerOptions Options(string @default, params (string Store, string Key, string Value)[] values)
+    /// <summary>Options whose store is written as one value (<c>Stores:name = value</c>) instead of as a section with keys.</summary>
+    public static ManagerOptions SingleValueStore(string name, string value)
+    {
+        var root = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { [name] = value }).Build();
+        var options = new ManagerOptions { Default = name };
+        options.Stores[name] = root.GetSection(name);
+        return options;
+    }
+
+    public static ManagerOptions Options(string @default, params (string Store, string Key, string? Value)[] values)
     {
         var data = new Dictionary<string, string?>();
         foreach (var (store, key, value) in values)

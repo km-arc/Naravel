@@ -491,19 +491,38 @@ public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable
         var builder = new StringBuilder();
         foreach (var store in options.Stores.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
         {
-            builder.Append('[').Append(store.Key.ToLowerInvariant()).Append(']');
+            Append(builder, 'S', store.Key.ToLowerInvariant());
             if (store.Value is null)
             {
                 continue;
             }
 
+            // AsEnumerable(makePathsRelative: true) lists the keys below the store but not the value of the store itself.
+            Append(builder, 'R', store.Value.Value);
             foreach (var pair in store.Value.AsEnumerable(makePathsRelative: true)
                          .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
             {
-                builder.Append(pair.Key).Append('=').Append(pair.Value).Append(';');
+                Append(builder, 'K', pair.Key);
+                Append(builder, 'V', pair.Value);
             }
         }
 
         return builder.ToString();
+    }
+
+    // Every field is written as a tag, its length and its text (a tag and '-' for null), so a key or a value that contains '=', ';'
+    // or '[' cannot imitate a separator and a missing value differs from an empty one: two different lists of keys and values never
+    // produce the same string, which is what the comparison in OnOptionsChanged relies on.
+    private static void Append(StringBuilder builder, char tag, string? text)
+    {
+        builder.Append(tag);
+        if (text is null)
+        {
+            builder.Append('-');
+        }
+        else
+        {
+            builder.Append(text.Length).Append(':').Append(text);
+        }
     }
 }

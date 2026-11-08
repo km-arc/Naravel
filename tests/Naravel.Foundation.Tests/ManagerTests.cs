@@ -347,6 +347,70 @@ public class ManagerTests
         h.Manager.Driver("a").Should().BeSameAs(first);
     }
 
+    // Text that looks like a separator must not make two different configurations look alike: the fingerprint of the stores used to
+    // be "key=value;" per entry, and each of the pairs below produced the same string for both of its configurations, so the
+    // change was not seen and the old driver stayed in use.
+
+    [Fact]
+    public void A_change_that_moves_text_from_a_value_into_the_next_key_rebuilds_drivers()
+    {
+        var h = new ManagerHarness(TestKit.Options("a", ("a", "Bar", "b;Foo=a")));
+        h.Registry.Register("a", _ => new FakeDriver("a"));
+        var first = h.Manager.Driver("a");
+
+        h.Monitor.Publish(TestKit.Options("a", ("a", "Bar", "b"), ("a", "Foo", "a")));
+
+        h.Manager.Driver("a").Should().NotBeSameAs(first);
+    }
+
+    [Fact]
+    public void A_change_that_moves_an_equals_sign_between_a_key_and_a_value_rebuilds_drivers()
+    {
+        var h = new ManagerHarness(TestKit.Options("a", ("a", "x=y", "z")));
+        h.Registry.Register("a", _ => new FakeDriver("a"));
+        var first = h.Manager.Driver("a");
+
+        h.Monitor.Publish(TestKit.Options("a", ("a", "x", "y=z")));
+
+        h.Manager.Driver("a").Should().NotBeSameAs(first);
+    }
+
+    [Fact]
+    public void A_change_between_no_value_and_an_empty_value_rebuilds_drivers()
+    {
+        var h = new ManagerHarness(TestKit.Options("a", ("a", "Mode", null)));
+        h.Registry.Register("a", _ => new FakeDriver("a"));
+        var first = h.Manager.Driver("a");
+
+        h.Monitor.Publish(TestKit.Options("a", ("a", "Mode", "")));
+
+        h.Manager.Driver("a").Should().NotBeSameAs(first);
+    }
+
+    [Fact]
+    public void A_change_to_the_value_of_a_store_written_as_a_single_value_rebuilds_drivers()
+    {
+        var h = new ManagerHarness(TestKit.SingleValueStore("a", "x"));
+        h.Registry.Register("a", _ => new FakeDriver("a"));
+        var first = h.Manager.Driver("a");
+
+        h.Monitor.Publish(TestKit.SingleValueStore("a", "y"));
+
+        h.Manager.Driver("a").Should().NotBeSameAs(first);
+    }
+
+    [Fact]
+    public void A_reload_that_repeats_values_with_separators_keeps_cached_drivers()
+    {
+        var h = new ManagerHarness(TestKit.Options("a", ("a", "ConnectionString", "Host=x;Port=1"), ("a", "Mode", null)));
+        h.Registry.Register("a", _ => new FakeDriver("a"));
+        var first = h.Manager.Driver("a");
+
+        h.Monitor.Publish(TestKit.Options("a", ("a", "ConnectionString", "Host=x;Port=1"), ("a", "Mode", null)));
+
+        h.Manager.Driver("a").Should().BeSameAs(first);
+    }
+
     // ---- forgetting -------------------------------------------------------------------------------------------
 
     [Fact]
