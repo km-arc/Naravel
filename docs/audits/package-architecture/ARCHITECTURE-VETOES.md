@@ -128,7 +128,8 @@ A veto does not authorize an uncontrolled runtime/API/dependency change. Remedia
 
 ## Historical PDR decisions explicitly vetoed
 
-- PDR-007: cluster-wide Memcached flush (AV-001), non-atomic Memcached lock release and fixed rate-limit lock lease (AV-002), single shared Memcached pool (AV-005), blocking counter workaround (AV-004), unbounded tag version keys (AV-003), limiter-only Cache telemetry and high-cardinality limiter tags (AV-007); batch dispatch that can leave permanently-pending partial batches (AV-009); unbounded static Memory queue/lock/failed state and File gate table (AV-010); unsafe File queue path mapping (AV-011).
+- PDR-007: cluster-wide Memcached flush (AV-001), non-atomic Memcached lock release and fixed rate-limit lock lease (AV-002), single shared Memcached pool (AV-005), blocking counter workaround (AV-004), unbounded tag version keys (AV-003), and limiter-only Cache telemetry/high-cardinality limiter tags (AV-007).
+- PDR-012: partial batch publication can leave permanently-pending batches (AV-009); unbounded process-local Memory queue state and File gate table (AV-010); unsafe File queue path mapping (AV-011).
 - PDR-010 / D-66: synchronous first Redis connection (AV-004).
 
 The PDRs retain their original approval text as historical context and append the veto disposition. They must not be read as approval to ship these constraints as the final production architecture.
