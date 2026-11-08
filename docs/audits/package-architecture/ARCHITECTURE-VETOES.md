@@ -8,7 +8,7 @@ Scope: the five reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.Red
 
 This is a principal-architect decision, not a suggestion list. Some of the designs below were explicitly approved in earlier PDRs and documented as intentional limitations. That historical approval explains the implementation; it does not make the trade-off safe or acceptable as the target architecture for a reliable, isolated and scalable platform.
 
-**AV-001 and AV-002 are P1 release blockers. AV-003 through AV-009 are mandatory P2 architecture work.** None is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
+**AV-001 and AV-002 are P1 release blockers. AV-003 through AV-008 are mandatory P2 architecture work.** None is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
 
 A veto does not authorize an uncontrolled runtime/API/dependency change. Remediation must be a separate, scoped task with an updated PDR where required. An old PDR approval alone is not a valid reason to move a veto to ACCEPTED RISK.
 
@@ -96,19 +96,9 @@ A veto does not authorize an uncontrolled runtime/API/dependency change. Remedia
 
 **Required proof:** real Memcached expiry tests at 1 ms, 500 ms, 999 ms and 1 second for both Set and TTL counters, plus the 30-day relative/absolute boundary.
 
-### AV-009 — P2: An explicit zero TTL must never mean no expiry
-
-**Affected finding:** MCD-011.
-
-**Why this is vetoed:** the documented Cache contract says a TTL must be positive or `null` for no expiry. `CacheFake.SetAsync` rejects an explicit zero TTL, but `MemcachedCacheStore.SetAsync` collapses `null` and `TimeSpan.Zero` into the same Enyim argument. In EnyimMemcachedCore 3.5.2, a zero relative expiration maps to Memcached expiration zero, which means no expiry. A caller typo can therefore turn an explicitly zero-duration entry into permanent storage.
-
-**Required target design:** preserve `null` as the only no-expiry representation. Reject an explicitly supplied zero or negative TTL consistently before invoking a provider. Provider adapters and test fakes must implement the same contract.
-
-**Required proof:** shared contract tests prove explicit zero/negative TTL is rejected by every store/fake; `ttl: null` remains non-expiring; the Memcached adapter never maps an explicit zero to protocol expiration zero.
-
 ## Historical PDR decisions explicitly vetoed
 
-- PDR-007: cluster-wide Memcached flush (AV-001), non-atomic Memcached lock release and fixed rate-limit lock lease (AV-002), single shared Memcached pool (AV-005), blocking counter workaround (AV-004), unbounded tag version keys (AV-003), limiter-only Cache telemetry and high-cardinality limiter tags (AV-007), and zero TTL being treated as no-expiry (AV-009).
+- PDR-007: cluster-wide Memcached flush (AV-001), non-atomic Memcached lock release and fixed rate-limit lock lease (AV-002), single shared Memcached pool (AV-005), blocking counter workaround (AV-004), unbounded tag version keys (AV-003), limiter-only Cache telemetry and high-cardinality limiter tags (AV-007), .
 - PDR-010 / D-66: synchronous first Redis connection (AV-004).
 
 The PDRs retain their original approval text as historical context and append the veto disposition. They must not be read as approval to ship these constraints as the final production architecture.
@@ -119,4 +109,12 @@ The PDRs retain their original approval text as historical context and append th
 - Test changes or tests run: none.
 - Build/CI: NOT RUN.
 - Vetoes cleared: none.
-- Next gate: create a prioritized remediation stage for AV-001 and AV-002 first, then schedule AV-003 through AV-009. Do not mark the architecture accepted for production until the required verification evidence is present.
+- Next gate: create a prioritized remediation stage for AV-001 and AV-002 first, then schedule AV-003 through AV-008. Do not mark the architecture accepted for production until the required verification evidence is present.
+
+
+## Owner decisions pending — not architecture vetoes
+
+The following items are source-confirmed observations or contract ambiguities. They are deliberately **not** represented as vetoes until the owner chooses the intended public contract. See [OWNER-DECISIONS.md](OWNER-DECISIONS.md).
+
+- **AD-001 / MCD-011 — explicit zero TTL:** Memcached currently maps an explicit `TimeSpan.Zero` to the same Enyim expiration value as `null` (no expiry), while `CacheFake` rejects explicit zero. The `ICacheStore.SetAsync` contract does not currently define zero-TTL semantics clearly enough to declare one provider behavior incorrect. Owner decision required.
+- Other API and lifecycle decisions that affect remediation sequencing are listed in the owner decision register. No answer is inferred from historical PDR wording.
