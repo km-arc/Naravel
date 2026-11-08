@@ -12,7 +12,7 @@ Inventory: **36** packable source projects. There are 35 package pages in `docs/
 | 04 | `Naravel.Cache.Redis` | `src/Naravel.Cache.Redis/Naravel.Cache.Redis.csproj` | `docs/nuget/Naravel.Cache.Redis.md` | REVIEWED WITH FINDINGS | [Report](reports/04-Naravel.Cache.Redis.md): 3 P2 |
 | 05 | `Naravel.Cache.Memcached` | `src/Naravel.Cache.Memcached/Naravel.Cache.Memcached.csproj` | `docs/nuget/Naravel.Cache.Memcached.md` | REVIEWED WITH FINDINGS | [Report](reports/05-Naravel.Cache.Memcached.md): 2 P1, 7 P2, 1 P3, 1 OBS |
 | 06 | `Naravel.Queue` | `src/Naravel.Queue/Naravel.Queue.csproj` | `docs/nuget/Naravel.Queue.md` | REVIEWED WITH FINDINGS | [Report](reports/06-Naravel.Queue.md): 1 P2, 4 OBS |
-| 07 | `Naravel.Queue.Memory` | `src/Naravel.Queue.Memory/Naravel.Queue.Memory.csproj` | `docs/nuget/Naravel.Queue.Memory.md` | PENDING | — |
+| 07 | `Naravel.Queue.Memory` | `src/Naravel.Queue.Memory/Naravel.Queue.Memory.csproj` | `docs/nuget/Naravel.Queue.Memory.md` | REVIEWED WITH FINDINGS | [Report](reports/07-Naravel.Queue.Memory.md): 2 P2, 1 DOC |
 | 08 | `Naravel.Queue.File` | `src/Naravel.Queue.File/Naravel.Queue.File.csproj` | `docs/nuget/Naravel.Queue.File.md` | PENDING | — |
 | 09 | `Naravel.Queue.Database` | `src/Naravel.Queue.Database/Naravel.Queue.Database.csproj` | `docs/nuget/Naravel.Queue.Database.md` | PENDING | — |
 | 10 | `Naravel.Queue.Redis` | `src/Naravel.Queue.Redis/Naravel.Queue.Redis.csproj` | `docs/nuget/Naravel.Queue.Redis.md` | PENDING | — |
@@ -61,7 +61,7 @@ Individual findings and their remediation states are tracked in [FINDINGS.md](FI
 Owner decisions that must be settled before remediation is scheduled are recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md). These are not pre-approved by the audit.
 
 
-[ARCHITECTURE-VETOES.md](ARCHITECTURE-VETOES.md) records nine mandatory architecture vetoes. They supersede historical PDR acceptance for the target production architecture; they are not accepted risks and remain open until verified remediation.
+[ARCHITECTURE-VETOES.md](ARCHITECTURE-VETOES.md) records ten mandatory architecture vetoes. They supersede historical PDR acceptance for the target production architecture; they are not accepted risks and remain open until verified remediation.
 
 ## Cross-package findings
 
