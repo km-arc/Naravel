@@ -1,6 +1,6 @@
 # Package Audit Findings and Remediation Tracker
 
-Current main baseline: `c2b7e88b552088b7606286173fa6e51156163f1d` (PR #246 merged; audit branch contains this main commit).
+Current main baseline: `852db2c3c1be593a32fdce5318c18d0cd31149be` (PR #247 merged; audit branch contains this main commit).
 
 ## State definitions
 
@@ -17,7 +17,7 @@ A prior PDR approval is not a waiver from this architecture review. Items in the
 
 ## Architecture vetoes
 
-The following are vetoed as target architecture. AV-001, AV-002 and AV-011 are P1 release blockers; AV-003 through AV-010 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable.
+The following are vetoed as target architecture. AV-001, AV-002 and AV-011 are P1 release blockers; AV-003 through AV-010 and AV-012 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable.
 
 | Veto ID | Severity | Required architectural outcome | Related findings |
 |---|---:|---|---|
@@ -32,6 +32,7 @@ The following are vetoed as target architecture. AV-001, AV-002 and AV-011 are P
 | AV-009 | P2 | Batch dispatch must recover from partial publication; no planned member may become permanently pending and unreachable. | QUE-001 |
 | AV-010 | P2 | Process-local queue coordination state must have a bounded lifecycle without removing active gates. | MEM-001, FILE-002 |
 | AV-011 | P1 | File queue names must map injectively beneath the configured root; no traversal or logical queue aliasing. | FILE-001 |
+| AV-012 | P2 | Reclaim-capable queue drivers must reject zero/negative visibility timeouts; a live reservation must not be immediately reclaimable. | DBQ-001, FILE-004 |
 
 Veto status is separate from finding lifecycle status. Related findings remain OPEN; a veto is cleared only after its required design is implemented, regression tests and relevant CI pass, and verification evidence is recorded. Historical PDR approvals remain in the files as design history, but veto sections in the PDRs supersede them for the target architecture.
 
