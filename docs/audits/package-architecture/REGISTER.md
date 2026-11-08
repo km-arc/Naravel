@@ -1,12 +1,12 @@
 # Package Review Register
 
-Current synchronization baseline: `main` at `c0aa29b4743760d879c0dc1041f5669e92f5b592` (PR #244 merged; audit branch merge-base is this commit). Each report retains its original package source-review baseline and records the latest relevant source revalidation.
+Current synchronization baseline: `main` at `c2b7e88b552088b7606286173fa6e51156163f1d` (PR #246 merged; audit branch merge-base is this commit). Each report retains its original package source-review baseline and records the latest relevant source revalidation.
 
 Inventory: **36** packable source projects. There are 35 package pages in `docs/nuget/`; `Naravel.Foundation` uses `docs/en/foundation.md` as its packed README.
 
 | Order | Package ID | Source project | Package README | Status | Findings |
 |---:|---|---|---|---|---|
-| 01 | `Naravel.Foundation` | `src/Naravel.Foundation/Naravel.Foundation.csproj` | `docs/en/foundation.md` | REVIEWED WITH FINDINGS | [Report](reports/01-Naravel.Foundation.md): 2 P2 OPEN, 2 FIXED IN MAIN — VERIFY CI |
+| 01 | `Naravel.Foundation` | `src/Naravel.Foundation/Naravel.Foundation.csproj` | `docs/en/foundation.md` | REVIEWED WITH FINDINGS | [Report](reports/01-Naravel.Foundation.md): 2 P2 OPEN, 2 VERIFIED CLOSED |
 | 02 | `Naravel.Cache` | `src/Naravel.Cache/Naravel.Cache.csproj` | `docs/nuget/Naravel.Cache.md` | REVIEWED WITH FINDINGS | [Report](reports/02-Naravel.Cache.md): 2 P1, 4 P2, 1 P3, 1 DOC |
 | 03 | `Naravel.Redis` | `src/Naravel.Redis/Naravel.Redis.csproj` | `docs/nuget/Naravel.Redis.md` | REVIEWED WITH FINDINGS | [Report](reports/03-Naravel.Redis.md): 2 P2, 1 OBS |
 | 04 | `Naravel.Cache.Redis` | `src/Naravel.Cache.Redis/Naravel.Cache.Redis.csproj` | `docs/nuget/Naravel.Cache.Redis.md` | REVIEWED WITH FINDINGS | [Report](reports/04-Naravel.Cache.Redis.md): 3 P2 |
