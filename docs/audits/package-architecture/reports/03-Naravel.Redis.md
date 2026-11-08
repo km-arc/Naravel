@@ -51,17 +51,18 @@
 - Regression tests required: compute the generated implicit name for a test connection string, register a different configured connection under that name, then verify that `FromConnectionString` fails clearly or resolves the requested string without silently returning the configured connection. Add coverage for two distinct strings with a simulated name collision through an injectable name-hasher seam only if such a seam is approved; do not add a public API merely for testing.
 - Public API / PDR / release impact: preferably implementation/config validation only; owner approval is required if the accepted configuration namespace is tightened.
 
-### [OBS] RED-002 — Synchronous first connection is a documented deviation from PDR-010's async wording
+### [P2] RED-002 — Synchronous first Redis connection blocks the first caller
 
-- Remediation state: OPEN — OWNER DECISION.
-- Evidence status: DOCUMENTED IMPLEMENTATION DEVIATION; runtime latency reproduction NOT RUN.
-- Evidence: `src/Naravel.Redis/RedisServiceCollectionExtensions.cs:37` registers an opener using `ConnectionMultiplexer.Connect(connectionString)`; `src/Naravel.Redis/RedisManager.cs:46-58,61-64` exposes only synchronous `FromConnectionString` / `Connection` flow; `docs/en/redis.md:86-88` explicitly describes the connection as synchronous. PDR-010's final “Contracts and quality” paragraph at line 61 states that connection work is async where the client offers it and accepts a `CancellationToken`. However, `roadmap/AUDIT.md` D-66 explicitly records the implementation deviation and its rationale: Cache and Queue resolve stores synchronously, and Foundation's synchronous `Driver()` rejects async-only factories. The deviation is therefore documented and should not be classified as an unrecorded implementation bug. The upstream StackExchange.Redis documentation describes both synchronous `Connect` and asynchronous `ConnectAsync`; whether the pinned package's exact overload offers native cancellation was not established in this pass.
-- Affected contract: first resolution of a configured or implicit Redis connection, including first cache/queue use with the Redis provider.
-- User impact: the first caller can block synchronously while DNS, TCP/TLS negotiation, authentication, and Redis connection setup complete or time out. In a request path this ties up a request thread. There is no cancellation path for the connection attempt, and a slow/unavailable Redis endpoint can delay first use.
-- Why existing tests do not catch it: all Redis manager tests replace the opener with a synchronous counting delegate that returns immediately; provider integration tests exercise Redis operations after construction, but the source does not test a slow asynchronous connection-establishment path.
-- Recommended action: ask the owner to choose one of two consistent contracts. (1) Keep the D-66 design: explicitly amend PDR-010's final quality wording to record synchronous first resolution as a deliberate Cache/Queue/Manager constraint, and retain the docs' blocking/timeout guidance. (2) Change the architecture in a separate approved stage: add a deterministic asynchronous connection pre-warm/initialization path before synchronous Cache/Queue store resolution. Do not merely replace Connect with ConnectAsync inside the existing synchronous factory.
-- Regression tests required: with the existing opener seam, use an asynchronous opener that waits on a controlled gate; verify async resolution awaits it without blocking worker threads and propagates cancellation. If sync-first behavior is retained, add bounded timeout/failed-connect tests and an explicit test/documentation for the blocking contract.
-- Public API / PDR / release impact: may require additive public API and a change to how Cache/Queue pre-resolve connections. Owner decision/PDR amendment required before implementation.
+- Remediation state: OPEN.
+- Architecture disposition: VETO AV-004 — connection establishment must be asynchronous and pre-initialized before synchronous consumer paths.
+- Evidence status: CONFIRMED BY SOURCE; latency/cancellation reproduction NOT RUN.
+- Evidence: src/Naravel.Redis/RedisServiceCollectionExtensions.cs:36-37 registers ConnectionMultiplexer.Connect(connectionString); src/Naravel.Redis/RedisManager.cs:46-58, 61-64 exposes only synchronous FromConnectionString / Connection flow. PDR-010's Contracts and quality section requires async connection work where supported; roadmap D-66 records the synchronous deviation because Cache and Queue resolve stores synchronously.
+- Affected contract: first resolution of a configured or implicit Redis connection, including first cache/queue use.
+- User impact: the first caller blocks while DNS, TCP/TLS, authentication and connection setup complete or time out. In request-driven paths this consumes a request thread; under concurrent cold starts or an unavailable endpoint it can cause ThreadPool pressure and delayed startup/requests. The connection attempt has no caller cancellation path.
+- Why existing tests do not catch it: manager tests use an immediate synchronous factory delegate; provider tests begin after construction and do not pause connection establishment.
+- Required correction: add deterministic async connection creation/pre-warm and make Cache/Queue startup resolve Redis through that async path. Synchronous access may return only an already-created connection; it must not secretly initiate network I/O. Do not simply put ConnectAsync inside the existing synchronous factory or wrap Connect in Task.Run.
+- Regression tests required: a gated async opener must remain non-blocking to the caller until released; cancellation of the pre-warm wait must be observed; concurrent first resolution must create one multiplexer; sync access before pre-warm must fail clearly rather than block.
+- Public API / PDR / release impact: may require additive async manager/initialization API and startup wiring in Cache/Queue. D-66's historical rationale does not waive this target-architecture requirement.
 
 ### [OBS] RED-003 — The raw connection string is retained by a long-lived factory closure
 
@@ -96,8 +97,8 @@
 
 - P0: none established.
 - P1: none established from this pass.
-- P2: RED-001.
+- P2: RED-001 and RED-002 (RED-002 is Architecture Veto AV-004).
 - P3: none established.
-- OBS: RED-002 (documented D-66 trade-off needing PDR/owner reconciliation), RED-003.
-- DOC: the PDR/source mismatch is described under RED-002; no additional standalone documentation error was classified.
-- Recommended next task: owner review of RED-001; reconcile the PDR-010 async wording with the already documented D-66 synchronous-resolution constraint (RED-002); decide whether connection strings may be retained in the registry after successful open (RED-003). No code has been changed by this audit.
+- OBS: RED-003.
+- DOC: PDR-010/source mismatch is described under RED-002 and is now an explicit veto rather than an accepted deviation.
+- Recommended next task: preserve the shared-multiplexer ownership design, but move first-use creation to an async pre-warm lifecycle. Keep the connection-string retention question as a separate security/secret-lifetime decision. No runtime code has changed in this audit.

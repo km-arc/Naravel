@@ -8,12 +8,24 @@ This is an audit, not an implementation campaign. Do not change runtime code, pu
 
 ## Baseline and scope
 
-- Current repository synchronization baseline: `main` at `a69e0becca197ee8dc14d2a576b45dd763263833` (2026-11-08). The audit branch is synchronized with this commit. Each package report retains the exact source-review baseline used for that package. The intervening main changes since the previous audit sync were compared against the already reviewed Foundation/Cache/Redis package source and test paths; those paths were unchanged.
+- Current repository synchronization baseline: `main` at `97764a4535bf6ef371bd4d1a764a055a19da511f` (2026-11-08 architecture-veto revalidation). The audit branch is synchronized with this commit. Each package report retains the exact source-review baseline used for that package. The intervening main changes since the previous audit sync were compared against the already reviewed Foundation/Cache/Redis package source and test paths; those paths were unchanged.
 - Target framework / repository version are determined from the checked-in project metadata at the baseline, not assumed from this document.
 - Audit order is dependency-aware; foundational projects are reviewed before their adapters/providers.
 - Include every packable project under `src/`, including `Naravel.Foundation`.
 - Inventory result: 36 source projects under `src/`; 35 package-specific pages under `docs/nuget/`; `Naravel.Foundation` uses `docs/en/foundation.md` as its packed README. Therefore the review register contains 36 packages, not 35.
 - The 36 project files inspected in the inventory do not declare `IsPackable=false`; package IDs are explicit where declared and otherwise follow the project/assembly name. Confirm again against pack output during the packaging pass.
+
+## Architecture veto policy
+
+A PDR records an approved design decision at the time it was made; that approval is not a permanent waiver from architectural review. When source evidence shows that an accepted trade-off violates isolation, mutual exclusion, bounded resource use, non-blocking I/O, lifecycle observability or operational reliability, the principal-architect review may issue an Architecture Veto.
+
+- A veto means the decision is not acceptable as the target production architecture, even if the PDR and documentation previously described it as intentional.
+- A veto is not a runtime fix and does not authorize an uncontrolled API/dependency change. Remediation remains a separate, scoped task with regression tests and required PDR updates.
+- A veto must name the guarantee that is violated, affected packages/findings, the required architectural outcome, and tests that prove the correction.
+- A veto cannot be closed by changing its status to ACCEPTED RISK merely because the old PDR approved the trade-off. Superseding a veto requires a later explicit architecture decision with evidence and rationale.
+- Until AV-001 and AV-002 are cleared, the reviewed Cache/Lock design is not approved for production-grade cross-tenant invalidation or distributed mutual exclusion. The remaining P2 vetoes are mandatory before the overall platform is declared reliable and scalable.
+
+The current register is ARCHITECTURE-VETOES.md.
 
 ## Review rules
 

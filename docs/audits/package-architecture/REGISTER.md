@@ -1,16 +1,16 @@
 # Package Review Register
 
-Current synchronization baseline: `main` at `a69e0becca197ee8dc14d2a576b45dd763263833` (2026-11-08). Each report retains its own source-review baseline; the intervening changes since the prior audit sync were checked against the previously reviewed package source/test paths, which were unchanged.
+Current synchronization baseline: `main` at `97764a4535bf6ef371bd4d1a764a055a19da511f` (2026-11-08 architecture-veto revalidation). Each report retains its own source-review baseline; the intervening changes since the prior audit sync were checked against the previously reviewed package source/test paths, which were unchanged.
 
 Inventory: **36** packable source projects. There are 35 package pages in `docs/nuget/`; `Naravel.Foundation` uses `docs/en/foundation.md` as its packed README.
 
 | Order | Package ID | Source project | Package README | Status | Findings |
 |---:|---|---|---|---|---|
-| 01 | `Naravel.Foundation` | `src/Naravel.Foundation/Naravel.Foundation.csproj` | `docs/en/foundation.md` | REVIEWED WITH FINDINGS | [Report](reports/01-Naravel.Foundation.md): 3 P2, 1 OBS |
-| 02 | `Naravel.Cache` | `src/Naravel.Cache/Naravel.Cache.csproj` | `docs/nuget/Naravel.Cache.md` | REVIEWED WITH FINDINGS | [Report](reports/02-Naravel.Cache.md): 4 P2, 1 P3, 1 DOC, 2 OBS |
-| 03 | `Naravel.Redis` | `src/Naravel.Redis/Naravel.Redis.csproj` | `docs/nuget/Naravel.Redis.md` | REVIEWED WITH FINDINGS | [Report](reports/03-Naravel.Redis.md): 1 P2, 2 OBS |
+| 01 | `Naravel.Foundation` | `src/Naravel.Foundation/Naravel.Foundation.csproj` | `docs/en/foundation.md` | REVIEWED WITH FINDINGS | [Report](reports/01-Naravel.Foundation.md): 4 P2 |
+| 02 | `Naravel.Cache` | `src/Naravel.Cache/Naravel.Cache.csproj` | `docs/nuget/Naravel.Cache.md` | REVIEWED WITH FINDINGS | [Report](reports/02-Naravel.Cache.md): 2 P1, 4 P2, 1 P3, 1 DOC |
+| 03 | `Naravel.Redis` | `src/Naravel.Redis/Naravel.Redis.csproj` | `docs/nuget/Naravel.Redis.md` | REVIEWED WITH FINDINGS | [Report](reports/03-Naravel.Redis.md): 2 P2, 1 OBS |
 | 04 | `Naravel.Cache.Redis` | `src/Naravel.Cache.Redis/Naravel.Cache.Redis.csproj` | `docs/nuget/Naravel.Cache.Redis.md` | REVIEWED WITH FINDINGS | [Report](reports/04-Naravel.Cache.Redis.md): 3 P2 |
-| 05 | `Naravel.Cache.Memcached` | `src/Naravel.Cache.Memcached/Naravel.Cache.Memcached.csproj` | `docs/nuget/Naravel.Cache.Memcached.md` | REVIEWED WITH FINDINGS | [Report](reports/05-Naravel.Cache.Memcached.md): 4 P2, 1 P3 |
+| 05 | `Naravel.Cache.Memcached` | `src/Naravel.Cache.Memcached/Naravel.Cache.Memcached.csproj` | `docs/nuget/Naravel.Cache.Memcached.md` | REVIEWED WITH FINDINGS | [Report](reports/05-Naravel.Cache.Memcached.md): 2 P1, 7 P2, 1 P3 |
 | 06 | `Naravel.Queue` | `src/Naravel.Queue/Naravel.Queue.csproj` | `docs/nuget/Naravel.Queue.md` | PENDING | — |
 | 07 | `Naravel.Queue.Memory` | `src/Naravel.Queue.Memory/Naravel.Queue.Memory.csproj` | `docs/nuget/Naravel.Queue.Memory.md` | PENDING | — |
 | 08 | `Naravel.Queue.File` | `src/Naravel.Queue.File/Naravel.Queue.File.csproj` | `docs/nuget/Naravel.Queue.File.md` | PENDING | — |
@@ -55,6 +55,10 @@ Inventory: **36** packable source projects. There are 35 package pages in `docs/
 ## Finding lifecycle
 
 Individual findings and their remediation states are tracked in [FINDINGS.md](FINDINGS.md). A finding remains OPEN until the owner authorizes remediation. It then moves through APPROVED FOR REMEDIATION, IN REMEDIATION, FIXED — WAITING VERIFICATION, and only becomes VERIFIED CLOSED after the exact regression tests and required CI checks pass. ACCEPTED RISK requires an explicit owner decision recorded with rationale. A package can be REVIEWED WITH FINDINGS while its findings remain open.
+
+## Architecture veto gate
+
+[ARCHITECTURE-VETOES.md](ARCHITECTURE-VETOES.md) records eight mandatory architecture vetoes. They supersede historical PDR acceptance for the target production architecture; they are not accepted risks and remain open until verified remediation.
 
 ## Cross-package findings
 

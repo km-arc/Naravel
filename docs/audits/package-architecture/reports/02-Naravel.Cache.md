@@ -32,7 +32,7 @@
 
 ## Findings
 
-### [P2] CCH-001 — ScopedCacheStore.FlushAsync escapes the scope
+### [P1] CCH-001 — ScopedCacheStore.FlushAsync escapes the scope
 
 - Remediation state: OPEN.
 - Evidence status: CONFIRMED BY SOURCE; runtime regression test NOT RUN.
@@ -70,7 +70,7 @@
 - Regression tests required: manually advance time for MemoryLock acquire/expire/sweep, `BlockAsync` wait timeout and cancellation, Memory TTL increments, and RateLimiter fixed-window boundaries/RetryAfter. Remove real sleeps from tests where the fake can express the boundary.
 - Public API / PDR / release impact: some current constructors and extension methods do not accept `TimeProvider`; introducing injection may add public overloads or change DI wiring. Obtain owner approval for any public API surface before implementation.
 
-### [P2] CCH-004 — Cache-backed limiter lock lease can expire during its critical section
+### [P1] CCH-004 — Cache-backed limiter lock lease can expire during its critical section
 
 - Remediation state: OPEN.
 - Evidence status: CONFIRMED DESIGN RISK; deterministic reproduction NOT RUN.
@@ -104,26 +104,29 @@
 - Regression tests required: compile/run the quickstart snippet in `DocsExampleTests.cs`; confirm no direct `DateTime.UtcNow` remains in maintained Cache examples.
 - Public API / PDR / release impact: documentation/test-only.
 
-### [OBS] CCH-007 — Cache telemetry covers the limiter, not general cache operations
+### [P2] CCH-007 — Cache store and lock operations have no package-level telemetry
 
-- Remediation state: OPEN — OWNER DECISION.
+- Remediation state: OPEN.
+- Architecture disposition: VETO AV-007 — a production cache/lock abstraction must expose bounded operational telemetry.
 - Evidence status: CONFIRMED BY SOURCE SEARCH.
-- Evidence: `src/Naravel.Cache/Diagnostics/CacheTelemetry.cs:8-12` defines only rate-limiter allowed/rejected counters and duration; current call sites are in `CacheRateLimiter`. No `ICacheStore` or `ICacheLock` operation emits a Cache activity/measurement. `ROADMAP.md:116-117` says I/O modules emit a package Meter and ActivitySource spans.
-- User impact: consumers observing the `Naravel.Cache` meter see rate-limit activity but no standard measurements/traces for cache hits, misses, writes, deletes, lock acquisition, provider failures, or latency. Provider-native Redis metrics do not cover all Memory/Memcached/custom store paths.
-- Why this is an observation: PDR-007a explicitly scopes telemetry to the rate limiter, and PDR-010 records a Redis-client instrumentation rationale. The repository-wide S3 rule still appears broader than the current Cache coverage; this needs an explicit owner decision rather than an assumed implementation.
-- Recommended correction: decide whether Cache's S3 requirement covers the public store/lock operations. If yes, define bounded metric names/tags and spans without cache keys, values, subjects, tokens, or credentials. If no, record an explicit PDR/DoD exception and document provider-native observability expectations.
-- Regression tests required: use `MeterListener` and `ActivityListener` to cover a store hit/miss, write, failure, and lock outcome, with an assertion that no raw key/value/token is emitted; or test the approved exception.
-- Public API / PDR / release impact: instrumentation contract and PDR/DoD decision; owner approval required.
+- Evidence: src/Naravel.Cache/Diagnostics/CacheTelemetry.cs:8-12 defines only rate-limiter allowed/rejected counters and duration; current call sites are in CacheRateLimiter. No ICacheStore or ICacheLock operation emits a Cache activity/measurement. ROADMAP.md:116-117 says I/O modules emit a package Meter and ActivitySource spans.
+- User impact: operators cannot observe cache hit/miss rates, write/delete failures, provider latency, lock contention/acquisition failures, or backend degradation through a consistent Naravel abstraction. Provider-native metrics do not cover Memory, all Memcached usage, and custom stores uniformly.
+- Why the previous PDR scope is not sufficient: PDR-007a limited instrumentation to the rate limiter, but this leaves the Cache/Lock abstractions operationally opaque. The architectural requirement is observability of the module contract, not merely one feature inside it.
+- Required correction: add low-cardinality measurements and activities at the Cache/Lock abstraction or a provider-neutral instrumentation seam. At minimum cover operation, outcome, and duration; include hit/miss and lock acquired/contended/failure distinctions where meaningful. Never emit cache keys, values, subjects, lock tokens, connection strings, or other secrets.
+- Regression tests required: MeterListener and ActivityListener tests for hit/miss, write, remove, backend failure, lock outcome and duration; assert bounded tags and absence of raw keys/values/tokens.
+- Public API / PDR / release impact: observability contract and PDR amendment; no high-cardinality dimensions or new provider dependency is acceptable.
 
-### [OBS] CCH-008 — Per-tag version metadata has no expiry
+### [P2] CCH-008 — Per-tag version metadata grows without a safe reclamation lifecycle
 
-- Remediation state: OPEN — OWNER DECISION.
+- Remediation state: OPEN.
+- Architecture disposition: VETO AV-003 — unbounded metadata growth is not an acceptable final-state trade-off.
 - Evidence status: CONFIRMED BY SOURCE.
-- Evidence: `src/Naravel.Cache/Tagging/TaggedCacheStore.cs:9,33,76`; `FlushAsync` increments the per-tag version via the no-TTL `ICacheStore.IncrementAsync` overload.
-- User impact: every distinct tag that is ever flushed leaves a version counter in the backing store indefinitely. Applications using high-cardinality tags (for example, tags derived from individual order IDs) can accumulate metadata even after all tagged values have expired or been evicted. The PDR explains that old tagged values may remain until TTL/eviction, but does not call out the lifetime of version-counter keys.
-- Recommended correction: either document that tags should be bounded/reused identifiers and that their version keys persist, or design safe metadata reclamation that cannot make an old tagged value visible again. A simple TTL is not safe when tagged values have no expiry.
-- Regression tests required: if reclamation is designed, test that an old entry can never become visible after a tag version key is reclaimed; otherwise add a documentation test for bounded tag usage.
-- Public API / PDR / release impact: accepted design trade-off or new storage algorithm; owner decision required.
+- Evidence: src/Naravel.Cache/Tagging/TaggedCacheStore.cs:9, 33, 76; FlushAsync increments a per-tag version through the no-TTL ICacheStore.IncrementAsync overload.
+- User impact: every distinct tag ever flushed leaves a version counter in the backing store indefinitely. A long-running application that creates tags from order IDs, user IDs, or other high-cardinality values grows metadata monotonically even after tagged values expire or are evicted.
+- Why a simple TTL is not a safe correction: if a tag-version key expires or is evicted and reads default it to version zero, an old value written under version zero can become visible again. The system cannot reclaim a tag generation while any old unexpired value may still exist.
+- Required correction: define a safe bounded lifecycle. Options include a bounded/reusable tag model with enforced cardinality, a generation/epoch design whose control state cannot be evicted or reset while old entries remain reachable, or an explicit finite-lifetime contract for tagged values plus verified reclamation. A blind TTL on version keys is rejected.
+- Regression tests required: high-cardinality tag stress over a representative lifecycle; reclamation tests proving old values never reappear after metadata cleanup; include tagged values with no TTL or reject them under an explicit documented contract.
+- Public API / PDR / release impact: PDR/storage algorithm and possibly API contract change; this is a mandatory scalability correction, not an accepted risk.
 
 ## Test assessment
 
@@ -148,9 +151,9 @@
 ## Risk summary and next action
 
 - P0: none established.
-- P1: none established from this pass.
-- P2: CCH-001, CCH-002, CCH-003, CCH-004.
+- P1: CCH-001 and CCH-004 (Architecture Vetoes AV-001 and AV-002).
+- P2: CCH-002, CCH-003, CCH-007 and CCH-008 (AV-003 and AV-007).
 - P3: CCH-005.
 - DOC: CCH-006.
-- OBS: CCH-007, CCH-008.
-- Recommended next task: owner review of CCH-001 through CCH-008. Prioritize scoped flush and tag-key collision, then time/lease correctness. Remediation must be performed in separate approved tasks with focused regression tests; no code has been changed by this audit.
+- OBS: none.
+- Recommended next task: treat scope-safe flush and lease/fencing correctness as release blockers. Bound tag metadata growth and add provider-neutral Cache/Lock telemetry before declaring the module production-ready. No runtime remediation has been made in this audit branch.

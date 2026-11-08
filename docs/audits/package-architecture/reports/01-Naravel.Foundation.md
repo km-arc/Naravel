@@ -76,12 +76,18 @@
 - Regression tests required: have a pending async factory register a throwing token callback, create an already-cached disposable driver, dispose the manager, and assert the cached driver is still disposed exactly once and the cancellation failure is observable.
 - Public API / PDR / release impact: implementation-only; no public API change should be needed.
 
-### [OBS] FND-004 — Disposal failures after late creation are intentionally swallowed
+### [P2] FND-004 — Disposal failures after late creation are silently swallowed
 
-- Status: VERIFIED IMPLEMENTATION BEHAVIOR; NOT classified as a defect.
-- Evidence: src/Naravel.Foundation/Manager.cs:461-478.
-- Impact: if creation completes after the manager has been disposed, DisposeQuietlyAsync suppresses any exception from disposing that late driver. This avoids an unobserved background exception but also makes disposal failure invisible to the host.
-- Recommendation: retain this as an explicit operational trade-off or consider a future diagnostic hook/logging strategy only through an approved design. Do not add a dependency or public hook as part of this audit.
+- Remediation state: OPEN.
+- Architecture disposition: VETO AV-006 — late resource cleanup failures must remain observable.
+- Evidence status: CONFIRMED BY SOURCE.
+- Evidence: src/Naravel.Foundation/Manager.cs:319-320, 461-478. RunCreationAsync disposes a driver that completes after manager disposal, and DisposeQuietlyAsync catches every exception without logging, returning it, or recording a diagnostic.
+- Affected contract: manager lifetime, late driver creation, and resource ownership.
+- User impact: a late-created connection pool, socket pool, or other disposable driver may fail to release its resources, while the host receives no signal. This hides cleanup failures during shutdown/reload races and prevents operators from distinguishing clean shutdown from leaked resources.
+- Why existing tests do not catch it: current disposal tests verify normal disposal and that cleanup does not produce an unobserved background exception; they do not verify that a failure from disposing a late-created driver is observable.
+- Required correction: preserve the no-unobserved-background-exception property, but report the failure through a manager-owned diagnostic/logging mechanism. The failure must be visible to the host/operator without preventing disposal of other owned drivers.
+- Regression tests required: make a pending factory complete after manager disposal and return a driver whose Dispose/DisposeAsync throws; verify exactly-once disposal and an observable structured diagnostic; verify no unobserved task exception.
+- Public API / PDR / release impact: a diagnostic mechanism may be internal or additive; choose it without forcing application code to depend on private manager internals.
 
 ## Test assessment
 
@@ -104,10 +110,10 @@
 
 ## Risk summary and next action
 
-- P0: none identified.
-- P1: none identified from this pass.
-- P2: three source-confirmed control-flow/configuration risks listed above.
+- P0: none established.
+- P1: none established from this pass.
+- P2: FND-001 through FND-004; FND-004 is Architecture Veto AV-006.
 - P3: none established.
-- OBS: late-driver disposal exceptions are silently suppressed after manager disposal.
+- OBS: none.
 - DOC: none established.
-- Recommended next task: owner review of the three P2 findings; if approved, create a tightly scoped remediation task with deterministic regression tests, then run the Foundation test project, full Release build/test, roadmap validation, and independent concurrency-focused review. No remediation has been made in this audit branch.
+- Recommended next task: include AV-006 in Foundation lifecycle remediation. The late-disposal failure must be observable while preserving exactly-once cleanup and avoiding unobserved background exceptions. No remediation has been made in this audit branch.

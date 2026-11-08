@@ -49,6 +49,7 @@
 ### [P2] CRD-002 — Redis FlushAsync skips disconnected endpoints and may report success without flushing
 
 - Remediation state: OPEN.
+- Architecture disposition: AV-001 requires flush to be namespace-safe and complete-or-fail; never report success after silently skipping required primaries.
 - Evidence status: CONFIRMED BY CONTROL-FLOW ANALYSIS; disconnected-endpoint reproduction NOT RUN.
 - Evidence: `src/Naravel.Cache.Redis/RedisCacheStore.cs:152-165`, especially line 158: `if (!server.IsConnected || server.IsReplica) continue;`. After skipping all endpoints, the method returns normally. The flush test proxy in `tests/Naravel.Cache.Tests/RedisProviderTests.cs:21-38` only models a connected primary.
 - Affected contract: `ICacheStore.FlushAsync` for Redis.

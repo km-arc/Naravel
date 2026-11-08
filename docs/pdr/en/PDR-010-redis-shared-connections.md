@@ -63,3 +63,7 @@ Connection strings and passwords never appear in logs, exception messages, metri
 ## Approval
 
 The owner approved D1 to D4 as recommended on 2026-10-25, after the trade-offs were explained: D1 build the thin `Naravel.Redis` (it fixes the duplicate connections and the Queue leak that the plain DI recipe would leave to each module); D2 add the `Connection` key and keep `ConnectionString` working, de-duplicated (no breaking change); D3 the manager owns and disposes, consumers borrow, with an `ownsConnection` flag so old constructors behave as before; D4 no fake of the Redis protocol, a factory seam for tests. The stage now runs the module task, the migration task and the validation task.
+
+## Architecture review veto — 2026-11-08
+
+PDR-010 remains the historical record for the shared-multiplexer ownership goal. The synchronous first-use connection path introduced by D-66 is **vetoed as target architecture** under AV-004. First-use Redis connection establishment must move to deterministic asynchronous pre-warm/initialization; synchronous Cache/Queue consumers may use only a connection that has already been created. Do not wrap synchronous Connect in Task.Run and do not silently block the first request. See the architecture veto register at ../../audits/package-architecture/ARCHITECTURE-VETOES.md.
