@@ -17,7 +17,7 @@ A prior PDR approval is not a waiver from this architecture review. Items in the
 
 ## Architecture vetoes
 
-The following are vetoed as target architecture. AV-001, AV-002 and AV-011 are P1 release blockers; AV-003 through AV-010 and AV-012 through AV-018 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable.
+The following are vetoed as target architecture. AV-001, AV-002 and AV-011 are P1 release blockers; AV-003 through AV-010 and AV-012 through AV-019 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable.
 
 | Veto ID | Severity | Required architectural outcome | Related findings |
 |---|---:|---|---|
@@ -159,3 +159,6 @@ Owner decision AD-021 is recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md). N
 | DBQ-006 | Naravel.Database | OBS | Transaction-bound Connection rejects aliases of the same default connection | OPEN | [Report](reports/17-Naravel.Database.md) |
 | DBQ-007 | Naravel.Database | OBS | Multi-statement rollback failure masks the original statement failure | OPEN | [Report](reports/17-Naravel.Database.md) |
 | DBQ-008 | Naravel.Database | OBS | DatabaseFake scalar conversion and cancellation diverge from production behavior | OPEN | [Report](reports/17-Naravel.Database.md) |
+
+| SQL-001 | Naravel.Database.Sqlite | P2 | Named Mode=Memory connections are not normalized to unique shared-cache databases (AV-019) | OPEN | [Report](reports/18-Naravel.Database.Sqlite.md) |
+| SQL-002 | Naravel.Database.Sqlite | DOC | English guide reports SQLitePCLRaw.lib.e_sqlite3 2.1.13 while central pin is 2.1.14 | OPEN | [Report](reports/18-Naravel.Database.Sqlite.md) |
