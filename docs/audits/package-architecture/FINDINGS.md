@@ -162,3 +162,5 @@ Owner decision AD-021 is recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md). N
 
 | SQL-001 | Naravel.Database.Sqlite | P2 | Named Mode=Memory connections are not normalized to unique shared-cache databases (AV-019) | OPEN | [Report](reports/18-Naravel.Database.Sqlite.md) |
 | SQL-002 | Naravel.Database.Sqlite | DOC | English guide reports SQLitePCLRaw.lib.e_sqlite3 2.1.13 while central pin is 2.1.14 | OPEN | [Report](reports/18-Naravel.Database.Sqlite.md) |
+
+| EF-001 | Naravel.Database.EntityFrameworkCore | OBS | Using(DbContext) forwards listeners/query log only for concrete DatabaseService, not IDatabase decorators | OPEN | [Report](reports/22-Naravel.Database.EntityFrameworkCore.md) |
