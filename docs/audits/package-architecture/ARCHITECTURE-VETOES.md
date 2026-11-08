@@ -98,7 +98,7 @@ A veto does not authorize an uncontrolled runtime/API/dependency change. Remedia
 
 ### AV-009 — P2: Batch dispatch must recover from partial publication
 
-**Affected finding:** QUE-001.
+**Affected findings:** QUE-001, RQR-004.
 
 **Why this is vetoed:** `IJobDispatcher.BatchAsync` registers the entire planned job count before publishing messages one by one. A failure after one or more successful publishes leaves a batch whose un-published members can never reach a terminal state; the API throws before returning the batch identity. Persistent batch state can remain pending indefinitely, without an observable recovery handle.
 
@@ -128,7 +128,7 @@ A veto does not authorize an uncontrolled runtime/API/dependency change. Remedia
 
 ### AV-012 — P2: Reclaiming drivers must reject non-positive visibility timeouts
 
-**Affected findings:** DBQ-001, FILE-004 (and any other reclaim-capable driver that accepts a non-positive timeout).
+**Affected findings:** DBQ-001, FILE-004, RQR-001 (and any other reclaim-capable driver that accepts a non-positive timeout).
 
 **Why this is vetoed:** Database, File and Redis drivers expose a visibility timeout that controls when an in-flight reservation can be reclaimed, but their public constructors currently accept zero/negative values without rejecting them. In Database, `staleBefore = now - visibilityTimeout`; in File, elapsed time is compared directly with the timeout; Redis similarly computes the reservation deadline from the configured value. A zero/negative setting therefore makes a live reservation immediately eligible for reclaim, allowing two workers to execute the same message concurrently.
 
