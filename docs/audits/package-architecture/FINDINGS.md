@@ -1,6 +1,6 @@
 # Package Audit Findings and Remediation Tracker
 
-Current main baseline: `852db2c3c1be593a32fdce5318c18d0cd31149be` (PR #247 merged; audit branch contains this main commit).
+Current main baseline: `c6a7d58ffb84d885741998bb32d2082c54c4ab61` (merged into the audit branch; main itself was not modified by this review).
 
 ## State definitions
 
@@ -17,7 +17,7 @@ A prior PDR approval is not a waiver from this architecture review. Items in the
 
 ## Architecture vetoes
 
-The following are vetoed as target architecture. AV-001, AV-002 and AV-011 are P1 release blockers; AV-003 through AV-010 and AV-012 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable.
+The following are vetoed as target architecture. AV-001, AV-002 and AV-011 are P1 release blockers; AV-003 through AV-010 and AV-012 through AV-013 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable.
 
 | Veto ID | Severity | Required architectural outcome | Related findings |
 |---|---:|---|---|
@@ -143,3 +143,8 @@ Owner decisions AD-015 and AD-016 are recorded in [OWNER-DECISIONS.md](OWNER-DEC
 | RQR-007 | Naravel.Queue.Redis | DOC | Redis Cluster unsupported by multi-key Lua scripts is not stated on the Redis Queue package page | OPEN | [Report](reports/10-Naravel.Queue.Redis.md) |
 
 Owner decisions AD-018 through AD-020 are recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md).
+
+
+| QCO-001 | Naravel.Queue.Coordination | P2 | Unique-job owner metadata can overwrite/delete a newer lock owner's record (AV-013) | OPEN — OWNER DECISION | [Report](reports/13-Naravel.Queue.Coordination.md) |
+
+Owner decision AD-021 is recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md). No Cache API or runtime implementation change is implied.
