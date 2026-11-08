@@ -89,5 +89,6 @@ The 2026-10-04 approval above remains the historical design/implementation recor
 - **AV-004 — Non-blocking I/O:** synchronous Memcached counter network calls on ThreadPool workers are not an acceptable final async implementation.
 - **AV-005 — Independent Memcached pools:** named Memcached stores must be able to target independent server pools; reuse a client only when the normalized topology is identical.
 - **AV-007 — Cache observability:** the Cache/Lock contracts need bounded operation telemetry, not only rate-limiter instrumentation.
+- **AV-008 — TTL precision:** every positive Memcached TTL must remain positive after conversion to the backend's expiry format; a sub-second TTL must be rounded up to a representable positive expiry or rejected explicitly, never converted to Memcached's no-expiry value.
 
 See the architecture veto register at ../../audits/package-architecture/ARCHITECTURE-VETOES.md. Historical acceptance is superseded for target-architecture decisions; source remediation and verification remain outstanding.
