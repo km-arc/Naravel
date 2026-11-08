@@ -1,6 +1,6 @@
 # Package Review Register
 
-Current synchronization baseline: `main` at `852db2c3c1be593a32fdce5318c18d0cd31149be` (PR #247 merged; audit branch merge-base is this commit). Each report retains its original package source-review baseline and records the latest relevant source revalidation.
+Current synchronization baseline: `main` at `c6a7d58ffb84d885741998bb32d2082c54c4ab61` (merged into this audit branch; main remains unchanged). Each report retains its original package source-review baseline and records the latest relevant source revalidation.
 
 Inventory: **36** packable source projects. There are 35 package pages in `docs/nuget/`; `Naravel.Foundation` uses `docs/en/foundation.md` as its packed README.
 
@@ -18,7 +18,7 @@ Inventory: **36** packable source projects. There are 35 package pages in `docs/
 | 10 | `Naravel.Queue.Redis` | `src/Naravel.Queue.Redis/Naravel.Queue.Redis.csproj` | `docs/nuget/Naravel.Queue.Redis.md` | REVIEWED WITH FINDINGS | [Report](reports/10-Naravel.Queue.Redis.md): 3 P2, 3 OBS, 1 DOC |
 | 11 | `Naravel.Queue.RabbitMQ` | `src/Naravel.Queue.RabbitMQ/Naravel.Queue.RabbitMQ.csproj` | `docs/nuget/Naravel.Queue.RabbitMQ.md` | PENDING | — |
 | 12 | `Naravel.Queue.Kafka` | `src/Naravel.Queue.Kafka/Naravel.Queue.Kafka.csproj` | `docs/nuget/Naravel.Queue.Kafka.md` | PENDING | — |
-| 13 | `Naravel.Queue.Coordination` | `src/Naravel.Queue.Coordination/Naravel.Queue.Coordination.csproj` | `docs/nuget/Naravel.Queue.Coordination.md` | PENDING | — |
+| 13 | `Naravel.Queue.Coordination` | `src/Naravel.Queue.Coordination/Naravel.Queue.Coordination.csproj` | `docs/nuget/Naravel.Queue.Coordination.md` | REVIEWED WITH FINDINGS | [Report](reports/13-Naravel.Queue.Coordination.md): 1 P2 OPEN — OWNER DECISION |
 | 14 | `Naravel.Queue.Encryption` | `src/Naravel.Queue.Encryption/Naravel.Queue.Encryption.csproj` | `docs/nuget/Naravel.Queue.Encryption.md` | PENDING | — |
 | 15 | `Naravel.Events` | `src/Naravel.Events/Naravel.Events.csproj` | `docs/nuget/Naravel.Events.md` | PENDING | — |
 | 16 | `Naravel.Events.Queue` | `src/Naravel.Events.Queue/Naravel.Events.Queue.csproj` | `docs/nuget/Naravel.Events.Queue.md` | PENDING | — |
@@ -58,10 +58,10 @@ Individual findings and their remediation states are tracked in [FINDINGS.md](FI
 
 ## Architecture veto gate
 
-Owner decisions that must be settled before remediation is scheduled are recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md). These are not pre-approved by the audit.
+Owner decisions that must be settled before remediation is scheduled are recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md), including AD-021 for Queue Coordination. These are not pre-approved by the audit.
 
 
-[ARCHITECTURE-VETOES.md](ARCHITECTURE-VETOES.md) records eleven mandatory architecture vetoes. They supersede historical PDR acceptance for the target production architecture; they are not accepted risks and remain open until verified remediation.
+[ARCHITECTURE-VETOES.md](ARCHITECTURE-VETOES.md) records thirteen mandatory architecture vetoes. They supersede historical PDR acceptance for the target production architecture; they are not accepted risks and remain open until verified remediation.
 
 ## Cross-package findings
 
