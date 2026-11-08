@@ -105,7 +105,7 @@ These are recorded in [OWNER-DECISIONS.md](../../audits/package-architecture/OWN
 
 **AV-010** records a target-architecture requirement for the in-process Memory driver: its static queue lists, per-queue lock objects and private failed-message dictionary must have a bounded lifecycle while preserving the documented sharing between driver instances with the same connection name. Empty-queue probes must not leak unbounded state, and terminal failures must not retain unreachable payloads forever. See [the architecture veto register](../../audits/package-architecture/ARCHITECTURE-VETOES.md) and [report 07](../../audits/package-architecture/reports/07-Naravel.Queue.Memory.md).
 
-The Memory driver's cancellation-token parameters must also be honored consistently; cancelled calls must not enqueue, reserve, acknowledge, release, fail or mutate queue state.
+The Memory driver's cancellation-token parameters must also be honored consistently; cancelled calls must not enqueue, reserve, acknowledge, release, fail or mutate queue state. The File provider's static per-queue `QueueGates` semaphore table is also covered by AV-010: it must have a safe bounded lifecycle while preserving coordination among active callers on the same filesystem queue.
 
 
 ## Architecture review veto — File queue path containment (2026-11-08)
