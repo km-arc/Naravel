@@ -148,3 +148,5 @@ Owner decisions AD-018 through AD-020 are recorded in [OWNER-DECISIONS.md](OWNER
 | QCO-001 | Naravel.Queue.Coordination | P2 | Unique-job owner metadata can overwrite/delete a newer lock owner's record (AV-013) | OPEN — OWNER DECISION | [Report](reports/13-Naravel.Queue.Coordination.md) |
 
 Owner decision AD-021 is recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md). No Cache API or runtime implementation change is implied.
+
+| QEN-001 | Naravel.Queue.Encryption | OBS | Queue-specific Data Protection purpose lacks a persisted-key-ring cross-provider integration test | OPEN — TEST COVERAGE | [Report](reports/14-Naravel.Queue.Encryption.md) |
