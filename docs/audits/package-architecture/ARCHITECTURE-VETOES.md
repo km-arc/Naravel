@@ -8,7 +8,7 @@ Scope: the fifteen reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.
 
 This is a principal-architect decision, not a suggestion list. Some of the designs below were explicitly approved in earlier PDRs and documented as intentional limitations. That historical approval explains the implementation; it does not make the trade-off safe or acceptable as the target architecture for a reliable, isolated and scalable platform.
 
-**AV-001, AV-002 and AV-011 are P1 release blockers. AV-003 through AV-010 and AV-012 through AV-018 are mandatory P2 architecture work.** None is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
+**AV-001, AV-002 and AV-011 are P1 release blockers. AV-003 through AV-010 and AV-012 through AV-019 are mandatory P2 architecture work.** None is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
 
 A veto does not authorize an uncontrolled runtime/API/dependency change. Remediation must be a separate, scoped task with an updated PDR where required. An old PDR approval alone is not a valid reason to move a veto to ACCEPTED RISK.
 
@@ -150,7 +150,7 @@ The PDRs retain their original approval text as historical context and append th
 - Test changes or tests run: none.
 - Build/CI: NOT RUN.
 - Vetoes cleared: none.
-- Next gate: obtain owner decisions AD-001 through AD-022, then create a prioritized remediation stage for AV-001, AV-002 and AV-011 first and schedule AV-003 through AV-010 and AV-012 through AV-018. Do not mark the architecture accepted for production until the required verification evidence is present.
+- Next gate: obtain owner decisions AD-001 through AD-022, then create a prioritized remediation stage for AV-001, AV-002 and AV-011 first and schedule AV-003 through AV-010 and AV-012 through AV-019. Do not mark the architecture accepted for production until the required verification evidence is present.
 
 
 ## Owner decisions pending — not architecture vetoes
@@ -210,3 +210,12 @@ The following items are source-confirmed observations or contract ambiguities. T
 **Why this is vetoed:** `DatabaseTransaction.DisposeAsync` disposes the provider transaction and then the owned lease sequentially. If provider transaction disposal throws, lease disposal is skipped and the connection pool resource can remain held.
 
 **Required target design:** guarantee lease disposal in a `finally` path, preserve the primary exception, and retain secondary cleanup failures for diagnosis. Fault-injection tests must prove the lease is released exactly once even when provider disposal fails.
+
+
+### AV-019 — P2: Every SQLite in-memory connection must be uniquely named and shared with its keeper
+
+**Affected finding:** SQL-001.
+
+**Why this is vetoed:** the driver documents support for both `:memory:` and `Mode=Memory`, but only the literal `:memory:` form is rewritten to a unique shared-cache data source. A named `Mode=Memory` source with the default private cache gives each operation a separate database; a shared-cache name reused by two Naravel connection definitions can also violate the documented isolation boundary.
+
+**Required target design:** normalize every memory-mode definition to a unique internal named data source and shared cache for the keeper and operation connections, or explicitly reject unsupported configurations. Tests must prove persistence across leases and isolation across connection names.
