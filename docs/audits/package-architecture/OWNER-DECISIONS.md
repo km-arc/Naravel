@@ -193,3 +193,14 @@ This register separates **architectural recommendations** from **owner-approved 
 **Architect recommendation:** A. The package already documents EF Core migrations as the production path for every provider, and duplicated vendor DDL creates a second schema-maintenance surface. The PDR implementation record should be corrected to state SQLite DDL/helper implemented and provider-specific scripts not part of the accepted deliverable, if the owner approves this boundary.
 
 **Status:** WAITING FOR OWNER.
+
+
+## AD-017 — Positive visibility timeout policy for all reclaim-capable queue drivers
+
+**Observed source behavior:** Database, File and Redis driver constructors accept a zero or negative visibility timeout, and their reclaim algorithms can then consider an active reservation immediately stale. The corresponding configuration paths do not consistently reject non-positive values.
+
+**Decision required:** confirm that every driver with visibility-based reservation reclaim must reject `VisibilityTimeout <= TimeSpan.Zero`, with no "disable reclaim" meaning attached to zero. If disabling reclaim is ever required, it should be represented by a separate explicit option/capability, not an invalid lease duration.
+
+**Architect recommendation:** require a strictly positive timeout for reclaim-capable drivers. Drivers that do not implement visibility reclaim should report `null`.
+
+**Status:** WAITING FOR OWNER.
