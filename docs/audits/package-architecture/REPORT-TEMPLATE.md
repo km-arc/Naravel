@@ -74,3 +74,17 @@ For each finding:
 - OBS:
 - DOC:
 - Recommended next task (do not implement it in this audit without owner approval):
+
+## Plain-language explanation
+
+For every finding, add a short explanation that a reader outside the package implementation team can understand. Follow [PLAIN-LANGUAGE-EVIDENCE-STANDARD.md](PLAIN-LANGUAGE-EVIDENCE-STANDARD.md).
+
+For each finding, explain:
+- In everyday words, what goes wrong.
+- A realistic example and what the user would see.
+- Which exact file/method/test was checked and what it showed.
+- Whether the issue was reproduced by a test or only traced in source.
+- What remains unproven.
+- What safe behavior the fix must provide and which regression test proves it.
+
+For a report with no findings, explain in everyday words what the adapter/package does, what was checked, and which builds or live-provider tests were not run. Never let “no source-level findings” sound like “runtime fully verified.”
