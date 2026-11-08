@@ -114,3 +114,16 @@ Owner decisions AD-009 through AD-013 are recorded in [OWNER-DECISIONS.md](OWNER
 | FILE-006 | Naravel.Queue.File | P2 | SizeAsync ignores its CancellationToken | OPEN | [Report](reports/08-Naravel.Queue.File.md) |
 
 Owner decision AD-014 is recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md). No path mapping or on-disk migration was performed by this audit.
+
+
+## Naravel.Queue.Database
+
+| Finding | Package | Severity | Summary | State | Evidence |
+|---|---|---:|---|---|---|
+| DBQ-001 | Naravel.Queue.Database | P2 | Zero/negative visibility timeout can reclaim a live reservation immediately | OPEN | [Report](reports/09-Naravel.Queue.Database.md) |
+| DBQ-002 | Naravel.Queue.Database | P2 | SizeAsync counts reserved/in-flight rows despite the ready+delayed contract | OPEN | [Report](reports/09-Naravel.Queue.Database.md) |
+| DBQ-003 | Naravel.Queue.Database | P2 | DatabaseJobEnqueuer persists a non-Database/default Connection contrary to PDR-023, misrouting chain/retry | OPEN — OWNER DECISION | [Report](reports/09-Naravel.Queue.Database.md) |
+| DBQ-004 | Naravel.Queue.Database | DOC | SQLite package quickstart omits the required UTC-ticks converter | OPEN | [Report](reports/09-Naravel.Queue.Database.md) |
+| DBQ-005 | Naravel.Queue.Database | OBS | PDR-012 SQL-script implementation record is stale; SQLite-only vs multi-provider DDL scope needs owner confirmation | OPEN — OWNER DECISION | [Report](reports/09-Naravel.Queue.Database.md) |
+
+Owner decisions AD-015 and AD-016 are recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md). No runtime code, schema or public API was changed by this audit.
