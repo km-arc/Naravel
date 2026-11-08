@@ -15,6 +15,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The circuit breaker and the guard around the throttle store are internal; their state machine is tested directly (R31.T02). -->
+    <InternalsVisibleTo Include="Naravel.Routing.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="..\..\docs\nuget\Naravel.Routing.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 
