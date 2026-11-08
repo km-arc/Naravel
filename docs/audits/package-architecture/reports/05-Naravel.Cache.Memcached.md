@@ -4,7 +4,7 @@
 
 - Package ID: `Naravel.Cache.Memcached` (explicitly declared).
 - Source project: `src/Naravel.Cache.Memcached/Naravel.Cache.Memcached.csproj`.
-- Source-review baseline commit: `a69e0becca197ee8dc14d2a576b45dd763263833` (`main`); architecture veto revalidation: `97764a4535bf6ef371bd4d1a764a055a19da511f`.
+- Source-review baseline commit: `a69e0becca197ee8dc14d2a576b45dd763263833` (`main`); post-Revert second-pass revalidation: `44e957ca3db6d9f15665fc8fa070f70522c163c9`.
 - Review date: 2026-11-08.
 - Reviewer mode: principal-architect source review; independent fresh-session review NOT RUN.
 - Status: REVIEWED WITH FINDINGS (source inspection only; runtime verification pending).
@@ -15,7 +15,7 @@
 
 ## Executive assessment
 
-- Overall risk: **High (P1)** until AV-001 and AV-002 are remediated; AV-003 through AV-009 are mandatory P2 architecture work.
+- Overall risk: **High (P1)** until AV-001 and AV-002 are remediated; AV-003 through AV-008 are mandatory P2 architecture work.
 - Architectural fit: The adapter is thin, but four previously accepted PDR-007 constraints are vetoed as final architecture: cluster-wide flush, non-atomic lock release, a single global server pool, and blocking counter I/O scheduled on the ThreadPool. They describe current implementation behaviour; they are not accepted target-state guarantees.
 - Strengths: per-store key prefixes are applied consistently; configured Memcached stores share one normalized server pool and mismatched pools are rejected; TTL counter creation uses atomic add followed by atomic increment with the same TTL in the expiry race; the provider keeps numeric values as invariant decimal text for server-side arithmetic; the documented flush and lock limitations match the code.
 - Summary: Ten issues are now tracked. In addition to the five provider correctness gaps, the package can flush the entire shared cluster through a store-level method, release a new owner's lock in a read/delete race, forces all named stores onto one server pool, schedules blocking counter network calls on ThreadPool workers, and converts positive sub-second TTLs to Memcached's no-expiry value. The first two are P1 isolation/concurrency vetoes; the remaining architecture vetoes are mandatory before final production acceptance.
@@ -219,3 +219,6 @@
 - P3: MCD-005.
 - OBS: no separate observation added; the Memcached decrement-underflow difference is recorded as an owner decision within MCD-003.
 - Recommended next task: treat MCD-006 and MCD-007 as release-blocking architecture remediation; then resolve MCD-008 through MCD-010 alongside MCD-001 through MCD-005. No runtime code, tests or dependencies were changed by this audit.
+
+
+Owner decisions still pending for the Cache family are tracked in [OWNER-DECISIONS.md](../OWNER-DECISIONS.md); MCD-011 is not a veto and must not be treated as approved behavior.
