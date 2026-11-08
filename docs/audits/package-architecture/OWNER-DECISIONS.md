@@ -96,3 +96,49 @@ This register separates **architectural recommendations** from **owner-approved 
 **Architect recommendation:** a dedicated, dependency-ordered architecture hardening stage, with AV-001 first, AV-002 second, then the P2 items. Do not start runtime fixes until AD-001 through AD-008 are decided where they affect their scope.
 
 **Status:** WAITING FOR OWNER.
+
+
+## AD-009 — Partial batch enqueue failure semantics
+
+**Observed source behavior:** `JobDispatcher.BatchAsync` records the full `TotalJobs` before sequentially publishing each message. A later publish/build/cancellation error leaves earlier messages queued, un-published members counted as pending, and no batch ID returned to the caller.
+
+**Decision required:** choose the public failure contract and recovery model:
+- A. Return/throw a typed partial-dispatch result carrying the batch identity and per-member state, while a durable dispatch state machine reconciles or terminally accounts for every planned member.
+- B. Use a transactional outbox/dispatcher owned by one durable store and document that batch members must share its transaction boundary; reject unsupported cross-connection combinations.
+- C. Another explicit strategy that guarantees no invisible permanently-pending batch.
+
+**Architect recommendation:** A is more general because the current API allows per-job connection selection. Use idempotent publication/reconciliation and a typed exception/result that exposes the batch ID. Do not claim atomic publication across arbitrary brokers.
+
+**Status:** WAITING FOR OWNER.
+
+## AD-010 — Retrying a failed job that belonged to a terminal batch
+
+**Observed source behavior:** `FailedJobManager.RequeueAsync` assigns a new message ID and resets attempts, but preserves `BatchId`. The worker acknowledges and skips messages whose original batch is cancelled; a finished non-cancelled batch also ignores later count updates.
+
+**Decision required:**
+- A. A failed-job retry is an independent operation: clear `BatchId`, preserve the terminal batch as historical state, and document that the retry does not alter the old batch report.
+- B. Retry reopens/reconciles the original batch, with a defined policy for counts, cancellation, callbacks, concurrent retries and persistent repositories.
+
+**Architect recommendation:** A. It preserves an immutable terminal batch record and makes explicit operator retry requests actually execute. A new batch can be created when the caller wants new batch-level accounting.
+
+**Status:** WAITING FOR OWNER.
+
+## AD-011 — Empty batch behavior
+
+**Observed source behavior:** `BatchAsync` accepts an empty sequence and creates a zero-job batch. No worker message triggers completion; callback behavior differs between in-memory and persistent repositories.
+
+**Decision required:** reject empty batches immediately, or define them as completed at registration and run terminal callbacks before returning.
+
+**Architect recommendation:** reject empty batches with `ArgumentException` before registering any repository record.
+
+**Status:** WAITING FOR OWNER.
+
+## AD-012 — TimeProvider injection for Queue and provider drivers
+
+**Observed source behavior:** Queue runtime and providers use direct wall-clock reads and delays in message defaults, dispatch scheduling, worker MaxRuntime, failed-job retries and Kafka polling. `AGENTS.md` requires injected `TimeProvider` and deterministic tests.
+
+**Decision required:** approve the injection boundary (DI singleton with `TimeProvider.System` default, explicit constructor parameters, or another package-internal abstraction) and how that reaches core and provider packages without breaking public constructors.
+
+**Architect recommendation:** register a shared `TimeProvider` through `AddQueue` with `TimeProvider.System` default and inject it into dispatcher/worker/failed-job manager/provider clock-dependent code. Prefer explicit message creation timestamps over system-clock initializers where compatibility permits. Use monotonic timestamps for elapsed-time measurement.
+
+**Status:** WAITING FOR OWNER.
