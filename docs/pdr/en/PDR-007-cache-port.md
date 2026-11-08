@@ -78,17 +78,3 @@ The bilingual Cache guides, parity tables, `AGENTS.md`, `PROGRESS.md`, README fi
 ## Approval recorded
 
 The owner approved the PDR on 2026-10-04, including separate `CacheManager` and `LockManager` sharing `Default`/`Stores`, the Memcached provider, serialization behavior and prefix-safe Redis flushing.
-
-## Architecture review veto — 2026-11-08
-
-The 2026-10-04 approval above remains the historical design/implementation record. It does **not** mean the following decisions are acceptable in the target production architecture. The principal-architect review has vetoed them; they are mandatory remediation items, not accepted risks:
-
-- **AV-001 — Scope/store flush isolation:** the Memcached provider must not implement ICacheStore.FlushAsync using cluster-wide FlushAll; scoped flush must not delegate to a wider backing-store flush. A flush must invalidate only the requested namespace or fail explicitly.
-- **AV-002 — Distributed lock correctness:** Memcached's read-then-delete token release race is not acceptable for a distributed lock. CacheRateLimiter's fixed, non-renewed 30-second lock lease is also not a reliable mutual-exclusion guarantee under slow operations. Use atomic ownership/fencing and a lease strategy that preserves the critical-section guarantee, or do not expose the provider as correctness-grade coordination.
-- **AV-003 — Tag metadata lifecycle:** per-tag version keys cannot accumulate forever. Add a safe bounded lifecycle; a blind TTL is rejected because it can make old unexpired entries visible again.
-- **AV-004 — Non-blocking I/O:** synchronous Memcached counter network calls on ThreadPool workers are not an acceptable final async implementation.
-- **AV-005 — Independent Memcached pools:** named Memcached stores must be able to target independent server pools; reuse a client only when the normalized topology is identical.
-- **AV-007 — Cache observability:** the Cache/Lock contracts need bounded operation telemetry, not only rate-limiter instrumentation.
-- **AV-008 — TTL precision:** every positive Memcached TTL must remain positive after conversion to the backend's expiry format; a sub-second TTL must be rounded up to a representable positive expiry or rejected explicitly, never converted to Memcached's no-expiry value.
-
-See the architecture veto register at ../../audits/package-architecture/ARCHITECTURE-VETOES.md. Historical acceptance is superseded for target-architecture decisions; source remediation and verification remain outstanding.
