@@ -2,7 +2,7 @@
 
 Date: 2026-11-08  
 Current main baseline: c6a7d58ffb84d885741998bb32d2082c54c4ab61  
-Scope: the eleven reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.Redis, Naravel.Cache.Redis, Naravel.Cache.Memcached, Naravel.Queue, Naravel.Queue.Memory, Naravel.Queue.File, Naravel.Queue.Database, Naravel.Queue.Redis and Naravel.Queue.Coordination.
+Scope: the twelve reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.Redis, Naravel.Cache.Redis, Naravel.Cache.Memcached, Naravel.Queue, Naravel.Queue.Memory, Naravel.Queue.File, Naravel.Queue.Database, Naravel.Queue.Redis, Naravel.Queue.Coordination and Naravel.Queue.Encryption.
 
 ## Disposition
 
