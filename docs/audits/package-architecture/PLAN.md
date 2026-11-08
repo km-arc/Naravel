@@ -8,7 +8,7 @@ This is an audit, not an implementation campaign. Do not change runtime code, pu
 
 ## Baseline and scope
 
-- Current repository synchronization baseline: `main` at `44e957ca3db6d9f15665fc8fa070f70522c163c9` (2026-11-08 post-Revert second-pass revalidation). The audit follow-up branch is based on this commit. Each package report retains its original source-review baseline and records its targeted second-pass review against this commit.
+- Current repository synchronization baseline: `main` at `852db2c3c1be593a32fdce5318c18d0cd31149be` (PR #247 merged; audit branch merge-base is this commit). The audit follow-up branch contains this main commit. Each package report retains its original package source-review baseline and records targeted revalidation where relevant.
 - Target framework / repository version are determined from the checked-in project metadata at the baseline, not assumed from this document.
 - Audit order is dependency-aware; foundational projects are reviewed before their adapters/providers.
 - Include every packable project under `src/`, including `Naravel.Foundation`.
