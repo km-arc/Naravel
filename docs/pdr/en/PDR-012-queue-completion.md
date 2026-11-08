@@ -87,3 +87,15 @@ c. **IMPLEMENTED.** Trace fields are nullable/additive, and the worker restores 
 d. **IMPLEMENTED policy; SQL-script deliverable NOT IMPLEMENTED.** The Database provider supplies EF model mappings, documents that the application creates/applies migrations, and does not create schema automatically. No checked-in SQL scripts or provider migration files were found. Evidence: `src/Naravel.Queue.Database/QueueModelBuilderExtensions.cs:13`, `docs/en/queue.md:224`, `docs/en/queue.md:231`, `docs/en/queue.md:236`.
 e. **NOT IMPLEMENTED; D-21 remains open.** Kafka `PopAsync` still calls synchronous `IConsumer.Consume` with a 200 ms poll timeout. The limitation is recorded in `roadmap/AUDIT.md:26`; `docs/en/queue.md` does not mention the blocking poll. Evidence: `src/Naravel.Queue.Kafka/KafkaQueueDriver.cs:93`.
 f. **IMPLEMENTED package bump; behavior/test coverage NOT IMPLEMENTED.** `MessagePack` is 3.1.7 centrally; the changelog says the bump from 2.5.301 was required by `EnyimMemcachedCore` 3.5.1. No C# source usage or tests of MessagePack were found; restore/build can validate package resolution, not serializer behavior. Evidence: `Directory.Packages.props:23`, `CHANGELOG.md:55`.
+
+
+## Architecture review veto — 2026-11-08 (post-Revert revalidation)
+
+The 2026-10-06 approval remains historical and does not waive **AV-009**: `BatchAsync` must not leave a permanently-pending batch when only a prefix of its planned messages was published. The current implementation registers the full job count before sequential publishing and has no partial-publication recovery contract. The required design must expose/reconcile partial publication and account for each planned member without assuming an atomic transaction across arbitrary brokers. See [the architecture veto register](../../audits/package-architecture/ARCHITECTURE-VETOES.md) and owner decision AD-009.
+
+The following behavior clarifications are still open and are not silently decided by this review:
+- AD-010: failed-job retry for a member of a terminal batch (independent retry vs reopening original batch accounting).
+- AD-011: empty batch behavior.
+- AD-012: a shared `TimeProvider` injection boundary for Queue runtime/provider clocks.
+
+These are recorded in [OWNER-DECISIONS.md](../../audits/package-architecture/OWNER-DECISIONS.md). No implementation or public API change is authorized by this audit entry.
