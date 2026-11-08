@@ -230,6 +230,65 @@ public class ManagerTests
     }
 
     [Fact]
+    public async Task Sync_api_does_not_wait_for_a_factory_that_became_asynchronous_after_the_check()
+    {
+        var registry = new InterceptingRegistry(new DriverRegistry<IFakeDriver>());
+        registry.Register("a", _ => new FakeDriver("sync"));
+        var manager = new FakeManager(TestKit.EmptyProvider, registry, new FakeOptionsMonitor<ManagerOptions>(TestKit.Options("a")));
+        var release = new TaskCompletionSource();
+
+        // Another thread replaces the factory with an asynchronous one right after Driver() has seen a synchronous one. Driver()
+        // used to read the factory again to create the driver, found the asynchronous one and waited for it.
+        registry.AfterIsAsyncOnly = name => registry.Register(name, async (sp, ct) =>
+        {
+            await release.Task;
+            return new FakeDriver("async");
+        });
+
+        var call = Task.Run(() => manager.Driver("a"));
+        var returned = Task.WaitAny([call], TimeSpan.FromSeconds(5)) == 0; // unlike call.Wait, this does not throw for a faulted call
+        release.TrySetResult(); // lets a blocked call go on, so a failure here does not leave a thread waiting
+
+        returned.Should().BeTrue("the synchronous API must not wait for an asynchronous factory");
+        Action act = () => call.GetAwaiter().GetResult();
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("Driver 'a' is registered with an asynchronous factory and has not been created yet. Use DriverAsync to create it.");
+
+        // The refusal is not cached: the asynchronous API builds the driver from the new factory, and the sync API then returns it.
+        var created = await manager.DriverAsync("a");
+        created.Id.Should().Be("async");
+        manager.Driver("a").Should().BeSameAs(created);
+    }
+
+    [Fact]
+    public async Task An_async_caller_that_joined_a_refused_synchronous_creation_gets_the_driver_of_the_new_factory()
+    {
+        var registry = new InterceptingRegistry(new DriverRegistry<IFakeDriver>());
+        registry.Register("a", _ => new FakeDriver("sync"));
+        var manager = new FakeManager(TestKit.EmptyProvider, registry, new FakeOptionsMonitor<ManagerOptions>(TestKit.Options("a")));
+        Task<IFakeDriver>? joiner = null;
+
+        // Driver() has put its entry in the cache and is about to create. An asynchronous caller joins that entry, and the factory is
+        // replaced by an asynchronous one. The refusal belongs to the synchronous caller; the joiner used to receive it too.
+        registry.BeforeCreate = name =>
+        {
+            joiner = manager.DriverAsync(name).AsTask();
+            registry.Register(name, async (sp, ct) =>
+            {
+                await Task.Yield();
+                return new FakeDriver("async");
+            });
+        };
+
+        Action act = () => manager.Driver("a");
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*Use DriverAsync*");
+        var created = await joiner!;
+        created.Id.Should().Be("async");
+        manager.Driver("a").Should().BeSameAs(created);
+    }
+
+    [Fact]
     public async Task Sync_api_returns_an_async_driver_once_it_has_been_created()
     {
         var h = new ManagerHarness();
@@ -343,6 +402,70 @@ public class ManagerTests
         var first = h.Manager.Driver("a");
 
         h.Monitor.Publish(TestKit.Options("a", ("a", "host", "2")), "some-other-name");
+
+        h.Manager.Driver("a").Should().BeSameAs(first);
+    }
+
+    // Text that looks like a separator must not make two different configurations look alike: the fingerprint of the stores used to
+    // be "key=value;" per entry, and each of the pairs below produced the same string for both of its configurations, so the
+    // change was not seen and the old driver stayed in use.
+
+    [Fact]
+    public void A_change_that_moves_text_from_a_value_into_the_next_key_rebuilds_drivers()
+    {
+        var h = new ManagerHarness(TestKit.Options("a", ("a", "Bar", "b;Foo=a")));
+        h.Registry.Register("a", _ => new FakeDriver("a"));
+        var first = h.Manager.Driver("a");
+
+        h.Monitor.Publish(TestKit.Options("a", ("a", "Bar", "b"), ("a", "Foo", "a")));
+
+        h.Manager.Driver("a").Should().NotBeSameAs(first);
+    }
+
+    [Fact]
+    public void A_change_that_moves_an_equals_sign_between_a_key_and_a_value_rebuilds_drivers()
+    {
+        var h = new ManagerHarness(TestKit.Options("a", ("a", "x=y", "z")));
+        h.Registry.Register("a", _ => new FakeDriver("a"));
+        var first = h.Manager.Driver("a");
+
+        h.Monitor.Publish(TestKit.Options("a", ("a", "x", "y=z")));
+
+        h.Manager.Driver("a").Should().NotBeSameAs(first);
+    }
+
+    [Fact]
+    public void A_change_between_no_value_and_an_empty_value_rebuilds_drivers()
+    {
+        var h = new ManagerHarness(TestKit.Options("a", ("a", "Mode", null)));
+        h.Registry.Register("a", _ => new FakeDriver("a"));
+        var first = h.Manager.Driver("a");
+
+        h.Monitor.Publish(TestKit.Options("a", ("a", "Mode", "")));
+
+        h.Manager.Driver("a").Should().NotBeSameAs(first);
+    }
+
+    [Fact]
+    public void A_change_to_the_value_of_a_store_written_as_a_single_value_rebuilds_drivers()
+    {
+        var h = new ManagerHarness(TestKit.SingleValueStore("a", "x"));
+        h.Registry.Register("a", _ => new FakeDriver("a"));
+        var first = h.Manager.Driver("a");
+
+        h.Monitor.Publish(TestKit.SingleValueStore("a", "y"));
+
+        h.Manager.Driver("a").Should().NotBeSameAs(first);
+    }
+
+    [Fact]
+    public void A_reload_that_repeats_values_with_separators_keeps_cached_drivers()
+    {
+        var h = new ManagerHarness(TestKit.Options("a", ("a", "ConnectionString", "Host=x;Port=1"), ("a", "Mode", null)));
+        h.Registry.Register("a", _ => new FakeDriver("a"));
+        var first = h.Manager.Driver("a");
+
+        h.Monitor.Publish(TestKit.Options("a", ("a", "ConnectionString", "Host=x;Port=1"), ("a", "Mode", null)));
 
         h.Manager.Driver("a").Should().BeSameAs(first);
     }
@@ -504,6 +627,97 @@ public class ManagerTests
 
         act.Should().Throw<AggregateException>();
         good.DisposeCalls.Should().Be(1);
+    }
+
+    // An asynchronous factory (or a driver it builds) can register a callback on the token the manager hands to it. Disposing the
+    // manager cancels that token, which runs the callbacks and rethrows what they threw, and that used to happen before any driver
+    // was disposed.
+
+    private static ManagerHarness HarnessWithAThrowingLifetimeCallback(out FakeDriver watching, out FakeDriver plain)
+    {
+        var h = new ManagerHarness();
+        var viaFactory = new FakeDriver("watching");
+        h.Registry.Register("watching", (sp, ct) =>
+        {
+            ct.Register(() => throw new InvalidOperationException("callback-failed"));
+            return new ValueTask<IFakeDriver>(viaFactory);
+        });
+        h.Registry.Register("plain", _ => new FakeDriver("plain"));
+        h.Manager.DriverAsync("watching").AsTask().GetAwaiter().GetResult();
+        watching = viaFactory;
+        plain = (FakeDriver)h.Manager.Driver("plain");
+        return h;
+    }
+
+    [Fact]
+    public void A_throwing_lifetime_callback_does_not_stop_the_drivers_from_being_disposed()
+    {
+        var h = HarnessWithAThrowingLifetimeCallback(out var watching, out var plain);
+
+        Action act = () => h.Manager.Dispose();
+
+        act.Should().Throw<AggregateException>();
+        watching.DisposeCalls.Should().Be(1);
+        plain.DisposeCalls.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task A_throwing_lifetime_callback_does_not_stop_the_drivers_from_being_disposed_asynchronously()
+    {
+        var h = HarnessWithAThrowingLifetimeCallback(out var watching, out var plain);
+
+        Func<Task> act = async () => await h.Manager.DisposeAsync();
+
+        await act.Should().ThrowAsync<AggregateException>();
+        watching.DisposeCalls.Should().Be(1);
+        plain.DisposeCalls.Should().Be(1);
+    }
+
+    [Fact]
+    public void The_failure_of_a_lifetime_callback_is_reported_with_the_failures_of_drivers_and_a_second_dispose_does_nothing()
+    {
+        var h = HarnessWithAThrowingLifetimeCallback(out var watching, out var plain);
+        h.Registry.Register("bad", _ => new ThrowingDriver("bad"));
+        h.Manager.Driver("bad");
+
+        Action act = () => h.Manager.Dispose();
+
+        var errors = act.Should().Throw<AggregateException>().Which.InnerExceptions.Select(e => e.Message).ToArray();
+        errors.Should().Contain("callback-failed");
+        errors.Should().Contain("dispose-failed");
+
+        h.Manager.Dispose(); // already disposed: nothing is thrown and nothing is disposed twice
+        watching.DisposeCalls.Should().Be(1);
+        plain.DisposeCalls.Should().Be(1);
+    }
+
+    [Fact]
+    public void A_failing_options_subscription_does_not_stop_the_drivers_from_being_disposed()
+    {
+        var h = new ManagerHarness();
+        h.Registry.Register("a", _ => new FakeDriver("a"));
+        var driver = (FakeDriver)h.Manager.Driver("a");
+        h.Monitor.DisposeFailure = new InvalidOperationException("subscription-failed");
+
+        Action act = () => h.Manager.Dispose();
+
+        act.Should().Throw<AggregateException>().Which.InnerExceptions.Select(e => e.Message).Should().Contain("subscription-failed");
+        driver.DisposeCalls.Should().Be(1);
+    }
+
+    [Fact]
+    public void A_registry_that_fails_to_detach_does_not_stop_the_drivers_from_being_disposed()
+    {
+        var registry = new InterceptingRegistry(new DriverRegistry<IFakeDriver>());
+        registry.Register("a", _ => new FakeDriver("a"));
+        var manager = new FakeManager(TestKit.EmptyProvider, registry, new FakeOptionsMonitor<ManagerOptions>(TestKit.Options("a")));
+        var driver = (FakeDriver)manager.Driver("a");
+        registry.UnsubscribeFailure = new InvalidOperationException("unsubscribe-failed");
+
+        Action act = () => manager.Dispose();
+
+        act.Should().Throw<AggregateException>().Which.InnerExceptions.Select(e => e.Message).Should().Contain("unsubscribe-failed");
+        driver.DisposeCalls.Should().Be(1);
     }
 
     [Fact]

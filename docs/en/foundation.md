@@ -141,9 +141,10 @@ Use `AddNaravelDriver` for a single factory and `ConfigureNaravelDrivers` when a
 
 - `Driver(name)` returns the cached driver for that name. `DriverAsync(name, cancellationToken)` also supports asynchronous factories.
 - Concurrent callers share one creation. Cancelling a caller cancels only that caller's wait, not the shared factory call. A failed creation is not cached, so the next call tries again.
-- The synchronous `Driver` never blocks on an asynchronous-only factory. Until such a driver exists it throws `InvalidOperationException`: `Driver 'remote' is registered with an asynchronous factory and has not been created yet. Use DriverAsync to create it.` Once `DriverAsync` has created it, `Driver` returns it.
+- The synchronous `Driver` never blocks on an asynchronous-only factory. Until such a driver exists it throws `InvalidOperationException`: `Driver 'remote' is registered with an asynchronous factory and has not been created yet. Use DriverAsync to create it.` Once `DriverAsync` has created it, `Driver` returns it. If another thread replaces a synchronous factory with an asynchronous one while `Driver` is creating, `Driver` throws the same exception, and a `DriverAsync` caller that shared that creation starts over and gets the driver of the new factory. One narrow case is not covered: if a factory is replaced with a synchronous one while `DriverAsync` is still running the old asynchronous factory, a `Driver` call that arrives in the moment between the registration and the manager learning of it waits for that creation to finish.
 - `Forget(name)` and `ForgetAll()` retire cached instances so the next call builds a new one. Retired drivers stay alive until the manager is disposed, so code that already holds one is not disrupted.
 - The manager disposes the drivers its factories created. If the default driver was resolved through the direct `TDriver` service that `AddNaravelManager` registers, dependency injection owns and disposes that instance and the manager skips it. A factory should therefore return an instance the manager may own, never an unrelated container-owned singleton.
+- A failure while the manager is disposed does not stop the other drivers from being disposed. That covers a driver that fails to dispose, a callback that an asynchronous factory registered on the cancellation token the manager passes to it, and the manager's own subscriptions to the registry and to option changes failing to detach. The manager disposes every driver it owns and then throws one `AggregateException` that holds each of those failures. A driver whose creation finishes after the manager was disposed is disposed quietly, and a failure of that disposal is not reported.
 
 ## Errors
 
@@ -155,6 +156,7 @@ Use `AddNaravelDriver` for a single factory and `ConfigureNaravelDrivers` when a
 | `Driver()` on an async-only driver not yet created | `InvalidOperationException`; use `DriverAsync`. |
 | `GetStore` on a missing section | `InvalidOperationException`: `Store 'x' is not configured. Configured stores: a, b.` |
 | The manager was disposed | `ObjectDisposedException` |
+| A driver fails to dispose, a callback on the factory token throws, or a subscription of the manager fails to detach, while the manager is disposed | `AggregateException`: `The manager did not dispose cleanly: one or more drivers, lifetime callbacks or subscriptions failed.` It is thrown after every owned driver was disposed, and `InnerExceptions` holds each failure. |
 
 ## Testing a module built on Foundation
 
