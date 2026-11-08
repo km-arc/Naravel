@@ -142,3 +142,14 @@ This register separates **architectural recommendations** from **owner-approved 
 **Architect recommendation:** register a shared `TimeProvider` through `AddQueue` with `TimeProvider.System` default and inject it into dispatcher/worker/failed-job manager/provider clock-dependent code. Prefer explicit message creation timestamps over system-clock initializers where compatibility permits. Use monotonic timestamps for elapsed-time measurement.
 
 **Status:** WAITING FOR OWNER.
+
+
+## AD-013 — Atomic registry snapshot for synchronous Manager.Driver
+
+**Observed source behavior:** PR #244 fixed the sync-to-async factory replacement race by making the sync creation path call `IDriverRegistry.Create`, which reads and validates the selected factory in one registry operation. A narrower race remains: a `DriverAsync` call has already started an async factory; another thread replaces it with a sync factory; before the manager receives the `Registered` event, `Driver` sees the new sync registration but joins the old in-flight async entry and blocks.
+
+**Decision required:** approve whether the public `IDriverRegistry<TDriver>` contract may add an atomic factory snapshot/creation-kind operation (or equivalent versioned registration token) so the Manager can distinguish the entry's factory generation from the registry's current generation and never synchronously wait on an async-created entry after replacement.
+
+**Architect recommendation:** approve a backward-compatible additive snapshot/version API if possible; otherwise define a safe failure behavior for `Driver` during that window rather than waiting. The exact public contract and compatibility impact require owner approval.
+
+**Status:** WAITING FOR OWNER.
