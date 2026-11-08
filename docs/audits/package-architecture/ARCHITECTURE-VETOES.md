@@ -1,14 +1,14 @@
 # Architecture Vetoes — target production architecture
 
 Date: 2026-11-08  
-Current main baseline: c2b7e88b552088b7606286173fa6e51156163f1d  
-Scope: the eight reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.Redis, Naravel.Cache.Redis, Naravel.Cache.Memcached, Naravel.Queue, Naravel.Queue.Memory and Naravel.Queue.File.
+Current main baseline: 852db2c3c1be593a32fdce5318c18d0cd31149be  
+Scope: the nine reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.Redis, Naravel.Cache.Redis, Naravel.Cache.Memcached, Naravel.Queue, Naravel.Queue.Memory, Naravel.Queue.File and Naravel.Queue.Database.
 
 ## Disposition
 
 This is a principal-architect decision, not a suggestion list. Some of the designs below were explicitly approved in earlier PDRs and documented as intentional limitations. That historical approval explains the implementation; it does not make the trade-off safe or acceptable as the target architecture for a reliable, isolated and scalable platform.
 
-**AV-001, AV-002 and AV-011 are P1 release blockers. AV-003 through AV-010 are mandatory P2 architecture work.** None is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
+**AV-001, AV-002 and AV-011 are P1 release blockers. AV-003 through AV-010 and AV-012 are mandatory P2 architecture work.** None is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
 
 A veto does not authorize an uncontrolled runtime/API/dependency change. Remediation must be a separate, scoped task with an updated PDR where required. An old PDR approval alone is not a valid reason to move a veto to ACCEPTED RISK.
 
@@ -126,10 +126,20 @@ A veto does not authorize an uncontrolled runtime/API/dependency change. Remedia
 
 **Required proof:** path traversal, rooted-path, dot-segment and colliding-name tests on Windows and Linux; prove all accepted directories remain inside the base root and distinct accepted queue names cannot read or settle each other's messages.
 
+### AV-012 — P2: Reclaiming drivers must reject non-positive visibility timeouts
+
+**Affected findings:** DBQ-001, FILE-004 (and any other reclaim-capable driver that accepts a non-positive timeout).
+
+**Why this is vetoed:** Database, File and Redis drivers expose a visibility timeout that controls when an in-flight reservation can be reclaimed, but their public constructors currently accept zero/negative values without rejecting them. In Database, `staleBefore = now - visibilityTimeout`; in File, elapsed time is compared directly with the timeout; Redis similarly computes the reservation deadline from the configured value. A zero/negative setting therefore makes a live reservation immediately eligible for reclaim, allowing two workers to execute the same message concurrently.
+
+**Required target design:** every driver that reclaims reservations must require a strictly positive visibility timeout at constructor and configuration boundaries. Invalid values must fail fast with a message naming the store and option. Drivers that do not use visibility reclaim should expose `null`, not a non-positive duration.
+
+**Required proof:** constructor and DI tests reject zero/negative values for every reclaim-capable driver; two-worker tests prove that a live reservation cannot be reclaimed before a positive timeout; preserve the existing positive default and stale-reservation behavior.
+
 ## Historical PDR decisions explicitly vetoed
 
 - PDR-007: cluster-wide Memcached flush (AV-001), non-atomic Memcached lock release and fixed rate-limit lock lease (AV-002), single shared Memcached pool (AV-005), blocking counter workaround (AV-004), unbounded tag version keys (AV-003), and limiter-only Cache telemetry/high-cardinality limiter tags (AV-007).
-- PDR-012: partial batch publication can leave permanently-pending batches (AV-009); unbounded process-local Memory queue state and File gate table (AV-010); unsafe File queue path mapping (AV-011).
+- PDR-012: partial batch publication can leave permanently-pending batches (AV-009); unbounded process-local Memory queue state and File gate table (AV-010); unsafe File queue path mapping (AV-011); non-positive reclaim visibility timeouts (AV-012).
 - PDR-010 / D-66: synchronous first Redis connection (AV-004).
 
 The PDRs retain their original approval text as historical context and append the veto disposition. They must not be read as approval to ship these constraints as the final production architecture.
@@ -140,7 +150,7 @@ The PDRs retain their original approval text as historical context and append th
 - Test changes or tests run: none.
 - Build/CI: NOT RUN.
 - Vetoes cleared: none.
-- Next gate: obtain owner decisions AD-001 through AD-014, then create a prioritized remediation stage for AV-001, AV-002 and AV-011 first and schedule AV-003 through AV-010. Do not mark the architecture accepted for production until the required verification evidence is present.
+- Next gate: obtain owner decisions AD-001 through AD-017, then create a prioritized remediation stage for AV-001, AV-002 and AV-011 first and schedule AV-003 through AV-010 and AV-012. Do not mark the architecture accepted for production until the required verification evidence is present.
 
 
 ## Owner decisions pending — not architecture vetoes
