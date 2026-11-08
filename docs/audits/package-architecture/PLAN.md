@@ -101,3 +101,10 @@ A package is `REVIEWED WITH FINDINGS` when all review dimensions have been addre
 The full audit is complete only when all 36 packages have reviewed reports, cross-package findings are deduplicated, and a prioritized remediation roadmap is proposed. No remediation is merged by this audit branch.
 
 
+
+
+## Package review progress
+
+- Completed source-level reviews: Foundation, Cache, Redis, Cache.Redis, Cache.Memcached, Queue (reports 01–06).
+- Queue's Nth-publish failure, retry-of-batch-failure, in-memory callback failure, empty batch and clock-boundary regression cases are explicitly NOT RUN; see [report 06](reports/06-Naravel.Queue.md).
+- The repository inventory contains 36 packable source projects. Do not treat completion of the first six reviews as completion of the whole audit.
