@@ -1,14 +1,14 @@
 # Architecture Vetoes — target production architecture
 
 Date: 2026-11-08  
-Current main baseline: 852db2c3c1be593a32fdce5318c18d0cd31149be  
-Scope: the ten reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.Redis, Naravel.Cache.Redis, Naravel.Cache.Memcached, Naravel.Queue, Naravel.Queue.Memory, Naravel.Queue.File, Naravel.Queue.Database and Naravel.Queue.Redis.
+Current main baseline: c6a7d58ffb84d885741998bb32d2082c54c4ab61  
+Scope: the eleven reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.Redis, Naravel.Cache.Redis, Naravel.Cache.Memcached, Naravel.Queue, Naravel.Queue.Memory, Naravel.Queue.File, Naravel.Queue.Database, Naravel.Queue.Redis and Naravel.Queue.Coordination.
 
 ## Disposition
 
 This is a principal-architect decision, not a suggestion list. Some of the designs below were explicitly approved in earlier PDRs and documented as intentional limitations. That historical approval explains the implementation; it does not make the trade-off safe or acceptable as the target architecture for a reliable, isolated and scalable platform.
 
-**AV-001, AV-002 and AV-011 are P1 release blockers. AV-003 through AV-010 and AV-012 are mandatory P2 architecture work.** None is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
+**AV-001, AV-002 and AV-011 are P1 release blockers. AV-003 through AV-010 and AV-012 through AV-013 are mandatory P2 architecture work.** None is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
 
 A veto does not authorize an uncontrolled runtime/API/dependency change. Remediation must be a separate, scoped task with an updated PDR where required. An old PDR approval alone is not a valid reason to move a veto to ACCEPTED RISK.
 
@@ -150,7 +150,7 @@ The PDRs retain their original approval text as historical context and append th
 - Test changes or tests run: none.
 - Build/CI: NOT RUN.
 - Vetoes cleared: none.
-- Next gate: obtain owner decisions AD-001 through AD-020, then create a prioritized remediation stage for AV-001, AV-002 and AV-011 first and schedule AV-003 through AV-010 and AV-012. Do not mark the architecture accepted for production until the required verification evidence is present.
+- Next gate: obtain owner decisions AD-001 through AD-021, then create a prioritized remediation stage for AV-001, AV-002 and AV-011 first and schedule AV-003 through AV-010 and AV-012. Do not mark the architecture accepted for production until the required verification evidence is present.
 
 
 ## Owner decisions pending — not architecture vetoes
@@ -159,3 +159,13 @@ The following items are source-confirmed observations or contract ambiguities. T
 
 - **AD-001 / MCD-011 — explicit zero TTL:** Memcached currently maps an explicit `TimeSpan.Zero` to the same Enyim expiration value as `null` (no expiry), while `CacheFake` rejects explicit zero. The `ICacheStore.SetAsync` contract does not currently define zero-TTL semantics clearly enough to declare one provider behavior incorrect. Owner decision required.
 - Other API and lifecycle decisions that affect remediation sequencing are listed in the owner decision register. No answer is inferred from historical PDR wording.
+
+
+### AV-013 — P2: Unique-job owner metadata must be fenced with the lock lease
+
+**Affected finding:** QCO-001.
+
+**Why this is vetoed:** `CacheUniqueJobGate` stores message ownership separately from the Cache lock. The release path validates an owner record, releases the token-owned lock, then unconditionally removes the owner key. A newer dispatch can acquire the released lock and write its owner record before that remove runs; the stale releaser then deletes the newer record. A delayed owner write can also overwrite a newer lease's metadata after the earlier lock expires. Token-fencing the lock does not fence the separate metadata mutation.
+
+**Required target design:** atomically bind the message owner to the lock lease, or use a backend-guaranteed compare-and-set/delete operation that checks both the current owner and token. A stale owner must never overwrite or remove metadata belonging to a newer lease. Preserve the optional Queue/Cache package boundary and make unsupported backends fail explicitly rather than silently weakening the guarantee. The exact abstraction is owner decision AD-021.
+
