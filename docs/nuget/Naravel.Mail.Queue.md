@@ -15,7 +15,7 @@ Targets .NET 10. It depends on `Naravel.Mail` and `Naravel.Queue`, which NuGet i
 ## Use
 
 ```csharp
-builder.Services.AddQueue(builder.Configuration).AddRedisDriver(builder.Configuration);   // any queue driver
+builder.Services.AddQueue(builder.Configuration).AddRedisDriver(builder.Configuration);   // AddRedisDriver comes from Naravel.Queue.Redis; any other queue driver package works the same
 builder.Services.AddNaravelMail(builder.Configuration);
 builder.Services.AddNaravelMailQueue();
 
