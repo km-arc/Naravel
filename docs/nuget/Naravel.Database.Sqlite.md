@@ -12,6 +12,19 @@ dotnet add package Naravel.Database.Sqlite
 
 Targets .NET 10. It depends on `Naravel.Database`, which NuGet installs with it.
 
+## Use
+
+```json
+{ "Database": { "Default": "main", "Connections": { "main": { "Driver": "sqlite", "Path": "app.db" } } } }
+```
+
+```csharp
+builder.Services.AddNaravelDatabase(builder.Configuration);         // from Naravel.Database; the order of the two calls does not matter
+builder.Services.AddNaravelSqliteDatabase(builder.Configuration);
+```
+
+A connection takes either `Path` (a file, or `:memory:`) or a full `ConnectionString`; with neither, the first use fails with an `InvalidOperationException` that names both keys. The connection `Driver` is `sqlite`.
+
 ## Documentation
 
 - Database: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/database.md)
