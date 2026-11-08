@@ -98,7 +98,7 @@ A veto does not authorize an uncontrolled runtime/API/dependency change. Remedia
 
 ## Historical PDR decisions explicitly vetoed
 
-- PDR-007: cluster-wide Memcached flush (AV-001), non-atomic Memcached lock release and fixed rate-limit lock lease (AV-002), single shared Memcached pool (AV-005), blocking counter workaround (AV-004), unbounded tag version keys (AV-003), limiter-only Cache telemetry and high-cardinality limiter tags (AV-007), .
+- PDR-007: cluster-wide Memcached flush (AV-001), non-atomic Memcached lock release and fixed rate-limit lock lease (AV-002), single shared Memcached pool (AV-005), blocking counter workaround (AV-004), unbounded tag version keys (AV-003), limiter-only Cache telemetry and high-cardinality limiter tags (AV-007).
 - PDR-010 / D-66: synchronous first Redis connection (AV-004).
 
 The PDRs retain their original approval text as historical context and append the veto disposition. They must not be read as approval to ship these constraints as the final production architecture.
@@ -109,7 +109,7 @@ The PDRs retain their original approval text as historical context and append th
 - Test changes or tests run: none.
 - Build/CI: NOT RUN.
 - Vetoes cleared: none.
-- Next gate: create a prioritized remediation stage for AV-001 and AV-002 first, then schedule AV-003 through AV-008. Do not mark the architecture accepted for production until the required verification evidence is present.
+- Next gate: obtain owner decisions AD-001 through AD-008, then create a prioritized remediation stage for AV-001 and AV-002 first and schedule AV-003 through AV-008. Do not mark the architecture accepted for production until the required verification evidence is present.
 
 
 ## Owner decisions pending — not architecture vetoes
