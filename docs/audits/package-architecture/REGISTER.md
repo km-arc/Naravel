@@ -19,7 +19,7 @@ Inventory: **36** packable source projects. There are 35 package pages in `docs/
 | 11 | `Naravel.Queue.RabbitMQ` | `src/Naravel.Queue.RabbitMQ/Naravel.Queue.RabbitMQ.csproj` | `docs/nuget/Naravel.Queue.RabbitMQ.md` | PENDING | — |
 | 12 | `Naravel.Queue.Kafka` | `src/Naravel.Queue.Kafka/Naravel.Queue.Kafka.csproj` | `docs/nuget/Naravel.Queue.Kafka.md` | PENDING | — |
 | 13 | `Naravel.Queue.Coordination` | `src/Naravel.Queue.Coordination/Naravel.Queue.Coordination.csproj` | `docs/nuget/Naravel.Queue.Coordination.md` | REVIEWED WITH FINDINGS | [Report](reports/13-Naravel.Queue.Coordination.md): 1 P2 OPEN — OWNER DECISION |
-| 14 | `Naravel.Queue.Encryption` | `src/Naravel.Queue.Encryption/Naravel.Queue.Encryption.csproj` | `docs/nuget/Naravel.Queue.Encryption.md` | PENDING | — |
+| 14 | `Naravel.Queue.Encryption` | `src/Naravel.Queue.Encryption/Naravel.Queue.Encryption.csproj` | `docs/nuget/Naravel.Queue.Encryption.md` | REVIEWED WITH OBSERVATION | [Report](reports/14-Naravel.Queue.Encryption.md): 1 OBS — TEST COVERAGE |
 | 15 | `Naravel.Events` | `src/Naravel.Events/Naravel.Events.csproj` | `docs/nuget/Naravel.Events.md` | PENDING | — |
 | 16 | `Naravel.Events.Queue` | `src/Naravel.Events.Queue/Naravel.Events.Queue.csproj` | `docs/nuget/Naravel.Events.Queue.md` | PENDING | — |
 | 17 | `Naravel.Database` | `src/Naravel.Database/Naravel.Database.csproj` | `docs/nuget/Naravel.Database.md` | PENDING | — |
