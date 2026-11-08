@@ -8,7 +8,7 @@ Scope: the fourteen reviewed packages Naravel.Foundation, Naravel.Cache, Naravel
 
 This is a principal-architect decision, not a suggestion list. Some of the designs below were explicitly approved in earlier PDRs and documented as intentional limitations. That historical approval explains the implementation; it does not make the trade-off safe or acceptable as the target architecture for a reliable, isolated and scalable platform.
 
-**AV-001, AV-002 and AV-011 are P1 release blockers. AV-003 through AV-010 and AV-012 through AV-013 are mandatory P2 architecture work.** None is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
+**AV-001, AV-002 and AV-011 are P1 release blockers. AV-003 through AV-010 and AV-012 through AV-018 are mandatory P2 architecture work.** None is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
 
 A veto does not authorize an uncontrolled runtime/API/dependency change. Remediation must be a separate, scoped task with an updated PDR where required. An old PDR approval alone is not a valid reason to move a veto to ACCEPTED RISK.
 
@@ -169,3 +169,44 @@ The following items are source-confirmed observations or contract ambiguities. T
 
 **Required target design:** atomically bind the message owner to the lock lease, or use a backend-guaranteed compare-and-set/delete operation that checks both the current owner and token. A stale owner must never overwrite or remove metadata belonging to a newer lease. Preserve the optional Queue/Cache package boundary and make unsupported backends fail explicitly rather than silently weakening the guarantee. The exact abstraction is owner decision AD-021.
 
+
+
+### AV-014 — P2: JSON-path updates must represent JSON null correctly
+
+**Affected finding:** DBQ-001.
+
+**Why this is vetoed:** SQLite, MySQL and PostgreSQL JSON-path update compilers call `JsonText(value!)`; the JSON serializer helper has no null case and dereferences the null value. The documented JSON-path null update therefore fails before SQL is generated on three supported dialects, while SQL Server explicitly rejects this operation because its `json_modify` semantics delete the key.
+
+**Required target design:** encode JSON null as the JSON literal `null` for SQLite/MySQL/PostgreSQL, retain SQL Server's explicit unsupported behavior unless a separate delete-key API is approved, and test the actual database semantics.
+
+### AV-015 — P2: Every insert compiler path must enforce the final expanded parameter count
+
+**Affected finding:** DBQ-002.
+
+**Why this is vetoed:** `Raw` values can expand to multiple bound parameters. Batch insert checks the final binding count after expansion, but `CompileInsertGetId` checks only the number of columns and returns without checking the expanded count.
+
+**Required target design:** enforce the dialect limit after all raw expressions have expanded, for every statement-producing compiler path. A statement over the limit must fail before provider execution.
+
+### AV-016 — P2: Direct raw SQL must reserve the generated `@pN` marker namespace
+
+**Affected finding:** DBQ-003.
+
+**Why this is vetoed:** Query raw methods and `Raw` reject `@pN` markers, but direct `IDatabase` raw SQL passes through `DatabaseExecutor.Prepare` without the same check. A caller's existing marker can alias a generated marker and silently change the SQL's meaning.
+
+**Required target design:** apply one consistent reserved-marker rule at the lowest shared preparation boundary, without silently rewriting user SQL.
+
+### AV-017 — P2: Ambient transaction scopes must be invalidated at owner completion
+
+**Affected finding:** DBQ-004.
+
+**Why this is vetoed:** `AsyncLocal` values are captured by child ExecutionContexts. Restoring the parent value after a callback does not clear a detached task's captured ambient node. The current leased scope continues returning borrowed leases after its owning transaction has committed/disposed.
+
+**Required target design:** mark the leased scope inactive at commit/rollback/disposal and reject later acquisition through stale ambient contexts before touching provider objects. Document that work intended to join the transaction must be awaited before the callback returns. The owner must decide whether to enforce this internal guard in addition to the documentation (AD-022).
+
+### AV-018 — P2: Transaction cleanup must always release the connection lease
+
+**Affected finding:** DBQ-005.
+
+**Why this is vetoed:** `DatabaseTransaction.DisposeAsync` disposes the provider transaction and then the owned lease sequentially. If provider transaction disposal throws, lease disposal is skipped and the connection pool resource can remain held.
+
+**Required target design:** guarantee lease disposal in a `finally` path, preserve the primary exception, and retain secondary cleanup failures for diagnosis. Fault-injection tests must prove the lease is released exactly once even when provider disposal fails.
