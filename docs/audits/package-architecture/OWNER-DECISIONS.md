@@ -153,3 +153,17 @@ This register separates **architectural recommendations** from **owner-approved 
 **Architect recommendation:** approve a backward-compatible additive snapshot/version API if possible; otherwise define a safe failure behavior for `Driver` during that window rather than waiting. The exact public contract and compatibility impact require owner approval.
 
 **Status:** WAITING FOR OWNER.
+
+
+## AD-014 — File queue name mapping and existing on-disk queue compatibility
+
+**Observed source behavior:** `FileQueueDriver.Sanitize` removes invalid filename characters rather than validating or injectively encoding queue names. The literal queue name `..` remains `..` and escapes the configured base directory when combined with `pending`, `reserved` or `failed`. Different queue names can collapse to one physical folder. The driver currently stores pending/reserved/failed files under `{basePath}/{sanitizedQueue}/...`.
+
+**Decision required:** choose the compatibility contract for fixing this P1 path-boundary issue:
+- A. Preserve the existing folder mapping for names already in a safe, documented portable subset, reject unsafe names before filesystem access, and document the accepted queue-name grammar. This avoids moving existing safe queues but becomes a validation restriction.
+- B. Encode all queue names injectively (or use an ID/hash mapping) and introduce a versioned on-disk layout with a migration/dual-read policy for existing pending, reserved and failed files.
+- C. Another explicit migration approach that guarantees path containment and no queue aliasing without silently stranding existing messages.
+
+**Architect recommendation:** A as the least disruptive safe correction if the owner accepts a portable queue-name grammar; keep existing safe folder names unchanged and reject unsafe names. If arbitrary Unicode/special queue names are a required public feature, choose B and provide a tested migration path. Do not silently sanitize and collapse names.
+
+**Status:** WAITING FOR OWNER.
