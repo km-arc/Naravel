@@ -75,3 +75,16 @@ No remediation has been authorized or performed by the package audit branch. Onc
 ## Owner decisions
 
 See [OWNER-DECISIONS.md](OWNER-DECISIONS.md). MCD-011 is intentionally an observation, not a veto, until the owner defines the public zero-TTL contract.
+
+
+## Naravel.Queue
+
+| Finding | Package | Severity | Summary | State | Evidence |
+|---|---|---:|---|---|---|
+| QUE-001 | Naravel.Queue | P2 | BatchAsync can strand an unreachable, permanently pending batch after partial publish (AV-009) | OPEN | [Report](reports/06-Naravel.Queue.md) |
+| QUE-002 | Naravel.Queue | OBS | Failed-job retry preserves BatchId and can be skipped by a cancelled/terminal batch; owner decision required | OPEN — OWNER DECISION | [Report](reports/06-Naravel.Queue.md) |
+| QUE-003 | Naravel.Queue | OBS | In-memory batch callback failure is not retried although the guide's recovery statement is unqualified | OPEN | [Report](reports/06-Naravel.Queue.md) |
+| QUE-004 | Naravel.Queue | OBS | Empty batches are accepted but have provider-dependent callback behavior | OPEN — OWNER DECISION | [Report](reports/06-Naravel.Queue.md) |
+| QUE-005 | Naravel.Queue | OBS | Queue runtime uses direct wall-clock reads/delays instead of injected TimeProvider | OPEN — OWNER DECISION | [Report](reports/06-Naravel.Queue.md) |
+
+Owner decisions AD-009 through AD-012 are recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md). No public API or runtime change is implied.
