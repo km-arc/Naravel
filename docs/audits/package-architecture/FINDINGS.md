@@ -17,7 +17,7 @@ A prior PDR approval is not a waiver from this architecture review. Items in the
 
 ## Architecture vetoes
 
-The following are vetoed as target architecture. AV-001, AV-002 and AV-011 are P1 release blockers; AV-003 through AV-010 and AV-012 through AV-013 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable.
+The following are vetoed as target architecture. AV-001, AV-002 and AV-011 are P1 release blockers; AV-003 through AV-010 and AV-012 through AV-018 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable.
 
 | Veto ID | Severity | Required architectural outcome | Related findings |
 |---|---:|---|---|
@@ -150,3 +150,12 @@ Owner decisions AD-018 through AD-020 are recorded in [OWNER-DECISIONS.md](OWNER
 Owner decision AD-021 is recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md). No Cache API or runtime implementation change is implied.
 
 | QEN-001 | Naravel.Queue.Encryption | OBS | Queue-specific Data Protection purpose lacks a persisted-key-ring cross-provider integration test | OPEN — TEST COVERAGE | [Report](reports/14-Naravel.Queue.Encryption.md) |
+
+| DBQ-001 | Naravel.Database | P2 | JSON-path update of JSON null throws before compilation on SQLite/MySQL/PostgreSQL (AV-014) | OPEN | [Report](reports/17-Naravel.Database.md) |
+| DBQ-002 | Naravel.Database | P2 | InsertGetId does not enforce final expanded Raw binding count (AV-015) | OPEN | [Report](reports/17-Naravel.Database.md) |
+| DBQ-003 | Naravel.Database | P2 | Direct raw SQL does not reject reserved @pN marker collisions (AV-016) | OPEN | [Report](reports/17-Naravel.Database.md) |
+| DBQ-004 | Naravel.Database | P2 | Detached child ExecutionContexts can retain a stale ambient transaction (AV-017) | OPEN — OWNER DECISION | [Report](reports/17-Naravel.Database.md) |
+| DBQ-005 | Naravel.Database | P2 | Provider transaction disposal failure can skip owned lease disposal (AV-018) | OPEN | [Report](reports/17-Naravel.Database.md) |
+| DBQ-006 | Naravel.Database | OBS | Transaction-bound Connection rejects aliases of the same default connection | OPEN | [Report](reports/17-Naravel.Database.md) |
+| DBQ-007 | Naravel.Database | OBS | Multi-statement rollback failure masks the original statement failure | OPEN | [Report](reports/17-Naravel.Database.md) |
+| DBQ-008 | Naravel.Database | OBS | DatabaseFake scalar conversion and cancellation diverge from production behavior | OPEN | [Report](reports/17-Naravel.Database.md) |
