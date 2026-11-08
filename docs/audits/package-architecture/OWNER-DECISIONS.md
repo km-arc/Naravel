@@ -241,3 +241,17 @@ This register separates **architectural recommendations** from **owner-approved 
 **Architect recommendation:** A for queue mutations; a cancelled wait that hides whether Push/Ack/Release/Fail actually completed can trigger unsafe duplicate retries. Check cancellation before each separate command and use atomic scripts/transactions for multi-command state changes where possible. Document that an already-sent Redis command cannot be rolled back by a caller token.
 
 **Status:** WAITING FOR OWNER.
+
+
+## AD-021 — Atomic owner metadata for Queue unique-job leases
+
+**Observed source behavior:** `CacheUniqueJobGate` acquires an `ICacheLock` and stores `messageId|token` in a separate `ICacheStore` key. Release reads the owner record, releases the token-owned lock, then unconditionally removes the owner key. A newer dispatch can acquire and write its owner record between the old lock release and the old unconditional remove. A delayed owner write can also arrive after the old lease expires and overwrite the newer owner's metadata.
+
+**Decision required:**
+- A. Add a backend-guaranteed atomic operation that acquires the lock and associates the message owner in one transaction/script, and releases/removes only when both owner and lock token still match.
+- B. Extend the Cache lock abstraction to support a caller-supplied owner/fencing token so the lock's own token can identify the message owner without a separate mutable metadata key.
+- C. Accept a weaker, bounded-liveness guarantee for unique jobs and document that stale metadata may block a key until TTL expiry. This option does not satisfy the current claim that stale owner cleanup is safely fenced and is not recommended.
+
+**Architect recommendation:** A or B. Prefer B if it can be implemented consistently by Memory, Redis and Memcached without exposing backend-specific behavior. Otherwise use A and make unsupported providers fail explicitly rather than silently weakening uniqueness. Do not select C for production correctness.
+
+**Status:** WAITING FOR OWNER.
