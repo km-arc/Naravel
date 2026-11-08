@@ -167,3 +167,29 @@ This register separates **architectural recommendations** from **owner-approved 
 **Architect recommendation:** A as the least disruptive safe correction if the owner accepts a portable queue-name grammar; keep existing safe folder names unchanged and reject unsafe names. If arbitrary Unicode/special queue names are a required public feature, choose B and provide a tested migration path. Do not silently sanitize and collapse names.
 
 **Status:** WAITING FOR OWNER.
+
+
+## AD-015 — Transactional DatabaseJobEnqueuer connection identity
+
+**Observed source behavior:** `DatabaseJobEnqueuer.Enqueue` delegates envelope construction to the ordinary `IJobMessageFactory`. That factory copies `Job.Connection`, the caller's `DispatchOptions.OnConnection`, or the QueueManager default into `QueuedMessage.Connection`. The enqueuer persists this value unchanged even though PDR-023 says Connection is ignored because the job is stored in the Database context. The worker uses the persisted connection for chain follow-ups, and `FailedJobManager.RetryAsync` uses it to select the retry destination.
+
+**Decision required:** how should the enqueuer identify the exact named Database queue connection that owns the DbContext/table, especially when multiple Database stores or a non-Database Queue default are configured?
+- A. Bind each enqueuer instance/registration to one explicit named Database connection and force that identity into the stored envelope; reject incompatible job/configure connection overrides.
+- B. Persist no connection and require a single documented default Database connection; the worker and retry tooling must both be guaranteed to resolve that same store.
+- C. Another explicit binding contract that preserves the DbContext/queue-connection relationship across chain and failed-job retry.
+
+**Architect recommendation:** A. A named database connection identity is needed to make chain and retry routing deterministic when more than one queue backend/store is configured. Do not simply set Connection to null unless the default-store constraint is explicit and enforced.
+
+**Status:** WAITING FOR OWNER.
+
+## AD-016 — Approved SQL DDL deliverables for Database queue schema
+
+**Observed source behavior:** `Naravel.Queue.Database` currently ships one embedded/plain-file SQLite DDL script covering QueueJobs, QueueFailedJobs and QueueBatches, plus a helper restricted to Development/Test/Testing. Production setup for every provider is documented as consumer-managed EF Core migrations. PDR-012's implementation record still says no SQL scripts exist, which is now factually stale. The PDR wording does not explicitly say whether scripts are needed for every supported relational provider or only a development/test quickstart.
+
+**Decision required:**
+- A. Accept the SQLite-only idempotent helper/script for local Development/Test/Testing; production schema remains consumer-managed EF Core migrations for SQLite, SQL Server, PostgreSQL and MySQL.
+- B. Require checked-in provider-specific SQL scripts for SQL Server, PostgreSQL and MySQL in addition to SQLite, with versioning and integration validation for each dialect.
+
+**Architect recommendation:** A. The package already documents EF Core migrations as the production path for every provider, and duplicated vendor DDL creates a second schema-maintenance surface. The PDR implementation record should be corrected to state SQLite DDL/helper implemented and provider-specific scripts not part of the accepted deliverable, if the owner approves this boundary.
+
+**Status:** WAITING FOR OWNER.
