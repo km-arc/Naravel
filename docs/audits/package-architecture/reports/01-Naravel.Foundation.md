@@ -18,7 +18,7 @@
 - Overall risk: **Medium (P2)** pending the findings below.
 - Architectural fit: Strong alignment with accepted PDR-002: Foundation supplies the runtime named-driver manager/registry and leaves service construction to Microsoft DI.
 - Release readiness: No immediate release blocker established by source inspection alone; the three correctness risks should be reproduced with regression tests and reviewed before the next package release.
-- Summary: The package has a coherent public contract, useful separation between the driver registry and manager, a mature ownership model, explicit sync/async factory APIs, configuration reload handling, and meaningful tests for concurrency, replacement, DI ownership, and disposal. The highest-risk gaps are in edge-case serialization of configuration fingerprints and two concurrency/cleanup paths not represented in current tests.
+- Summary: The package has a coherent public contract, useful separation between the driver registry and manager, a mature ownership model, explicit sync/async factory APIs, configuration reload handling, and meaningful tests for concurrency, replacement, DI ownership, and disposal. That initial assessment predates the second-pass revalidation below; fingerprint encoding and manager disposal cleanup have since been corrected and verified in main. The remaining open risks are the registry replacement race and late-created driver cleanup diagnostics.
 
 ## Package and dependency map
 
