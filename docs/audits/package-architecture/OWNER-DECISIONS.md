@@ -4,7 +4,7 @@ Date: 2026-11-08
 Branch: `audit/package-architecture-revalidation`  
 Baseline: `main` at `c6a7d58ffb84d885741998bb32d2082c54c4ab61`
 
-This register separates **architectural recommendations** from **owner-approved decisions**. Nothing in this file is approved by implication. The principal-architect vetoes AV-001 through AV-013 remain active; the questions below are not silently resolved by this review.
+This register separates **architectural recommendations** from **owner-approved decisions**. Nothing in this file is approved by implication. The principal-architect vetoes AV-001 through AV-018 remain active; the questions below are not silently resolved by this review.
 
 ## AD-001 — Explicit zero TTL for `ICacheStore.SetAsync`
 
@@ -253,5 +253,18 @@ This register separates **architectural recommendations** from **owner-approved 
 - C. Accept a weaker, bounded-liveness guarantee for unique jobs and document that stale metadata may block a key until TTL expiry. This option does not satisfy the current claim that stale owner cleanup is safely fenced and is not recommended.
 
 **Architect recommendation:** A or B. Prefer B if it can be implemented consistently by Memory, Redis and Memcached without exposing backend-specific behavior. Otherwise use A and make unsupported providers fail explicitly rather than silently weakening uniqueness. Do not select C for production correctness.
+
+**Status:** WAITING FOR OWNER.
+
+
+## AD-022 — Lifetime of ambient transaction state captured by detached tasks
+
+**Observed source behavior:** the ambient transaction uses `AsyncLocal`. A child task created in the callback captures its own ExecutionContext and can retain the ambient node after the parent callback restores its value and commits/disposes the transaction. The leased scope currently has no inactive-state guard.
+
+**Decision required:**
+- A. Enforce an internal active/completed state on the leased scope. Commit, rollback or disposal invalidates it; any later acquisition through a captured ExecutionContext fails with a clear Naravel lifecycle exception. Also document that all work intended to participate must be awaited before the callback returns.
+- B. Keep the current behavior and document strictly that callbacks must not start detached work and that all child tasks must complete before return. This is weaker because the framework cannot detect stale use before provider access.
+
+**Architect recommendation:** A. The internal guard prevents a stale captured ambient context from reaching a disposed provider connection and turns an opaque provider error into a deterministic framework error. It does not make concurrent use of one transaction safe; the existing one-flow-at-a-time restriction remains.
 
 **Status:** WAITING FOR OWNER.
