@@ -65,7 +65,7 @@ public sealed class ChargeCard : Job, IShouldBeEncrypted { public string CardNum
 - A marked job is stored as `naravel:enc:v1:` + the Data Protection output of its normal payload, under the purpose `Naravel.Queue.Encryption.v1` (separate from the facade's purpose, so an `IEncrypter` value is never accepted as a job).
 - The job type is still chosen only by the alias registry. Decryption happens afterwards, so decrypted data never selects a type (OD-07).
 - Chains, batches and failed jobs already carry the stored string, so they carry ciphertext.
-- An undecryptable marked job fails through the normal failed-job path with `DecryptException`; its message names the shared key ring and application name as the first thing to check. A marked job is never sent or run as plaintext. An unknown envelope version fails too.
+- An undecryptable marked job fails through the normal failed-job path with `DecryptException`; its message names the shared key ring and application name as the first thing to check. Where `AddNaravelQueueEncryption` is registered, a marked job is never sent or run as plaintext; register it in every application that dispatches marked jobs and in every worker, because a dispatching application without it sends them as plaintext. An unknown envelope version fails too.
 
 **Migrating.** A job queued as plaintext before its class was marked is refused by default. To let in-flight jobs finish, set `AddNaravelQueueEncryption(o => o.AcceptPlaintextForMarkedJobs = true)` for a deploy window, then switch it off. If you remove the marker later, workers still decrypt messages that were stored encrypted.
 
