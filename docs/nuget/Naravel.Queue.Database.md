@@ -28,7 +28,8 @@ using Microsoft.EntityFrameworkCore;
 using Naravel.Queue.Database;
 using Naravel.Queue.Extensions;
 
-// AppDbContext is your own context, on any EF Core provider (SQLite here)
+// AppDbContext is your own context. UseSqlite comes from the Microsoft.EntityFrameworkCore.Sqlite package, which
+// Naravel.Queue.Database does not install: use the provider package of your own database instead
 builder.Services.AddDbContextFactory<AppDbContext>(o => o.UseSqlite("Data Source=queue.db"));
 builder.Services.AddQueue(builder.Configuration);
 builder.Services.AddDatabaseDriver<AppDbContext>(builder.Configuration);
