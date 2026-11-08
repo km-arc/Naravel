@@ -171,6 +171,10 @@ public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable
 
                 // A synchronous caller created this entry and found that the factory had just been replaced by an asynchronous one.
                 // That refusal is for it, not for this caller, so start over: the next entry uses the new factory.
+                // The wait can end with the refusal although this caller has already cancelled, and Task.WaitAsync hands back a task that
+                // has completed even when its token is cancelled. Without this check a caller that gave up would start a creation and
+                // could be handed the driver.
+                cancellationToken.ThrowIfCancellationRequested();
             }
         }
     }
