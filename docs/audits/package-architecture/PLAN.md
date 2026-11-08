@@ -37,6 +37,7 @@ The current register is ARCHITECTURE-VETOES.md.
 6. Do not silently broaden scope. Cross-package findings are recorded once with all affected packages linked.
 7. All artifacts are English-only. Do not generate, translate, sync, or scaffold localized documentation.
 8. Report verification honestly. A source inspection is not a build; a test recommendation is not a test run.
+9. Explain every finding and every evidence chain in plain, direct English. Define technical terms, give a realistic example, name the exact source/test evidence, and state what has not been proven. Follow [PLAIN-LANGUAGE-EVIDENCE-STANDARD.md](PLAIN-LANGUAGE-EVIDENCE-STANDARD.md); apply it to all existing reports during backfill, without changing their verification status.
 
 ## Owner decision gate
 
