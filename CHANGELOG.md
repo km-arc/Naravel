@@ -25,6 +25,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 
 ### Fixed
 - Foundation: `Manager` did not notice some changes to a store's configuration, so it went on using the old driver: text moving between a key and a value or between a value and the next key (a `Bar` of `b;Foo=a` read the same as a `Bar` of `b` next to a `Foo` of `a`), a missing value becoming an empty one, or a change to the value of a store written as a single value. The fingerprint it compares on every configuration reload now writes each key and value with its length and includes the store's own value, so these changes rebuild the drivers.
+- Foundation: the synchronous `Manager.Driver` could wait for an asynchronous factory. It checked that the factory was synchronous and then read the factory again to create the driver, so a factory replaced by an asynchronous one in between (`Extend`, or a registration on the registry from another thread) was awaited on the calling thread, against the documented rule that `Driver` never blocks on an asynchronous factory. It now creates the driver through the registry's synchronous path, which reads the factory once, and throws the same `InvalidOperationException` as for an asynchronous-only driver that does not exist yet. An asynchronous caller that had joined that creation starts over and gets the driver of the new factory.
 
 ## [0.1.1] - 2026-11-02
 

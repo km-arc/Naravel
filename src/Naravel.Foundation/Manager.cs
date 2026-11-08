@@ -42,6 +42,12 @@ public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable
 
         /// <summary>Set (under the lock) when the entry left the cache while creation was still running.</summary>
         public bool Retired { get; set; }
+
+        /// <summary>
+        /// Set when a synchronous creation found that the factory had been replaced by an asynchronous one. The refusal is for the
+        /// synchronous caller; an asynchronous caller that shared the entry starts over with the new factory.
+        /// </summary>
+        public bool SyncRefused { get; set; }
     }
 
     private readonly IServiceProvider _provider;
@@ -117,16 +123,15 @@ public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable
 
         if (_registry.IsAsyncOnly(resolved))
         {
-            throw new InvalidOperationException(
-                $"Driver '{resolved}' is registered with an asynchronous factory and has not been created yet. " +
-                "Use DriverAsync to create it.");
+            throw AsyncOnlyNotCreated(resolved, inner: null);
         }
 
-        var entry = GetOrStart(resolved);
+        var entry = GetOrStart(resolved, synchronous: true);
         try
         {
-            // Sync factories complete inline; a concurrent sync creator is awaited briefly. No sync-over-async here:
-            // async-only factories were rejected above.
+            // Sync factories complete inline; a concurrent sync creator is awaited briefly. The creation above goes through
+            // IDriverRegistry.Create, which reads the registered factory once and refuses an asynchronous one, so a factory that was
+            // replaced by an asynchronous one after the check above cannot make this wait on asynchronous work.
             return entry.Task.GetAwaiter().GetResult();
         }
         catch when (entry.Task.IsFaulted || entry.Task.IsCanceled)
@@ -149,15 +154,24 @@ public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         var resolved = ResolveName(name);
-        var entry = GetOrStart(resolved);
-        try
+        while (true)
         {
-            return await entry.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch when (entry.Task.IsFaulted || entry.Task.IsCanceled)
-        {
-            Evict(resolved, entry);
-            throw;
+            var entry = GetOrStart(resolved, synchronous: false);
+            try
+            {
+                return await entry.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch when (entry.Task.IsFaulted || entry.Task.IsCanceled)
+            {
+                Evict(resolved, entry);
+                if (!entry.SyncRefused)
+                {
+                    throw;
+                }
+
+                // A synchronous caller created this entry and found that the factory had just been replaced by an asynchronous one.
+                // That refusal is for it, not for this caller, so start over: the next entry uses the new factory.
+            }
         }
     }
 
@@ -297,7 +311,7 @@ public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable
         return resolved;
     }
 
-    private Entry GetOrStart(string name)
+    private Entry GetOrStart(string name, bool synchronous)
     {
         Entry entry;
         lock (_gate)
@@ -313,16 +327,39 @@ public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable
         }
 
         // Runs synchronously until the first real await, so sync factories finish before this returns.
-        _ = RunCreationAsync(name, entry);
+        _ = RunCreationAsync(name, entry, synchronous);
         return entry;
     }
 
-    private async Task RunCreationAsync(string name, Entry entry)
+    private static InvalidOperationException AsyncOnlyNotCreated(string name, Exception? inner) =>
+        new(
+            $"Driver '{name}' is registered with an asynchronous factory and has not been created yet. Use DriverAsync to create it.",
+            inner);
+
+    // The registry reads the registered factory once and throws if it is asynchronous. That can only happen here when the factory was
+    // replaced after the caller's IsAsyncOnly check: the caller gets the same exception as for an asynchronous-only driver, and
+    // asynchronous callers that shared the entry are told to start over (see DriverAsync).
+    private TDriver CreateSynchronously(string name, Entry entry)
+    {
+        try
+        {
+            return _registry.Create(name, _provider);
+        }
+        catch (InvalidOperationException ex) when (_registry.IsAsyncOnly(name))
+        {
+            entry.SyncRefused = true;
+            throw AsyncOnlyNotCreated(name, ex);
+        }
+    }
+
+    private async Task RunCreationAsync(string name, Entry entry, bool synchronous)
     {
         TDriver driver;
         try
         {
-            driver = await _registry.CreateAsync(name, _provider, _lifetime.Token).ConfigureAwait(false);
+            driver = synchronous
+                ? CreateSynchronously(name, entry)
+                : await _registry.CreateAsync(name, _provider, _lifetime.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException ex)
         {

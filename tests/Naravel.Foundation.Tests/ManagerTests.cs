@@ -230,6 +230,65 @@ public class ManagerTests
     }
 
     [Fact]
+    public async Task Sync_api_does_not_wait_for_a_factory_that_became_asynchronous_after_the_check()
+    {
+        var registry = new InterceptingRegistry(new DriverRegistry<IFakeDriver>());
+        registry.Register("a", _ => new FakeDriver("sync"));
+        var manager = new FakeManager(TestKit.EmptyProvider, registry, new FakeOptionsMonitor<ManagerOptions>(TestKit.Options("a")));
+        var release = new TaskCompletionSource();
+
+        // Another thread replaces the factory with an asynchronous one right after Driver() has seen a synchronous one. Driver()
+        // used to read the factory again to create the driver, found the asynchronous one and waited for it.
+        registry.AfterIsAsyncOnly = name => registry.Register(name, async (sp, ct) =>
+        {
+            await release.Task;
+            return new FakeDriver("async");
+        });
+
+        var call = Task.Run(() => manager.Driver("a"));
+        var returned = Task.WaitAny([call], TimeSpan.FromSeconds(5)) == 0; // unlike call.Wait, this does not throw for a faulted call
+        release.TrySetResult(); // lets a blocked call go on, so a failure here does not leave a thread waiting
+
+        returned.Should().BeTrue("the synchronous API must not wait for an asynchronous factory");
+        Action act = () => call.GetAwaiter().GetResult();
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("Driver 'a' is registered with an asynchronous factory and has not been created yet. Use DriverAsync to create it.");
+
+        // The refusal is not cached: the asynchronous API builds the driver from the new factory, and the sync API then returns it.
+        var created = await manager.DriverAsync("a");
+        created.Id.Should().Be("async");
+        manager.Driver("a").Should().BeSameAs(created);
+    }
+
+    [Fact]
+    public async Task An_async_caller_that_joined_a_refused_synchronous_creation_gets_the_driver_of_the_new_factory()
+    {
+        var registry = new InterceptingRegistry(new DriverRegistry<IFakeDriver>());
+        registry.Register("a", _ => new FakeDriver("sync"));
+        var manager = new FakeManager(TestKit.EmptyProvider, registry, new FakeOptionsMonitor<ManagerOptions>(TestKit.Options("a")));
+        Task<IFakeDriver>? joiner = null;
+
+        // Driver() has put its entry in the cache and is about to create. An asynchronous caller joins that entry, and the factory is
+        // replaced by an asynchronous one. The refusal belongs to the synchronous caller; the joiner used to receive it too.
+        registry.BeforeCreate = name =>
+        {
+            joiner = manager.DriverAsync(name).AsTask();
+            registry.Register(name, async (sp, ct) =>
+            {
+                await Task.Yield();
+                return new FakeDriver("async");
+            });
+        };
+
+        Action act = () => manager.Driver("a");
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*Use DriverAsync*");
+        var created = await joiner!;
+        created.Id.Should().Be("async");
+        manager.Driver("a").Should().BeSameAs(created);
+    }
+
+    [Fact]
     public async Task Sync_api_returns_an_async_driver_once_it_has_been_created()
     {
         var h = new ManagerHarness();

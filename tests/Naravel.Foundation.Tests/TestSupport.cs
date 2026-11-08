@@ -78,6 +78,53 @@ internal sealed class FakeOptionsMonitor<T>(T initial) : IOptionsMonitor<T>
     }
 }
 
+/// <summary>
+/// Wraps a registry so that a test can act "on another thread" at an exact point of the manager's check-then-create sequence:
+/// <see cref="AfterIsAsyncOnly"/> runs once, right after the manager has asked whether a driver is asynchronous-only, and
+/// <see cref="BeforeCreate"/> runs once, right before the manager asks for a synchronous creation.
+/// </summary>
+internal sealed class InterceptingRegistry(DriverRegistry<IFakeDriver> inner) : IDriverRegistry<IFakeDriver>
+{
+    public Action<string>? AfterIsAsyncOnly { get; set; }
+
+    public Action<string>? BeforeCreate { get; set; }
+
+    public event Action<string>? Registered
+    {
+        add => inner.Registered += value;
+        remove => inner.Registered -= value;
+    }
+
+    public IReadOnlyCollection<string> Names => inner.Names;
+
+    public void Register(string name, Func<IServiceProvider, IFakeDriver> factory) => inner.Register(name, factory);
+
+    public void Register(string name, Func<IServiceProvider, CancellationToken, ValueTask<IFakeDriver>> factory) =>
+        inner.Register(name, factory);
+
+    public bool IsRegistered(string name) => inner.IsRegistered(name);
+
+    public bool IsAsyncOnly(string name)
+    {
+        var result = inner.IsAsyncOnly(name);
+        var hook = AfterIsAsyncOnly;
+        AfterIsAsyncOnly = null;
+        hook?.Invoke(name);
+        return result;
+    }
+
+    public IFakeDriver Create(string name, IServiceProvider provider)
+    {
+        var hook = BeforeCreate;
+        BeforeCreate = null;
+        hook?.Invoke(name);
+        return inner.Create(name, provider);
+    }
+
+    public ValueTask<IFakeDriver> CreateAsync(string name, IServiceProvider provider, CancellationToken cancellationToken = default) =>
+        inner.CreateAsync(name, provider, cancellationToken);
+}
+
 internal static class TestKit
 {
     public static readonly IServiceProvider EmptyProvider = new ServiceCollection().BuildServiceProvider();
