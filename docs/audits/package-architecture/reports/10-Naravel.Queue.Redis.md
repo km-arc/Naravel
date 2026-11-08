@@ -51,9 +51,10 @@
 - Regression tests required: pre-cancelled token throws before any Redis request; normal size still returns ready+delayed count; cancellation semantics for in-flight commands are covered according to owner decision AD-020.
 - Public API / PDR / release impact: implementation correction and cancellation-contract clarification; no public API change.
 
-### [P2] RQR-003 — FailScript writes an additional failed list that has no read or removal path
+### [OBS — OWNER DECISION] RQR-003 — FailScript writes an additional failed list with no public read or removal path
 
 - Remediation state: OPEN — OWNER DECISION.
+- Architecture disposition: not vetoed; the Queue contract explicitly allows a driver-native failed queue in addition to IFailedJobStore. The missing inspection/retention contract needs owner clarification.
 - Evidence status: CONFIRMED BY SOURCE SEARCH AND CONTROL-FLOW ANALYSIS.
 - Evidence: §src/Naravel.Queue.Redis/RedisQueueDriver.cs:68§ defines §FailedKey(queue)§ as §netqueue:{queue}:failed§. §FailScript§ at lines 160-171 removes the active message from the hash/reservation set and unconditionally §RPUSH§es the full serialized envelope onto this failed list. A repository-wide source search finds no code path that reads, trims or deletes this key. Separately, §RedisFailedJobStore§ stores failures in its own hash (default §netqueue:failed-jobs§) and supports List/Forget/Flush. The NuGet README says applications should add §AddRedisFailedJobStore()§ to make the FailedJobManager list persistent.
 - Affected contract: terminal failure storage/retention for Redis queue messages, with or without the optional RedisFailedJobStore.
@@ -138,7 +139,8 @@
 ## Risk summary and next action
 
 - P1: none established in this package review.
-- P2: RQR-001 (AV-012), RQR-002 (SizeAsync cancellation), RQR-003 (unreadable/unbounded failed list), RQR-004 (partial batch index registration).
+- P2: RQR-001 (AV-012), RQR-002 (SizeAsync cancellation), RQR-004 (partial batch index registration).
+- OBS / owner decision: RQR-003 (driver-native failed-list inspection/retention contract).
 - OBS / owner decisions: RQR-005 (batch retention), RQR-006 (in-flight cancellation semantics).
 - DOC: RQR-007 (explicit Redis Cluster non-support on package page).
 - Recommended next task: obtain AD-018 through AD-020; add tests for positive visibility, SizeAsync cancellation and the registration failure boundary; then decide whether to remove/expose the per-queue failed list and implement a safe batch history retention policy. Do not change runtime code or the Redis key layout during this audit pass.
