@@ -42,3 +42,9 @@
 ## Owner decision gate
 
 No owner decision is required for this provider adapter based on source inspection. Do not interpret this review as runtime verification or as closure of any roadmap stage.
+
+## Plain-language explanation of this review
+
+No source-level defect was found in the SQL Server connection adapter. In everyday terms, it creates a connection for each operation, opens it asynchronously, passes cancellation through, and returns it to the SQL Server library's connection pool when the operation finishes. It does not build a second connection pool of its own. The package also keeps SQL Server-specific types out of the shared Database core.
+
+We checked the source, package references and the tests intended for SQL Server. We did **not** build the project or run those tests against a live SQL Server. The statement “no source-level findings” must not be read as “all SQL Server runtime behavior has been proven.”
