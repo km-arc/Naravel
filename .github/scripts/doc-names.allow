@@ -18,6 +18,8 @@ name: AddSession                      # ASP.NET Core session
 name: AddDistributedMemoryCache       # Microsoft.Extensions.Caching.Memory
 name: AddStackExchangeRedisCache      # Microsoft.Extensions.Caching.StackExchangeRedis
 name: AddDataProtection               # ASP.NET Core data protection
+name: AddInMemoryCollection           # ConfigurationBuilder (Microsoft.Extensions.Configuration)
+name: AddLogging                      # IServiceCollection (Microsoft.Extensions.Logging)
 
 # --- Entity Framework Core ---------------------------------------------------------------------------------------------------
 name: AddDbContext                    # EF Core
