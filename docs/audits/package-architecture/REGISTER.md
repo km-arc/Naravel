@@ -27,7 +27,7 @@ Inventory: **36** packable source projects. There are 35 package pages in `docs/
 | 19 | `Naravel.Database.MySql` | `src/Naravel.Database.MySql/Naravel.Database.MySql.csproj` | `docs/nuget/Naravel.Database.MySql.md` | REVIEWED — NO SOURCE-LEVEL FINDINGS | [Report](reports/19-Naravel.Database.MySql.md) |
 | 20 | `Naravel.Database.Postgres` | `src/Naravel.Database.Postgres/Naravel.Database.Postgres.csproj` | `docs/nuget/Naravel.Database.Postgres.md` | REVIEWED — NO SOURCE-LEVEL FINDINGS | [Report](reports/20-Naravel.Database.Postgres.md) |
 | 21 | `Naravel.Database.SqlServer` | `src/Naravel.Database.SqlServer/Naravel.Database.SqlServer.csproj` | `docs/nuget/Naravel.Database.SqlServer.md` | REVIEWED — NO SOURCE-LEVEL FINDINGS | [Report](reports/21-Naravel.Database.SqlServer.md) |
-| 22 | `Naravel.Database.EntityFrameworkCore` | `src/Naravel.Database.EntityFrameworkCore/Naravel.Database.EntityFrameworkCore.csproj` | `docs/nuget/Naravel.Database.EntityFrameworkCore.md` | PENDING | — |
+| 22 | `Naravel.Database.EntityFrameworkCore` | `src/Naravel.Database.EntityFrameworkCore/Naravel.Database.EntityFrameworkCore.csproj` | `docs/nuget/Naravel.Database.EntityFrameworkCore.md` | REVIEWED WITH OBSERVATION | [Report](reports/22-Naravel.Database.EntityFrameworkCore.md): 1 OBS |
 | 23 | `Naravel.Pagination` | `src/Naravel.Pagination/Naravel.Pagination.csproj` | `docs/nuget/Naravel.Pagination.md` | PENDING | — |
 | 24 | `Naravel.Pagination.EntityFrameworkCore` | `src/Naravel.Pagination.EntityFrameworkCore/Naravel.Pagination.EntityFrameworkCore.csproj` | `docs/nuget/Naravel.Pagination.EntityFrameworkCore.md` | PENDING | — |
 | 25 | `Naravel.Encryption` | `src/Naravel.Encryption/Naravel.Encryption.csproj` | `docs/nuget/Naravel.Encryption.md` | PENDING | — |
