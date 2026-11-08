@@ -67,7 +67,7 @@ public sealed class SyncInvoiceJob : Job, IHasJobMiddleware
 
 `POST /invoices/7/sync` answers `202 Accepted` with the message id, and the console shows `Syncing invoice 7` a moment later. If a second job for the same invoice arrives while the first one runs, `WithoutOverlapping` does not run it beside the first: it hands the job back to the queue, and the worker tries it again 10 seconds later. More than 60 jobs in a minute are held back by `RateLimited` in the same way.
 
-The memory queue and the memory Cache live inside the process, so this setup coordinates nothing between processes. To coordinate several workers, add `AddNaravelRedisCache(...)` after `AddNaravelCache(...)` and make `redis` the default Cache store, as the [Cache guide](cache.md) shows; the queue can stay on any driver that can delay a job. `AddQueueCoordination(rateLimiterStore)` takes the name of the Cache store that counts `RateLimited` attempts (the default store when omitted), and it registers the rate limiter only if none is registered yet, so an earlier `AddNaravelRateLimiter(...)` wins. See [What is and is not guaranteed](#what-is-and-is-not-guaranteed).
+The memory queue and the memory Cache live inside the process, so this setup coordinates nothing between processes. To coordinate several workers, add `AddNaravelRedisCache(...)` after `AddNaravelCache(...)` and make `redis` the default Cache store, as the [Cache guide](cache.md) shows. The queue must also be a driver those processes share (the memory driver is per process, so jobs queued by one process are invisible to the workers of another) and one that can delay a job, which Kafka cannot; the [Queue guide](queue.md#packages) lists the drivers. `AddQueueCoordination(rateLimiterStore)` takes the name of the Cache store that counts `RateLimited` attempts (the default store when omitted), and it registers the rate limiter only if none is registered yet, so an earlier `AddNaravelRateLimiter(...)` wins. See [What is and is not guaranteed](#what-is-and-is-not-guaranteed).
 
 ## Why this exists
 
@@ -187,12 +187,12 @@ Rules and limits:
 
 ## What goes into the Cache
 
-The middleware only give names to the Cache. These are the names, so you can find them in Redis or clear one by hand.
+These are the names the middleware use in the Cache, so you can find them in Redis. The rate limiter does not keep its name as a key: see its row.
 
 | Used by | Name given to the Cache | Kept in |
 |---|---|---|
 | `WithoutOverlapping(key)` | `naravel:queue:overlap:{key}` | the lock |
-| `RateLimited(limiter, ...)` | `naravel:queue:limiter:{limiter}`; the limiter adds the subject and the window itself | the rate limiter |
+| `RateLimited(limiter, ...)` | the limiter is named `naravel:queue:limiter:{limiter}`; the Cache holds `rate-limit:{digest}:count`, `rate-limit:{digest}:started` and `rate-limit:{digest}:lock`, where `{digest}` is the SHA-256 (hex) of that name and the subject, so the names cannot be read back; to clear one subject call `IRateLimiter.ClearAsync` with the limiter name above and the subject | the store and the lock |
 | `ThrottlesExceptions` | `naravel:queue:throttle:{key}:count` and `naravel:queue:throttle:{key}:open`, where `{key}` is the `key:` you pass or the job type | the store |
 | `IUniqueJob` | `naravel:queue:unique:{key}` and `naravel:queue:unique:{key}:owner` (the message id and the lock token, separated by a vertical bar) | the lock and the store |
 
@@ -248,7 +248,8 @@ The middleware only give names to the Cache. These are the names, so you can fin
 | When | What happens |
 |---|---|
 | `WithoutOverlapping` finds the lock taken, `RateLimited` is over its limit, or the `ThrottlesExceptions` circuit is open | Not an error. The job is released and runs again later, uses up no attempt, and is dropped instead only for `WithoutOverlapping` after `DontRelease()`. |
-| A middleware needs a service that is not registered | The container's own `InvalidOperationException` fails the job. `WithoutOverlapping` needs `ICacheLock` and `ThrottlesExceptions` needs `ICacheStore`, both from `AddNaravelCache(...)`; `RateLimited` needs `IRateLimiter`, which `AddQueueCoordination()` (or `AddNaravelRateLimiter()`) registers. |
+| A middleware needs a service that is not registered | The container's own `InvalidOperationException`, thrown while the job runs. The worker treats it like any exception from a job: it retries the job under its `MaxAttempts` and `Backoff`, and moves it to the failed jobs when the attempts are used up, so the missing registration shows as repeated failures first. `WithoutOverlapping` needs `ICacheLock` and `ThrottlesExceptions` needs `ICacheStore`, both from `AddNaravelCache(...)`; `RateLimited` needs `IRateLimiter`, which `AddQueueCoordination()` (or `AddNaravelRateLimiter()`) registers. |
+| `RateLimited` cannot take the rate limiter's own lock for its limiter and subject within 5 seconds | `TimeoutException`: `Could not acquire the cache rate-limit lock within the configured wait period.` Handled like the row above. |
 
 `QueueFake` throws its own `ArgumentException` for a unique job in a chain, shorter than the real dispatcher's: `BuildReportJob implements IUniqueJob and cannot be part of a chain.` (parameter `jobs`).
 
