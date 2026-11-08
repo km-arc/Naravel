@@ -179,3 +179,8 @@ The original PDR decisions remain historical implementation context and do not w
 - **AV-018:** transaction disposal must release its owned connection lease even if provider transaction disposal fails.
 
 See [the architecture veto register](../../audits/package-architecture/ARCHITECTURE-VETOES.md), [the Database review report](../../audits/package-architecture/reports/17-Naravel.Database.md) and [owner decisions](../../audits/package-architecture/OWNER-DECISIONS.md). No runtime fix or public API change is authorized by this audit entry.
+
+
+## SQLite provider architecture review veto — 2026-11-08
+
+**AV-019:** all in-memory SQLite connection definitions must be normalized to a unique internal named shared-cache database, held alive by the driver keeper. The current implementation only does this for the literal `:memory:` data source; a named `Mode=Memory` configuration can instead create one private database per operation, or share a named shared-cache database across two Naravel connection definitions. See [SQL-001](../../audits/package-architecture/reports/18-Naravel.Database.Sqlite.md) and the [architecture veto register](../../audits/package-architecture/ARCHITECTURE-VETOES.md). This is a target requirement, not authorization to change the provider implementation.
