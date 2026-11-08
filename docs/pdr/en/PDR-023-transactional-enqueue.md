@@ -51,3 +51,10 @@ An outbox for Redis, Kafka and RabbitMQ (a separate table and relay that publish
 ## Verification
 
 Tests on SQLite: committed together (job visible to the driver only after `SaveChanges`), rolled back together (no job), explicit transaction rollback, delay and queue options honoured, unique job rejected, unmapped context fails clearly. EN/FA docs and changelog updated.
+
+
+## Architecture review follow-up — 2026-11-08
+
+The implementation currently builds the stored envelope through the ordinary `IJobMessageFactory`, which copies `Job.Connection`, `DispatchOptions.OnConnection` or the QueueManager default into `QueuedMessage.Connection`. This contradicts the Contract above that Connection is ignored for transactional enqueue. The persisted value is later used by chain continuation and FailedJobManager retry, so a transactional row can be consumed by a Database worker but route follow-up/retry work to a different backend.
+
+This gap is recorded as **DBQ-003** in the [Database queue review](../../audits/package-architecture/reports/09-Naravel.Queue.Database.md). The owner must choose how the enqueuer binds a transaction to the exact named Database queue connection under [AD-015](../../audits/package-architecture/OWNER-DECISIONS.md) before an implementation/API change is made. No corrective runtime change is authorized by this audit entry.
