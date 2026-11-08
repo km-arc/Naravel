@@ -88,3 +88,12 @@ See [OWNER-DECISIONS.md](OWNER-DECISIONS.md). MCD-011 is intentionally an observ
 | QUE-005 | Naravel.Queue | OBS | Queue runtime uses direct wall-clock reads/delays instead of injected TimeProvider | OPEN — OWNER DECISION | [Report](reports/06-Naravel.Queue.md) |
 
 Owner decisions AD-009 through AD-013 are recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md). No public API or runtime change is implied.
+
+
+## Naravel.Queue.Memory
+
+| Finding | Package | Severity | Summary | State | Evidence |
+|---|---|---:|---|---|---|
+| MEM-001 | Naravel.Queue.Memory | P2 | Static queue/lock entries and failed envelopes have no bounded reclamation lifecycle (AV-010) | OPEN | [Report](reports/07-Naravel.Queue.Memory.md) |
+| MEM-002 | Naravel.Queue.Memory | P2 | All six driver operations ignore their CancellationToken | OPEN | [Report](reports/07-Naravel.Queue.Memory.md) |
+| MEM-003 | Naravel.Queue.Memory | DOC | Constructor XML incorrectly says state is private to one driver instance | OPEN | [Report](reports/07-Naravel.Queue.Memory.md) |
