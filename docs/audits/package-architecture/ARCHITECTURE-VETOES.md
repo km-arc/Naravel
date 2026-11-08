@@ -1,14 +1,14 @@
 # Architecture Vetoes — target production architecture
 
 Date: 2026-11-08  
-Revalidation baseline: main at 44e957ca3db6d9f15665fc8fa070f70522c163c9  
-Scope: the five reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.Redis, Naravel.Cache.Redis and Naravel.Cache.Memcached.
+Current main baseline: c0aa29b4743760d879c0dc1041f5669e92f5b592  
+Scope: the eight reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.Redis, Naravel.Cache.Redis, Naravel.Cache.Memcached, Naravel.Queue, Naravel.Queue.Memory and Naravel.Queue.File.
 
 ## Disposition
 
 This is a principal-architect decision, not a suggestion list. Some of the designs below were explicitly approved in earlier PDRs and documented as intentional limitations. That historical approval explains the implementation; it does not make the trade-off safe or acceptable as the target architecture for a reliable, isolated and scalable platform.
 
-**AV-001 and AV-002 are P1 release blockers. AV-003 through AV-010 are mandatory P2 architecture work.** None is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
+**AV-001, AV-002 and AV-011 are P1 release blockers. AV-003 through AV-010 are mandatory P2 architecture work.** None is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
 
 A veto does not authorize an uncontrolled runtime/API/dependency change. Remediation must be a separate, scoped task with an updated PDR where required. An old PDR approval alone is not a valid reason to move a veto to ACCEPTED RISK.
 
@@ -108,17 +108,27 @@ A veto does not authorize an uncontrolled runtime/API/dependency change. Remedia
 
 ### AV-010 — P2: In-process queue state must have a bounded lifetime
 
-**Affected finding:** MEM-001.
+**Affected findings:** MEM-001, FILE-002.
 
-**Why this is vetoed:** `MemoryQueueDriver` keeps queue lists, per-queue lock objects and failed message envelopes in static dictionaries for the lifetime of the process. Empty/misspelled queue probes allocate permanent list/lock entries; every terminal failure retains its full message payload in a private dictionary that has no read or removal path. The driver already has a separate `IFailedJobStore` at the worker layer, so the private failed copy is not an observable recovery interface.
+**Why this is vetoed:** `MemoryQueueDriver` keeps queue lists, per-queue lock objects and failed message envelopes in static dictionaries for the lifetime of the process. Empty/misspelled queue probes allocate permanent list/lock entries; every terminal failure retains its full message payload in a private dictionary that has no read or removal path. `FileQueueDriver` also keeps a static `QueueGates` dictionary of `SemaphoreSlim` instances keyed by full root path and queue name, with no reclamation/disposal path. These process-local coordination tables grow for every distinct queue/root pair and persist for the process lifetime.
 
-**Required target design:** preserve the documented sharing of same-name Memory connections within one process, but ensure empty queue/lock entries and failed-message state have a safe, bounded lifecycle. Do not remove a lock while a concurrent operation may still be using it. Remove the inaccessible duplicate failed store or define an explicit, bounded inspection/removal contract.
+**Required target design:** preserve the documented sharing of same-name Memory connections within one process and File-driver coordination for the same physical queue path, but ensure empty queue/lock/gate entries and failed-message state have a safe, bounded lifecycle. Do not remove/dispose a gate while a concurrent operation may still be using it. Remove the inaccessible duplicate Memory failed store or define an explicit, bounded inspection/removal contract.
 
-**Required proof:** high-cardinality queue probe and terminal-failure tests demonstrate state reclamation; concurrent pop/ack/cleanup tests prove no duplicate reservation or lost message; two driver instances with the same connection name still share their queue correctly.
+**Required proof:** high-cardinality queue/root probe and terminal-failure tests demonstrate state reclamation; concurrent pop/ack/cleanup tests prove no duplicate reservation or lost message; two Memory driver instances with the same connection name and File driver instances sharing the same root/queue still coordinate correctly.
+
+### AV-011 — P1: File queue names must not escape or alias the configured root
+
+**Affected finding:** FILE-001.
+
+**Why this is vetoed:** `FileQueueDriver.Sanitize` deletes invalid filename characters rather than validating or injectively encoding queue names. The dot-segment name `..` survives unchanged, so combining it with the configured base path and the `pending`, `reserved` or `failed` suffix can write outside that root. Different logical names can also collapse to the same sanitized directory (for example, a slash-containing name and the name without the slash). This breaks filesystem containment and queue namespace isolation.
+
+**Required target design:** every accepted queue name must map injectively to one directory component under a canonicalized base root. Reject unsafe names or use an injective encoding; prove the final path remains below the configured root. Do not delete characters and assume that the result is safe. The compatibility/migration policy for existing on-disk queue directories is owner decision AD-014.
+
+**Required proof:** path traversal, rooted-path, dot-segment and colliding-name tests on Windows and Linux; prove all accepted directories remain inside the base root and distinct accepted queue names cannot read or settle each other's messages.
 
 ## Historical PDR decisions explicitly vetoed
 
-- PDR-007: cluster-wide Memcached flush (AV-001), non-atomic Memcached lock release and fixed rate-limit lock lease (AV-002), single shared Memcached pool (AV-005), blocking counter workaround (AV-004), unbounded tag version keys (AV-003), limiter-only Cache telemetry and high-cardinality limiter tags (AV-007); batch dispatch that can leave permanently-pending partial batches (AV-009); unbounded static Memory queue/lock/failed state (AV-010).
+- PDR-007: cluster-wide Memcached flush (AV-001), non-atomic Memcached lock release and fixed rate-limit lock lease (AV-002), single shared Memcached pool (AV-005), blocking counter workaround (AV-004), unbounded tag version keys (AV-003), limiter-only Cache telemetry and high-cardinality limiter tags (AV-007); batch dispatch that can leave permanently-pending partial batches (AV-009); unbounded static Memory queue/lock/failed state and File gate table (AV-010); unsafe File queue path mapping (AV-011).
 - PDR-010 / D-66: synchronous first Redis connection (AV-004).
 
 The PDRs retain their original approval text as historical context and append the veto disposition. They must not be read as approval to ship these constraints as the final production architecture.
@@ -129,7 +139,7 @@ The PDRs retain their original approval text as historical context and append th
 - Test changes or tests run: none.
 - Build/CI: NOT RUN.
 - Vetoes cleared: none.
-- Next gate: obtain owner decisions AD-001 through AD-012, then create a prioritized remediation stage for AV-001 and AV-002 first and schedule AV-003 through AV-008. Do not mark the architecture accepted for production until the required verification evidence is present.
+- Next gate: obtain owner decisions AD-001 through AD-014, then create a prioritized remediation stage for AV-001, AV-002 and AV-011 first and schedule AV-003 through AV-010. Do not mark the architecture accepted for production until the required verification evidence is present.
 
 
 ## Owner decisions pending — not architecture vetoes
