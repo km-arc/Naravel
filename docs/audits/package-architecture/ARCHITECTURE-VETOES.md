@@ -2,7 +2,7 @@
 
 Date: 2026-11-08  
 Current main baseline: c6a7d58ffb84d885741998bb32d2082c54c4ab61  
-Scope: the nineteen reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.Redis, Naravel.Cache.Redis, Naravel.Cache.Memcached, Naravel.Queue, Naravel.Queue.Memory, Naravel.Queue.File, Naravel.Queue.Database, Naravel.Queue.Redis, Naravel.Queue.Coordination, Naravel.Queue.Encryption, Naravel.Events, Naravel.Events.Queue, Naravel.Database, Naravel.Database.Sqlite, Naravel.Database.MySql, Naravel.Database.Postgres and Naravel.Database.SqlServer.
+Scope: the twenty reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.Redis, Naravel.Cache.Redis, Naravel.Cache.Memcached, Naravel.Queue, Naravel.Queue.Memory, Naravel.Queue.File, Naravel.Queue.Database, Naravel.Queue.Redis, Naravel.Queue.Coordination, Naravel.Queue.Encryption, Naravel.Events, Naravel.Events.Queue, Naravel.Database, Naravel.Database.Sqlite, Naravel.Database.MySql, Naravel.Database.Postgres, Naravel.Database.SqlServer and Naravel.Database.EntityFrameworkCore.
 
 ## Disposition
 
