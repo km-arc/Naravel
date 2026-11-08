@@ -204,3 +204,40 @@ This register separates **architectural recommendations** from **owner-approved 
 **Architect recommendation:** require a strictly positive timeout for reclaim-capable drivers. Drivers that do not implement visibility reclaim should report `null`.
 
 **Status:** WAITING FOR OWNER.
+
+
+## AD-018 — Redis Queue driver's native failed list
+
+**Observed source behavior:** `RedisQueueDriver.FailScript` pushes each terminal message envelope onto `netqueue:{queue}:failed`. No RedisQueueDriver API reads or removes this list. The optional `RedisFailedJobStore` stores the same failed envelope separately in a hash and provides the public List/Forget/Flush operations. The core `IFailedJobStore` contract describes its records as a secondary record independent of driver-native failed queues.
+
+**Decision required:** is the per-queue list intended as an administrative dead-letter list to be inspected/managed with Redis tooling, or is it obsolete duplicate storage that should be removed in favor of `IFailedJobStore`?
+- A. Keep it as a native Redis DLQ, document the exact key format and administrative inspection/cleanup path, and define its retention.
+- B. Remove it and rely on `IFailedJobStore` as the supported failed-job source of truth.
+- C. Expose it through a supported Redis-specific administrative API and make its cleanup semantics explicit.
+
+**Architect recommendation:** A only if the native DLQ is a deliberate user-facing capability and its lifecycle is documented; otherwise B avoids duplicate unbounded payload retention.
+
+**Status:** WAITING FOR OWNER.
+
+## AD-019 — Persistent queue batch history retention
+
+**Observed source behavior:** `RedisBatchRepository` adds every batch ID to a persistent index set and has no Forget/Delete/Prune API. `ResumePendingCallbacksAsync` scans every ID on every worker startup, including historical batches whose callbacks are already complete. DatabaseBatchRepository likewise retains completed batch records with no repository-level removal method.
+
+**Decision required:** choose whether batch history is retained indefinitely by design, or define an application-controlled retention/pruning contract and a minimum audit-history duration.
+
+**Architect recommendation:** expose an explicit prune/delete operation with an age/terminal-state policy; never delete unfinished batches or batches with incomplete callback progress. Avoid a blind TTL on the hash while leaving the index entry behind.
+
+**Status:** WAITING FOR OWNER.
+
+## AD-020 — Cancellation semantics for in-flight Redis commands
+
+**Observed source behavior:** Queue Redis, RedisBatchRepository and RedisFailedJobStore check the token before issuing commands, but StackExchange.Redis operations do not accept a CancellationToken. Once a mutating command is sent, the server may apply it even if the caller has cancelled.
+
+**Decision required:**
+- A. Define cancellation as a preflight check only after a command is issued; the command is awaited to learn its outcome and may complete despite a later cancellation request.
+- B. Cancel only the caller's wait with `WaitAsync(token)`, explicitly documenting that the server-side operation can still complete and the outcome is indeterminate.
+- C. Another explicit contract with equivalent handling of the uncertain outcome of an already-sent mutation.
+
+**Architect recommendation:** A for queue mutations; a cancelled wait that hides whether Push/Ack/Release/Fail actually completed can trigger unsafe duplicate retries. Check cancellation before each separate command and use atomic scripts/transactions for multi-command state changes where possible. Document that an already-sent Redis command cannot be rolled back by a caller token.
+
+**Status:** WAITING FOR OWNER.
