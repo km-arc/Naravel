@@ -5,9 +5,47 @@ Decision record: [PDR-012b](../pdr/en/PDR-012b-queue-coordination-middleware.md)
 
 ## Quickstart
 
+The shortest working setup: one job with two middleware, the memory queue, the memory Cache and one in-process worker. Nothing outside the process is needed, so you can try everything on this page before choosing Redis.
+
+```sh
+dotnet add package Naravel.Queue.Coordination
+dotnet add package Naravel.Queue.Memory
+```
+
+`Naravel.Queue.Coordination` brings `Naravel.Queue` and `Naravel.Cache` with it. `Naravel.Queue` itself never references Cache, so queue-only users do not pull it in.
+
+```json
+{
+  "NaravelQueue": {
+    "Default": "local",
+    "Stores": { "local": { "Driver": "memory" } }
+  }
+}
+```
+
 ```csharp
-builder.Services.AddNaravelCache(builder.Configuration);   // add AddNaravelRedisCache(...) when several processes run workers
-builder.Services.AddQueueCoordination();
+using Naravel.Queue.Coordination;
+using Naravel.Queue.Dispatch;
+using Naravel.Queue.Extensions;
+using Naravel.Queue.Jobs;
+using Naravel.Queue.Memory;
+using Naravel.Queue.Middleware;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddNaravelCache(builder.Configuration);   // no "Cache" section: a memory store and a memory lock
+builder.Services.AddQueue(builder.Configuration).AddMemoryDriver(builder.Configuration);
+builder.Services.AddQueueCoordination();                   // the middleware read the lock, the store and the rate limiter from here
+builder.Services.AddQueueWorker();
+
+var app = builder.Build();
+
+app.MapPost("/invoices/{id:int}/sync", async (int id, IJobDispatcher jobs, CancellationToken ct) =>
+{
+    var messageId = await jobs.DispatchAsync(new SyncInvoiceJob { InvoiceId = id }, cancellationToken: ct);
+    return Results.Accepted(value: new { id = messageId });
+});
+
+app.Run();
 
 public sealed class SyncInvoiceJob : Job, IHasJobMiddleware
 {
@@ -18,11 +56,18 @@ public sealed class SyncInvoiceJob : Job, IHasJobMiddleware
         new RateLimited("billing-api", maxAttempts: 60, window: TimeSpan.FromMinutes(1)),
         new WithoutOverlapping($"invoice:{InvoiceId}")
     };
+
+    public override Task HandleAsync(JobContext context, CancellationToken cancellationToken)
+    {
+        Console.WriteLine($"Syncing invoice {InvoiceId}");
+        return Task.CompletedTask;
+    }
 }
 ```
 
-Install `Naravel.Queue.Coordination`. It depends on `Naravel.Queue` and `Naravel.Cache`; `Naravel.Queue` itself never references Cache, so
-queue-only users do not pull it in.
+`POST /invoices/7/sync` answers `202 Accepted` with the message id, and the console shows `Syncing invoice 7` a moment later. If a second job for the same invoice arrives while the first one runs, `WithoutOverlapping` does not run it beside the first: it hands the job back to the queue, and the worker tries it again 10 seconds later. More than 60 jobs in a minute are held back by `RateLimited` in the same way.
+
+The memory queue and the memory Cache live inside the process, so this setup coordinates nothing between processes. To coordinate several workers, add `AddNaravelRedisCache(...)` after `AddNaravelCache(...)` and make `redis` the default Cache store, as the [Cache guide](cache.md) shows; the queue can stay on any driver that can delay a job. `AddQueueCoordination(rateLimiterStore)` takes the name of the Cache store that counts `RateLimited` attempts (the default store when omitted), and it registers the rate limiter only if none is registered yet, so an earlier `AddNaravelRateLimiter(...)` wins. See [What is and is not guaranteed](#what-is-and-is-not-guaranteed).
 
 ## Why this exists
 
@@ -36,7 +81,7 @@ from a class name.
 | Middleware | What it does | When it cannot run the job |
 |---|---|---|
 | `WithoutOverlapping(key)` | one job per key at a time | releases the job and tries again after `ReleaseAfter(...)` (default 10 s), or drops it with `DontRelease()` |
-| `RateLimited(limiter, max, window, subject)` | at most `max` jobs per `window` for the subject | releases the job until the window ends |
+| `RateLimited(limiter, max, window, subject)` | at most `max` jobs per `window` for the subject | releases the job for the time the limiter reports as left (one second when it reports none) |
 | `ThrottlesExceptions(max, window, backoff)` | after `max` exceptions inside `window`, stops running that kind of job for `backoff` | releases the job without running it |
 
 **Release and skip.** A middleware that does not call `next` must say what happens to the job. *Release* hands the job back to its queue after
@@ -85,7 +130,7 @@ type share a circuit; pass `key:` to choose another.
 This is Laravel's `ShouldBeUnique`.
 
 ```csharp
-public class BuildReportJob : Job, IUniqueJob
+public sealed class BuildReportJob : Job, IUniqueJob
 {
     public int ReportId { get; set; }
 
@@ -93,10 +138,11 @@ public class BuildReportJob : Job, IUniqueJob
     public TimeSpan UniqueFor => TimeSpan.FromMinutes(10);     // safety net only (default 1 hour)
     // public bool UniqueUntilProcessing => true;              // optional, see below
 
-    public override Task HandleAsync(JobContext context, CancellationToken cancellationToken) { /* ... */ }
+    public override Task HandleAsync(JobContext context, CancellationToken cancellationToken) => Task.CompletedTask;
 }
 
-var id = await dispatcher.DispatchAsync(new BuildReportJob { ReportId = 7 });
+// jobs is an IJobDispatcher, injected as in the quickstart
+var id = await jobs.DispatchAsync(new BuildReportJob { ReportId = 7 });
 if (id is null)
 {
     // an identical job is already waiting or running: nothing was queued
@@ -135,9 +181,20 @@ Rules and limits:
 |---|---|
 | A rejected dispatch returns `null` (owner decision 2026-10-13) | Laravel returns nothing for a rejected unique dispatch too; an exception would make a normal, expected event look like an error, and a made-up id would lie about a job that does not exist. |
 | The gate is an interface in `Naravel.Queue` (`IUniqueJobGate`), implemented in `Naravel.Queue.Coordination` | Queue-only users must not pull Cache (AGENTS.md rule 3). The core only knows "ask the gate"; the Cache lock stays in the adapter. |
-| The lock owner is the **message id** | The worker that releases the key knows the message id but not the lock token. Storing the token in the queued envelope would need a new column in every Database queue table. The adapter keeps `messageId|token` next to the lock instead, so no driver or schema changes. |
+| The lock owner is the **message id** | The worker that releases the key knows the message id but not the lock token. Storing the token in the queued envelope would need a new column in every Database queue table. The adapter keeps `messageId\|token` next to the lock instead, so no driver or schema changes. |
 | Throw when no gate is registered | A unique job that silently allows duplicates is worse than one that fails loudly on the first dispatch. |
 | Default `UniqueFor` of one hour | Laravel's default is "until the job finishes" with no bound, which turns one crashed worker into a permanently blocked key. A TTL bound is the safe default; raise it for long jobs. |
+
+## What goes into the Cache
+
+The middleware only give names to the Cache. These are the names, so you can find them in Redis or clear one by hand.
+
+| Used by | Name given to the Cache | Kept in |
+|---|---|---|
+| `WithoutOverlapping(key)` | `naravel:queue:overlap:{key}` | the lock |
+| `RateLimited(limiter, ...)` | `naravel:queue:limiter:{limiter}`; the limiter adds the subject and the window itself | the rate limiter |
+| `ThrottlesExceptions` | `naravel:queue:throttle:{key}:count` and `naravel:queue:throttle:{key}:open`, where `{key}` is the `key:` you pass or the job type | the store |
+| `IUniqueJob` | `naravel:queue:unique:{key}` and `naravel:queue:unique:{key}:owner` (the message id and the lock token, separated by a vertical bar) | the lock and the store |
 
 ## What is and is not guaranteed
 
@@ -153,10 +210,99 @@ Rules and limits:
 - On a driver that cannot delay (Kafka, see [PDR-012a](../pdr/en/PDR-012a-kafka-delay-and-retry.md)) a released job comes back immediately, so
   `WithoutOverlapping` and `RateLimited` would spin. Use a driver with delayed delivery for these middleware.
 
+## Errors
+
+**Setup.**
+
+| When | Exception or log and message |
+|---|---|
+| `AddQueueCoordination()` without a Cache lock and store, that is, without `AddNaravelCache(...)` | `InvalidOperationException`: `Naravel.Queue.Coordination needs a Cache lock and store. Call services.AddNaravelCache(configuration) (and a provider such as AddNaravelRedisCache for coordination across processes) before starting the host.` The container's own error is its `InnerException`. The worker takes the unique job gate as a constructor dependency, so a host with a worker fails while it builds its hosted services; the startup check fails the same way at the latest when the host starts. |
+| A Memory Cache lock or store together with a queue driver other than the memory one | A warning, not an exception, logged once at startup under the category `Naravel.Queue.Coordination`: `Naravel.Queue.Coordination is using a Memory cache lock/store with the RedisQueueDriver queue driver. Locks, rate limits and unique keys are then visible inside this process only, so several worker or web processes do not coordinate with each other.` and a hint to register a shared Cache store. The driver named is the queue driver's class. |
+
+**Middleware arguments.** Checked when the middleware object is built. .NET appends ` (Parameter 'name')` to the messages of the argument exceptions; the table leaves it out.
+
+| When | Exception and message |
+|---|---|
+| `new WithoutOverlapping(key)` with a null, empty or blank key | `ArgumentNullException` for null, `ArgumentException` otherwise; parameter `key` |
+| `ReleaseAfter` with a negative delay | `ArgumentOutOfRangeException`: `The delay cannot be negative.` |
+| `ExpireAfter` with zero or a negative lifetime | `ArgumentOutOfRangeException`: `The lock lifetime must be positive.` |
+| `RateLimited` with a blank `limiter` or `subject` | `ArgumentException`; parameter `limiter` or `subject` |
+| `RateLimited` with `maxAttempts` below 1 | `ArgumentOutOfRangeException`; parameter `maxAttempts` |
+| `RateLimited` or `ThrottlesExceptions` with a `window` of zero or less | `ArgumentOutOfRangeException`: `The window must be positive.` |
+| `ThrottlesExceptions` with `maxExceptions` below 1 | `ArgumentOutOfRangeException`; parameter `maxExceptions` |
+| `ThrottlesExceptions` with a `backoff` of zero or less | `ArgumentOutOfRangeException`: `The backoff must be positive.` |
+| `ThrottlesExceptions` with a `key` that is not null but blank | `ArgumentException`; parameter `key` |
+
+**Dispatching.**
+
+| When | Exception and message |
+|---|---|
+| An `IUniqueJob` without `AddQueueCoordination()` | `InvalidOperationException`: `BuildReportJob implements IUniqueJob, but no IUniqueJobGate is registered, so uniqueness cannot be enforced. Call services.AddQueueCoordination() (package Naravel.Queue.Coordination, which needs AddNaravelCache()).` |
+| An `IUniqueJob` in `Chain(...)` or `BatchAsync(...)` | `ArgumentException`, parameter `jobs`: `BuildReportJob implements IUniqueJob and cannot be part of a chain: a rejected duplicate would stall the sequence. Dispatch it on its own.` (`a batch` for a batch) |
+| An `IUniqueJob` whose `UniqueFor` is zero or negative | `ArgumentOutOfRangeException`: `The unique lock lifetime must be positive.` |
+| An `IUniqueJob` whose `UniqueKey` is empty | `ArgumentException`; parameter `key` |
+| A second dispatch of a unique job that is waiting or running | Not an error: `DispatchAsync` returns `null` and nothing is queued. |
+
+**Running.**
+
+| When | What happens |
+|---|---|
+| `WithoutOverlapping` finds the lock taken, `RateLimited` is over its limit, or the `ThrottlesExceptions` circuit is open | Not an error. The job is released and runs again later, uses up no attempt, and is dropped instead only for `WithoutOverlapping` after `DontRelease()`. |
+| A middleware needs a service that is not registered | The container's own `InvalidOperationException` fails the job. `WithoutOverlapping` needs `ICacheLock` and `ThrottlesExceptions` needs `ICacheStore`, both from `AddNaravelCache(...)`; `RateLimited` needs `IRateLimiter`, which `AddQueueCoordination()` (or `AddNaravelRateLimiter()`) registers. |
+
+`QueueFake` throws its own `ArgumentException` for a unique job in a chain, shorter than the real dispatcher's: `BuildReportJob implements IUniqueJob and cannot be part of a chain.` (parameter `jobs`).
+
+`tests/Naravel.Queue.Coordination.Tests/DocsExampleTests.cs` runs the quickstart, the unique job example and the setup, argument, dispatching and `QueueFake` messages above. The startup warning, the batch variant and the running errors come from the source and are not run there. Change one, change the other.
+
 ## Testing
 
-The middleware read the lock and limiter from the job's service provider, so tests can register a Memory Cache or a fake. The repository's tests run them
-through a real worker (`tests/Naravel.Queue.Coordination.Tests`), and a Redis test with two workers runs when `NARAVEL_TEST_REDIS` is set.
+**Run a job through a worker.** The middleware read the lock, the store and the rate limiter from the job's service provider, so a test needs the registration of the quickstart (memory Cache, memory queue, `AddQueueCoordination()`, a worker). It does not need ASP.NET Core: the test starts the hosted services itself, dispatches, and waits for the job. The job is the quickstart job with a static `TaskCompletionSource<int> Handled` that `HandleAsync` completes with `InvoiceId` instead of writing to the console.
 
-For unique jobs, `Naravel.Queue.Testing.QueueFake` mimics the gate: a second dispatch of the same `UniqueKey` returns `null` and is not recorded, and keys stay
-locked until `Reset()` because the fake never runs jobs. Use `AssertNotDispatched<TJob>()` and `AssertDispatchedCount<TJob>(n)` to check the outcome.
+```csharp
+[Fact]
+public async Task The_job_runs_through_its_middleware()
+{
+    var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+    {
+        ["NaravelQueue:Default"] = "local",
+        ["NaravelQueue:Stores:local:Driver"] = "memory",
+    }).Build();
+
+    var services = new ServiceCollection();
+    services.AddLogging();
+    services.AddNaravelCache(configuration);
+    services.AddQueue(configuration).AddMemoryDriver(configuration);
+    services.AddQueueCoordination();
+    services.AddQueueWorker();
+
+    await using var provider = services.BuildServiceProvider();
+    var hosted = provider.GetServices<IHostedService>().ToList();
+    foreach (var service in hosted) await service.StartAsync(CancellationToken.None);
+    try
+    {
+        SyncInvoiceJob.Handled = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await provider.GetRequiredService<IJobDispatcher>().DispatchAsync(new SyncInvoiceJob { InvoiceId = 7 });
+
+        Assert.Equal(7, await SyncInvoiceJob.Handled.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+    }
+    finally
+    {
+        foreach (var service in hosted) await service.StopAsync(CancellationToken.None);
+    }
+}
+```
+
+**Test unique jobs without a worker.** Build the same provider but do not start the hosted services: nothing takes the first job off the queue, so the second dispatch of the same key is rejected deterministically.
+
+```csharp
+var jobs = provider.GetRequiredService<IJobDispatcher>();
+
+var first = await jobs.DispatchAsync(new BuildReportJob { ReportId = 7 });       // a message id
+var duplicate = await jobs.DispatchAsync(new BuildReportJob { ReportId = 7 });   // null
+var other = await jobs.DispatchAsync(new BuildReportJob { ReportId = 8 });       // another key: a message id
+```
+
+**Without Cache or a queue.** `Naravel.Queue.Testing.QueueFake` replaces the dispatcher. For a unique job it mimics the gate: a second dispatch of the same `UniqueKey` returns `null` and is not recorded, and keys stay locked until `Reset()` because the fake never runs jobs. Use `AssertNotDispatched<TJob>()` and `AssertDispatchedCount<TJob>(n)` to check the outcome. The fake does not run middleware, so it cannot tell you whether a job would be held back.
+
+**What the repository tests.** `tests/Naravel.Queue.Coordination.Tests` runs the middleware and unique jobs through a real worker on the memory Cache (`CoordinationMiddlewareTests`, `UniqueJobTests`), and runs the same rules with two workers on one Redis when `NARAVEL_TEST_REDIS` is set. `DocsExampleTests` runs the examples and messages of this guide.
