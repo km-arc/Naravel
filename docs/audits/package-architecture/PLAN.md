@@ -105,6 +105,6 @@ The full audit is complete only when all 36 packages have reviewed reports, cros
 
 ## Package review progress
 
-- Completed source-level reviews: Foundation, Cache, Redis, Cache.Redis, Cache.Memcached, Queue, Queue.Memory (reports 01–07).
+- Completed source-level reviews: Foundation, Cache, Redis, Cache.Redis, Cache.Memcached, Queue, Queue.Memory and Queue.File (reports 01–08).
 - Queue's Nth-publish failure, retry-of-batch-failure, in-memory callback failure, empty batch and clock-boundary regression cases are explicitly NOT RUN; see [report 06](reports/06-Naravel.Queue.md).
 - The repository inventory contains 36 packable source projects. Do not treat completion of the first six reviews as completion of the whole audit.
