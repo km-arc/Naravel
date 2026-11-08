@@ -12,6 +12,27 @@ dotnet add package Naravel.Database
 
 Targets .NET 10. It depends on `Naravel.Foundation` and `Naravel.Pagination`, which NuGet installs with it.
 
+## Use
+
+```json
+{ "Database": { "Default": "main", "Connections": { "main": { "Driver": "sqlite", "Path": "app.db" } } } }
+```
+
+```csharp
+using Naravel.Database;
+
+builder.Services.AddNaravelDatabase(builder.Configuration);         // reads the "Database" section and registers IDatabase for the default connection
+builder.Services.AddNaravelSqliteDatabase(builder.Configuration);   // the driver package that the Driver of the connection names; this package has none
+
+public sealed class UserService(IDatabase db)
+{
+    public Task<IReadOnlyList<IReadOnlyDictionary<string, object?>>> ActiveAsync(CancellationToken ct) =>
+        db.Table("users").Where("active", true).OrderBy("name").GetAsync(ct);
+}
+```
+
+`Default` names the connection that `IDatabase` uses, and `db.Connection("reports")` gives one bound to another connection, so one application can use several databases. The `Driver` of a connection is `sqlite`, `mysql`, `pgsql` or `sqlserver`, and each value needs its own driver package (listed below). Rows come back as dictionaries, or as your own type with `GetAsync<T>()`, which maps through Dapper and is not trim or AOT safe. Raw SQL goes through `db.SelectAsync(sql, bindings, ct)` with `?` placeholders, each one bound as a parameter.
+
 ## Related packages
 
 - [`Naravel.Database.EntityFrameworkCore`](https://www.nuget.org/packages/Naravel.Database.EntityFrameworkCore): EF Core interop for Naravel.Database: a DbContext and the query builder share one connection and one transaction.
