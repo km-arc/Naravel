@@ -61,3 +61,10 @@
 ## Owner decision gate
 
 No owner decision is required for the documented `Mode=Memory` guarantee. This audit does not authorize runtime code or dependency changes.
+
+## Plain-language explanation of the findings
+
+- **SQL-001 — Named in-memory databases may not behave like one persistent database:** An in-memory database exists only while its connections keep it alive. Naravel keeps one connection open so later operations can see the same database. That works for the special `:memory:` spelling. But with a named setting such as `Data Source=memdb;Mode=Memory`, the code does not force the later connections to use the same shared in-memory database. A later operation may therefore see an empty database instead of the tables created earlier. If two Naravel connection names use the same shared memory name, they may also see each other's data, even though the package says those names are isolated. We traced the connection-string handling in `SqliteDatabaseConnection` and compared it with the existing memory tests. We did not run a test for this named `Mode=Memory` case, so the report labels it as a source-confirmed behavior that still needs runtime reproduction.
+- **SQL-002 — The documented SQLite library version is out of date:** The repository currently pins SQLite's native library package to version 2.1.14, but the English database guide says 2.1.13. This does not mean the dependency itself is wrong; it means the guide tells readers the wrong version. We compared `Directory.Packages.props`, the SQLite project comment and `docs/en/database.md`. No package version was changed.
+
+**Verification reminder:** no SQLite runtime tests or build were run for this review. The report does not claim that the proposed correction has been implemented.
