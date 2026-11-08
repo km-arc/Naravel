@@ -53,7 +53,7 @@ public sealed class EnsureTenant : IRouteMiddleware
 
 Nothing is mapped until the `MapNaravel` callback returns, so `Name`, `Where` and `Middleware` can come in any order, and a mistake such as `Where` for a parameter that is not in the URI throws at startup. The built-in middleware aliases are `throttle`, `signed`, `maintenance`, `cache.headers`, `trim`, `convert.empty` and `guest`; there is no built-in `auth`, so register your own with `o.Middleware.Alias`.
 
-`throttle` counts attempts in the process by default, so with several instances each one has its own count; `Naravel.Routing.Cache` makes the instances share it through a `Naravel.Cache` store. A request over the limit gets a 429 response.
+`throttle` counts attempts in the process by default, so with several instances each one has its own count. To share one count, add the `Naravel.Routing.Cache` package and call `services.AddNaravelSharedThrottle("shared")`, where `"shared"` is the name of a `Naravel.Cache` store that every instance uses (a Redis or Memcached store; a Memory store is still per process). The [routing guide](https://github.com/km-arc/Naravel/blob/main/docs/en/routing.md#throttle-behind-more-than-one-server) shows the full setup. A request over the limit gets a 429 response.
 
 ## Documentation
 
