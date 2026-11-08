@@ -19,7 +19,7 @@ using Naravel.Queue.Coordination;
 using Naravel.Queue.Jobs;
 using Naravel.Queue.Middleware;
 
-builder.Services.AddNaravelCache(builder.Configuration);   // add AddNaravelRedisCache(...) when several processes run workers
+builder.Services.AddNaravelCache(builder.Configuration);   // add AddNaravelRedisCache(...) from Naravel.Cache.Redis when several processes run workers
 builder.Services.AddQueueCoordination();
 
 public sealed class SyncInvoice : Job, IHasJobMiddleware

@@ -14,6 +14,12 @@ Targets .NET 10. It depends on `Naravel.Foundation` and `Naravel.Pagination`, wh
 
 ## Use
 
+The connection `Driver` picks a driver package, which you install next to this one; the sample uses SQLite:
+
+```bash
+dotnet add package Naravel.Database.Sqlite
+```
+
 ```json
 { "Database": { "Default": "main", "Connections": { "main": { "Driver": "sqlite", "Path": "app.db" } } } }
 ```

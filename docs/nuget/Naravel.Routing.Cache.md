@@ -16,7 +16,7 @@ Targets .NET 10. It depends on `Naravel.Routing` and `Naravel.Cache`, which NuGe
 
 ```csharp
 builder.Services.AddNaravelCache(builder.Configuration);
-builder.Services.AddNaravelRedisCache(builder.Configuration);
+builder.Services.AddNaravelRedisCache(builder.Configuration);   // from Naravel.Cache.Redis
 builder.Services.AddNaravelRouting();
 builder.Services.AddNaravelSharedThrottle("redis");
 ```

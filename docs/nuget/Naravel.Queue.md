@@ -46,7 +46,7 @@ public sealed class SendWelcomeEmail : Job
 var id = await jobs.DispatchAsync(new SendWelcomeEmail("ada@example.com"), cancellationToken: ct);
 ```
 
-The store above uses the `memory` driver, so it needs `Naravel.Queue.Memory` and its `AddMemoryDriver(builder.Configuration)` call; every other driver is chosen the same way, by the `Driver` of the store. `DispatchAsync` returns the message id, or `null` when the job is an `IUniqueJob` (it needs `AddQueueCoordination()` from `Naravel.Queue.Coordination`) and an identical job is already waiting or running; with `UniqueUntilProcessing` a running one no longer counts. The worker takes jobs from the `default` queue, one at a time, unless `AddQueueWorker` is given other `Queues` or a `Concurrency`.
+The store above uses the `memory` driver, so it needs `Naravel.Queue.Memory` and its `AddMemoryDriver(builder.Configuration)` call; every other driver is chosen the same way, by the `Driver` of the store. `DispatchAsync` returns the message id, or `null` when the job is an `IUniqueJob` (it needs `AddQueueCoordination()` from `Naravel.Queue.Coordination`) and an identical job is already waiting or running; with `UniqueUntilProcessing` a running one no longer counts. The lock is bounded by the job's `UniqueFor` (default one hour), so a job that stays waiting or running longer than that no longer blocks a new dispatch, and on a Memory cache store uniqueness holds inside one process only. The worker takes jobs from the `default` queue, one at a time, unless `AddQueueWorker` is given other `Queues` or a `Concurrency`.
 
 ## Related packages
 
