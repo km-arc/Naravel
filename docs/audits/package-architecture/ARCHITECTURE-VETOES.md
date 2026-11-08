@@ -2,7 +2,7 @@
 
 Date: 2026-11-08  
 Current main baseline: c6a7d58ffb84d885741998bb32d2082c54c4ab61  
-Scope: the fourteen reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.Redis, Naravel.Cache.Redis, Naravel.Cache.Memcached, Naravel.Queue, Naravel.Queue.Memory, Naravel.Queue.File, Naravel.Queue.Database, Naravel.Queue.Redis, Naravel.Queue.Coordination, Naravel.Queue.Encryption, Naravel.Events and Naravel.Events.Queue.
+Scope: the fifteen reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.Redis, Naravel.Cache.Redis, Naravel.Cache.Memcached, Naravel.Queue, Naravel.Queue.Memory, Naravel.Queue.File, Naravel.Queue.Database, Naravel.Queue.Redis, Naravel.Queue.Coordination, Naravel.Queue.Encryption, Naravel.Events, Naravel.Events.Queue and Naravel.Database.
 
 ## Disposition
 
@@ -150,7 +150,7 @@ The PDRs retain their original approval text as historical context and append th
 - Test changes or tests run: none.
 - Build/CI: NOT RUN.
 - Vetoes cleared: none.
-- Next gate: obtain owner decisions AD-001 through AD-021, then create a prioritized remediation stage for AV-001, AV-002 and AV-011 first and schedule AV-003 through AV-010 and AV-012. Do not mark the architecture accepted for production until the required verification evidence is present.
+- Next gate: obtain owner decisions AD-001 through AD-022, then create a prioritized remediation stage for AV-001, AV-002 and AV-011 first and schedule AV-003 through AV-010 and AV-012 through AV-018. Do not mark the architecture accepted for production until the required verification evidence is present.
 
 
 ## Owner decisions pending — not architecture vetoes
