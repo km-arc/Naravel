@@ -46,7 +46,7 @@ public sealed class SendWelcomeEmail : Job
 var id = await jobs.DispatchAsync(new SendWelcomeEmail("ada@example.com"), cancellationToken: ct);
 ```
 
-The store above uses the `memory` driver, so it needs `Naravel.Queue.Memory` and its `AddMemoryDriver(builder.Configuration)` call; every other driver is chosen the same way, by the `Driver` of the store. `DispatchAsync` returns the message id, or `null` when the job is an `IUniqueJob` and an identical job is already waiting. The worker takes jobs from the `default` queue, one at a time, unless `AddQueueWorker` is given other `Queues` or a `Concurrency`.
+The store above uses the `memory` driver, so it needs `Naravel.Queue.Memory` and its `AddMemoryDriver(builder.Configuration)` call; every other driver is chosen the same way, by the `Driver` of the store. `DispatchAsync` returns the message id, or `null` when the job is an `IUniqueJob` (it needs `AddQueueCoordination()` from `Naravel.Queue.Coordination`) and an identical job is already waiting or running; with `UniqueUntilProcessing` a running one no longer counts. The worker takes jobs from the `default` queue, one at a time, unless `AddQueueWorker` is given other `Queues` or a `Concurrency`.
 
 ## Related packages
 

@@ -20,7 +20,9 @@ using Naravel.Queue.Extensions;
 using Naravel.Queue.Jobs;
 using Naravel.Queue.Memory;
 
-builder.Services.AddQueue(builder.Configuration).AddMemoryDriver(builder.Configuration);   // first: the encryption wraps the job serializer that AddQueue registers
+// AddMemoryDriver comes from Naravel.Queue.Memory, which this package does not install: use the driver package you already have
+// AddQueue goes first: the encryption wraps the job serializer that it registers
+builder.Services.AddQueue(builder.Configuration).AddMemoryDriver(builder.Configuration);
 builder.Services.AddDataProtection()                                                      // the same key ring and application name in every producer and worker
     .SetApplicationName("my-shop")
     .PersistKeysToFileSystem(new DirectoryInfo("/shared/keys"));
@@ -35,7 +37,7 @@ public sealed class ChargeCard : Job, IShouldBeEncrypted
 }
 ```
 
-Only classes that implement the empty marker `IShouldBeEncrypted` are encrypted; other jobs keep the existing wire format. A marked job is never sent or run as plaintext. If a producer and its worker do not share the key ring and the application name, the worker cannot decrypt and every marked job fails with `DecryptException`. A job that was queued as plaintext before its class was marked is refused unless you set `AddNaravelQueueEncryption(o => o.AcceptPlaintextForMarkedJobs = true)` for a deploy window. `AddNaravelQueueEncryption` throws if `AddQueue` has not been called before it.
+Only classes that implement the empty marker `IShouldBeEncrypted` are encrypted; other jobs keep the existing wire format. Call `AddNaravelQueueEncryption` in every application that dispatches marked jobs and in every worker: a dispatching application without it sends a marked job as plaintext, and a worker without it cannot decrypt one. Where it is registered, a marked job is never sent or run as plaintext. If a producer and its worker do not share the key ring and the application name, the worker cannot decrypt and every marked job fails with `DecryptException`. A job that was queued as plaintext before its class was marked is refused unless you set `AddNaravelQueueEncryption(o => o.AcceptPlaintextForMarkedJobs = true)` for a deploy window. `AddNaravelQueueEncryption` throws if `AddQueue` has not been called before it.
 
 ## Documentation
 
