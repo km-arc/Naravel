@@ -1,6 +1,6 @@
 # Package Audit Findings and Remediation Tracker
 
-Current main baseline: `c0aa29b4743760d879c0dc1041f5669e92f5b592` (PR #244 merged; audit branch contains this main commit).
+Current main baseline: `c2b7e88b552088b7606286173fa6e51156163f1d` (PR #246 merged; audit branch contains this main commit).
 
 ## State definitions
 
@@ -39,9 +39,9 @@ Veto status is separate from finding lifecycle status. Related findings remain O
 
 | ID | Package | Severity | Finding | State | Evidence / report |
 |---|---|---:|---|---|---|
-| FND-001 | Naravel.Foundation | P2 | Configuration fingerprint collision | FIXED IN MAIN — VERIFY FINAL CI MATRIX (PR #244 / D-82) | [Report](reports/01-Naravel.Foundation.md) |
+| FND-001 | Naravel.Foundation | P2 | Configuration fingerprint collision | VERIFIED CLOSED — PR #244 fix; full CI run #42478727741 on PR #246 | [Report](reports/01-Naravel.Foundation.md) |
 | FND-002 | Naravel.Foundation | P2 | Narrow sync Driver race remains while an in-flight async creation is being replaced by a sync factory (D-83) | OPEN — OWNER DECISION | [Report](reports/01-Naravel.Foundation.md) |
-| FND-003 | Naravel.Foundation | P2 | Throwing lifetime callback can abort manager cleanup | FIXED IN MAIN — VERIFY FINAL CI MATRIX (PR #244 / D-84) | [Report](reports/01-Naravel.Foundation.md) |
+| FND-003 | Naravel.Foundation | P2 | Throwing lifetime callback can abort manager cleanup | VERIFIED CLOSED — PR #244 fix; full CI run #42478727741 on PR #246 | [Report](reports/01-Naravel.Foundation.md) |
 | FND-004 | Naravel.Foundation | P2 | Late-created driver disposal errors are swallowed without diagnostics (AV-006) | OPEN | [Report](reports/01-Naravel.Foundation.md) |
 | CCH-001 | Naravel.Cache | P1 | Scoped flush clears the backing store beyond the scope (AV-001) | OPEN | [Report](reports/02-Naravel.Cache.md) |
 | CCH-002 | Naravel.Cache | P2 | Distinct tag sets can generate the same cache key | OPEN | [Report](reports/02-Naravel.Cache.md) |
