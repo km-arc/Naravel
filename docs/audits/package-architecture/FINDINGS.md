@@ -1,6 +1,6 @@
 # Package Audit Findings and Remediation Tracker
 
-Baseline: `main` at `44e957ca3db6d9f15665fc8fa070f70522c163c9` (2026-11-08 post-Revert second-pass revalidation baseline).
+Current main baseline: `c0aa29b4743760d879c0dc1041f5669e92f5b592` (PR #244 merged; audit branch contains this main commit).
 
 ## State definitions
 
@@ -17,7 +17,7 @@ A prior PDR approval is not a waiver from this architecture review. Items in the
 
 ## Architecture vetoes
 
-The following are vetoed as target architecture. AV-001 and AV-002 are P1 release blockers; AV-003 through AV-008 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable.
+The following are vetoed as target architecture. AV-001, AV-002 and AV-011 are P1 release blockers; AV-003 through AV-010 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable.
 
 | Veto ID | Severity | Required architectural outcome | Related findings |
 |---|---:|---|---|
@@ -97,3 +97,17 @@ Owner decisions AD-009 through AD-013 are recorded in [OWNER-DECISIONS.md](OWNER
 | MEM-001 | Naravel.Queue.Memory | P2 | Static queue/lock entries and failed envelopes have no bounded reclamation lifecycle (AV-010) | OPEN | [Report](reports/07-Naravel.Queue.Memory.md) |
 | MEM-002 | Naravel.Queue.Memory | P2 | All six driver operations ignore their CancellationToken | OPEN | [Report](reports/07-Naravel.Queue.Memory.md) |
 | MEM-003 | Naravel.Queue.Memory | DOC | Constructor XML incorrectly says state is private to one driver instance | OPEN | [Report](reports/07-Naravel.Queue.Memory.md) |
+
+
+## Naravel.Queue.File
+
+| Finding | Package | Severity | Summary | State | Evidence |
+|---|---|---:|---|---|---|
+| FILE-001 | Naravel.Queue.File | P1 | Queue-name sanitization allows path traversal outside the base root and collisions between distinct queue names (AV-011) | OPEN — OWNER DECISION | [Report](reports/08-Naravel.Queue.File.md) |
+| FILE-002 | Naravel.Queue.File | P2 | Static per-queue SemaphoreSlim gate table has no bounded reclamation lifecycle (AV-010) | OPEN | [Report](reports/08-Naravel.Queue.File.md) |
+| FILE-003 | Naravel.Queue.File | P2 | Failed/cancelled temporary writes can leave orphan .tmp files | OPEN | [Report](reports/08-Naravel.Queue.File.md) |
+| FILE-004 | Naravel.Queue.File | P2 | Non-positive visibility timeout makes reservations immediately reclaimable | OPEN | [Report](reports/08-Naravel.Queue.File.md) |
+| FILE-005 | Naravel.Queue.File | P2 | Corrupt pending records are silently skipped; corrupt reserved records can stop queue polling | OPEN | [Report](reports/08-Naravel.Queue.File.md) |
+| FILE-006 | Naravel.Queue.File | P2 | SizeAsync ignores its CancellationToken | OPEN | [Report](reports/08-Naravel.Queue.File.md) |
+
+Owner decision AD-014 is recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md). No path mapping or on-disk migration was performed by this audit.
