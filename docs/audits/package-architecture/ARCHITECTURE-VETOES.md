@@ -8,7 +8,7 @@ Scope: the five reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.Red
 
 This is a principal-architect decision, not a suggestion list. Some of the designs below were explicitly approved in earlier PDRs and documented as intentional limitations. That historical approval explains the implementation; it does not make the trade-off safe or acceptable as the target architecture for a reliable, isolated and scalable platform.
 
-**AV-001 and AV-002 are P1 release blockers. AV-003 through AV-008 are mandatory P2 architecture work.** None is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
+**AV-001 and AV-002 are P1 release blockers. AV-003 through AV-009 are mandatory P2 architecture work.** None is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
 
 A veto does not authorize an uncontrolled runtime/API/dependency change. Remediation must be a separate, scoped task with an updated PDR where required. An old PDR approval alone is not a valid reason to move a veto to ACCEPTED RISK.
 
@@ -96,9 +96,19 @@ A veto does not authorize an uncontrolled runtime/API/dependency change. Remedia
 
 **Required proof:** real Memcached expiry tests at 1 ms, 500 ms, 999 ms and 1 second for both Set and TTL counters, plus the 30-day relative/absolute boundary.
 
+### AV-009 — P2: Batch dispatch must recover from partial publication
+
+**Affected finding:** QUE-001.
+
+**Why this is vetoed:** `IJobDispatcher.BatchAsync` registers the entire planned job count before publishing messages one by one. A failure after one or more successful publishes leaves a batch whose un-published members can never reach a terminal state; the API throws before returning the batch identity. Persistent batch state can remain pending indefinitely, without an observable recovery handle.
+
+**Required target design:** a partial batch dispatch must be explicit, discoverable and recoverable. Every planned member must have a durable state (pending publication, published, completed, failed, or deliberately cancelled), and a failure must not strand an unreachable batch. Do not assume heterogeneous queue connections and brokers share one transaction. The public partial-failure/result contract is owner decision AD-009.
+
+**Required proof:** inject failure on the Nth publish, during message construction and during cancellation; prove the batch identity and every member's final/recoverable state remain observable after repository recreation, without silently losing already-published jobs.
+
 ## Historical PDR decisions explicitly vetoed
 
-- PDR-007: cluster-wide Memcached flush (AV-001), non-atomic Memcached lock release and fixed rate-limit lock lease (AV-002), single shared Memcached pool (AV-005), blocking counter workaround (AV-004), unbounded tag version keys (AV-003), limiter-only Cache telemetry and high-cardinality limiter tags (AV-007).
+- PDR-007: cluster-wide Memcached flush (AV-001), non-atomic Memcached lock release and fixed rate-limit lock lease (AV-002), single shared Memcached pool (AV-005), blocking counter workaround (AV-004), unbounded tag version keys (AV-003), limiter-only Cache telemetry and high-cardinality limiter tags (AV-007); batch dispatch that can leave permanently-pending partial batches (AV-009).
 - PDR-010 / D-66: synchronous first Redis connection (AV-004).
 
 The PDRs retain their original approval text as historical context and append the veto disposition. They must not be read as approval to ship these constraints as the final production architecture.
@@ -109,7 +119,7 @@ The PDRs retain their original approval text as historical context and append th
 - Test changes or tests run: none.
 - Build/CI: NOT RUN.
 - Vetoes cleared: none.
-- Next gate: obtain owner decisions AD-001 through AD-008, then create a prioritized remediation stage for AV-001 and AV-002 first and schedule AV-003 through AV-008. Do not mark the architecture accepted for production until the required verification evidence is present.
+- Next gate: obtain owner decisions AD-001 through AD-012, then create a prioritized remediation stage for AV-001 and AV-002 first and schedule AV-003 through AV-008. Do not mark the architecture accepted for production until the required verification evidence is present.
 
 
 ## Owner decisions pending — not architecture vetoes
