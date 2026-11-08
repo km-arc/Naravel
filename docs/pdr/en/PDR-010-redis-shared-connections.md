@@ -70,3 +70,8 @@ The owner approved D1 to D4 as recommended on 2026-10-25, after the trade-offs w
 The approval recorded above remains historical and does not waive **AV-004**: first-use Redis connection establishment must move to an asynchronous initialization/pre-warm lifecycle. A synchronous accessor may return an already initialized connection, but must not initiate blocking network I/O on a request path. The historical D-66 rationale (synchronous Cache/Queue store resolution) explains the current implementation; it does not make blocking first-use connection creation an acceptable final design. The initialization boundary itself is an owner decision under [AD-004](../../audits/package-architecture/OWNER-DECISIONS.md).
 
 See [the architecture veto register](../../audits/package-architecture/ARCHITECTURE-VETOES.md).
+
+
+## Redis Queue topology note — 2026-11-08
+
+The Redis Queue provider's Lua scripts access multiple queue keys in one atomic operation. Those keys currently use ordinary `netqueue:<queue>:...` names without a Redis Cluster hash-tag, so the scripts are not cross-slot safe. Redis Cluster/Sentinel features remain outside the approved PDR-010 scope; the Queue provider package README should state this explicitly. See RQR-007 in [report 10](../../audits/package-architecture/reports/10-Naravel.Queue.Redis.md).
