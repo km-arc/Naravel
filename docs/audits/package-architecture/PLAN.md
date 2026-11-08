@@ -38,6 +38,10 @@ The current register is ARCHITECTURE-VETOES.md.
 7. All artifacts are English-only. Do not generate, translate, sync, or scaffold localized documentation.
 8. Report verification honestly. A source inspection is not a build; a test recommendation is not a test run.
 
+## Owner decision gate
+
+The current `ROADMAP.md` reports `NEXT: none`. Do not invent a remediation stage or change the roadmap while architecture decisions affecting public contracts remain unresolved. Obtain the owner's choices in [OWNER-DECISIONS.md](OWNER-DECISIONS.md) first; then create a dependency-ordered stage and assign every open finding to it. The audit branch remains unmerged until the review and decision register are complete.
+
 ## Review dimensions (apply to every package)
 
 - **Package contract:** PackageId, versioning, target framework, README metadata/content, license/description/tags, symbols, transitive dependencies, dependency direction, and restore compatibility.
