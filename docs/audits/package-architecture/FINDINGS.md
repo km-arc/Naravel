@@ -17,7 +17,7 @@ A prior PDR approval is not a waiver from this architecture review. Items in the
 
 ## Architecture vetoes
 
-The following are vetoed as target architecture. AV-001 and AV-002 are P1 release blockers; AV-003 through AV-009 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable.
+The following are vetoed as target architecture. AV-001 and AV-002 are P1 release blockers; AV-003 through AV-008 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable.
 
 | Veto ID | Severity | Required architectural outcome | Related findings |
 |---|---:|---|---|
@@ -29,7 +29,6 @@ The following are vetoed as target architecture. AV-001 and AV-002 are P1 releas
 | AV-006 | P2 | Late resource disposal failures remain observable without unobserved background exceptions or skipped cleanup. | FND-004 |
 | AV-007 | P2 | Cache stores and locks expose low-cardinality operational telemetry without keys, values, subjects, tokens or secrets. | CCH-007 |
 | AV-008 | P2 | Positive TTLs must not become infinite because a provider truncates sub-second durations to zero. | MCD-010 |
-| AV-009 | P2 | An explicit zero TTL must be rejected; only `null` means no expiry. | MCD-011 |
 
 Veto status is separate from finding lifecycle status. Related findings remain OPEN; a veto is cleared only after its required design is implemented, regression tests and relevant CI pass, and verification evidence is recorded. Historical PDR approvals remain in the files as design history, but veto sections in the PDRs supersede them for the target architecture.
 
@@ -67,8 +66,12 @@ Veto status is separate from finding lifecycle status. Related findings remain O
 | MCD-008 | Naravel.Cache.Memcached | P2 | All named Memcached stores are forced onto one server pool (AV-005) | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
 | MCD-009 | Naravel.Cache.Memcached | P2 | Synchronous counter I/O is queued onto the shared ThreadPool (AV-004) | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
 | MCD-010 | Naravel.Cache.Memcached | P2 | Positive sub-second TTLs become no-expiry in Enyim (AV-008) | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
-| MCD-011 | Naravel.Cache.Memcached | P2 | Explicit zero TTL is stored as no-expiry instead of being rejected (AV-009) | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
+| MCD-011 | Naravel.Cache.Memcached | OBS | Explicit zero-TTL semantics differ between the Memcached adapter and CacheFake; public contract needs owner decision | OPEN — OWNER DECISION | [Report](reports/05-Naravel.Cache.Memcached.md) |
 
 ## Remediation log
 
 No remediation has been authorized or performed by the package audit branch. Once the owner approves a finding, record the fix PR/commit, regression test names, verification results, and the date/state transition here.
+
+## Owner decisions
+
+See [OWNER-DECISIONS.md](OWNER-DECISIONS.md). MCD-011 is intentionally an observation, not a veto, until the owner defines the public zero-TTL contract.
