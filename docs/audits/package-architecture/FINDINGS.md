@@ -36,9 +36,9 @@ Veto status is separate from finding lifecycle status. Related findings remain O
 
 | ID | Package | Severity | Finding | State | Evidence / report |
 |---|---|---:|---|---|---|
-| FND-001 | Naravel.Foundation | P2 | Configuration fingerprint can collide | OPEN | [Report](reports/01-Naravel.Foundation.md) |
-| FND-002 | Naravel.Foundation | P2 | Sync Driver race with async factory replacement | OPEN | [Report](reports/01-Naravel.Foundation.md) |
-| FND-003 | Naravel.Foundation | P2 | Throwing cancellation callback can abort manager cleanup | OPEN | [Report](reports/01-Naravel.Foundation.md) |
+| FND-001 | Naravel.Foundation | P2 | Configuration fingerprint collision | FIXED IN MAIN — VERIFY FINAL CI MATRIX (PR #244 / D-82) | [Report](reports/01-Naravel.Foundation.md) |
+| FND-002 | Naravel.Foundation | P2 | Narrow sync Driver race remains while an in-flight async creation is being replaced by a sync factory (D-83) | OPEN — OWNER DECISION | [Report](reports/01-Naravel.Foundation.md) |
+| FND-003 | Naravel.Foundation | P2 | Throwing lifetime callback can abort manager cleanup | FIXED IN MAIN — VERIFY FINAL CI MATRIX (PR #244 / D-84) | [Report](reports/01-Naravel.Foundation.md) |
 | FND-004 | Naravel.Foundation | P2 | Late-created driver disposal errors are swallowed without diagnostics (AV-006) | OPEN | [Report](reports/01-Naravel.Foundation.md) |
 | CCH-001 | Naravel.Cache | P1 | Scoped flush clears the backing store beyond the scope (AV-001) | OPEN | [Report](reports/02-Naravel.Cache.md) |
 | CCH-002 | Naravel.Cache | P2 | Distinct tag sets can generate the same cache key | OPEN | [Report](reports/02-Naravel.Cache.md) |
@@ -87,4 +87,4 @@ See [OWNER-DECISIONS.md](OWNER-DECISIONS.md). MCD-011 is intentionally an observ
 | QUE-004 | Naravel.Queue | OBS | Empty batches are accepted but have provider-dependent callback behavior | OPEN — OWNER DECISION | [Report](reports/06-Naravel.Queue.md) |
 | QUE-005 | Naravel.Queue | OBS | Queue runtime uses direct wall-clock reads/delays instead of injected TimeProvider | OPEN — OWNER DECISION | [Report](reports/06-Naravel.Queue.md) |
 
-Owner decisions AD-009 through AD-012 are recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md). No public API or runtime change is implied.
+Owner decisions AD-009 through AD-013 are recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md). No public API or runtime change is implied.
