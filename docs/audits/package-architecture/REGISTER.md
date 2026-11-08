@@ -1,6 +1,6 @@
 # Package Review Register
 
-Baseline: `main` at `847d605adb21f1ab4b6a60b13fd1685bb5893179` (source review baseline; latest main includes only subsequent policy/package-doc changes outside the reviewed Foundation/Cache source and tests).
+Current synchronization baseline: `main` at `a69e0becca197ee8dc14d2a576b45dd763263833` (2026-11-08). Each report retains its own source-review baseline; the intervening changes since the prior audit sync were checked against the previously reviewed package source/test paths, which were unchanged.
 
 Inventory: **36** packable source projects. There are 35 package pages in `docs/nuget/`; `Naravel.Foundation` uses `docs/en/foundation.md` as its packed README.
 
@@ -10,7 +10,7 @@ Inventory: **36** packable source projects. There are 35 package pages in `docs/
 | 02 | `Naravel.Cache` | `src/Naravel.Cache/Naravel.Cache.csproj` | `docs/nuget/Naravel.Cache.md` | REVIEWED WITH FINDINGS | [Report](reports/02-Naravel.Cache.md): 4 P2, 1 P3, 1 DOC, 2 OBS |
 | 03 | `Naravel.Redis` | `src/Naravel.Redis/Naravel.Redis.csproj` | `docs/nuget/Naravel.Redis.md` | REVIEWED WITH FINDINGS | [Report](reports/03-Naravel.Redis.md): 1 P2, 2 OBS |
 | 04 | `Naravel.Cache.Redis` | `src/Naravel.Cache.Redis/Naravel.Cache.Redis.csproj` | `docs/nuget/Naravel.Cache.Redis.md` | REVIEWED WITH FINDINGS | [Report](reports/04-Naravel.Cache.Redis.md): 3 P2 |
-| 05 | `Naravel.Cache.Memcached` | `src/Naravel.Cache.Memcached/Naravel.Cache.Memcached.csproj` | `docs/nuget/Naravel.Cache.Memcached.md` | PENDING | — |
+| 05 | `Naravel.Cache.Memcached` | `src/Naravel.Cache.Memcached/Naravel.Cache.Memcached.csproj` | `docs/nuget/Naravel.Cache.Memcached.md` | REVIEWED WITH FINDINGS | [Report](reports/05-Naravel.Cache.Memcached.md): 4 P2, 1 P3 |
 | 06 | `Naravel.Queue` | `src/Naravel.Queue/Naravel.Queue.csproj` | `docs/nuget/Naravel.Queue.md` | PENDING | — |
 | 07 | `Naravel.Queue.Memory` | `src/Naravel.Queue.Memory/Naravel.Queue.Memory.csproj` | `docs/nuget/Naravel.Queue.Memory.md` | PENDING | — |
 | 08 | `Naravel.Queue.File` | `src/Naravel.Queue.File/Naravel.Queue.File.csproj` | `docs/nuget/Naravel.Queue.File.md` | PENDING | — |

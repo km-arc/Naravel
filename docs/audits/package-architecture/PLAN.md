@@ -8,7 +8,7 @@ This is an audit, not an implementation campaign. Do not change runtime code, pu
 
 ## Baseline and scope
 
-- Repository baseline: `main` at `99ea264e11bf4bcb9e4ae87a0d1519452f8570ed`. The audit branch is synchronized with this commit; the intervening main changes after the Cache source review affected CI/document-name validation only, not the reviewed Cache source, tests, or docs. The audit branch was synchronized with that main commit before the Cache review; Foundation's source report is pinned to the earlier `e57d6e0` source snapshot, and the intervening main changes did not touch Foundation source or tests.
+- Current repository synchronization baseline: `main` at `a69e0becca197ee8dc14d2a576b45dd763263833` (2026-11-08). The audit branch is synchronized with this commit. Each package report retains the exact source-review baseline used for that package. The intervening main changes since the previous audit sync were compared against the already reviewed Foundation/Cache/Redis package source and test paths; those paths were unchanged.
 - Target framework / repository version are determined from the checked-in project metadata at the baseline, not assumed from this document.
 - Audit order is dependency-aware; foundational projects are reviewed before their adapters/providers.
 - Include every packable project under `src/`, including `Naravel.Foundation`.

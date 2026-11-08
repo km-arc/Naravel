@@ -1,6 +1,6 @@
 # Package Audit Findings and Remediation Tracker
 
-Baseline: `main` at `99ea264e11bf4bcb9e4ae87a0d1519452f8570ed`.
+Baseline: `main` at `a69e0becca197ee8dc14d2a576b45dd763263833` (2026-11-08 synchronization baseline).
 
 ## State definitions
 
@@ -35,6 +35,12 @@ An audit report does not itself fix a finding. A finding remains OPEN until the 
 | CRD-001 | Naravel.Cache.Redis | P2 | Invalid Database configuration silently falls back to the connection default | OPEN | [Report](reports/04-Naravel.Cache.Redis.md) |
 | CRD-002 | Naravel.Cache.Redis | P2 | Redis FlushAsync skips disconnected endpoints and may report success without flushing | OPEN | [Report](reports/04-Naravel.Cache.Redis.md) |
 | CRD-003 | Naravel.Cache.Redis | P2 | Cancellation tokens are checked only before Redis I/O, not while awaiting it | OPEN | [Report](reports/04-Naravel.Cache.Redis.md) |
+
+| MCD-001 | Naravel.Cache.Memcached | P2 | Generic value-type cache misses can be reported as hits | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
+| MCD-002 | Naravel.Cache.Memcached | P2 | Failed writes and lock acquisition can be reported as success/contention | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
+| MCD-003 | Naravel.Cache.Memcached | P2 | Unsigned Memcached counter semantics corrupt the signed `long` contract | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
+| MCD-004 | Naravel.Cache.Memcached | P2 | Cancellation after async I/O starts does not cancel the caller's wait | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
+| MCD-005 | Naravel.Cache.Memcached | P3 | Null nullable-integral values are stored as empty text and cannot be read | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
 
 ## Remediation log
 
