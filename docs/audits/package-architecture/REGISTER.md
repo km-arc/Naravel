@@ -23,7 +23,7 @@ Inventory: **36** packable source projects. There are 35 package pages in `docs/
 | 15 | `Naravel.Events` | `src/Naravel.Events/Naravel.Events.csproj` | `docs/nuget/Naravel.Events.md` | REVIEWED — NO SOURCE-LEVEL FINDINGS | [Report](reports/15-Naravel.Events.md) |
 | 16 | `Naravel.Events.Queue` | `src/Naravel.Events.Queue/Naravel.Events.Queue.csproj` | `docs/nuget/Naravel.Events.Queue.md` | REVIEWED — NO SOURCE-LEVEL FINDINGS | [Report](reports/16-Naravel.Events.Queue.md) |
 | 17 | `Naravel.Database` | `src/Naravel.Database/Naravel.Database.csproj` | `docs/nuget/Naravel.Database.md` | REVIEWED WITH FINDINGS | [Report](reports/17-Naravel.Database.md): 5 P2 OPEN, 3 OBS |
-| 18 | `Naravel.Database.Sqlite` | `src/Naravel.Database.Sqlite/Naravel.Database.Sqlite.csproj` | `docs/nuget/Naravel.Database.Sqlite.md` | PENDING | — |
+| 18 | `Naravel.Database.Sqlite` | `src/Naravel.Database.Sqlite/Naravel.Database.Sqlite.csproj` | `docs/nuget/Naravel.Database.Sqlite.md` | REVIEWED WITH FINDINGS | [Report](reports/18-Naravel.Database.Sqlite.md): 1 P2, 1 DOC |
 | 19 | `Naravel.Database.MySql` | `src/Naravel.Database.MySql/Naravel.Database.MySql.csproj` | `docs/nuget/Naravel.Database.MySql.md` | PENDING | — |
 | 20 | `Naravel.Database.Postgres` | `src/Naravel.Database.Postgres/Naravel.Database.Postgres.csproj` | `docs/nuget/Naravel.Database.Postgres.md` | PENDING | — |
 | 21 | `Naravel.Database.SqlServer` | `src/Naravel.Database.SqlServer/Naravel.Database.SqlServer.csproj` | `docs/nuget/Naravel.Database.SqlServer.md` | PENDING | — |
