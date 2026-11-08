@@ -61,7 +61,7 @@ Individual findings and their remediation states are tracked in [FINDINGS.md](FI
 Owner decisions that must be settled before remediation is scheduled are recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md), including AD-021 for Queue Coordination. These are not pre-approved by the audit.
 
 
-[ARCHITECTURE-VETOES.md](ARCHITECTURE-VETOES.md) records thirteen mandatory architecture vetoes. They supersede historical PDR acceptance for the target production architecture; they are not accepted risks and remain open until verified remediation.
+[ARCHITECTURE-VETOES.md](ARCHITECTURE-VETOES.md) records eighteen mandatory architecture vetoes. They supersede historical PDR acceptance for the target production architecture; they are not accepted risks and remain open until verified remediation.
 
 ## Cross-package findings
 
