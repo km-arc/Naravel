@@ -124,3 +124,15 @@ See [report 08](../../audits/package-architecture/reports/08-Naravel.Queue.File.
 - **Schema deliverable record:** a SQLite DDL script and opt-in Development/Test helper now exist. PDR implementation item d has been corrected to reflect that current state; whether provider-specific DDL scripts are also required remains AD-016.
 
 No runtime code or tests were changed by this architecture review.
+
+
+## Redis Queue architecture review follow-up — 2026-11-08
+
+- **AV-009 / RQR-004:** the Redis batch repository writes the batch hash and callback-recovery index in two separate commands. Failure after the hash write leaves a batch that startup recovery cannot enumerate.
+- **AV-012 / RQR-001:** RedisQueueDriver does not reject a zero/negative visibility timeout; this makes a live reservation immediately eligible for reclaim.
+- **RQR-002:** RedisQueueDriver.SizeAsync does not inspect its cancellation token before its eleven Redis count operations.
+- **AD-018:** FailScript writes a per-queue failed list that has no public read/cleanup path, in addition to the optional RedisFailedJobStore. Confirm whether this is an intended administrative DLQ.
+- **AD-019:** RedisBatchRepository's batch index has no retention/removal lifecycle and is scanned in full on worker startup.
+- **AD-020:** StackExchange.Redis commands do not take a CancellationToken; cancellation semantics after issuing a command need an explicit contract.
+
+See [report 10](../../audits/package-architecture/reports/10-Naravel.Queue.Redis.md) and [OWNER-DECISIONS.md](../../audits/package-architecture/OWNER-DECISIONS.md). No Redis key layout, runtime code or tests were changed by this review.
