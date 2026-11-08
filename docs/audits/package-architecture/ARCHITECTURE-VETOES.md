@@ -1,7 +1,7 @@
 # Architecture Vetoes — target production architecture
 
 Date: 2026-11-08  
-Current main baseline: c0aa29b4743760d879c0dc1041f5669e92f5b592  
+Current main baseline: c2b7e88b552088b7606286173fa6e51156163f1d  
 Scope: the eight reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.Redis, Naravel.Cache.Redis, Naravel.Cache.Memcached, Naravel.Queue, Naravel.Queue.Memory and Naravel.Queue.File.
 
 ## Disposition
