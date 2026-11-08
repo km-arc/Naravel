@@ -176,19 +176,19 @@
 - Regression tests required: 1 ms, 500 ms, 999 ms, exactly 1 s, and values across the 30-day relative/absolute boundary for both Set and TTL increment. Use a real Memcached server to prove the item expires rather than remaining indefinitely.
 - Public API / PDR / release impact: implementation correction; amend docs to state the provider's representable precision. No public API change assumed.
 
-### [P2] MCD-011 — Explicit zero TTL is stored as no-expiry
+### [OBS — OWNER DECISION] MCD-011 — Explicit zero-TTL semantics are not defined consistently
 
-- Remediation state: OPEN.
-- Architecture disposition: VETO AV-009 — only a null TTL may mean no expiry; an explicitly supplied zero TTL must be rejected.
-- Evidence status: CONFIRMED BY SOURCE AND PINNED DEPENDENCY SOURCE; live-server reproduction NOT RUN.
-- Evidence: `src/Naravel.Cache.Memcached/MemcachedCacheStore.cs` passes `ttl ?? TimeSpan.Zero` to `_client.SetAsync`, so an explicit `TimeSpan.Zero` is indistinguishable from `null`. In EnyimMemcachedCore 3.5.2, `MemcachedClient.GetExpiration` returns protocol expiration `0` for `TimeSpan.Zero`; Memcached interprets expiration zero as no expiry. By contrast, `src/Naravel.Cache/Testing/CacheFake.cs` explicitly throws for a supplied TTL less than or equal to zero. The maintained Cache guide says to pass a positive TTL or `null` for none.
+- Remediation state: OPEN — OWNER DECISION.
+- Architecture disposition: not vetoed; the public contract is ambiguous and requires the owner's choice before assigning a defect severity or prescribing a fix.
+- Evidence status: CONFIRMED SOURCE BEHAVIOR; cross-provider semantic contract NOT FULLY SPECIFIED; live-server reproduction NOT RUN.
+- Evidence: `src/Naravel.Cache.Memcached/MemcachedCacheStore.cs` passes `ttl ?? TimeSpan.Zero` to Enyim, so an explicit `TimeSpan.Zero` is indistinguishable from `null` at the adapter boundary. In pinned EnyimMemcachedCore 3.5.2, a zero relative expiration is encoded as Memcached expiration `0`, which means no expiry. `src/Naravel.Cache/Testing/CacheFake.cs` rejects an explicitly supplied TTL less than or equal to zero. `ICacheStore.SetAsync` XML documentation says the TTL is optional but does not define the explicit-zero case. The maintained guide identifies `null` as no expiry but does not state whether zero means immediate expiry or invalid input.
 - Affected contract: `ICacheStore.SetAsync<T>(key, value, ttl)` when `ttl == TimeSpan.Zero`.
-- User impact: a caller that supplies a zero-duration TTL because of a calculation or configuration error can unintentionally create a permanent Memcached entry instead of receiving a validation error.
-- Trigger / failure scenario: call `SetAsync("short", value, TimeSpan.Zero)`. The adapter passes zero to Enyim, which emits Memcached expiration zero (no expiry); the Fake rejects the same explicit input.
-- Why existing tests do not catch it: the reviewed shared Cache contract and Memcached TTL tests use positive whole-second durations or `null`; they do not assert the behavior of an explicitly supplied zero TTL.
-- Required correction: preserve `ttl: null` as the only no-expiry form and reject an explicitly supplied zero or negative TTL before calling Enyim. Keep behavior consistent across providers and test fakes.
-- Regression tests required: shared store-contract tests assert explicit zero/negative TTL is rejected; Memcached tests assert `null` remains non-expiring and explicit zero is rejected before client I/O; retain positive sub-second cases for MCD-010.
-- Public API / PDR / release impact: implementation correction and contract-consistency tests; no public API change assumed.
+- User impact: the same call can have backend-dependent meaning; on Memcached it can create a non-expiring value, while the test fake rejects it. An application may therefore pass tests with `CacheFake` but behave differently when it uses Memcached.
+- Trigger / failure scenario: call `SetAsync("short", value, TimeSpan.Zero)`. The Memcached adapter forwards zero to Enyim, which encodes protocol expiry zero; the test fake throws `ArgumentOutOfRangeException`.
+- Why existing tests do not catch it: the shared cache store contract uses positive whole-second TTLs and does not exercise `SetAsync` with explicit zero. The fake-specific tests do not compare zero-TTL semantics with provider implementations.
+- Owner decision required: choose whether an explicit zero TTL means (a) immediate expiry on every provider, or (b) invalid input rejected consistently on every provider. The recommendation is **(b)** because `null` already expresses no expiry, the fake and TTL-counter API reject non-positive TTLs, and it avoids silently turning a zero-duration request into permanent Memcached storage. This recommendation is not implemented or treated as approved until the owner confirms it.
+- Required proof after the decision: shared store-contract tests across Memory, Redis, Memcached and CacheFake; a Memcached test proving explicit zero cannot map to protocol no-expiry; a separate assertion that `null` remains non-expiring.
+- Public API / PDR / release impact: clarification of existing `SetAsync` semantics; obtain owner approval before changing observable provider behavior.
 
 ## Test assessment
 
