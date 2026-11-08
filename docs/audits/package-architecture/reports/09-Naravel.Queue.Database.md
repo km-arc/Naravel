@@ -4,7 +4,7 @@
 
 - Package ID: `Naravel.Queue.Database` (SDK default from project/assembly name; no explicit `PackageId`).
 - Source project: `src/Naravel.Queue.Database/Naravel.Queue.Database.csproj`.
-- Source-review baseline: `main` at `c2b7e88b552088b7606286173fa6e51156163f1d`.
+- Source-review baseline: `main` at `c2b7e88b552088b7606286173fa6e51156163f1d`; latest repository baseline: `main` at `852db2c3c1be593a32fdce5318c18d0cd31149be` (PR #247; only unrelated NuGet pages changed).
 - Review date: 2026-11-08.
 - Reviewer mode: principal-architect source, contract and provider-test review; independent fresh-session review NOT RUN.
 - Status: REVIEWED WITH FINDINGS (source inspection only; runtime verification pending).
@@ -27,6 +27,7 @@
 ### [P2] DBQ-001 — Non-positive visibility timeout can cause immediate concurrent redelivery
 
 - Remediation state: OPEN.
+- Architecture disposition: VETO AV-012 — every reclaim-capable driver must reject non-positive visibility timeouts.
 - Evidence status: CONFIRMED BY SOURCE-LEVEL CONTROL-FLOW ANALYSIS; duplicate-delivery reproduction NOT RUN.
 - Evidence: `src/Naravel.Queue.Database/DatabaseQueueDriver.cs:24-27` assigns the supplied visibility timeout (or a five-minute default) without validating that it is positive. In `PopAsync` at lines 42-50, `staleBefore` is calculated as `now - _visibilityTimeout` and every reserved row with `ReservedAt < staleBefore` is reset to unreserved and has Attempts incremented. DI configuration at `src/Naravel.Queue.Database/ServiceCollectionExtensions.cs:64-65` parses `VisibilityTimeoutSeconds` and passes `TimeSpan.FromSeconds` directly to the constructor without a range check.
 - Affected contract: the Database driver's visibility/reclaim guarantee for constructor and configured `VisibilityTimeoutSeconds` values less than or equal to zero.
@@ -112,4 +113,4 @@
 - P2: DBQ-001 (non-positive visibility timeout); DBQ-002 (SizeAsync includes reserved rows); DBQ-003 (transactional enqueue misroutes chains/retries through a preserved Connection).
 - DOC: DBQ-004 (SQLite README omits UTC-ticks converter).
 - OBS / owner decision: DBQ-005 (PDR schema deliverable scope and implementation record).
-- Recommended next task: obtain AD-015 and AD-016 before changing the enqueuer API or PDR scope; add regressions for invalid timeout, reserved SizeAsync and real-factory transactional routing; correct the SQLite README converter example. Do not change runtime code or add provider-specific DDL during this audit pass.
+- Recommended next task: obtain AD-015, AD-016 and AD-017 before changing the enqueuer API or PDR scope; add regressions for invalid timeout, reserved SizeAsync and real-factory transactional routing; correct the SQLite README converter example. Do not change runtime code or add provider-specific DDL during this audit pass.
