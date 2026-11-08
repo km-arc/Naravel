@@ -55,12 +55,23 @@ internal sealed class FakeOptionsMonitor<T>(T initial) : IOptionsMonitor<T>
 
     public int ListenerCount => _listeners.Count;
 
+    /// <summary>When set, disposing the subscription that <see cref="OnChange"/> returned throws it.</summary>
+    public Exception? DisposeFailure { get; set; }
+
     public T Get(string? name) => CurrentValue;
 
     public IDisposable? OnChange(Action<T, string?> listener)
     {
         _listeners.Add(listener);
-        return new Subscription(() => _listeners.Remove(listener));
+        return new Subscription(() =>
+        {
+            if (DisposeFailure is not null)
+            {
+                throw DisposeFailure;
+            }
+
+            _listeners.Remove(listener);
+        });
     }
 
     public void Publish(T value, string? name = "")
@@ -89,10 +100,21 @@ internal sealed class InterceptingRegistry(DriverRegistry<IFakeDriver> inner) : 
 
     public Action<string>? BeforeCreate { get; set; }
 
+    /// <summary>When set, detaching from <see cref="Registered"/> (which the manager does when it is disposed) throws it.</summary>
+    public Exception? UnsubscribeFailure { get; set; }
+
     public event Action<string>? Registered
     {
         add => inner.Registered += value;
-        remove => inner.Registered -= value;
+        remove
+        {
+            if (UnsubscribeFailure is not null)
+            {
+                throw UnsubscribeFailure;
+            }
+
+            inner.Registered -= value;
+        }
     }
 
     public IReadOnlyCollection<string> Names => inner.Names;

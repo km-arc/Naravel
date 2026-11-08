@@ -629,6 +629,97 @@ public class ManagerTests
         good.DisposeCalls.Should().Be(1);
     }
 
+    // An asynchronous factory (or a driver it builds) can register a callback on the token the manager hands to it. Disposing the
+    // manager cancels that token, which runs the callbacks and rethrows what they threw, and that used to happen before any driver
+    // was disposed.
+
+    private static ManagerHarness HarnessWithAThrowingLifetimeCallback(out FakeDriver watching, out FakeDriver plain)
+    {
+        var h = new ManagerHarness();
+        var viaFactory = new FakeDriver("watching");
+        h.Registry.Register("watching", (sp, ct) =>
+        {
+            ct.Register(() => throw new InvalidOperationException("callback-failed"));
+            return new ValueTask<IFakeDriver>(viaFactory);
+        });
+        h.Registry.Register("plain", _ => new FakeDriver("plain"));
+        h.Manager.DriverAsync("watching").AsTask().GetAwaiter().GetResult();
+        watching = viaFactory;
+        plain = (FakeDriver)h.Manager.Driver("plain");
+        return h;
+    }
+
+    [Fact]
+    public void A_throwing_lifetime_callback_does_not_stop_the_drivers_from_being_disposed()
+    {
+        var h = HarnessWithAThrowingLifetimeCallback(out var watching, out var plain);
+
+        Action act = () => h.Manager.Dispose();
+
+        act.Should().Throw<AggregateException>();
+        watching.DisposeCalls.Should().Be(1);
+        plain.DisposeCalls.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task A_throwing_lifetime_callback_does_not_stop_the_drivers_from_being_disposed_asynchronously()
+    {
+        var h = HarnessWithAThrowingLifetimeCallback(out var watching, out var plain);
+
+        Func<Task> act = async () => await h.Manager.DisposeAsync();
+
+        await act.Should().ThrowAsync<AggregateException>();
+        watching.DisposeCalls.Should().Be(1);
+        plain.DisposeCalls.Should().Be(1);
+    }
+
+    [Fact]
+    public void The_failure_of_a_lifetime_callback_is_reported_with_the_failures_of_drivers_and_a_second_dispose_does_nothing()
+    {
+        var h = HarnessWithAThrowingLifetimeCallback(out var watching, out var plain);
+        h.Registry.Register("bad", _ => new ThrowingDriver("bad"));
+        h.Manager.Driver("bad");
+
+        Action act = () => h.Manager.Dispose();
+
+        var errors = act.Should().Throw<AggregateException>().Which.InnerExceptions.Select(e => e.Message).ToArray();
+        errors.Should().Contain("callback-failed");
+        errors.Should().Contain("dispose-failed");
+
+        h.Manager.Dispose(); // already disposed: nothing is thrown and nothing is disposed twice
+        watching.DisposeCalls.Should().Be(1);
+        plain.DisposeCalls.Should().Be(1);
+    }
+
+    [Fact]
+    public void A_failing_options_subscription_does_not_stop_the_drivers_from_being_disposed()
+    {
+        var h = new ManagerHarness();
+        h.Registry.Register("a", _ => new FakeDriver("a"));
+        var driver = (FakeDriver)h.Manager.Driver("a");
+        h.Monitor.DisposeFailure = new InvalidOperationException("subscription-failed");
+
+        Action act = () => h.Manager.Dispose();
+
+        act.Should().Throw<AggregateException>().Which.InnerExceptions.Select(e => e.Message).Should().Contain("subscription-failed");
+        driver.DisposeCalls.Should().Be(1);
+    }
+
+    [Fact]
+    public void A_registry_that_fails_to_detach_does_not_stop_the_drivers_from_being_disposed()
+    {
+        var registry = new InterceptingRegistry(new DriverRegistry<IFakeDriver>());
+        registry.Register("a", _ => new FakeDriver("a"));
+        var manager = new FakeManager(TestKit.EmptyProvider, registry, new FakeOptionsMonitor<ManagerOptions>(TestKit.Options("a")));
+        var driver = (FakeDriver)manager.Driver("a");
+        registry.UnsubscribeFailure = new InvalidOperationException("unsubscribe-failed");
+
+        Action act = () => manager.Dispose();
+
+        act.Should().Throw<AggregateException>().Which.InnerExceptions.Select(e => e.Message).Should().Contain("unsubscribe-failed");
+        driver.DisposeCalls.Should().Be(1);
+    }
+
     [Fact]
     public void Using_a_disposed_manager_throws()
     {

@@ -224,13 +224,12 @@ public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
-        var owned = BeginDispose();
+        var owned = BeginDispose(out var errors);
         if (owned is null)
         {
             return;
         }
 
-        List<Exception>? errors = null;
         foreach (var driver in owned)
         {
             try
@@ -257,13 +256,12 @@ public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        var owned = BeginDispose();
+        var owned = BeginDispose(out var errors);
         if (owned is null)
         {
             return;
         }
 
-        List<Exception>? errors = null;
         foreach (var driver in owned)
         {
             try
@@ -444,8 +442,9 @@ public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable
         }
     }
 
-    private List<object>? BeginDispose()
+    private List<object>? BeginDispose(out List<Exception>? errors)
     {
+        errors = null;
         List<object> owned = new();
         lock (_gate)
         {
@@ -480,9 +479,36 @@ public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable
             _retired.Clear();
         }
 
-        _registry.Registered -= _onRegistered;
-        _optionsSubscription?.Dispose();
-        _lifetime.Cancel();
+        // The drivers are out of the cache by now, so nothing here may keep the caller from disposing them. Each step that can throw is
+        // guarded and its failure is kept to be reported with the failures of the drivers. Cancelling the lifetime token runs the
+        // callbacks that were registered on it (a factory can register one) and rethrows what they threw, after all of them ran.
+        try
+        {
+            _registry.Registered -= _onRegistered;
+        }
+        catch (Exception ex)
+        {
+            (errors ??= new()).Add(ex);
+        }
+
+        try
+        {
+            _optionsSubscription?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            (errors ??= new()).Add(ex);
+        }
+
+        try
+        {
+            _lifetime.Cancel();
+        }
+        catch (AggregateException ex)
+        {
+            (errors ??= new()).AddRange(ex.InnerExceptions);
+        }
+
         return owned;
     }
 
@@ -491,7 +517,9 @@ public abstract class Manager<TDriver, TOptions> : IAsyncDisposable, IDisposable
         _lifetime.Dispose();
         if (errors is not null)
         {
-            throw new AggregateException("One or more drivers failed to dispose.", errors);
+            throw new AggregateException(
+                "The manager did not dispose cleanly: one or more drivers, lifetime callbacks or subscriptions failed.",
+                errors);
         }
     }
 
