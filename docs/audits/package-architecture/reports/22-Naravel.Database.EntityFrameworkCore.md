@@ -53,3 +53,10 @@
 ## Owner decision gate
 
 No owner decision is required to record the observer-forwarding limitation. Any public API redesign to make arbitrary decorators forward observers requires owner approval.
+
+## Plain-language explanation of the finding
+
+- **EF-001 — A wrapper around IDatabase can hide query logging:** The adapter tries to copy query listeners and logging from the supplied database, but it only recognizes Naravel's own concrete `DatabaseService` class. If an application puts a normal decorator or proxy around `IDatabase` (for example, to add logging or policy checks), the adapter does not recognize that wrapper and silently uses “no observer.” Queries may then stop appearing in the listener/query log even though ordinary database calls still pass through the wrapper. We saw this exact type check in `DbContextQueryExtensions.Using`. The source was inspected, but no test with a decorated `IDatabase` was run.
+- **What this does not mean:** the review did not find that EF Core takes ownership of or unexpectedly closes the application's connection. The inspected code uses EF Core's connection lifetime APIs and does not commit or roll back a transaction it did not start. Those are source-level observations; cross-provider live EF integration tests were not run.
+
+**Verification reminder:** this finding is an observability limitation, not evidence that database writes are lost or transactions are corrupted.
