@@ -29,10 +29,10 @@ The following are vetoed as target architecture. AV-001, AV-002 and AV-011 are P
 | AV-006 | P2 | Late resource disposal failures remain observable without unobserved background exceptions or skipped cleanup. | FND-004 |
 | AV-007 | P2 | Cache stores and locks expose low-cardinality operational telemetry without keys, values, subjects, tokens or secrets. | CCH-007 |
 | AV-008 | P2 | Positive TTLs must not become infinite because a provider truncates sub-second durations to zero. | MCD-010 |
-| AV-009 | P2 | Batch dispatch must recover from partial publication; no planned member may become permanently pending and unreachable. | QUE-001 |
+| AV-009 | P2 | Batch dispatch must recover from partial publication; no planned member may become permanently pending and unreachable. | QUE-001, RQR-004 |
 | AV-010 | P2 | Process-local queue coordination state must have a bounded lifecycle without removing active gates. | MEM-001, FILE-002 |
 | AV-011 | P1 | File queue names must map injectively beneath the configured root; no traversal or logical queue aliasing. | FILE-001 |
-| AV-012 | P2 | Reclaim-capable queue drivers must reject zero/negative visibility timeouts; a live reservation must not be immediately reclaimable. | DBQ-001, FILE-004 |
+| AV-012 | P2 | Reclaim-capable queue drivers must reject zero/negative visibility timeouts; a live reservation must not be immediately reclaimable. | DBQ-001, FILE-004, RQR-001 |
 
 Veto status is separate from finding lifecycle status. Related findings remain OPEN; a veto is cleared only after its required design is implemented, regression tests and relevant CI pass, and verification evidence is recorded. Historical PDR approvals remain in the files as design history, but veto sections in the PDRs supersede them for the target architecture.
 
@@ -128,3 +128,18 @@ Owner decision AD-014 is recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md). N
 | DBQ-005 | Naravel.Queue.Database | OBS | PDR-012 SQL-script implementation record is stale; SQLite-only vs multi-provider DDL scope needs owner confirmation | OPEN — OWNER DECISION | [Report](reports/09-Naravel.Queue.Database.md) |
 
 Owner decisions AD-015 and AD-016 are recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md). No runtime code, schema or public API was changed by this audit.
+
+
+## Naravel.Queue.Redis
+
+| Finding | Package | Severity | Summary | State | Evidence |
+|---|---|---:|---|---|---|
+| RQR-001 | Naravel.Queue.Redis | P2 | Non-positive visibility timeout can reclaim an active reservation immediately (AV-012) | OPEN | [Report](reports/10-Naravel.Queue.Redis.md) |
+| RQR-002 | Naravel.Queue.Redis | P2 | SizeAsync ignores its CancellationToken and issues 11 Redis requests | OPEN | [Report](reports/10-Naravel.Queue.Redis.md) |
+| RQR-003 | Naravel.Queue.Redis | OBS | Driver-native failed list has no public inspection or cleanup path; intentional DLQ vs duplicate storage requires owner choice | OPEN — OWNER DECISION | [Report](reports/10-Naravel.Queue.Redis.md) |
+| RQR-004 | Naravel.Queue.Redis | P2 | Batch hash and callback-recovery index are written separately; failure can leave an unreachable batch (AV-009) | OPEN | [Report](reports/10-Naravel.Queue.Redis.md) |
+| RQR-005 | Naravel.Queue.Redis | OBS | Persistent batch index grows without retention and is fully scanned at every worker startup | OPEN — OWNER DECISION | [Report](reports/10-Naravel.Queue.Redis.md) |
+| RQR-006 | Naravel.Queue.Redis | OBS | Cancellation after issuing a StackExchange.Redis command is not represented in the caller wait/result contract | OPEN — OWNER DECISION | [Report](reports/10-Naravel.Queue.Redis.md) |
+| RQR-007 | Naravel.Queue.Redis | DOC | Redis Cluster unsupported by multi-key Lua scripts is not stated on the Redis Queue package page | OPEN | [Report](reports/10-Naravel.Queue.Redis.md) |
+
+Owner decisions AD-018 through AD-020 are recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md).
