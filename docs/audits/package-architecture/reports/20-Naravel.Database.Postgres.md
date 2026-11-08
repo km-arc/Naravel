@@ -42,3 +42,9 @@
 ## Owner decision gate
 
 No owner decision is required for this provider adapter based on source inspection. Do not interpret this review as runtime verification or as closure of any roadmap stage.
+
+## Plain-language explanation of this review
+
+No source-level defect was found in the PostgreSQL connection adapter. In everyday terms, it creates one reusable PostgreSQL data-source object to manage connections, opens a database connection only when an operation needs one, passes cancellation through, and lets the PostgreSQL library manage the connection pool. The adapter does not expose PostgreSQL-specific types through the shared Database core.
+
+This is not a live-server test result. We inspected the source and the tests intended for PostgreSQL, but did **not** build the project or run those tests against a PostgreSQL server. “No source-level findings” means no defect was identified in the inspected adapter code; it is not a claim that every runtime scenario has passed.
