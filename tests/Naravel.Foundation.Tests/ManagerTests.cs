@@ -289,6 +289,56 @@ public class ManagerTests
     }
 
     [Fact]
+    public async Task An_async_caller_that_cancelled_does_not_start_a_creation_when_the_refusal_ends_its_wait()
+    {
+        var registry = new InterceptingRegistry(new DriverRegistry<IFakeDriver>());
+        registry.Register("a", _ => new FakeDriver("sync"));
+        var manager = new FakeManager(TestKit.EmptyProvider, registry, new FakeOptionsMonitor<ManagerOptions>(TestKit.Options("a")));
+        using var cts = new CancellationTokenSource();
+        using var joined = new ManualResetEventSlim();
+        using var proceed = new ManualResetEventSlim();
+        var patience = TimeSpan.FromSeconds(5);
+        Task<IFakeDriver>? call = null;
+        Task<IFakeDriver>? joiner = null;
+
+        // Driver() is about to create, on a pool thread. An asynchronous caller joins its entry with a token, and the factory is replaced
+        // by an asynchronous one that finishes at once, so a creation started for that caller is complete before it waits on it.
+        registry.BeforeCreate = name =>
+        {
+            joiner = manager.DriverAsync(name, cts.Token).AsTask();
+
+            // Registered on this thread after the joiner's wait, so Cancel runs it first: the runtime calls the callbacks of one partition
+            // last registered first (an implementation detail, not a documented order; in another order the joiner is cancelled before
+            // the refusal and the test passes without exercising the retry). The callback lets the refusal happen while Cancel is still
+            // running, so the token is cancelled and the entry has failed by the time the joiner's wait ends, whichever of the two ends it.
+            cts.Token.Register(() =>
+            {
+                proceed.Set();
+                SpinWait.SpinUntil(() => call!.IsCompleted, patience);
+            });
+
+            registry.Register(name, (sp, ct) => new ValueTask<IFakeDriver>(new FakeDriver("async")));
+            joined.Set();
+            proceed.Wait(patience);
+        };
+
+        call = Task.Run(() => manager.Driver("a"));
+        joined.Wait(patience).Should().BeTrue("the creating thread must reach the registry");
+        cts.Cancel();
+
+        Func<Task> creating = () => call;
+        await creating.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Use DriverAsync*");
+
+        // The joiner had given up: it neither started a creation nor was handed the driver of the new factory.
+        Func<Task> waiting = () => joiner!;
+        await waiting.Should().ThrowAsync<OperationCanceledException>();
+
+        // The refusal was not cached, so the next caller builds the driver from the new factory.
+        var created = await manager.DriverAsync("a");
+        created.Id.Should().Be("async");
+    }
+
+    [Fact]
     public async Task Sync_api_returns_an_async_driver_once_it_has_been_created()
     {
         var h = new ManagerHarness();
