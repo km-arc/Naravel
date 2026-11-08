@@ -1,6 +1,6 @@
 # Package Review Register
 
-Current synchronization baseline: `main` at `44e957ca3db6d9f15665fc8fa070f70522c163c9` (2026-11-08 post-Revert second-pass revalidation). Each report retains its original package source-review baseline and adds a second-pass note against this commit.
+Current synchronization baseline: `main` at `c0aa29b4743760d879c0dc1041f5669e92f5b592` (PR #244 merged; audit branch merge-base is this commit). Each report retains its original package source-review baseline and records the latest relevant source revalidation.
 
 Inventory: **36** packable source projects. There are 35 package pages in `docs/nuget/`; `Naravel.Foundation` uses `docs/en/foundation.md` as its packed README.
 
@@ -13,7 +13,7 @@ Inventory: **36** packable source projects. There are 35 package pages in `docs/
 | 05 | `Naravel.Cache.Memcached` | `src/Naravel.Cache.Memcached/Naravel.Cache.Memcached.csproj` | `docs/nuget/Naravel.Cache.Memcached.md` | REVIEWED WITH FINDINGS | [Report](reports/05-Naravel.Cache.Memcached.md): 2 P1, 7 P2, 1 P3, 1 OBS |
 | 06 | `Naravel.Queue` | `src/Naravel.Queue/Naravel.Queue.csproj` | `docs/nuget/Naravel.Queue.md` | REVIEWED WITH FINDINGS | [Report](reports/06-Naravel.Queue.md): 1 P2, 4 OBS |
 | 07 | `Naravel.Queue.Memory` | `src/Naravel.Queue.Memory/Naravel.Queue.Memory.csproj` | `docs/nuget/Naravel.Queue.Memory.md` | REVIEWED WITH FINDINGS | [Report](reports/07-Naravel.Queue.Memory.md): 2 P2, 1 DOC |
-| 08 | `Naravel.Queue.File` | `src/Naravel.Queue.File/Naravel.Queue.File.csproj` | `docs/nuget/Naravel.Queue.File.md` | PENDING | — |
+| 08 | `Naravel.Queue.File` | `src/Naravel.Queue.File/Naravel.Queue.File.csproj` | `docs/nuget/Naravel.Queue.File.md` | REVIEWED WITH FINDINGS | [Report](reports/08-Naravel.Queue.File.md): 1 P1, 5 P2 |
 | 09 | `Naravel.Queue.Database` | `src/Naravel.Queue.Database/Naravel.Queue.Database.csproj` | `docs/nuget/Naravel.Queue.Database.md` | PENDING | — |
 | 10 | `Naravel.Queue.Redis` | `src/Naravel.Queue.Redis/Naravel.Queue.Redis.csproj` | `docs/nuget/Naravel.Queue.Redis.md` | PENDING | — |
 | 11 | `Naravel.Queue.RabbitMQ` | `src/Naravel.Queue.RabbitMQ/Naravel.Queue.RabbitMQ.csproj` | `docs/nuget/Naravel.Queue.RabbitMQ.md` | PENDING | — |
@@ -61,7 +61,7 @@ Individual findings and their remediation states are tracked in [FINDINGS.md](FI
 Owner decisions that must be settled before remediation is scheduled are recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md). These are not pre-approved by the audit.
 
 
-[ARCHITECTURE-VETOES.md](ARCHITECTURE-VETOES.md) records ten mandatory architecture vetoes. They supersede historical PDR acceptance for the target production architecture; they are not accepted risks and remain open until verified remediation.
+[ARCHITECTURE-VETOES.md](ARCHITECTURE-VETOES.md) records eleven mandatory architecture vetoes. They supersede historical PDR acceptance for the target production architecture; they are not accepted risks and remain open until verified remediation.
 
 ## Cross-package findings
 
