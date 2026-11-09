@@ -59,3 +59,18 @@
 ## Owner decision gate
 
 See [OWNER-DECISIONS.md](../OWNER-DECISIONS.md), AD-021. No runtime implementation, Cache public API change, dependency change or roadmap-stage change is authorized by this source review.
+
+## Plain-language explanation
+
+### QCO-001 — An old unique-job owner can erase the newer owner's information
+
+- **In everyday words:** The package stores the lock and the identity of the owner in two separate operations. An old job can remove or replace the newer job's owner record after the newer job has taken the lock.
+- **A realistic example:** Job A reads its owner record and releases its lock. Job B immediately takes the now-free lock and writes its owner record. A then runs its separate delete and removes B's record. When B finishes, it can no longer prove that it owns the lock, so the lock may remain blocked until its timeout expires.
+- **What we checked:** `src/Naravel.Queue.Coordination/CacheUniqueJobGate.cs`, `TryAcquireAsync` and `ReleaseAsync`. The code writes `owner|token` after acquiring the lock, reads the record later, releases the token-checked lock, then unconditionally removes the owner key.
+- **Why that proves the risk:** The lock check protects the lock itself, but the separate owner-record write/delete is not conditional on still owning the current lock.
+- **What is not yet proven here:** The interleaving was analysed from source. The report does not claim a deterministic race test or live Redis reproduction.
+- **Safe outcome and proof:** A stale job must never overwrite or delete the current owner's information. Make the lock and owner record one atomic operation, or use a guaranteed owner-aware compare-and-set/delete. Test A-release/B-acquire/A-cleanup and A-delayed-write/B-acquire, and prove B can still release its own lock. Owner decision AD-021 is required before choosing the Cache/Queue boundary.
+
+### Overall plain-language status
+
+This report contains one open P2 finding. It is a source-level concurrency analysis; no deterministic concurrency reproduction or live provider test was run in this review.
