@@ -44,3 +44,13 @@
 ## Owner decision gate
 
 No owner decision is required for this package based on source inspection. Do not interpret this review as runtime verification or as closure of any roadmap stage.
+
+## Plain-language explanation
+
+This report found no source-level correctness or architecture issue in the reviewed Events Queue adapter. This is a source-review result, not a statement that live queue services or the full test suite were run.
+
+- **What the adapter does:** It sends selected event listeners to a queue for later execution. It stores a registered listener alias in the queued job rather than storing an unrestricted CLR type name in the message.
+- **What we checked:** The report inspected adapter registration, alias validation and lookup, per-listener queue options, source-generated serialization metadata, worker execution, dependency injection lifetimes, cancellation and the trimming/Native AOT annotations.
+- **Why no source finding was recorded:** The adapter uses an allow-listed alias registry, rejects duplicate registrations, applies fresh dispatch options for each event, resolves scoped listeners when the worker runs, and leaves retry/failure handling to Queue core. The delayed listener receives a new dispatch context, so it cannot stop the original in-process event from continuing.
+- **What is not yet proven:** Restore, build, tests, live providers, full CI, mutation tests and independent review were not run in this audit pass. The inspected tests cover Memory-worker execution and generated event metadata, but they were not executed here.
+- **Safe outcome and proof:** Preserve the dependency boundary (Events core does not depend on Queue), alias allow-list and generated-metadata path. Run the adapter tests and supported provider checks before describing the package as runtime-verified.
