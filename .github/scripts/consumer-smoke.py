@@ -15,6 +15,7 @@ consumer outside the repository (so Directory.Build.props and central package ma
 Usage:
   consumer-smoke.py --local <directory-containing-nupkgs>   packages from `dotnet pack` (CI, before anything is pushed)
   consumer-smoke.py --nuget <version>                       the published packages on nuget.org (after a release)
+  consumer-smoke.py --nuget <version> --exclude <id>        the same, without a package that is not part of that release
   consumer-smoke.py --self-test                             the script's own parsing checks, no dotnet needed
 
 With --local, Naravel.* is mapped to that directory only and every other package comes from nuget.org, so a Naravel package
@@ -48,6 +49,18 @@ def package_ids() -> list[str]:
         tree = ET.parse(csproj).getroot()
         ids.append(next((n.text.strip() for n in tree.iter("PackageId") if n.text), csproj.stem))
     return ids
+
+
+def without_excluded(ids: list[str], excluded: list[str]) -> list[str]:
+    """The ids that remain when the named ones are left out; exits when a name is not a packable project under src/.
+
+    A published version has only the packages that existed when it was released, while src/ lists today's. Leaving a package out is
+    therefore something the person who starts the run names, and the run says so, so that a package that a release forgot to
+    publish is never skipped without notice."""
+    unknown = sorted(set(excluded) - set(ids))
+    if unknown:
+        raise SystemExit(f"ERROR: --exclude names packages that are not packable projects under src/: {unknown}")
+    return [package_id for package_id in ids if package_id not in set(excluded)]
 
 
 def central_version(name: str) -> str:
@@ -207,7 +220,7 @@ def consume(local: Path | None, version: str, ids: list[str], work: Path, extra_
     smoke_naravel, smoke_others = smoke_references()
     missing = [name for name in smoke_naravel if name not in ids]
     if missing:
-        raise SystemExit(f"ERROR: {SMOKE_SAMPLE.name} references projects that are not packable under src/: {missing}")
+        raise SystemExit(f"ERROR: {SMOKE_SAMPLE.name} references projects that are not packable under src/ or are left out of this run: {missing}")
     run_dir = work / "run"
     run_dir.mkdir()
     (run_dir / "ConsumerSmoke.csproj").write_text(
@@ -238,7 +251,7 @@ def consume(local: Path | None, version: str, ids: list[str], work: Path, extra_
     return failed
 
 
-def write_summary(mode: str, version: str, count: int, failed: list[str]) -> None:
+def write_summary(mode: str, version: str, count: int, failed: list[str], excluded: list[str]) -> None:
     path = os.environ.get("GITHUB_STEP_SUMMARY")
     if not path:
         return
@@ -247,6 +260,7 @@ def write_summary(mode: str, version: str, count: int, failed: list[str]) -> Non
         f"- Source: {mode}",
         f"- Version: `{version}`",
         f"- Packages installed together: {count}",
+        *([f"- Left out by request (not part of this version): {', '.join(excluded)}"] if excluded else []),
         f"- Result: {'passed' if not failed else 'FAILED in: ' + ', '.join(failed)}",
         "",
     ]
@@ -276,6 +290,16 @@ def self_test() -> int:
         expect("a version follows the id, so Queue does not claim Queue.Redis",
                packed_version(directory, ["Naravel.Queue", "Naravel.Queue.Redis", "Naravel.Cache"]) == "0.1.1")
 
+    every = ["Naravel.A", "Naravel.B", "Naravel.C"]
+    expect("excluding nothing keeps every id", without_excluded(every, []) == every)
+    expect("an excluded id is left out and the others keep their order", without_excluded(every, ["Naravel.B"]) == ["Naravel.A", "Naravel.C"])
+    expect("excluding the same id twice is the same as once", without_excluded(every, ["Naravel.C", "Naravel.C"]) == ["Naravel.A", "Naravel.B"])
+    try:
+        without_excluded(every, ["Naravel.Nope"])
+        failures.append("an id that is not a packable project must be refused")
+    except SystemExit:
+        pass
+
     version_pattern = r"\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?"
     expect("the version check accepts releases and previews",
            all(re.fullmatch(version_pattern, v) for v in ("0.1.1", "1.0.0-preview.2")))
@@ -304,6 +328,9 @@ def main() -> int:
     source.add_argument("--local", type=Path, metavar="DIR", help="directory with the .nupkg files from dotnet pack")
     source.add_argument("--nuget", metavar="VERSION", help="verify the version published on nuget.org")
     source.add_argument("--self-test", action="store_true", help="run the script's own checks (no dotnet needed)")
+    parser.add_argument("--exclude", action="append", default=[], metavar="ID",
+                        help="with --nuget: a package id that is not part of that published version, for example one that was added to "
+                             "src/ after the release; may be repeated, and the run reports every package it leaves out")
     parser.add_argument("--generate-only", action="store_true", help="write the consumer projects and stop (no restore, build or run)")
     parser.add_argument("--keep", action="store_true", help="keep the working directory and print its path")
     parser.add_argument("--dotnet-arg", action="append", default=[], help="an extra argument for every dotnet restore/build call")
@@ -313,6 +340,11 @@ def main() -> int:
         return self_test()
 
     ids = package_ids()
+    if args.exclude and args.local is not None:
+        print("ERROR: --exclude is only for --nuget; a packed directory has to hold every package", file=sys.stderr)
+        return 1
+    excluded = sorted(set(args.exclude))
+    ids = without_excluded(ids, excluded)
     if args.local is not None:
         if not args.local.is_dir():
             print(f"ERROR: {args.local} is not a directory", file=sys.stderr)
@@ -331,7 +363,8 @@ def main() -> int:
         print(f"ERROR: the working directory {work} is inside the repository; the consumer must be outside it", file=sys.stderr)
         return 1
     try:
-        print(f"consumer smoke: {len(ids)} packages at {version} from {mode}; working directory {work}", flush=True)
+        left_out = f"; left out by request: {', '.join(excluded)}" if excluded else ""
+        print(f"consumer smoke: {len(ids)} packages at {version} from {mode}{left_out}; working directory {work}", flush=True)
         failed = consume(args.local, version, ids, work, args.dotnet_arg, args.generate_only)
     finally:
         if args.keep or args.generate_only:
@@ -341,11 +374,12 @@ def main() -> int:
 
     if args.generate_only:
         return 0
-    write_summary(mode, version, len(ids), failed)
+    write_summary(mode, version, len(ids), failed, excluded)
     if failed:
         print(f"ERROR: consumer smoke failed in: {', '.join(failed)}", file=sys.stderr)
         return 1
-    print(f"Consumer smoke passed: {len(ids)} packages at {version} installed together and the smoke program ran against them")
+    note = f" (left out by request: {', '.join(excluded)})" if excluded else ""
+    print(f"Consumer smoke passed: {len(ids)} packages at {version} installed together and the smoke program ran against them{note}")
     return 0
 
 
