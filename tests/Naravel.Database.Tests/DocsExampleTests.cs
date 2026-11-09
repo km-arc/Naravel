@@ -103,6 +103,29 @@ public sealed class DocsExampleTests
             .WithMessage("The sqlite database connection 'main' needs either 'ConnectionString' or 'Path' in its configuration section.");
     }
 
+    [Theory]
+    [InlineData("mysql")]
+    [InlineData("pgsql")]
+    [InlineData("sqlserver")]
+    public void A_server_connection_without_a_connection_string_fails_with_the_message_in_the_guide(string driver)
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Database:Default"] = "main",
+            ["Database:Connections:main:Driver"] = driver,
+        }).Build();
+        var services = new ServiceCollection();
+        services.AddNaravelDatabase(configuration);
+        services.AddNaravelMySqlDatabase(configuration);
+        services.AddNaravelPostgresDatabase(configuration);
+        services.AddNaravelSqlServerDatabase(configuration);
+        using var provider = services.BuildServiceProvider();
+
+        FluentActions.Invoking(() => provider.GetRequiredService<IDatabase>().Table("users"))
+            .Should().Throw<InvalidOperationException>()
+            .WithMessage($"The {driver} database connection 'main' needs 'ConnectionString' in its configuration section.");
+    }
+
     [Fact]
     public void Compile_errors_carry_the_messages_in_the_guide()
     {

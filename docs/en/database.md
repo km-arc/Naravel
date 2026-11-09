@@ -389,7 +389,7 @@ The messages below are the ones in the source. .NET adds ` (Parameter 'name')` t
 
 **`DatabaseFake`.** `AssertExecuted()` with nothing run says `Expected a database command to run, but none did.`; with a predicate that matches nothing, `No database command matched the predicate; 1 command(s) ran:` and the commands. `AssertExecutedCount(2)` says `Expected 2 database command(s), but found 1:` and the commands, and `AssertNothingExecuted()` says `Expected no database command, but 1 ran:` and the commands. All are `InvalidOperationException`.
 
-`tests/Naravel.Database.Tests/DocsExampleTests.cs` runs the Quickstart, the `DatabaseFake` example and every message above except two: the `ConnectionString` message of the server drivers and the transaction that EF Core started. Those two come from the source and are not run there. Change one, change the other.
+`tests/Naravel.Database.Tests/DocsExampleTests.cs` runs the Quickstart, the `DatabaseFake` example and every message above except one: the transaction that EF Core started. That one comes from the source and is not run there. Change one, change the other.
 
 ## How it works and why
 
