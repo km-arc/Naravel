@@ -10,6 +10,13 @@ on:
         description: Published version to verify, for example 0.1.1
         required: true
         type: string
+      exclude:
+        description: >-
+          Comma-separated package ids that are not part of that version, for example Naravel.Routing.Cache for 0.1.1, which was
+          released before that package was added. Leave empty for a version that has every package.
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -32,4 +39,14 @@ jobs:
       - name: Consumer smoke
         env:
           VERSION: ${{ inputs.version }}
-        run: python3 .github/scripts/consumer-smoke.py --nuget "$VERSION"
+          EXCLUDE: ${{ inputs.exclude }}
+        run: |
+          args=()
+          IFS=',' read -ra requested <<< "$EXCLUDE"
+          for id in "${requested[@]}"; do
+            id="${id//[[:space:]]/}"
+            if [ -n "$id" ]; then
+              args+=(--exclude "$id")
+            fi
+          done
+          python3 .github/scripts/consumer-smoke.py --nuget "$VERSION" "${args[@]}"
