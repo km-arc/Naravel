@@ -139,7 +139,11 @@ python3 .github/scripts/consumer-smoke.py --local ./nupkgs-check
 ```
 
 To check a version that is already on nuget.org, run the "Package smoke (published version)" workflow with that version
-(`gh workflow run package-smoke.yml -f version=0.1.1`) or `python3 .github/scripts/consumer-smoke.py --nuget 0.1.1`.
+(`gh workflow run package-smoke.yml -f version=0.1.1`) or `python3 .github/scripts/consumer-smoke.py --nuget 0.1.1`. The script
+installs every package that is under `src/` today, so a version that was released before a package was added needs that package named,
+or the restore fails on it: 0.1.1 predates `Naravel.Routing.Cache`, so
+`gh workflow run package-smoke.yml -f version=0.1.1 -f exclude=Naravel.Routing.Cache` (or `--exclude Naravel.Routing.Cache`). Only the
+named ids are left out, and the run prints them, so a package that a release forgot to publish is not skipped without notice.
 
 ### Dev container
 
