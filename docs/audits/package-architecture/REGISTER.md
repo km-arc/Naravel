@@ -1,6 +1,6 @@
 # Package Review Register
 
-Current synchronization baseline: `main` at `c6a7d58ffb84d885741998bb32d2082c54c4ab61` (merged into this audit branch; main remains unchanged). Each report retains its original package source-review baseline and records the latest relevant source revalidation.
+Current synchronization baseline: `main` at `079cfae0f944a2e55234378b2f62d02581fa3bdb` (merged into this audit branch by merge commit `404b7aedd095a543ef6cca4cabaac26d3088f6c7`; this audit branch is 156 commits ahead and 0 behind `main`). `main` was not changed by the audit. Each report retains its original package source-review baseline and records the latest relevant source revalidation.
 
 Inventory: **36** packable source projects. There are 35 package pages in `docs/nuget/`; `Naravel.Foundation` uses `docs/en/foundation.md` as its packed README.
 
