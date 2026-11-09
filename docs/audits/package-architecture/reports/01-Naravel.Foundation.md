@@ -119,3 +119,47 @@
 - OBS: none.
 - DOC: none established.
 - Recommended next task: obtain the owner's decision on the remaining FND-002 registry API race and include AV-006 in Foundation lifecycle remediation. No additional verification follow-up is required for FND-001/FND-003 after the fully green PR #246 run. The late-disposal failure must be observable while preserving exactly-once cleanup and avoiding unobserved background exceptions. No remediation has been made in this audit branch.
+
+## Plain-language explanation
+
+The report contains four findings. Two are already marked as fixed in the report because later changes reached `main`; two remain open. The examples below preserve that distinction.
+
+### FND-001 — Configuration fingerprint could treat different settings as the same
+
+- **In everyday words:** The manager used to turn settings into one text string without clearly separating each value. Different settings could therefore produce the same text, making the manager think nothing had changed.
+- **A realistic example:** One configuration could contain a value with `;`, while another uses that character to separate the next setting. The old text could look identical even though the actual settings differ.
+- **What we checked:** `src/Naravel.Foundation/Manager.cs`, method area around lines 554–592, now writes labelled parts with their lengths, keeps null separate from empty, and includes the store's own value. The report also names the regression cases added upstream.
+- **Why that proves the issue was addressed:** The new format keeps each setting boundary clear, so moving separators between values cannot make two different configurations look alike.
+- **What is not yet proven here:** This audit session did not run the .NET tests locally. The report records that PR #246 CI run `42478727741` passed; that is upstream CI evidence, not a local test run.
+- **Safe outcome and proof:** Keep the distinct-configuration cases and the unchanged-configuration case as regression tests. The report marks this finding **VERIFIED CLOSED** based on the merged fix and successful CI.
+
+### FND-002 — A synchronous caller can still wait for an old asynchronous driver creation
+
+- **In everyday words:** A driver is being created in the background. If its registration is replaced at just the wrong moment, a normal synchronous request can still attach itself to the old creation and wait for it to finish.
+- **A realistic example:** An asynchronous Redis driver is still starting. Another thread replaces it with a synchronous driver. Before the manager hears about the replacement, a call to `Driver` can join the old unfinished task instead of using the new synchronous factory.
+- **What we checked:** `src/Naravel.Foundation/Manager.cs`, around lines 108–137, checks the current async-only flag and then calls `GetOrStart`. The report also points to the documented limitation in `docs/en/foundation.md` and roadmap item D-83.
+- **Why that proves the remaining risk:** The factory replacement and the manager's notification are separate steps. During the gap, the manager can still see the old unfinished creation.
+- **What is not yet proven here:** The narrow race was documented by an upstream targeted reproduction, but this audit pass did not independently reproduce it or run a stress test.
+- **Safe outcome and proof:** A synchronous call must never wait for an asynchronous factory, even during replacement. Add a deterministic test that pauses the registry notification after replacing an in-flight async factory, calls `Driver`, and proves it does not wait for the old creation. The report keeps this finding **OPEN** and requires an owner decision because the clean fix may change the public registry API.
+
+### FND-003 — One throwing shutdown callback used to stop cleanup of other drivers
+
+- **In everyday words:** If one shutdown callback threw an error, the manager could stop cleaning up before it had disposed of the other drivers it owned.
+- **A realistic example:** The application shuts down. A callback attached to the lifetime token throws. Without separate error handling, a database driver later in the cleanup list might never be disposed.
+- **What we checked:** `src/Naravel.Foundation/Manager.cs`, around lines 445–522, now handles registry detachment, options-subscription disposal and lifetime cancellation separately, collects errors, and still disposes all owned drivers. The report lists five upstream regression cases.
+- **Why that proves the issue was addressed:** Each cleanup step can fail without preventing the remaining cleanup steps from running; failures are reported together afterwards.
+- **What is not yet proven here:** This audit pass did not execute the tests locally. The report records successful PR #246 CI, but not a local reproduction.
+- **Safe outcome and proof:** Keep tests for throwing callbacks, combined driver-disposal failures, repeated disposal and subscription failures. The report marks this finding **VERIFIED CLOSED** based on the merged implementation and CI.
+
+### FND-004 — A late-created driver can fail to dispose without anyone being told
+
+- **In everyday words:** A driver may finish starting after the manager has already shut down. The manager tries to dispose it, but currently hides any error from that cleanup.
+- **A realistic example:** A connection pool finishes opening after application shutdown has started. Its disposal fails. The host receives no warning, so an operator cannot tell that a resource may have been left behind.
+- **What we checked:** `src/Naravel.Foundation/Manager.cs`, around lines 390 and 526–544. `RunCreationAsync` calls `DisposeQuietlyAsync`, which catches and discards every exception.
+- **Why that proves the risk:** The code explicitly suppresses the only error from disposing that late-created driver; it does not log or return it.
+- **What is not yet proven here:** The audit inspected the source. It did not reproduce a real leaked connection pool or run a shutdown race.
+- **Safe outcome and proof:** Disposal errors must be visible through a manager-owned diagnostic while cleanup remains safe and does not create an unobserved task exception. Test a factory that completes after shutdown and returns a driver whose disposal throws; assert exactly-once disposal and a visible diagnostic. This finding remains **OPEN**.
+
+### Overall plain-language status
+
+The two closed items describe fixes already merged and checked by upstream CI. The two open items describe remaining risks found by reading the code and the recorded targeted reproduction; this audit did not run the Foundation test project, full solution tests, trimming/AOT publish or mutation tests locally.
