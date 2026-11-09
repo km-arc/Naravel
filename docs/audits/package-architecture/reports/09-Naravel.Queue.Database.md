@@ -114,3 +114,50 @@
 - DOC: DBQ-004 (SQLite README omits UTC-ticks converter).
 - OBS / owner decision: DBQ-005 (PDR schema deliverable scope and implementation record).
 - Recommended next task: obtain AD-015, AD-016 and AD-017 before changing the enqueuer API or PDR scope; add regressions for invalid timeout, reserved SizeAsync and real-factory transactional routing; correct the SQLite README converter example. Do not change runtime code or add provider-specific DDL during this audit pass.
+
+## Plain-language explanation
+
+### DBQ-001 — A zero or negative visibility timeout can make a live reservation look expired
+
+- **In everyday words:** The Database driver accepts a reservation timeout of zero or less. The next worker can then treat a job as abandoned immediately, even though the first worker is still processing it.
+- **A realistic example:** Worker A reserves a row with `VisibilityTimeoutSeconds = 0`. Worker B polls moments later and clears A's reservation, then takes the same job.
+- **What we checked:** `src/Naravel.Queue.Database/DatabaseQueueDriver.cs`, constructor around lines 24–27 and `PopAsync` around lines 42–50; DI parsing is in `ServiceCollectionExtensions.cs` around lines 64–65.
+- **Why that proves the risk:** The timeout is used directly to calculate the stale-reservation cutoff, so a non-positive value can make a new reservation satisfy the expiry test.
+- **What is not yet proven here:** The control flow was inspected; a two-worker duplicate-delivery reproduction was not run.
+- **Safe outcome and proof:** Reject zero and negative values before registering the driver. Test constructor and configuration validation, then verify a positive short timeout reclaims only after its deadline.
+
+### DBQ-002 — SizeAsync counts jobs that are already reserved by a worker
+
+- **In everyday words:** The size query counts every non-failed job, including jobs that a worker has already taken. It therefore reports more pending work than another worker can actually receive.
+- **A realistic example:** There is one job. A worker takes it and keeps the reservation. `SizeAsync` still reports one pending job even though no job is ready for another worker.
+- **What we checked:** `src/Naravel.Queue.Database/DatabaseQueueDriver.cs`, around lines 133–136, filters failed rows but not reserved rows. The `IQueueDriver.SizeAsync` contract describes ready plus delayed work.
+- **Why that proves the mismatch:** The database query includes reserved rows while other reviewed providers and the interface's documented meaning count work available or waiting, not work already being processed.
+- **What is not yet proven here:** No live reserved-row size test was run.
+- **Safe outcome and proof:** Match the documented pending meaning by excluding live reservations. Test size before pop, while a reservation is held, with a delayed job, after acknowledgement and after stale-reservation recovery.
+
+### DBQ-003 — A job saved inside a database transaction can later send follow-up jobs to a different queue backend
+
+- **In everyday words:** The job is written into one database, but its saved message can still name a different queue connection. Later chain jobs or retries may follow that other connection.
+- **A realistic example:** The application's default queue is Redis, but a job is inserted in the Database queue inside a database transaction. The first job is consumed from the database, while a chained job or failed-job retry may be sent to Redis.
+- **What we checked:** `DatabaseJobEnqueuer.Enqueue` and the normal message factory path, `JobDispatcher.BuildOptions/BuildMessage`, plus `JobRecordMapper.ToRecord`. The report compares this with PDR-023, which says the connection option should be ignored for transactional enqueue.
+- **Why that proves the risk:** The message factory keeps `Connection` from the job or default options and persists it, even though the database transaction owns the initial row.
+- **What is not yet proven here:** This routing path was traced in source; a real end-to-end chain/retry reproduction was not run.
+- **Safe outcome and proof:** The stored message must keep the identity of the Database connection that owns the transaction. Test a Redis default plus a separately named Database store, and verify plain jobs, explicit `OnConnection`, chain follow-ups and failed-job retries all stay on the owning database. Decision AD-015 is required before choosing the connection-binding API.
+
+### DBQ-004 — The SQLite package quickstart omits a required date/time conversion
+
+- **In everyday words:** The package README looks like a complete SQLite setup, but it leaves out a mapping needed for the queue's date/time columns.
+- **A realistic example:** A developer follows only the package README, creates the SQLite schema and registers the driver. The worker's query for ready or delayed jobs may then fail or order the date values incorrectly.
+- **What we checked:** `docs/nuget/Naravel.Queue.Database.md` shows the SQLite setup without the converter. The shipped `sqlite.sql` stores four `DateTimeOffset` values as integer ticks, while `docs/en/queue.md` and the provider test context show the required UTC-ticks converter.
+- **Why that proves the mismatch:** The README's setup omits a mapping that the full guide and tests require for the schema being shown.
+- **What is not yet proven here:** This is a documentation omission; the README snippet was not compiled against a real SQLite schema during this audit.
+- **Safe outcome and proof:** Add the SQLite-only converter to the package example and keep it in sync with the main guide. Compile and run the exact README example and verify ready/delayed ordering and time comparisons.
+
+### DBQ-005 — The implementation record in PDR-012 no longer matches the checked-in SQLite schema helper
+
+- **In everyday words:** The architecture decision document says no SQL script exists, but the repository now contains a SQLite script and a helper that exposes it. The document also does not clearly say whether SQLite-only scripts are enough.
+- **A realistic example:** A maintainer reads PDR-012 and concludes no schema script was delivered, even though the SQLite development/test helper is present. Another maintainer may assume scripts exist for SQL Server, PostgreSQL and MySQL, when they do not.
+- **What we checked:** `PDR-012`, its owner implementation record, `src/Naravel.Queue.Database/Schema/sqlite.sql`, `QueueSchema.SqliteScript` and the opt-in helper. The report also checks the docs describing consumer-managed EF migrations for production.
+- **Why that proves the mismatch:** The written decision record is stale relative to the checked-in source, and the scope of the promised scripts is not explicit.
+- **What is not yet proven here:** The source and PDR text were inspected; this is not a runtime defect and no provider-specific script was inferred where none exists.
+- **Safe outcome and proof:** The owner must confirm whether SQLite DDL for development/tests plus consumer-managed production migrations is the intended deliverable. Then update PDR-012 to match. Do not claim SQL scripts for providers unless they exist and have been verified. Decision AD-016 remains open.
