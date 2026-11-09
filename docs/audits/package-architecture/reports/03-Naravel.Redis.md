@@ -110,3 +110,32 @@
 - OBS: RED-003.
 - DOC: PDR-010/source mismatch is described under RED-002 and is now an explicit veto rather than an accepted deviation.
 - Recommended next task: preserve the shared-multiplexer ownership design, but move first-use creation to an async pre-warm lifecycle. Keep the connection-string retention question as a separate security/secret-lifetime decision. No runtime code has changed in this audit.
+
+## Plain-language explanation
+
+### RED-001 — An automatically named Redis connection can accidentally select a different configured connection
+
+- **In everyday words:** The helper creates a short name from a connection string. If a configured store already has that name, the helper can return that other store instead of opening the connection the caller asked for.
+- **A realistic example:** A caller passes connection string A. Its generated name is already used by a configured store that points to Redis B. The helper sees the name is taken and returns Redis B.
+- **What we checked:** `src/Naravel.Redis/RedisManager.cs`, around lines 46–58, and `RedisServiceCollectionExtensions.cs`, around lines 39–45. The manager checks only whether the generated name exists; registration does not reserve the `implicit-` name range.
+- **Why that proves the risk:** The code checks the name but does not compare the existing connection's original value with the caller's requested connection string.
+- **What is not yet proven here:** The collision path was traced in source. A deterministic runtime test with a deliberately colliding configured name was not run.
+- **Safe outcome and proof:** A name collision must never silently send work to a different Redis server. Reserve and validate the generated-name range or keep an exact identity check. Test a configured store whose name matches the generated name and prove the helper either uses the requested connection or fails clearly. Consider the shortened hash collision separately.
+
+### RED-002 — The first Redis connection is opened synchronously
+
+- **In everyday words:** The first request to use Redis can block while the application connects over the network. The public path has no cancellation option for that connection attempt.
+- **A realistic example:** A request arrives while Redis is unavailable. The first cache call waits through DNS, network and connection timeouts instead of using a connection that was prepared during startup.
+- **What we checked:** `src/Naravel.Redis/RedisServiceCollectionExtensions.cs` registers `ConnectionMultiplexer.Connect`; `RedisManager.FromConnectionString` and the connection access path are synchronous. PDR-010 requires asynchronous connection work where available.
+- **Why that proves the risk:** The first resolution performs network connection work inside a synchronous factory, so the caller cannot await it or cancel the wait.
+- **What is not yet proven here:** The audit did not measure request latency, thread-pool pressure or cancellation under an unavailable Redis server.
+- **Safe outcome and proof:** Open and prepare the connection asynchronously before synchronous consumers need it. A synchronous accessor should return only an already-created connection or fail clearly. Test with a gated async opener, cancellation, and concurrent first resolution; do not hide synchronous networking inside `Task.Run`.
+
+### RED-003 — The raw Redis connection string remains in memory longer than the report wording suggests
+
+- **In everyday words:** The helper says it does not store the raw connection string, but the registered factory keeps a copy of it in memory so it can open the connection later or retry.
+- **A realistic example:** The string contains a password. Even after the Redis connection is open, the manager's stored factory still holds the original string.
+- **What we checked:** `src/Naravel.Redis/RedisManager.cs`, around lines 50–55, registers a factory that captures the string. The Foundation registry keeps that factory for the registration lifetime. The wording in PDR-010 and `docs/en/redis.md` is also cited in the finding.
+- **Why that proves the concern:** The retained delegate closes over the original string; it is not removed after a successful connection is created.
+- **What is not yet proven here:** This is a source/lifetime observation, not evidence that the password was logged or exposed to another process. No memory-dump test was run.
+- **Safe outcome and proof:** The owner must decide whether retaining the string for retry is acceptable. If not, successful connection creation must replace the retained factory with one that no longer needs the secret, while preserving retry after a failed first open. Do not describe the string as “never stored” unless the code actually meets that statement.
