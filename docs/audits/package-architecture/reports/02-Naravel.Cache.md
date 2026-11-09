@@ -166,3 +166,83 @@
 - DOC: CCH-006.
 - OBS: none.
 - Recommended next task: treat scope-safe flush and lease/fencing correctness as release blockers. Bound tag metadata growth and add provider-neutral Cache/Lock telemetry before declaring the module production-ready. No runtime remediation has been made in this audit branch.
+
+## Plain-language explanation
+
+The findings below describe risks in cache scope handling, key naming, time, locks, input validation and operational visibility. Unless stated otherwise, they were identified by source inspection; the live provider and runtime tests listed in the report were not run in this audit pass.
+
+### CCH-001 — Flushing one user or tenant scope can clear the whole cache store
+
+- **In everyday words:** A scoped cache view limits normal key access, but its flush operation calls the full backing store's flush. A caller can therefore erase data outside its own scope.
+- **A realistic example:** Tenant A and tenant B each store `profile`. Tenant A calls `FlushAsync` on its scoped cache. The current wrapper asks the underlying store to flush, so tenant B's data may be removed too.
+- **What we checked:** `src/Naravel.Cache/Scoping/ScopedCacheStore.cs`, especially `FlushAsync` around line 59, and scope creation in `CacheManager.ForUser` / `CacheManager.Scope`.
+- **Why that proves the risk:** Individual keys receive a scope prefix, but flush does not use that prefix; it delegates directly to the whole store.
+- **What is not yet proven here:** The code path is confirmed by inspection. A two-tenant runtime regression was not run. The exact blast radius depends on the backing provider.
+- **Safe outcome and proof:** Flushing a scoped view must never remove another scope's or the base store's entries. Test two scopes plus the base store; flush one scope and prove the other values remain. For providers that cannot safely flush one scope, the operation must fail clearly or be separately named as a whole-store action. Owner/PDR approval is required before changing this public behavior.
+
+### CCH-002 — Different tag groups can produce the same cache key
+
+- **In everyday words:** The code joins tag names into one text key without escaping separators. Some different tag groups can therefore become indistinguishable.
+- **A realistic example:** The tag list `["x@0:y"]` and the list `["x", "y"]` can both produce `x@0:y@0:key` for the same data key.
+- **What we checked:** `src/Naravel.Cache/Tagging/TaggedCacheStore.cs`, around lines 17–20 and 27–39, where tags are accepted and joined.
+- **Why that proves the risk:** Both accepted inputs are converted to the same physical key, so one tagged view can read or invalidate data written through the other.
+- **What is not yet proven here:** The report records a static collision example, not a test run against a live provider.
+- **Safe outcome and proof:** Different tag lists must always produce different identities. Add the exact collision regression and cases with separators, empty tags, duplicate tags and tag ordering. Preserve the accepted tag contract unless the owner approves a restriction.
+
+### CCH-003 — Some cache time calculations ignore the application's testable clock
+
+- **In everyday words:** Parts of Cache read the computer's clock directly. Tests and applications cannot control those time decisions through the repository's `TimeProvider` rule.
+- **A realistic example:** A Memory lock is expected to last ten seconds. The system clock moves unexpectedly, so the lock may expire too early or stay held too long.
+- **What we checked:** Direct clock reads appear in `MemoryLock.cs`, `CacheLockExtensions.cs`, `MemoryCacheStore.cs` and `CacheRateLimiter.cs`; the report identifies the relevant lines.
+- **Why that proves the risk:** These production paths use system time rather than an injected clock, while `AGENTS.md` requires injected `TimeProvider` for time-dependent code.
+- **What is not yet proven here:** The audit did not simulate clock changes or run deterministic timing tests for these production classes.
+- **Safe outcome and proof:** Each time-based behavior must use the approved clock source and distinguish real timestamps from elapsed-time measurement. Use a manually advanced clock to test lock expiry, waiting, cache counter expiry and rate-limit boundaries. Do not replace every clock call mechanically; check how cache expiry is coordinated first.
+
+### CCH-004 — A rate-limit lock can expire while its protected work is still running
+
+- **In everyday words:** The limiter uses a lock that lasts 30 seconds, but the work inside the lock has no guaranteed 30-second deadline. If it takes longer, another process may enter while the first one is still updating the count.
+- **A realistic example:** Application A reads the counter and pauses while Redis is slow. The 30-second lock expires. Application B acquires the lock and also reads and updates the same counter before A has finished.
+- **What we checked:** `src/Naravel.Cache/RateLimiting/CacheRateLimiter.cs`, where `LockTtl` is fixed at 30 seconds and several awaited reads/writes happen inside `BlockAsync`. The `ICacheLock` contract has no renewal operation.
+- **Why that supports the risk:** The protected sequence can outlive the lock, and the contract provides no way to extend the lock while that sequence is running.
+- **What is not yet proven here:** This is a design risk from source inspection. The report does not claim a reproduced double-admission or load-test result.
+- **Safe outcome and proof:** The whole critical section must finish within a proven limit, or the lock must be safely renewable/fenced. Test two limiter instances with a controllable store: pause the first beyond the lease, run the second, then prove the configured limit is never exceeded. Owner/PDR approval is required before changing lock semantics.
+
+### CCH-005 — A missing cache factory can fail only when the cache is empty
+
+- **In everyday words:** One overload accepts a factory function but does not check that it exists before wrapping it. A null factory can appear harmless on a cache hit and fail later on a cache miss.
+- **A realistic example:** A caller accidentally passes `null`. The key is already cached, so the call succeeds. Later the key expires, and the same call throws `NullReferenceException` instead of rejecting the bad argument immediately.
+- **What we checked:** `src/Naravel.Cache/CacheStoreExtensions.cs`, lines 9–15 and 38–43; the token-aware overload validates the delegate but the non-token overload does not.
+- **Why that proves the issue:** The non-token overload captures the original value in a lambda without checking it, so the error is postponed until the lambda runs.
+- **What is not yet proven here:** The source path is clear, but no null-factory regression test was run in this audit.
+- **Safe outcome and proof:** Both `RememberAsync` and `RememberForeverAsync` must throw `ArgumentNullException` immediately for a null factory, regardless of cache hit or miss. Add tests for both states.
+
+### CCH-006 — The Cache guide teaches a direct system-clock call
+
+- **In everyday words:** The maintained quickstart shows application code reading the system clock directly, even though the repository requires time to be supplied through `TimeProvider`.
+- **A realistic example:** A developer copies the quickstart's `DateTime.UtcNow` call into an endpoint and later cannot control that time in a deterministic test.
+- **What we checked:** `docs/en/cache.md` around line 24 uses `DateTime.UtcNow`, while `docs/nuget/Naravel.Cache.md` already shows `TimeProvider.System` and `clock.GetUtcNow()`.
+- **Why that proves the mismatch:** The two maintained examples teach different time patterns, and the module guide conflicts with the repository rule.
+- **What is not yet proven here:** The exact quickstart snippet was not compiled as part of this review.
+- **Safe outcome and proof:** Update the guide to show an injected clock and compile/run that exact example in `DocsExampleTests`. Check that maintained Cache examples do not introduce direct system-clock reads.
+
+### CCH-007 — Operators cannot observe most cache/lock activity, and limiter names can create excessive metric labels
+
+- **In everyday words:** The package reports some rate-limit numbers, but not the basic cache and lock operations. Also, a caller can put an unlimited number of different names into a metric label, making monitoring data grow out of control.
+- **A realistic example:** An application uses each tenant ID as the limiter name. Every tenant creates a new metric dimension. At the same time, operators cannot use Naravel's Cache telemetry to see cache misses, slow writes or lock contention.
+- **What we checked:** `src/Naravel.Cache/Diagnostics/CacheTelemetry.cs` defines rate-limiter metrics but no Cache-store or Cache-lock operation measurements. `src/Naravel.Cache/RateLimiting/CacheRateLimiter.cs` accepts the caller's `limiter` string and adds it to metric/activity tags without limiting the possible values.
+- **Why that proves the risk:** There is no common telemetry for the basic operations, and the caller-controlled label is not limited to a finite set.
+- **What is not yet proven here:** No production telemetry load or cardinality stress test was run.
+- **Safe outcome and proof:** Add provider-neutral measurements for operation, result and duration; use only bounded policy names in metric labels. Test with `MeterListener` and `ActivityListener`, including many distinct caller-supplied names, and prove raw keys, values and user data never become tags.
+
+### CCH-008 — Tag-version records can grow forever
+
+- **In everyday words:** Every time a tag group is flushed, the cache stores another version record. There is no safe cleanup rule, so a system that creates many one-off tags can keep growing this metadata forever.
+- **A realistic example:** An application uses order IDs as tags. Each order is flushed once. Even after the order's cached data has expired, its tag-version record remains.
+- **What we checked:** `src/Naravel.Cache/Tagging/TaggedCacheStore.cs`, especially the version increment during `FlushAsync`, which uses the no-expiry increment overload.
+- **Why that proves the risk:** The code creates persistent per-tag records and the package has no matching reclamation lifecycle.
+- **What is not yet proven here:** The report is based on source inspection; a long-running heap/store growth test was not run.
+- **Safe outcome and proof:** Define a bounded lifecycle without allowing an old cached value to become visible again after a version record is removed. Test high-cardinality tags and safe cleanup, including values without TTL. A blind TTL on version records is unsafe because resetting a version can make an old value appear current again.
+
+### Overall plain-language status
+
+The Cache report records source-level findings and a static example for the tag-key collision. It does not claim that the live Redis or Memcached tests, timing reproductions, concurrency stress or mutation tests were run. Owner decisions remain required where the public behavior or distributed-lock guarantee would change.
