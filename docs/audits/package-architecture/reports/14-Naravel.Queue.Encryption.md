@@ -54,3 +54,18 @@
 ## Owner decision gate
 
 No owner decision is required to add the missing integration test. This audit does not authorize runtime or API changes.
+
+## Plain-language explanation
+
+### QEN-001 — The Queue encryption adapter lacks a test using two separate providers with the same saved keys
+
+- **In everyday words:** The adapter's current positive test uses one shared in-memory encryption provider. It does not yet prove that one application can encrypt a queued job and a separate application can decrypt it using the same saved key files.
+- **A realistic example:** A web process puts an encrypted job into a queue. A worker process starts separately, loads the same persisted key directory and application name, and tries to read the job. That exact Queue-adapter setup is not covered by the current positive test.
+- **What we checked:** `tests/Naravel.Queue.Encryption.Tests/EncryptedJobTests.cs` uses the same ephemeral provider instance for the positive producer/worker test. `tests/Naravel.Encryption.Tests/EncrypterTests.cs` tests persisted-key reading for the base Encryption package, but with that package's purpose rather than `EncryptedJobSerializer.Purpose`.
+- **Why that proves the coverage gap:** The lower-level encryption package test does not execute the Queue adapter's own purpose and registration path, so it cannot replace the missing adapter-level test.
+- **What is not yet proven here:** No cryptographic defect was found by source inspection. The cross-provider Queue test was not run because it does not yet exist.
+- **Safe outcome and proof:** Create two independent service providers that load the same temporary persisted key directory and application name. Encrypt with the first Queue adapter and decrypt through the second. Also prove that a different application name or key directory fails. This is a test-coverage finding, not evidence of current data exposure or broken encryption.
+
+### Overall plain-language status
+
+The inspected adapter keeps Queue independent from the Encryption package, uses a fixed encryption purpose and alias-based type selection, and preserves encrypted payloads through queue storage and retry. Those are source-review observations. Build, tests, persisted-key integration for the Queue-specific purpose, mutation testing and independent review were not run in this audit pass.
