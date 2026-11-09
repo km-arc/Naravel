@@ -6,20 +6,36 @@ using Naravel.Foundation;
 
 namespace Naravel.Routing.Cache.Tests;
 
-/// <summary>A clock that only moves when a test moves it, so no test waits for a window.</summary>
+/// <summary>
+/// A clock that only moves when a test moves it, so no test waits for a window. <see cref="Advance"/> is time passing and moves both
+/// the date and time of day and the monotonic timestamp (which the circuit breaker reads); <see cref="Set"/> sets the date and time
+/// of day only, like a system clock that is stepped.
+/// </summary>
 internal sealed class ManualClock(DateTimeOffset start) : TimeProvider
 {
     private readonly object _gate = new();
     private DateTimeOffset _now = start;
+    private long _timestamp;
+
+    public override long TimestampFrequency => TimeSpan.TicksPerSecond;
 
     public override DateTimeOffset GetUtcNow()
     {
         lock (_gate) return _now;
     }
 
+    public override long GetTimestamp()
+    {
+        lock (_gate) return _timestamp;
+    }
+
     public void Advance(TimeSpan by)
     {
-        lock (_gate) _now += by;
+        lock (_gate)
+        {
+            _now += by;
+            _timestamp += by.Ticks;
+        }
     }
 
     public void Set(DateTimeOffset value)

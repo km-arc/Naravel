@@ -631,20 +631,32 @@ public class ThrottleFailureTests
         }
     }
 
-    /// <summary>A clock a test moves by hand; only the breaker reads it.</summary>
+    /// <summary>A clock a test moves by hand; only the breaker reads it, and it reads the monotonic timestamp.</summary>
     private sealed class ManualTimeProvider : TimeProvider
     {
         private readonly object _gate = new();
         private DateTimeOffset _now = new(2026, 11, 3, 12, 0, 0, TimeSpan.Zero);
+        private long _timestamp;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
 
         public override DateTimeOffset GetUtcNow()
         {
             lock (_gate) return _now;
         }
 
+        public override long GetTimestamp()
+        {
+            lock (_gate) return _timestamp;
+        }
+
         public void Advance(TimeSpan by)
         {
-            lock (_gate) _now += by;
+            lock (_gate)
+            {
+                _now += by;
+                _timestamp += by.Ticks;
+            }
         }
     }
 
