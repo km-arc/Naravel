@@ -86,3 +86,32 @@
 - P2: MEM-001 (AV-010), MEM-002.
 - DOC: MEM-003.
 - Recommended next task: implement bounded state reclamation without breaking same-name sharing, and make all six operations honor pre-cancelled tokens; add the targeted tests before marking either finding closed.
+
+## Plain-language explanation
+
+### MEM-001 — Process-wide queue dictionaries keep old queue names and failed messages forever
+
+- **In everyday words:** The Memory driver stores queue state in static dictionaries shared by the process. It creates entries even when a queue is only checked and never removes empty queue entries or its private failed-message copies.
+- **A realistic example:** A service checks thousands of queue names created from tenant IDs. Even if those queues never receive a job, their dictionary entries and lock objects remain in memory. Failed jobs also remain in a private collection that callers cannot inspect or clear.
+- **What we checked:** `src/Naravel.Queue.Memory/MemoryQueueDriver.cs`, around lines 18–30 and 82, defines the static dictionaries and adds queue/lock entries from normal operations. The report found no read or removal path for the private failed collection.
+- **Why that proves the risk:** The dictionaries are static, entries are added as names are seen, and the package has no matching cleanup operation.
+- **What is not yet proven here:** The lifetime problem is visible in source; no heap or long-running soak test was run.
+- **Safe outcome and proof:** Process-local queue state and failed payloads need a safe bounded lifetime. Test many unique names, empty `PopAsync` / `SizeAsync` calls and permanent failures; prove old state can be reclaimed without breaking two live driver instances that share a connection name.
+
+### MEM-002 — Memory queue operations ignore cancellation
+
+- **In everyday words:** All queue methods accept a cancellation token but do not check it. A cancelled caller can still change queue state.
+- **A realistic example:** A request is already cancelled, but `PushAsync` still adds the message. A cancelled `AckAsync` can still remove the job.
+- **What we checked:** `src/Naravel.Queue.Memory/MemoryQueueDriver.cs`, across `PushAsync`, `PopAsync`, `AckAsync`, `ReleaseAsync`, `FailAsync` and `SizeAsync`. The report contrasts this with `InMemoryFailedJobStore`, which does check cancellation.
+- **Why that proves the risk:** The driver never reads the token before it returns or mutates data.
+- **What is not yet proven here:** Source inspection confirms the missing checks; no per-method cancellation test was run.
+- **Safe outcome and proof:** Each operation must reject an already-cancelled token before it reads or changes queue state. Test all six methods and assert the queue and failed-job state remain unchanged.
+
+### MEM-003 — The constructor documentation says queue state is private to one instance, but it is shared
+
+- **In everyday words:** The XML documentation says each driver instance has its own queue, while the actual code shares queue state between instances with the same connection name.
+- **A realistic example:** A developer creates two Memory drivers with the same connection name and expects separate queues because of the constructor description. In practice, both use the same in-process queue.
+- **What we checked:** `src/Naravel.Queue.Memory/MemoryQueueDriver.cs` around lines 16–24, and the package README `docs/nuget/Naravel.Queue.Memory.md` around line 34.
+- **Why that proves the mismatch:** The source uses shared static dictionaries, and the README correctly documents same-name sharing, but the constructor comment says the opposite.
+- **What is not yet proven here:** This is a documentation mismatch; no new runtime behavior was alleged or tested.
+- **Safe outcome and proof:** Correct the XML text to explain same-name sharing within one process and clarify that it does not survive process restart. Verify the generated API documentation and package README tell the same story.
