@@ -60,7 +60,7 @@ app.MapGet("/posts/feed", async (AppDb db, CancellationToken ct, string? cursor)
     }
     catch (InvalidCursorException)
     {
-        return Results.BadRequest("invalid cursor");   // a client edited or truncated it
+        return Results.BadRequest("invalid cursor");   // malformed: cut, not base64url, or not the expected shape
     }
 });
 
@@ -87,7 +87,7 @@ public sealed class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
  "meta":{"current_page":3,"from":21,"last_page":3,"path":"/posts","per_page":10,"to":25,"total":25}}
 ```
 
-`GET /posts/feed` returns posts 25 down to 16 (newest first) with `meta.next_cursor` and `links.next`; sending that cursor back as `?cursor=` returns the next ten, and so on until `next_cursor` is `null`. A cursor that a client edited or cut answers `400`.
+`GET /posts/feed` returns posts 25 down to 16 (newest first) with `meta.next_cursor` and `links.next`; sending that cursor back as `?cursor=` returns the next ten, and so on until `next_cursor` is `null`. A cursor that is malformed (cut, not base64url, or not the expected shape) answers `400`. A cursor that was edited into another valid position is accepted and moves the reader there: it is not signed (see [The cursor](#the-cursor)).
 
 `WithQuery` repeats the other query-string values (for example `perPage`) in every link. `Map` shapes the rows without a second query, as Laravel's `through`: `result.Map(p => new PostDto(p.Id, p.Title))` (`PostDto` is your own type).
 
