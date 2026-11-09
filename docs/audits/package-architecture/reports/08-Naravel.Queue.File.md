@@ -125,3 +125,59 @@
 - P1: FILE-001 (AV-011).
 - P2: FILE-002 (AV-010), FILE-003, FILE-004, FILE-005, FILE-006.
 - Recommended next task: resolve queue-path containment and injective name mapping first, with an approved on-disk compatibility/migration policy; then address bounded gate lifetime, atomic-write cleanup, timeout validation and poison-file quarantine before accepting the File driver as safe for untrusted or multi-tenant queue names.
+
+## Plain-language explanation
+
+### FILE-001 — A queue name can escape the configured folder or overlap another queue
+
+- **In everyday words:** The File driver removes some invalid characters from queue names but leaves `..` unchanged. It can also turn two different names into the same folder name.
+- **A realistic example:** A queue named `..` can make the driver build a path outside the configured queue folder. Names `a/b` and `ab` can both become the folder `ab`, mixing their messages.
+- **What we checked:** `src/Naravel.Queue.File/FileQueueDriver.cs`, around lines 36–40 and 87, and the public queue-name assignment path in `DispatchOptions.OnQueue` / `QueuedMessage.Queue`.
+- **Why that proves the risk:** The sanitizing step deletes characters rather than proving that the final path stays under the configured root or that accepted names remain unique.
+- **What is not yet proven here:** This is a source-level path analysis. No operating-system exploit or collision test was run.
+- **Safe outcome and proof:** Reject unsafe names or encode them so each accepted name maps to one unique directory below the canonical queue root. Test dot segments, rooted paths, separators, Windows drive paths, invalid-only names and collision pairs on Windows and Linux. Owner decision AD-014 is needed because changing the folder mapping may affect existing queue files.
+
+### FILE-002 — File queue keeps a semaphore for every queue path forever
+
+- **In everyday words:** The driver stores one coordination object for each queue path in a static dictionary and never removes it. Using many temporary queue names can therefore grow process memory indefinitely.
+- **A realistic example:** A test or service creates many temporary queue folders. Even after the folders are deleted, the process still holds the semaphore objects for those paths.
+- **What we checked:** `src/Naravel.Queue.File/FileQueueDriver.cs`, around lines 107–110, defines `QueueGates` and adds entries in `GateFor`; no removal/disposal path is present.
+- **Why that proves the risk:** Every new path can add another object, and the package does not retire old entries.
+- **What is not yet proven here:** No heap or soak test was run.
+- **Safe outcome and proof:** Retire unused coordination objects only after no active user or waiter can still use them. Test many path/name pairs and race cleanup against waiting and active operations; prove one queue still has only one effective gate while calls overlap.
+
+### FILE-003 — A failed or cancelled file write can leave temporary files behind
+
+- **In everyday words:** The driver creates a temporary file before entering the cleanup block. If writing that file fails or is cancelled, the cleanup code is never reached.
+- **A realistic example:** The disk fills after part of a queue record is written. The operation fails, but the partial temporary file remains and takes up space.
+- **What we checked:** `WriteAtomicAsync` in `src/Naravel.Queue.File/FileQueueDriver.cs`, around lines 52–64. The write occurs before the `try` block that cleans up after rename failure.
+- **Why that proves the risk:** An exception during the write exits the method before the existing cleanup handler runs.
+- **What is not yet proven here:** No disk-full or cancellation fault was injected during a real file write.
+- **Safe outcome and proof:** Cleanup must cover both writing and renaming, preserve the original error and remove partial files after handled failures. Test a partial-write failure and cancellation after temp-file creation. Consider safe startup cleanup for leftovers from process crashes.
+
+### FILE-004 — A zero or negative visibility timeout lets another worker take a job immediately
+
+- **In everyday words:** The driver accepts a timeout of zero or less. That makes a newly reserved job look expired right away, so another worker can take it while the first worker is still running.
+- **A realistic example:** Worker A reserves a job with a zero timeout. Worker B polls immediately and sees A's reservation as expired, then runs the same job.
+- **What we checked:** The constructor in `src/Naravel.Queue.File/FileQueueDriver.cs`, around lines 24–27, accepts the value; `IsExpired` around lines 156–160 uses it; DI passes `VisibilityTimeoutSeconds` through without range validation.
+- **Why that proves the risk:** A non-positive time span makes the expiry condition true at or immediately after reservation.
+- **What is not yet proven here:** The source path is confirmed; no duplicate-delivery runtime reproduction was run.
+- **Safe outcome and proof:** Reject zero and negative values in both the public constructor and DI configuration. Test invalid values and prove two workers cannot take the same live reservation when a positive timeout is configured.
+
+### FILE-005 — A damaged queue file can be ignored forever or stop the queue from being read
+
+- **In everyday words:** A damaged pending file may be skipped without warning and remain on disk forever. A damaged expired reservation can instead make later polls fail before healthy jobs are read.
+- **A realistic example:** One pending JSON file is truncated. The worker silently skips it but keeps counting it. In another case, one damaged reserved file causes every later `PopAsync` for that queue to fail during recovery.
+- **What we checked:** `PopCoreAsync` in `src/Naravel.Queue.File/FileQueueDriver.cs`, around lines 132–148, and `ReclaimStaleReservationsAsync` around lines 180–213. The report also notes that JSON `null` is not handled before a message property is read.
+- **Why that proves the risk:** The pending-file catch ignores malformed JSON, while the stale-reservation path does not quarantine malformed JSON and can let the exception escape.
+- **What is not yet proven here:** No corrupt-file test was run for malformed JSON, null JSON or broken reserved records.
+- **Safe outcome and proof:** A damaged record must be visible to an operator and must not block healthy work. Move it to a quarantine location with a safe diagnostic; do not silently delete it. Test malformed pending data followed by a healthy message, JSON null, and malformed expired reservations.
+
+### FILE-006 — SizeAsync does not stop when its caller cancels
+
+- **In everyday words:** The size method scans files but does not check the cancellation token. A cancelled caller can still trigger a full directory scan.
+- **A realistic example:** A large queue folder is being counted when the application shuts down. The method continues counting even though the caller has cancelled.
+- **What we checked:** `SizeAsync` in `src/Naravel.Queue.File/FileQueueDriver.cs`, around lines 269–273, uses synchronous file enumeration without checking the token.
+- **Why that proves the gap:** There is no cancellation check before directory access and the enumeration itself is not made cooperative.
+- **What is not yet proven here:** No large-directory cancellation test was run.
+- **Safe outcome and proof:** A pre-cancelled call must stop before accessing the directory; long enumeration should check cancellation between bounded steps where possible. Test both pre-cancellation and cancellation during a large scan, and document any file-system operation that cannot be interrupted once started.
