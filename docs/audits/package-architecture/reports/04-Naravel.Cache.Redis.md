@@ -108,3 +108,32 @@
 - OBS: none added.
 - DOC: cancellation documentation should be precise about the difference between cancelling the caller's wait and cancelling an already-issued Redis command.
 - Recommended next task: owner review of CRD-001 through CRD-003. Prioritize fail-fast Database validation and flush completeness; agree cancellation semantics before changing all provider awaits. No code has been changed by this audit.
+
+## Plain-language explanation
+
+### CRD-001 — A typo in the Redis database number can silently choose the connection's default database
+
+- **In everyday words:** If the `Database` setting contains text that is not a number, the adapter treats it like the setting was left out. It does not tell the operator that the value is invalid.
+- **A realistic example:** The connection string defaults to database 4. The Cache setting says `"zero"` by mistake. The adapter passes `-1`, so Redis uses database 4 instead of reporting the typo.
+- **What we checked:** `src/Naravel.Cache.Redis/RedisCacheServiceCollectionExtensions.cs`, around lines 33 and 39, where `int.TryParse` falls back to `-1` for both cache and lock registration.
+- **Why that proves the risk:** Invalid non-empty input and an omitted setting take the same path, even though they should have different meanings.
+- **What is not yet proven here:** The parsing behavior is confirmed by source inspection; no registration test for malformed values was run.
+- **Safe outcome and proof:** Missing/empty should keep the documented connection-default behavior, but malformed or overflowing text must fail with an error naming the store and setting. Test missing, valid, malformed and overflow values for both cache and lock.
+
+### CRD-002 — Redis flush can report success after skipping every disconnected server
+
+- **In everyday words:** The flush method skips servers that are disconnected. If every server is skipped, the method still returns normally even though it did not remove the cache entries.
+- **A realistic example:** Redis is offline when an operator calls `FlushAsync`. The method sees disconnected servers, skips them and completes. The application believes the cache was cleared, but old values remain.
+- **What we checked:** `src/Naravel.Cache.Redis/RedisCacheStore.cs`, around lines 152–165, especially the `IsConnected` check. The existing test proxy always reports a connected primary.
+- **Why that proves the risk:** The method has a successful return path even when it scans no connected primary.
+- **What is not yet proven here:** The audit traced the control flow; it did not disconnect a live Redis endpoint during a flush.
+- **Safe outcome and proof:** A flush must either confirm that every required primary was handled or return a visible failure. Test all-disconnected, replica-only and partially disconnected cases, and keep the existing prefix-safety test.
+
+### CRD-003 — Cancelling a request does not stop waiting for an already-started Redis operation
+
+- **In everyday words:** The adapter checks cancellation before sending a Redis command, but once the command starts, it waits for Redis even if the caller has cancelled.
+- **A realistic example:** A web request is cancelled while a Redis write is waiting on the network. The request code still waits until Redis responds or times out.
+- **What we checked:** `src/Naravel.Cache.Redis/RedisCacheStore.cs` around lines 94–148 and `src/Naravel.Cache.Redis/RedisLock.cs` around lines 35–53. The current tests cover cancellation before an operation starts, not while its task is pending.
+- **Why that proves the gap:** The code awaits the provider task without making the caller's wait respond to the cancellation token.
+- **What is not yet proven here:** No pending-command cancellation test was run. Cancelling the caller's wait would not undo a command already sent to Redis.
+- **Safe outcome and proof:** Define whether cancellation should stop the caller's wait, and document that the remote change may still finish. Test with a pending fake Redis task: cancel after dispatch, prove the caller receives `OperationCanceledException`, then allow the simulated Redis command to finish and verify the documentation does not claim it was rolled back.
