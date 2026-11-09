@@ -2,85 +2,84 @@
 
 ## Review metadata
 
-- Package ID: Naravel.Queue.Kafka.
-- Source project: src/Naravel.Queue.Kafka/Naravel.Queue.Kafka.csproj.
-- Baseline: main at 282a507bead92ae9ca40a9cb060baa2ee1dd7287.
+- Package ID: `Naravel.Queue.Kafka`.
+- Source project: `src/Naravel.Queue.Kafka/Naravel.Queue.Kafka.csproj`.
+- Source-review baseline: `main` at `198b36f9e2753ccfb68354a02480cdc25e7eabc7`; this audit branch contains that commit.
 - Review date: 2026-11-09.
-- Reviewer mode: principal-architect source, test and package-contract review; independent fresh-session review NOT RUN.
-- Status: REVIEWED WITH FINDINGS (source inspection only; live Kafka verification pending).
-- Files inspected: Kafka driver and offset tracker; project/package references; Kafka-specific tests; Queue provider contract; Queue core interfaces; Kafka package README and Queue guide.
-- Direct dependency: Confluent.Kafka 2.16.0; project reference: Naravel.Queue.
-- Verification performed: consumer creation, consumer-group naming, polling and error handling, delayed-message rejection, retry/failed-topic behavior, acknowledgement ordering, offset tracker and size semantics inspected.
-- Verification NOT RUN: restore, build, provider tests, live Kafka broker tests, rebalance/failure injection, mutation testing and independent review.
+- Reviewer mode: principal-architect source and contract review; independent second review NOT RUN.
+- Status: REVIEWED WITH FINDINGS (1 P2; source inspection only).
+- Files inspected: `KafkaQueueDriver.cs`, `KafkaOffsetCommitTracker`, `IQueueDriver`, Queue worker polling/stop logic, `KafkaDelayedDeliveryTests`, `KafkaOffsetCommitTrackerTests`, `KafkaQueueProviderTests` in `QueueProviderContractTests.cs`, Queue guide and NuGet README..
+- Dependencies: `Naravel.Queue` and `Confluent.Kafka`..
+- Verification performed: source-to-contract tracing and inspection of the listed tests and documentation.
+- Verification NOT RUN: .NET restore/build/test, live provider or service execution unless explicitly stated below, full CI and mutation testing.
 
 ## Executive assessment
 
-Kafka is a log, not a traditional queue, and the adapter documents the important differences: each queue has its own consumer group, delayed delivery is rejected, retries are re-produced immediately, SizeAsync returns -1, and offsets are committed only after settlement. The offset tracker has targeted tests for out-of-order acknowledgement and gaps.
-
-Two source-level risks remain. First, a consumer creation callback is passed to ConcurrentDictionary.GetOrAdd; concurrent callers may execute that callback more than once. The consumer that loses the dictionary race is not disposed. Second, an initial broker ConsumeException is converted into null, which is the same result as “no message arrived.” A broker failure can therefore look like an empty queue to the worker.
+The provider treats Kafka as a log, not a classic queue. It documents immediate retry, no delayed dispatch, per-queue consumer groups, tail-of-topic retries, `SizeAsync=-1` and at-least-once crash redelivery. The offset tracker waits for earlier deliveries before committing later acknowledgements. One error path reports a failed poll as an empty queue.
 
 ## Package and dependency map
 
-- Public implementation: KafkaQueueDriver, implementing IQueueDriver and IDisposable.
-- Registration: AddKafkaDriver requires BootstrapServers and defaults GroupId to netqueue-workers.
-- Queue mapping: netqueue-{queue} for jobs and netqueue-{queue}-failed for dead letters. Consumer group is {GroupId}-{queue}.
-- Resource ownership: one producer per driver and one consumer state per queue; each consumer has a gate, offset tracker and in-memory buffer.
-- Dependency boundary: the adapter depends on Queue and Confluent.Kafka; Queue core remains independent of Kafka.
+- Implementation: `KafkaQueueDriver : IQueueDriver, IDisposable`.
+- Topics: `netqueue-{queue}` and `netqueue-{queue}-failed`.
+- One consumer state and consumer group per logical queue.
+- Retries are published to the topic tail before committing the old offset.
 
 ## Findings
 
-### [P2] KFK-001 — Concurrent first use can create extra Kafka consumers that are never disposed
+
+### [P2] KFK-001 — A broker read error is reported as an empty queue
 
 - Remediation state: OPEN.
-- Evidence status: SEEN IN SOURCE and CHECKED AGAINST .NET CONCURRENT-DICTIONARY CONTRACT; concurrent broker reproduction NOT RUN.
-- Evidence: GetConsumer in src/Naravel.Queue.Kafka/KafkaQueueDriver.cs passes a factory to _consumers.GetOrAdd(queue, ...). Inside the factory it builds a consumer and calls Subscribe; the returned consumer is wrapped in KafkaConsumerState. Only the winning state is retained. No code disposes a state created by a factory call that loses the dictionary race.
-- In everyday words: Two requests can both try to create the first consumer for the same queue. One is saved; the other can be left running in the background with no owner to dispose it.
-- Realistic example: Two workers call PopAsync("orders") at the same time on a cold driver. Both factory calls may build and subscribe a Kafka consumer for the same group. Only one is stored in _consumers.
-- Why the evidence proves the risk: GetOrAdd may invoke its value factory more than once under concurrent calls; only one created value is inserted. The losing consumer is not returned to the caller and is not in the dictionary that Dispose later walks.
-- What is not proven: the code path and .NET concurrency contract establish the risk; this audit did not force two first-use factory calls against a live broker.
-- Required safe outcome: one queue must have exactly one owned consumer, and every consumer created during a race must either become the owned instance or be disposed immediately.
-- Regression tests required: use a gated consumer factory so two calls both reach creation before either returns; prove one consumer is retained and the other is disposed. Verify only one active subscription for the queue group and that driver disposal closes every created consumer.
-- Public API / PDR / release impact: internal lifecycle correction; no public API change expected.
+- Evidence status: CONFIRMED BY SOURCE; runtime reproduction NOT RUN.
+- Exact source evidence: `KafkaQueueDriver.PopAsync` catches `ConsumeException` around its first `PollAsync` and returns `null`; the later drain catches the same exception and stops draining. The Queue worker treats `null` as an empty poll; with `StopWhenEmpty` it exits.
+- Affected API/configuration: `KafkaQueueDriver.PopAsync` and `QueueWorkerOptions.StopWhenEmpty`.
+- User impact: A broker or topic error can quietly stop a worker that was configured to stop only when there are no jobs. Without `StopWhenEmpty`, it still hides the reason no job was returned.
+- Trigger/example: Kafka throws `ConsumeException` during poll. The provider returns `null`, indistinguishable from a healthy empty poll.
+- Why this proves the concern: The provider converts an error into the same return value used for a valid empty queue. The worker only logs errors that escape the driver as exceptions.
+- Existing test gap: Provider tests cover healthy brokers and cancellation, not a `ConsumeException` injection or worker reaction.
+- Required safe outcome: Propagate a provider failure or return a distinct unavailable result. Only a successful poll with no record should mean empty.
+- Regression tests required: Inject a poll error with `StopWhenEmpty=true` and prove the worker stays alive or reports a failure; prove a genuinely empty queue still stops; keep cancellation distinct.
+- Owner decision: Not required to record this finding; required before changing runtime behavior.
 
-### [P2] KFK-002 — A broker consume error is reported as an empty queue
+#### Plain-language explanation
 
-- Remediation state: OPEN.
-- Evidence status: SEEN IN SOURCE; injected broker-error test NOT RUN.
-- Evidence: PopAsync in src/Naravel.Queue.Kafka/KafkaQueueDriver.cs catches ConsumeException around the first PollAsync call and immediately returns null. The same method also returns null when polling completes without a record.
-- In everyday words: When Kafka reports an error, the driver tells Queue that there was simply no message.
-- Realistic example: Kafka is unavailable or the consumer cannot read its partition. PopAsync returns null; the worker treats the queue as idle and keeps polling instead of recording a backend failure.
-- Why the evidence proves the risk: a broker exception is swallowed and mapped to the same return value used for an ordinary empty poll. No diagnostic or error state is returned from this catch.
-- What is not proven: source inspection confirms the catch path; the audit did not inject a broker error or verify production logging under an outage.
-- Required safe outcome: distinguish “no message arrived in the poll window” from “the broker failed to deliver a poll result.” Surface the broker error through the normal Queue worker error path, or report it through a bounded diagnostic while retaining any explicitly chosen retry behavior.
-- Regression tests required: inject ConsumeException on the first poll and during buffer draining. The first must not be treated as a normal empty queue; the second must not silently hide a partial read failure. Confirm the worker logs/reports backend failure and later recovers after the broker returns.
+**In everyday words:** The provider says “there are no jobs” when it really means “Kafka could not answer.”
 
-## Existing guarantees and coverage
+**A realistic example:** The worker polls during a broker interruption. It receives `null` and exits as if the queue had drained, even though the broker may recover later.
 
-- Delayed messages are rejected before publish; the package README explains this limitation and the reason a delayed record would block later records in a partition.
-- Worker-initiated retries are published immediately, and the tests verify that the retry does not hold back later records.
-- The offset tracker does not commit beyond an earlier unacknowledged record; tests cover out-of-order acknowledgements and gaps.
-- SizeAsync deliberately returns -1; the shared Queue interface allows this when exact size is unavailable.
-- The provider tests include the shared broker contract, cancelled empty polling, idle consumer isolation, retry timing and compatibility with old future-dated records. Those tests require an external Kafka service.
+**What we checked:** `KafkaQueueDriver.PopAsync` catches `ConsumeException` around its first `PollAsync` and returns `null`; the later drain catches the same exception and stops draining. The Queue worker treats `null` as an empty poll; with `StopWhenEmpty` it exits.
+
+**Why that proves the concern:** The provider converts an error into the same return value used for a valid empty queue. The worker only logs errors that escape the driver as exceptions.
+
+**What is not yet proven:** the review inspected source and existing test code only. The behavior was not reproduced by running a test or a live service in this review.
+
+**What should change:** Propagate a provider failure or return a distinct unavailable result. Only a successful poll with no record should mean empty.
+
+**How we will prove the fix:** Inject a poll error with `StopWhenEmpty=true` and prove the worker stays alive or reports a failure; prove a genuinely empty queue still stops; keep cancellation distinct.
+
 
 ## Test assessment
 
-- Tests inspected: KafkaDelayedDeliveryTests, KafkaOffsetCommitTrackerTests, and KafkaQueueProviderTests in QueueProviderContractTests.cs.
-- Missing tests: concurrent first-consumer creation and disposal; first-poll and buffer-drain ConsumeException handling.
-- Tests actually run in this review: NONE.
-- Live Kafka, build, mutation testing and independent review: NOT RUN.
+- Existing tests inspected: `KafkaDelayedDeliveryTests`; `KafkaOffsetCommitTrackerTests`; `KafkaQueueProviderTests.Shared_contract`, `Pop_on_an_empty_queue_honours_cancellation_without_waiting_for_the_poll_window`, `Idle_consumer_of_another_queue_does_not_stall_a_new_queue`, retry-immediate and legacy delayed-record tests..
+- Coverage seen in source: delayed dispatch rejection, immediate retry, offset ordering, cancellation, queue isolation, consumer startup, batch priority and old-envelope compatibility..
+- Gaps: no injected `ConsumeException` or worker test that checks broker failure with `StopWhenEmpty=true`.
+- Tests actually run for this review: NONE.
+- Build/restore: NOT RUN.
+- External service/provider integration: NOT RUN.
+- Mutation testing: NOT RUN.
+- Independent review: NOT RUN.
 
 ## Documentation and packaging assessment
 
-- The package README explains per-queue consumer groups, the required bootstrap servers and the no-delay behavior.
-- It correctly says retries are immediate rather than applying the original backoff.
-- The shared Queue guide explains Kafka's at-least-once crash redelivery and that SizeAsync is not available as a cheap count.
-- The documentation does not currently explain that a consume exception is returned to the worker as an empty poll.
+The Queue guide accurately explains Kafka-specific limits. `SizeAsync=-1` is allowed by the shared contract and is documented; it is not a finding.
 
 ## Risk summary and next action
 
-- P2: KFK-001 (extra consumer may be left active and unowned); KFK-002 (broker errors can be mistaken for an idle queue).
-- Recommended next task: add the deterministic consumer-factory and consume-error tests, then correct ownership and error propagation. No runtime change is authorized by this audit.
+- P2: KFK-001.
+- P0 / P1 / P3 / OBS / DOC: none recorded.
+
+Recommended next task: preserve the distinction between an empty topic and a failed poll, and add a worker-level error test. Do not change runtime code in this audit without owner approval.
 
 ## Plain-language explanation
 
-Kafka stores messages in an ordered log. This adapter preserves that model and makes several differences from a normal queue explicit. The two open issues are about error handling and resource ownership: one error can look like “nothing to do,” and simultaneous first requests can create a consumer that the driver never remembers or closes. The broker-backed tests were inspected but not executed in this audit.
+This provider stores jobs in Kafka topics. It intentionally does not support delayed dispatch and retries go to the end of the topic. The code and tests were inspected, but no build, automated test or live broker check was run.

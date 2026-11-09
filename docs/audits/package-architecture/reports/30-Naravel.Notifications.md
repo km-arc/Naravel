@@ -2,66 +2,54 @@
 
 ## Review metadata
 
-- Package ID: Naravel.Notifications.
-- Source project: src/Naravel.Notifications/Naravel.Notifications.csproj.
-- Baseline: main at d3f4342db8aa7d0f8085d1205f76f6ae5bfa8ba3.
+- Package ID: `Naravel.Notifications`.
+- Source project: `src/Naravel.Notifications/Naravel.Notifications.csproj`.
+- Source-review baseline: `main` at `198b36f9e2753ccfb68354a02480cdc25e7eabc7`; this audit branch contains that commit.
 - Review date: 2026-11-09.
-- Reviewer mode: principal-architect source, error-contract and test review; independent fresh-session review NOT RUN.
-- Status: REVIEWED — NO SOURCE-LEVEL FINDINGS (runtime verification pending).
-- Files inspected: NotificationSender, NotificationArguments, NotificationContext, NotificationDeliveryException, channel interfaces, delegate/log channels, telemetry, NotificationFake, registration, core tests, README and guide.
-- Dependencies: Microsoft.Extensions.DependencyInjection abstractions and logging/metrics primitives; optional Mail and Queue support lives in separate adapters.
-- Verification performed: recipient validation, channel resolution, ordering, cancellation, partial failure behavior, telemetry dimensions and fake behavior reviewed.
-- Verification NOT RUN: restore, build, tests, live Mail/Queue adapter tests, full CI, mutation testing and independent review.
+- Reviewer mode: principal-architect source and contract review; independent second review NOT RUN.
+- Status: REVIEWED — NO SOURCE-LEVEL FINDINGS.
+- Files inspected: Notification interfaces/context/arguments, delivery exception, sender, delegate and log channels, fake, telemetry, registration, tests and docs..
+- Dependencies: Microsoft.Extensions DI/logging abstractions; Mail and Queue are optional adapters..
+- Verification performed: source-to-contract tracing and inspection of the listed tests and documentation.
+- Verification NOT RUN: .NET restore/build/test, live provider or service execution unless explicitly stated below, full CI and mutation testing.
 
 ## Executive assessment
 
-NotificationSender validates the request and resolves all requested channels before it begins delivery. It then sends to channels in order. If a channel fails, it throws NotificationDeliveryException containing the failed channel and the list of channels that already succeeded. This makes partial delivery visible to the caller.
-
-The sender does not pretend that a failed multi-channel send is atomic. Earlier channels may already have delivered; the caller must use the exception information when deciding whether and how to retry.
-
-No source-level correctness or architecture finding was identified in this pass.
+The sender checks that every requested channel exists before sending to the first channel. It sends in caller-supplied order and stops at the first failure, recording channels that already succeeded. Logs and metrics avoid recipient/payload contents. No source-level defect was confirmed.
 
 ## Package and dependency map
 
-- Public contract: INotificationSender and INotificationChannel<TNotification>.
-- Context: NotificationContext holds recipient and channel information.
-- Error contract: NotificationDeliveryException exposes the failed channel and previously delivered channels.
-- Built-in channels: delegate and log channels.
-- Testing: NotificationFake.
-- Telemetry: operation duration, dispatch count and per-channel outcome.
-- Optional adapters: Mail and Queue packages are separate; core Notifications does not depend on either.
+- Sender: `INotificationSender`.
+- Channel contract: `INotificationChannel<TNotification>`.
+- Context: explicit recipient and channel.
+- Registration: `AddNaravelNotifications`, `AddNotificationChannel`.
+- Fake: `NotificationFake`.
 
 ## Findings
 
-No source-level finding was established in the inspected core package.
-
-## Existing guarantees and coverage
-
-- Invalid recipient, notification and channel arguments are checked before delivery.
-- All requested channels are resolved before the first delivery, so an unknown channel does not cause earlier channels to be delivered before the typo is discovered.
-- Channels are called in the order requested.
-- Cancellation is checked before delivery and between channels; cancellation is not wrapped as a delivery failure.
-- A channel failure reports which channel failed and which earlier channels already delivered.
-- Telemetry tags use channel name and outcome; recipient identity and notification content are not used as metric dimensions.
-- The fake records sends and supports assertions/reset.
+No source-level findings were confirmed in the inspected scope. This is not a claim of runtime or production verification.
 
 ## Test assessment
 
-- Tests inspected: NotificationSenderTests and DocsExampleTests.
-- Tests actually run in this review: NONE.
-- Build/CI, adapter integration, mutation testing and independent review: NOT RUN.
+- Existing tests inspected: `NotificationSenderTests`, `DocsExampleTests`..
+- Coverage seen in source: order, name matching, missing/duplicate channel, type mismatch, argument validation, partial failure, cancellation, DI dependencies, log behavior, telemetry and fake..
+- Gaps: no tests run in this review; real delivery is covered by optional adapters.
+- Tests actually run for this review: NONE.
+- Build/restore: NOT RUN.
+- External service/provider integration: NOT RUN.
+- Mutation testing: NOT RUN.
+- Independent review: NOT RUN.
 
 ## Documentation and packaging assessment
 
-- The core README and guide explain channel registration, ordered delivery and partial failure reporting.
-- Optional mail and queue adapters are documented separately from the core dependency graph.
-- No docs example was executed.
+README and guide document explicit channels, sequential delivery and partial-failure behavior. Log channel records type names, not recipient or payload.
 
 ## Risk summary and next action
 
-- P0/P1/P2/P3/OBS/DOC: none established by source inspection.
-- Recommended next task: retain the explicit partial-delivery error contract and run the core tests before release.
+No source-level findings confirmed.
+
+Recommended next task: run unit tests and add idempotency guidance for callers that retry after partial delivery. Do not change runtime code in this audit without owner approval.
 
 ## Plain-language explanation
 
-A notification can be sent through more than one channel, such as email and another delivery method. The package checks every requested channel before it sends anything, then sends in order. If one channel fails, the error tells the caller which channel failed and which earlier channels already succeeded. It does not claim that all channels succeed or fail as one indivisible action. The tests were inspected, not run.
+This package sends a notification through explicitly named channels. It validates all requested channels first and then sends in order. Source and tests were inspected; no build or tests ran.

@@ -2,77 +2,116 @@
 
 ## Review metadata
 
-- Package ID: Naravel.Broadcasting.
-- Source project: src/Naravel.Broadcasting/Naravel.Broadcasting.csproj.
-- Baseline: main at d3f4342db8aa7d0f8085d1205f76f6ae5bfa8ba3.
+- Package ID: `Naravel.Broadcasting`.
+- Source project: `src/Naravel.Broadcasting/Naravel.Broadcasting.csproj`.
+- Source-review baseline: `main` at `198b36f9e2753ccfb68354a02480cdc25e7eabc7`; this audit branch contains that commit.
 - Review date: 2026-11-09.
-- Reviewer mode: principal-architect source, security, concurrency and test review; independent fresh-session review NOT RUN.
-- Status: REVIEWED WITH FINDINGS (source inspection only; distributed cache/lock verification pending).
-- Files inspected: hub, channel names/rules, options and registration, SignalR/log/null drivers, broadcaster, presence service/store/heartbeat/tracker/member, fake, hub/presence/channel tests and docs.
-- Dependencies: ASP.NET Core SignalR and Naravel.Cache abstractions; the core package does not own a Redis/Memcached client.
-- Verification performed: protected-channel authorization, group join/leave, presence lifecycle, cached list updates, lock usage, time-based expiry and telemetry reviewed.
-- Verification NOT RUN: restore, build, SignalR tests, real Redis/Memcached presence concurrency, slow-cache lock-expiry reproduction, mutation testing and independent review.
+- Reviewer mode: principal-architect source and contract review; independent second review NOT RUN.
+- Status: REVIEWED WITH FINDINGS (2 P2; source inspection only).
+- Files inspected: Broadcast contracts/message/manager; SignalR driver and hub; channel rules; presence store/service/tracker/heartbeat; registration; fake; `HubTests`, `PresenceHubTests`, `PresenceStoreTests`; README and guide..
+- Dependencies: ASP.NET Core SignalR, `Naravel.Events` and `Naravel.Cache` abstractions. Cache is used for shared presence membership and locks..
+- Verification performed: source-to-contract tracing and inspection of the listed tests and documentation.
+- Verification NOT RUN: .NET restore/build/test, live provider or service execution unless explicitly stated below, full CI and mutation testing.
 
 ## Executive assessment
 
-The package has an explicit authorization boundary: public channels are open, while private and presence channels require an authenticated user and a matching rule. Missing or throwing rules deny the subscription. Presence members are kept in a shared cache list and refreshed; closed connections are removed, with expiry as a fallback when cleanup fails.
-
-One concurrency risk remains in the presence list update. The store holds a distributed lock with a fixed 10-second lifetime while it awaits cache reads and writes. If the cache operation takes longer than that, the lock can expire while the first update is still running. A second server can then acquire the same lock and perform its own read/change/write at the same time. This relates directly to the repository's existing distributed-lock architecture veto AV-002.
+Protected channels require authentication and a matching rule. Presence lists are changed under a cache lock and can be shared between instances. Tests cover authorization, multiple connections, join/leave, expiry and concurrent joins. Two lifecycle gaps remain: re-subscribing on the same connection can announce a duplicate join; heartbeat interval does not follow a reloaded presence TTL.
 
 ## Package and dependency map
 
-- Main service: BroadcastManager and DriverBroadcaster.
-- Hub and authorization: BroadcastHub, ChannelRules and channel-name validation.
-- Drivers: SignalR, log and null broadcasters.
-- Presence: PresenceService, PresenceStore, PresenceHeartbeatService and PresenceTracker.
-- Test support: BroadcastFake.
-- Dependencies: ASP.NET Core SignalR and Naravel.Cache abstractions; optional Cache providers supply shared storage/locks.
-- Resource ownership: SignalR connections are owned by ASP.NET Core; the package tracks presence by connection ID and expiry.
+- Contracts: `IBroadcastable`, `IBroadcaster`, `IBroadcastDriver`.
+- SignalR delivery: `BroadcastHub` and `SignalRBroadcastDriver`.
+- Authorization: `ChannelRules`.
+- Presence: `PresenceStore`, `PresenceService`, `PresenceTracker`, `PresenceHeartbeatService`.
+- Cache is optional; local fallback warns when locks are not shared.
 
 ## Findings
 
-### [P2] BRC-001 — A presence-list update can outlive its 10-second lock
+
+### [P2] BRD-001 — Repeating Subscribe on one connection announces a duplicate join
 
 - Remediation state: OPEN.
-- Architecture disposition: related to AV-002 — the protected update must remain mutually exclusive for its entire lifetime; a fixed lease alone is not enough unless the operation is bounded or fenced.
-- Evidence status: SEEN IN SOURCE; slow-cache interleaving reproduction NOT RUN.
-- Evidence: WithLockAsync in src/Naravel.Broadcasting/PresenceStore.cs acquires the per-channel lock using TimeSpan.FromSeconds(10), then awaits the supplied body. JoinAsync and LeaveAsync call LoadAsync (cache TryGetAsync) and SaveAsync (cache SetAsync/RemoveAsync) inside that body. There is no renewal or fencing check before the write. Existing PresenceStoreTests use an in-memory cache and MemoryLock, including 30 parallel joins, but do not pause a cache call beyond 10 seconds.
-- In everyday words: The presence list is protected by a lock that lasts 10 seconds. If a cache read or write takes longer, the lock can expire before the update is finished, allowing another server to edit the same list at the same time.
-- Realistic example: Server A takes the channel lock and pauses while Redis is slow. Ten seconds pass. Server B takes the now-expired lock, reads the old list and adds a member. Server A then resumes and saves its older copy, overwriting B's new member.
-- Why the evidence proves the risk: the code awaits remote cache operations while holding a lock whose expiry is fixed and not extended. After expiry, the lock no longer prevents another owner from entering. The source does not check that the original owner still holds the lock before saving.
-- What is not proven: this is a source-level interleaving analysis. The audit did not run a delayed Redis test or reproduce data loss with two live servers.
-- Required safe outcome: two updates to one channel must never overwrite one another, even when a cache call is slow. Either enforce a strict operation deadline shorter than the lock, renew/fence the lease, or use an atomic backend update. A stale holder must not save after another holder has taken over.
-- Regression tests required: use two PresenceStore instances over a controllable shared cache/lock. Pause the first read or write until after 10 seconds, let the second instance join/leave, resume the first and prove both correct state and membership notifications are preserved. Include cancellation, cache timeout and real Redis/Memcached provider tests.
-- Public API / PDR / release impact: distributed presence correctness; linked to AV-002. Do not claim cross-instance consistency for a provider unless its lock guarantees support the required critical section.
+- Evidence status: CONFIRMED BY SOURCE; runtime reproduction NOT RUN.
+- Exact source evidence: `BroadcastHub.Subscribe` calls `PresenceService.JoinAsync` for each request. `PresenceStore.JoinAsync` removes an existing entry with that connection ID before calculating whether the user is new. If it was the user's only connection, the subsequent check returns true and the hub sends `MemberJoined` again.
+- Affected API/configuration: `BroadcastHub.Subscribe` for `presence-` channels.
+- User impact: Other clients can receive duplicate join events for someone who never left.
+- Trigger/example: A client calls `Subscribe` twice for the same presence channel without disconnecting.
+- Why this proves the concern: The existing connection's only record is removed before checking for another connection with the same user ID.
+- Existing test gap: `PresenceHubTests.Joining_returns_the_members_and_the_others_are_told_once_per_user` tests two distinct connections for one user, not two calls on the same connection.
+- Required safe outcome: Make repeated subscription idempotent. It must not report a new member if this same connection was already subscribed.
+- Regression tests required: Call `Subscribe` twice on one connection while another client listens; assert exactly one `MemberJoined`. Keep the existing two-connections/same-user test.
+- Owner decision: Not required to record; required before runtime change only if public semantics change.
 
-## Existing guarantees and coverage
+#### Plain-language explanation
 
-- Protected channel subscription requires authentication and an allow-listed channel rule.
-- A missing or throwing authorization rule denies access.
-- Presence identity is based on an explicit user ID and supports multiple connections for one user.
-- Each connection record has its own expiry; heartbeat refreshes known connections.
-- Disconnected connections are removed, and an entry expires if cleanup cannot complete.
-- The package warns when a process-local lock is used with multiple instances; in that setup the presence list is not globally shared.
-- Tests cover authorization, presence joining/leaving, multiple connections, refresh/expiry, parallel joins and SignalR hub behavior. They were inspected but not executed here.
+**In everyday words:** Joining the same presence room twice from one connection can make the system announce that user twice.
+
+**A realistic example:** Bob's client subscribes, then a UI reconnect handler repeats the call. Ann can receive another `MemberJoined` even though Bob did not leave.
+
+**What we checked:** `BroadcastHub.Subscribe` calls `PresenceService.JoinAsync` for each request. `PresenceStore.JoinAsync` removes an existing entry with that connection ID before calculating whether the user is new. If it was the user's only connection, the subsequent check returns true and the hub sends `MemberJoined` again.
+
+**Why that proves the concern:** The existing connection's only record is removed before checking for another connection with the same user ID.
+
+**What is not yet proven:** the review inspected source and existing test code only. The behavior was not reproduced by running a test or a live service in this review.
+
+**What should change:** Make repeated subscription idempotent. It must not report a new member if this same connection was already subscribed.
+
+**How we will prove the fix:** Call `Subscribe` twice on one connection while another client listens; assert exactly one `MemberJoined`. Keep the existing two-connections/same-user test.
+
+
+### [P2] BRD-002 — Presence heartbeat keeps the original interval after a TTL reload
+
+- Remediation state: OPEN.
+- Evidence status: CONFIRMED BY SOURCE; runtime reproduction NOT RUN.
+- Exact source evidence: `PresenceStore.Ttl` reads `options.CurrentValue.PresenceEntryTtl` on every store operation. `PresenceHeartbeatService.ExecuteAsync` reads the TTL once at start and creates a `PeriodicTimer(ttl / 3)` which is never recreated. `BindOptions` registers a configuration reload token.
+- Affected API/configuration: `Broadcasting:PresenceEntryTtl` configuration and `PresenceHeartbeatService`.
+- User impact: After shortening the TTL, active users can expire from the presence list before the heartbeat timer refreshes them.
+- Trigger/example: Service starts with 90-second TTL (30-second heartbeat); config reload changes TTL to 3 seconds, but timer still waits 30 seconds while entries expire after 3.
+- Why this proves the concern: The store observes the new lifetime but the timer keeps using the old lifetime.
+- Existing test gap: Presence store tests use fixed options and direct refresh; no hosted-service options reload test.
+- Required safe outcome: Either update/recreate the heartbeat timer on options change or explicitly make this setting startup-only and stop promising hot reload.
+- Regression tests required: Run the hosted heartbeat, change TTL from long to short and verify refresh occurs before entries expire; also test increasing TTL.
+- Owner decision: Not required if hot reload remains supported; owner decision needed only if changing to startup-only.
+
+#### Plain-language explanation
+
+**In everyday words:** The presence list and heartbeat can use different timeout values after a settings reload. The list may expire users before the timer refreshes them.
+
+**A realistic example:** A 90-second lifetime is changed to 3 seconds. The heartbeat still waits 30 seconds, so other clients may see an active user disappear.
+
+**What we checked:** `PresenceStore.Ttl` reads `options.CurrentValue.PresenceEntryTtl` on every store operation. `PresenceHeartbeatService.ExecuteAsync` reads the TTL once at start and creates a `PeriodicTimer(ttl / 3)` which is never recreated. `BindOptions` registers a configuration reload token.
+
+**Why that proves the concern:** The store observes the new lifetime but the timer keeps using the old lifetime.
+
+**What is not yet proven:** the review inspected source and existing test code only. The behavior was not reproduced by running a test or a live service in this review.
+
+**What should change:** Either update/recreate the heartbeat timer on options change or explicitly make this setting startup-only and stop promising hot reload.
+
+**How we will prove the fix:** Run the hosted heartbeat, change TTL from long to short and verify refresh occurs before entries expire; also test increasing TTL.
+
 
 ## Test assessment
 
-- Tests inspected: HubTests, PresenceHubTests, PresenceStoreTests, ChannelRulesTests, BroadcasterTests, PresenceRedisTests and PresenceMemberJsonTests.
-- Missing test: slow cache operation crossing the fixed 10-second lock lifetime.
-- Tests actually run in this review: NONE.
-- Live Redis/Memcached, build/CI, mutation testing and independent review: NOT RUN.
+- Existing tests inspected: `HubTests`, `PresenceHubTests`, `PresenceStoreTests` and other broadcasting unit tests..
+- Coverage seen in source: anonymous and protected joins, authorization failure, event bridge, multiple connections for one user, disconnect, unsubscribe, expiry, refresh, parallel joins..
+- Gaps: same-connection repeated Subscribe; hosted heartbeat behavior after settings reload; real multi-process Redis/Memcached/SignalR cluster.
+- Tests actually run for this review: NONE.
+- Build/restore: NOT RUN.
+- External service/provider integration: NOT RUN.
+- Mutation testing: NOT RUN.
+- Independent review: NOT RUN.
 
 ## Documentation and packaging assessment
 
-- The guide explains public/private/presence channels, authorization and presence events.
-- It says a shared cache/lock is required for presence state to be consistent across instances.
-- The source's 10-second lock lifetime is not presented as an operator-configurable upper bound for the cache operations.
+Guide accurately requires rules for protected channels and warns that process-local locks do not share presence across instances.
 
 ## Risk summary and next action
 
-- P2: BRC-001, related to AV-002.
-- Recommended next task: define and test the safe lifetime/atomicity rule for presence-list updates before relying on this feature across application instances. No runtime change is authorized by this audit.
+- P2: BRD-001, BRD-002.
+- P0 / P1 / P3 / OBS / DOC: none recorded.
+
+Recommended next task: make repeated presence joins idempotent and keep heartbeat timing synchronized with the configured entry lifetime. Do not change runtime code in this audit without owner approval.
 
 ## Plain-language explanation
 
-Broadcasting checks access before a client joins a private or presence channel. It also keeps track of connected users in a shared cache. The remaining risk is the lock around updates: the lock lasts ten seconds, but the cache operations inside it have no matching deadline or renewal. A slow cache call could let another server update the same list at the same time. The audit found the risk in source; it did not reproduce it against a live Redis or Memcached service.
+This package broadcasts events with SignalR and manages members of presence rooms. Source and tests were inspected; no build, tests or real multi-process SignalR cluster ran.

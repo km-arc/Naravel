@@ -2,107 +2,116 @@
 
 ## Review metadata
 
-- Package ID: Naravel.Queue.RabbitMQ.
-- Source project: src/Naravel.Queue.RabbitMQ/Naravel.Queue.RabbitMQ.csproj.
-- Baseline: main at 282a507bead92ae9ca40a9cb060baa2ee1dd7287.
+- Package ID: `Naravel.Queue.RabbitMQ`.
+- Source project: `src/Naravel.Queue.RabbitMQ/Naravel.Queue.RabbitMQ.csproj`.
+- Source-review baseline: `main` at `198b36f9e2753ccfb68354a02480cdc25e7eabc7`; this audit branch contains that commit.
 - Review date: 2026-11-09.
-- Reviewer mode: principal-architect source, test and package-contract review; independent fresh-session review NOT RUN.
-- Status: REVIEWED WITH FINDINGS (source inspection and external RabbitMQ contract check; broker runtime verification pending).
-- Files inspected: driver, registration, project/package references, RabbitMQ provider tests, shared Queue contract, Queue core IQueueDriver contract, Queue guide and package README.
-- Direct dependency: RabbitMQ.Client 7.2.2; project reference: Naravel.Queue.
-- Verification performed: settlement ordering, message persistence properties, durable topology, TTL/dead-letter flow, configuration parsing, queue-size semantics, test coverage and package boundary reviewed.
-- Verification NOT RUN: restore, build, unit tests, live RabbitMQ provider contract, broker restart/durability test, publisher-confirm failure injection, mutation testing and independent review.
+- Reviewer mode: principal-architect source and contract review; independent second review NOT RUN.
+- Status: REVIEWED WITH FINDINGS (1 P1, 1 P2; source inspection only).
+- Files inspected: `RabbitMqQueueDriver.cs`, provider project file, `IQueueDriver`, shared queue contract in `tests/Naravel.Queue.Tests/DriverTests.cs`, `RabbitMqQueueTypeTests`, RabbitMQ section in `docs/en/queue.md` and NuGet README..
+- Dependencies: `Naravel.Queue` and `RabbitMQ.Client`; optional provider package..
+- Verification performed: source-to-contract tracing and inspection of the listed tests and documentation.
+- Verification NOT RUN: .NET restore/build/test, live provider or service execution unless explicitly stated below, full CI and mutation testing.
 
 ## Executive assessment
 
-The driver uses a clear topology: ready, delay and failed queues are separate; delayed messages return through RabbitMQ dead-lettering; ready messages use manual acknowledgement; and each outstanding delivery keeps the channel that received it.
-
-The main correctness risk is message loss during retry or permanent-failure handoff. The driver acknowledges the old delivery before it publishes the replacement. If the new publish fails after the acknowledgement succeeds, RabbitMQ no longer has the old message and the replacement was not stored. The failed-message path has the same ordering. There are also two contract gaps: failed messages are published without the persistent flag used for normal messages, and SizeAsync counts only ready messages even though the shared contract says ready plus delayed.
+The provider stores ready jobs, delayed jobs and failed jobs in separate durable queues. It keeps one channel for each in-flight delivery. It supports classic and quorum ready queues. Delays use per-message expiry and dead-lettering; the guide warns that a long-delay message can hold back shorter delays. Two contract gaps remain: acknowledging before publishing a retry can lose the only copy after a crash, and the reported queue size ignores delayed jobs.
 
 ## Package and dependency map
 
-- Public implementation: RabbitMqQueueDriver; public queue type: RabbitMqQueueType (Classic or Quorum).
-- Registration: AddRabbitMqDriver reads each store's host, port, credentials, virtual host, queue type and optional delivery limit.
-- Topology: netqueue.ready.{queue}, netqueue.delay.{queue}, netqueue.failed.{queue}, and the shared direct exchange.
-- Resource ownership: the driver owns one shared connection and one channel per in-flight delivery; DisposeAsync disposes outstanding channels and the connection.
-- Dependency boundary: the optional adapter depends on Queue and RabbitMQ.Client; Queue core does not depend on RabbitMQ.
+- Contract: `IQueueDriver`; implementation: `RabbitMqQueueDriver`.
+- Registration: `AddRabbitMqDriver`.
+- Topology: `netqueue.ready.*`, `netqueue.delay.*`, `netqueue.failed.*` and `netqueue.direct`.
+- Ownership: one shared RabbitMQ connection plus one channel per active delivery; the driver implements `IAsyncDisposable`.
 
 ## Findings
 
-### [P1] RQM-001 — Release and fail acknowledge the original message before the replacement is published
+
+### [P1] RQM-001 — Retry can lose the message between acknowledgement and republish
 
 - Remediation state: OPEN.
-- Architecture disposition: proposed veto AV-020 — an original queue message must not be acknowledged until its replacement or failed copy has been safely accepted by the broker.
-- Evidence status: SEEN IN SOURCE; deterministic broker-failure reproduction NOT RUN.
-- Evidence: src/Naravel.Queue.RabbitMQ/RabbitMqQueueDriver.cs, methods ReleaseAsync and FailAsync. Both remove the delivery from _deliveries, call BasicAckAsync and dispose that channel before calling PushAsync or publishing to the failed queue.
-- Affected contract: IQueueDriver.ReleaseAsync and IQueueDriver.FailAsync.
-- In everyday words: The driver throws away the broker's only copy first, then tries to save the new copy. If saving the new copy fails, the job is gone.
-- Realistic example: A job fails once. RabbitMQ confirms the acknowledgement of the old delivery. The connection then fails while the driver tries to publish the retry. The original is already acknowledged and the retry was never accepted.
-- Why the evidence proves the risk: the two operations are separate and the acknowledgement comes first. There is no transaction or recovery step that restores the acknowledged message when the later publish throws.
-- What is not proven: the source ordering is confirmed; no live broker fault was injected between the acknowledgement and publish. This report does not claim that every publish fails or that a normal run loses messages.
-- Required safe outcome: publish the replacement first and wait for the broker's acceptance confirmation before acknowledging the old delivery. If the acknowledgement then fails, a duplicate is safer than losing the only copy; the Queue contract already has at-least-once behavior.
-- Regression tests required: pause or reject the replacement publish after a successful old delivery; prove the old message remains available. Then prove successful publish followed by failed acknowledgement may produce a duplicate but never zero copies. Cover both retry and permanent-failure handoff, including broker restart between the steps.
-- Public API / PDR / release impact: reliability and at-least-once delivery guarantee. No public API change is necessarily required, but publisher-confirm behavior and duplicate handling must be explicit.
+- Evidence status: CONFIRMED BY SOURCE; runtime reproduction NOT RUN.
+- Exact source evidence: `RabbitMqQueueDriver.ReleaseAsync` calls `BasicAckAsync` on the original delivery, disposes its channel, then calls `PushAsync` for the retry. `FailAsync` also acknowledges before publishing to the failed queue.
+- Affected API/configuration: `IQueueDriver.ReleaseAsync` and `IQueueDriver.FailAsync`.
+- User impact: A failed job can disappear if the process stops after RabbitMQ accepts the acknowledgement but before it stores the replacement.
+- Trigger/example: The worker retries a failed job. The broker acknowledges removal of the old message. The application process stops before the new copy is published.
+- Why this proves the concern: These are two separate awaited broker operations, and the first completes before the second starts. No source code ties them into one atomic operation.
+- Existing test gap: `RabbitMqQueueProviderTests.Shared_contract` checks a successful full call. It does not interrupt the process between the acknowledgement and the publish.
+- Required safe outcome: Confirm that RabbitMQ has durably accepted the retry or failed copy before acknowledging the original. A duplicate after a crash is safer than losing the only copy.
+- Regression tests required: Inject a failure before replacement publish and prove the original remains deliverable; inject a crash after confirmed publish but before acknowledgement and prove at least one copy remains; cover both retry and failed transfer.
+- Owner decision: Owner approval should be obtained before implementing the durability change.
 
-### [P2] RQM-002 — Failed messages are published as transient messages to a durable queue
+#### Plain-language explanation
 
-- Remediation state: OPEN.
-- Evidence status: SEEN IN SOURCE and CHECKED AGAINST RABBITMQ DOCUMENTATION; broker-restart reproduction NOT RUN.
-- Evidence: FailAsync in src/Naravel.Queue.RabbitMQ/RabbitMqQueueDriver.cs publishes with new BasicProperties() and does not set DeliveryMode = DeliveryModes.Persistent. In the same file, normal PushAsync explicitly sets the persistent delivery mode. EnsureTopologyAsync declares the failed queue as durable.
-- In everyday words: The failed queue is configured to survive a broker restart, but the messages sent to it are not marked to survive that restart.
-- Realistic example: A job permanently fails and is written to netqueue.failed.orders. RabbitMQ restarts. The queue still exists, but this transient message can be discarded during recovery.
-- Why the evidence proves the risk: RabbitMQ's durability rules require both a durable queue and persistent messages. Its documentation says transient messages are discarded during recovery even when they were stored in durable queues: https://www.rabbitmq.com/docs/queues.
-- What is not proven: this is a source/API-contract conclusion supported by RabbitMQ documentation; no real broker restart was performed in this audit.
-- Required safe outcome: failed-message copies must use persistent delivery properties whenever the normal queue path promises durable message storage.
-- Regression tests required: fail a job, inspect the failed message's delivery mode, restart a real RabbitMQ broker and prove the failed message is still present. Keep the normal ready/retry durability checks.
-- Public API / PDR / release impact: provider reliability behavior; no public API change expected.
+**In everyday words:** The provider tells RabbitMQ that the old message is finished before it has made sure the replacement exists. A crash in between can remove the only copy.
 
-### [P2] RQM-003 — SizeAsync omits messages waiting in the delay queue
+**A realistic example:** A job fails. The worker acknowledges the old message, then the process is killed before the retry is stored. RabbitMQ no longer has a message to deliver.
 
-- Remediation state: OPEN.
-- Evidence status: SEEN IN SOURCE; delayed-size provider test NOT RUN.
-- Evidence: SizeAsync in RabbitMqQueueDriver.cs passively reads only netqueue.ready.{queue}. PushAsync routes future messages to netqueue.delay.{queue}. The shared IQueueDriver.SizeAsync contract in src/Naravel.Queue/Drivers/IQueueDriver.cs defines the value as approximate pending work: ready plus delayed.
-- In everyday words: A job waiting for its scheduled time is still waiting in the queue, but the reported size ignores it.
-- Realistic example: A queue has no ready messages and 20 messages scheduled for later. SizeAsync reports zero.
-- Why the evidence proves the mismatch: delayed work is stored in a different queue, and the method returns only the ready queue's message count.
-- What is not proven: the code path is confirmed; no live RabbitMQ delayed-size check was run.
-- Required safe outcome: include the delay queue count, or explicitly return an unavailable marker if the provider cannot calculate the shared meaning.
-- Regression tests required: count ready-only, delay-only and mixed ready/delayed messages; verify the reported approximate size includes both queues.
-- Public API / PDR / release impact: implementation correction to the existing IQueueDriver contract.
+**What we checked:** `RabbitMqQueueDriver.ReleaseAsync` calls `BasicAckAsync` on the original delivery, disposes its channel, then calls `PushAsync` for the retry. `FailAsync` also acknowledges before publishing to the failed queue.
 
-### [P3] RQM-004 — A misspelled DeliveryLimit silently disables the broker delivery limit
+**Why that proves the concern:** These are two separate awaited broker operations, and the first completes before the second starts. No source code ties them into one atomic operation.
+
+**What is not yet proven:** the review inspected source and existing test code only. The behavior was not reproduced by running a test or a live service in this review.
+
+**What should change:** Confirm that RabbitMQ has durably accepted the retry or failed copy before acknowledging the original. A duplicate after a crash is safer than losing the only copy.
+
+**How we will prove the fix:** Inject a failure before replacement publish and prove the original remains deliverable; inject a crash after confirmed publish but before acknowledgement and prove at least one copy remains; cover both retry and failed transfer.
+
+
+### [P2] RQM-002 — SizeAsync ignores jobs waiting in the delay queue
 
 - Remediation state: OPEN.
-- Evidence status: SEEN IN SOURCE; invalid-configuration test NOT RUN.
-- Evidence: AddRabbitMqDriver in RabbitMqQueueDriver.cs uses int.TryParse(store["DeliveryLimit"], out var parsed) ? parsed : null. A non-empty invalid value is therefore treated as if the optional setting was absent. The constructor validates zero/negative values only when a number was successfully parsed.
-- In everyday words: An operator can type a delivery limit incorrectly and the application quietly runs without that limit.
-- Realistic example: DeliveryLimit: "five" becomes null, so the quorum queue is declared without an explicit delivery limit.
-- Why the evidence proves the risk: the parsing branch maps malformed text to the same value as an omitted option.
-- What is not proven: this is source-level config behavior; no startup test with malformed text was run.
-- Required safe outcome: an omitted or blank value may keep the broker default; a non-empty invalid or overflowing value must fail configuration with the store and setting named.
-- Regression tests required: omitted value, valid positive value, zero, negative, malformed text and overflow; verify invalid values never silently disable the setting.
-- Public API / PDR / release impact: fail-fast configuration validation; no public API change.
+- Evidence status: CONFIRMED BY SOURCE; runtime reproduction NOT RUN.
+- Exact source evidence: `IQueueDriver.SizeAsync` describes pending count as ready plus delayed; `RabbitMqQueueDriver.SizeAsync` reads only `netqueue.ready.{queue}` and never reads `netqueue.delay.{queue}`.
+- Affected API/configuration: `RabbitMqQueueDriver.SizeAsync`.
+- User impact: Dashboards or controls can report an empty or smaller queue while delayed jobs are still waiting.
+- Trigger/example: One ready job and one five-minute delayed job exist. The current method reports one, not two.
+- Why this proves the concern: The delayed messages are stored in a separate queue in the provider's own topology, and the size method does not query it.
+- Existing test gap: The shared contract tests size for an immediate message and after acknowledgement, but not while a delayed message exists.
+- Required safe outcome: Include the delay queue count in the approximate pending size, or obtain owner approval to narrow the shared interface contract.
+- Regression tests required: Check size with one ready plus one delayed job, after acknowledging ready, after delay expiry and after delivery.
+- Owner decision: Not required to record this finding; required before changing runtime behavior.
+
+#### Plain-language explanation
+
+**In everyday words:** The size method looks only at jobs that can run now. It ignores jobs RabbitMQ is holding until their delay ends.
+
+**A realistic example:** If one job is ready and one is scheduled for later, size reports one even though two jobs are pending.
+
+**What we checked:** `IQueueDriver.SizeAsync` describes pending count as ready plus delayed; `RabbitMqQueueDriver.SizeAsync` reads only `netqueue.ready.{queue}` and never reads `netqueue.delay.{queue}`.
+
+**Why that proves the concern:** The delayed messages are stored in a separate queue in the provider's own topology, and the size method does not query it.
+
+**What is not yet proven:** the review inspected source and existing test code only. The behavior was not reproduced by running a test or a live service in this review.
+
+**What should change:** Include the delay queue count in the approximate pending size, or obtain owner approval to narrow the shared interface contract.
+
+**How we will prove the fix:** Check size with one ready plus one delayed job, after acknowledging ready, after delay expiry and after delivery.
+
 
 ## Test assessment
 
-- Tests inspected: RabbitMqQueueTypeTests (classic/quorum arguments, delivery-limit validation and registration); RabbitMQ's environment-gated Shared_contract in QueueProviderContractTests.cs.
-- Missing tests: publish failure between ack and replacement, failed-message persistence after broker restart, SizeAsync with delayed messages, malformed DeliveryLimit.
-- Tests actually run in this review: NONE.
-- Live RabbitMQ, build, mutation testing and independent review: NOT RUN.
+- Existing tests inspected: `QueueDriverContractTests` (found in `tests/Naravel.Queue.Tests/DriverTests.cs`), `RabbitMqQueueTypeTests`, and `RabbitMqQueueProviderTests.Shared_contract` in `tests/Naravel.Queue.Providers.Tests/QueueProviderContractTests.cs`..
+- Coverage seen in source: normal acknowledgement, release, failure, queue isolation, priority, concurrent consumers, queue declaration arguments, classic/quorum selection and configuration..
+- Gaps: no crash/fault injection between acknowledgement and replacement publish; no size assertion while a delayed message remains pending.
+- Tests actually run for this review: NONE.
+- Build/restore: NOT RUN.
+- External service/provider integration: NOT RUN.
+- Mutation testing: NOT RUN.
+- Independent review: NOT RUN.
 
 ## Documentation and packaging assessment
 
-- Package README shows connection settings, classic/quorum selection, password handling and the need to drain/delete an existing queue before changing queue type.
-- README and class comments explain delayed-message TTL/dead-letter behavior and the head-of-line delay caveat.
-- The package page does not explain the broker-restart persistence distinction for failed messages or the size count's delayed-message limitation.
+The guide describes delayed-message head-of-line behavior and distinguishes worker retries from crash redelivery. The current source's acknowledgement-before-republish ordering is not neutralized by that documentation. No package archive was built.
 
 ## Risk summary and next action
 
-- P1: RQM-001 (message loss can occur during retry/fail handoff).
-- P2: RQM-002 (failed copy can disappear after broker restart); RQM-003 (queue size undercounts delayed work).
-- P3: RQM-004 (invalid configuration silently disables the delivery limit).
-- Recommended next task: owner approval for a settlement/durability correction and deterministic RabbitMQ integration tests. No runtime change is authorized by this audit.
+- P1: RQM-001.
+- P2: RQM-002.
+- P3 / OBS / DOC: none recorded.
+
+Recommended next task: confirm replacement publication before acknowledging the original, and count delayed messages in `SizeAsync`. Do not change runtime code in this audit without owner approval.
 
 ## Plain-language explanation
 
-The main issue is about the order of two actions: the driver acknowledges the old job before it has safely stored the new retry or failed copy. A temporary broker error in that gap can lose the job. The other findings concern what survives a broker restart, what SizeAsync counts, and whether a configuration typo is visible. All are source-level findings; no RabbitMQ broker tests were run in this audit pass.
+This package connects queue jobs to RabbitMQ. It uses separate broker queues for ready, delayed and failed jobs. The source and tests were inspected, but no build, automated test or live broker check was run in this review.

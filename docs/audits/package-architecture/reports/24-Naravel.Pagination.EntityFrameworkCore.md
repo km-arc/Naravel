@@ -2,73 +2,84 @@
 
 ## Review metadata
 
-- Package ID: Naravel.Pagination.EntityFrameworkCore.
-- Source project: src/Naravel.Pagination.EntityFrameworkCore/Naravel.Pagination.EntityFrameworkCore.csproj.
-- Baseline: main at 282a507bead92ae9ca40a9cb060baa2ee1dd7287.
+- Package ID: `Naravel.Pagination.EntityFrameworkCore`.
+- Source project: `src/Naravel.Pagination.EntityFrameworkCore/Naravel.Pagination.EntityFrameworkCore.csproj`.
+- Source-review baseline: `main` at `198b36f9e2753ccfb68354a02480cdc25e7eabc7`; this audit branch contains that commit.
 - Review date: 2026-11-09.
-- Reviewer mode: principal-architect source, test and documentation review; independent fresh-session review NOT RUN.
-- Status: REVIEWED WITH FINDINGS (source inspection only; provider/runtime verification pending).
-- Files inspected: PaginationQueryableExtensions, CursorKeys, project metadata/references, offset and cursor tests, package README and Pagination guide.
-- Dependencies: Naravel.Pagination and Microsoft.EntityFrameworkCore.
-- Verification performed: order detection, offset calculation, count/page queries, cursor expression building, parameter binding, sort directions, null key handling, page-size limits and SQLite test coverage inspected.
-- Verification NOT RUN: restore, build, tests, live PostgreSQL/MySQL/SQL Server provider tests, large-table boundary reproduction, mutation testing and independent review.
+- Reviewer mode: principal-architect source and contract review; independent second review NOT RUN.
+- Status: REVIEWED WITH FINDINGS (1 P2; source inspection only).
+- Files inspected: `CursorKeys.cs`, `PaginationQueryableExtensions.cs`, EF project references, `CursorPagingTests`, `OffsetPagingTests`, NuGet README and pagination guide..
+- Dependencies: EF Core Relational and `Naravel.Pagination`..
+- Verification performed: source-to-contract tracing and inspection of the listed tests and documentation.
+- Verification NOT RUN: .NET restore/build/test, live provider or service execution unless explicitly stated below, full CI and mutation testing.
 
 ## Executive assessment
 
-The adapter keeps database work out of the core package and uses EF Core query operations. Offset paging requires an ordered query; cursor paging builds the filter and order from the declared keys and parameterizes cursor values. The tests cover forward/backward walks, mixed sort directions, filtering, inserts behind a cursor and invalid cursor inputs.
-
-One boundary defect remains: when an offset is larger than Int32.MaxValue, the adapter returns an empty page even if the total row count proves that rows exist beyond that offset. EF Core's Skip API used here accepts an Int32, but returning a normal empty page hides the fact that the requested position could not be represented.
+The adapter builds offset and keyset (cursor) pages from EF Core queries. It preserves filters, enforces ordering for offset pages, binds cursor values, validates cursor text and supports compound keys. A nullable cursor key is accepted, but the cursor predicate does not define how null values are ordered; rows with null keys can be skipped by SQL comparisons.
 
 ## Package and dependency map
 
-- Public operations: PaginateAsync, SimplePaginateAsync and CursorPaginateAsync extension methods for IQueryable<T>.
-- Key declaration: CursorKeys<T> with By/Then key expressions.
-- Dependencies: Naravel.Pagination and EF Core; no queue/cache/database driver dependency.
-- Supported query contract: the caller supplies filters and an order for offset paging; cursor paging replaces the prior order with the declared cursor keys.
-- Test provider inspected: SQLite through PostDb. The audit does not claim that PostgreSQL, MySQL or SQL Server ran.
+- Extensions: `PaginateAsync`, `SimplePaginateAsync`, `CursorPaginateAsync`.
+- Key declaration: `CursorKeys<T>.By/Then`.
+- Result DTOs come from `Naravel.Pagination`.
+- No provider-specific source dependency.
 
 ## Findings
 
-### [P3] PAG-001 — An offset beyond Int32 range is returned as an ordinary empty page
+
+### [P2] PGE-001 — Nullable cursor keys can make later pages skip rows
 
 - Remediation state: OPEN.
-- Evidence status: SEEN IN SOURCE; large-offset provider reproduction NOT RUN.
-- Evidence: src/Naravel.Pagination.EntityFrameworkCore/PaginationQueryableExtensions.cs. PaginateAsync calculates the requested offset as a long and returns an empty list when offset > int.MaxValue. SimplePaginateAsync uses the same boundary and returns an empty list with HasMorePages=false. The total count is available in PaginateAsync, but it is not used to distinguish a true past-the-end page from an offset that the implementation cannot express.
-- In everyday words: The caller can ask for a page that exists in a very large table, but the adapter silently tells the caller that the page is empty because the offset is too large for the method it uses.
-- Realistic example: A table has more than 2.2 billion rows. The caller asks for a page whose first row is within that table but whose offset is over 2.1 billion. PaginateAsync returns no rows and still reports a total large enough to contain them. SimplePaginateAsync also says there is no next page.
-- Why the evidence proves the risk: the adapter deliberately converts the unrepresentable offset to an empty result without checking whether it is past the total. The public argument permits page values that can produce this offset.
-- What is not proven: the control flow is visible in source; the audit did not create a multi-billion-row database or run a provider-specific large-offset test.
-- Required safe outcome: do not present an unrepresentable offset as a successful empty page. Fail clearly with a documented exception or use a query path that can express the requested offset when the provider supports it. A page genuinely past the total should continue to return an empty page.
-- Regression tests required: test the boundary just below, at and above Int32.MaxValue. Use a query/provider test double or an expression inspection seam to prove that a large valid total cannot be mistaken for a past-the-end page; retain the current true past-the-end tests.
-- Public API / PDR / release impact: behavioral correction or an explicit boundary exception; public API may be unchanged if a standard exception is selected.
+- Evidence status: CONFIRMED BY SOURCE; runtime reproduction NOT RUN.
+- Exact source evidence: `CursorKey<T,TKey>` unwraps nullable types for its rejection check, so nullable numeric/date/string keys remain allowed. `PaginationQueryableExtensions.After` builds ordinary equality and greater/less comparisons and has no explicit null-rank rule. `CursorCodec.Encode` rejects null only after a row is read at a page edge.
+- Affected API/configuration: `CursorPaginateAsync` with nullable `By` or `Then` keys.
+- User impact: Some database sort orders put null rows after non-null rows. A later-page predicate such as `Score > @cursorScore` does not match SQL NULL, so the feed can look finished while null rows remain.
+- Trigger/example: Rows have normal scores followed by null scores. The cursor reaches the final non-null score and the next query filters with a greater-than expression.
+- Why this proves the concern: SQL comparisons with NULL do not evaluate as true. The generated predicate contains no separate branch to include null rows.
+- Existing test gap: SQLite tests exercise a null that sorts to the page edge and a nullable column with no null data. No cross-provider test covers null rows that sort after the cursor.
+- Required safe outcome: Either reject nullable key types when declared, or define and implement portable null ordering in both order and cursor predicate. Do not silently omit rows.
+- Regression tests required: Walk rows with null and non-null keys in ascending and descending order on SQLite, PostgreSQL, MySQL and SQL Server; each row must occur once, or declaration must fail before query execution.
+- Owner decision: Owner approval is needed if the selected correction rejects nullable key types that are currently accepted.
 
-## Existing guarantees and coverage
+#### Plain-language explanation
 
-- Offset and simple paging reject unordered queries and clamp page size through PaginationOptions.
-- Cursor paging declares a set of keys and builds both the query order and the cursor comparison from those same keys.
-- Cursor key expressions must be member access; unsupported key types are rejected when keys are declared.
-- Cursor values are sent through captured-value expression nodes so EF Core treats them as parameters rather than embedding them as SQL literals.
-- Tests cover forward/backward navigation, mixed direction keys, filters, nullable keys with no null data, and null boundary rejection.
-- The test suite uses SQLite; it does not establish provider behavior for every supported relational database.
+**In everyday words:** The cursor asks for rows after a value. A database may not consider NULL greater than or equal to any value, so rows whose key is NULL can be skipped.
+
+**A realistic example:** A feed is sorted by optional score. All scored rows are shown first, then rows without a score. After the last scored row the query asks for a score greater than that value; the NULL rows do not match and the feed stops early.
+
+**What we checked:** `CursorKey<T,TKey>` unwraps nullable types for its rejection check, so nullable numeric/date/string keys remain allowed. `PaginationQueryableExtensions.After` builds ordinary equality and greater/less comparisons and has no explicit null-rank rule. `CursorCodec.Encode` rejects null only after a row is read at a page edge.
+
+**Why that proves the concern:** SQL comparisons with NULL do not evaluate as true. The generated predicate contains no separate branch to include null rows.
+
+**What is not yet proven:** the review inspected source and existing test code only. The behavior was not reproduced by running a test or a live service in this review.
+
+**What should change:** Either reject nullable key types when declared, or define and implement portable null ordering in both order and cursor predicate. Do not silently omit rows.
+
+**How we will prove the fix:** Walk rows with null and non-null keys in ascending and descending order on SQLite, PostgreSQL, MySQL and SQL Server; each row must occur once, or declaration must fail before query execution.
+
 
 ## Test assessment
 
-- Tests inspected: OffsetPagingTests, CursorPagingTests and PostDb in Naravel.Pagination.EntityFrameworkCore.Tests.
-- Missing tests: offsets beyond Int32.MaxValue when rows still exist; provider matrix for generated cursor comparisons.
-- Tests actually run in this review: NONE.
-- Build/CI, PostgreSQL/MySQL/SQL Server execution, mutation testing and independent review: NOT RUN.
+- Existing tests inspected: `CursorPagingTests` and `OffsetPagingTests`..
+- Coverage seen in source: forward/backward walks, tie-breakers, descending and mixed-order keys, inserts, invalid cursors, null at a SQLite page edge, page limits and ordered offset queries..
+- Gaps: nullable cursor behavior with null rows on PostgreSQL, MySQL and SQL Server; all-provider null ordering contract.
+- Tests actually run for this review: NONE.
+- Build/restore: NOT RUN.
+- External service/provider integration: NOT RUN.
+- Mutation testing: NOT RUN.
+- Independent review: NOT RUN.
 
 ## Documentation and packaging assessment
 
-- The README explains that cursor keys must be unique together (typically ending with a primary key) and that nullable cursor key values are unsupported.
-- The package page distinguishes offset paging from cursor paging and states that count/page queries are separate statements.
-- No package example was compiled in this audit.
+The guide states that null boundary values are unsupported and compound keys must be unique. The source accepts nullable key types but does not reject them before the query.
 
 ## Risk summary and next action
 
-- P3: PAG-001.
-- Recommended next task: define the unsupported-offset behavior and add boundary tests before changing the implementation. No runtime change is authorized by this audit.
+- P2: PGE-001.
+- P0 / P1 / P3 / OBS / DOC: none recorded.
+
+Recommended next task: settle nullable-key policy and add multi-provider contract tests before claiming cursor paging is cross-provider verified. Do not change runtime code in this audit without owner approval.
 
 ## Plain-language explanation
 
-The EF Core adapter runs the pagination queries. It correctly asks the caller to provide an order and builds cursor filters from the same keys used for sorting. At an extreme table size, however, it currently returns an empty page when the offset exceeds the integer range, even when the count says rows should exist. That boundary was found in source; it was not reproduced against a huge database.
+This package adds database paging to EF Core. Only source and test files were inspected; no build, automated test or relational provider execution ran.

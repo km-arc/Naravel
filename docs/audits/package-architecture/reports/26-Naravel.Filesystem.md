@@ -2,73 +2,84 @@
 
 ## Review metadata
 
-- Package ID: Naravel.Filesystem.
-- Source project: src/Naravel.Filesystem/Naravel.Filesystem.csproj.
-- Baseline: main at 282a507bead92ae9ca40a9cb060baa2ee1dd7287.
+- Package ID: `Naravel.Filesystem`.
+- Source project: `src/Naravel.Filesystem/Naravel.Filesystem.csproj`.
+- Source-review baseline: `main` at `198b36f9e2753ccfb68354a02480cdc25e7eabc7`; this audit branch contains that commit.
 - Review date: 2026-11-09.
-- Reviewer mode: principal-architect source, security, test and documentation review; independent fresh-session review NOT RUN.
-- Status: REVIEWED WITH FINDINGS (source inspection only; real S3 verification pending).
-- Files inspected: IStorageDriver, StorageManager, options and registration, LocalStorageDriver, S3StorageDriver, StorageFake, local security/link tests, provider tests, package README and filesystem guide.
-- Dependencies: optional AWS SDK S3 client for the S3 driver; the core filesystem abstraction and local driver do not require an S3 dependency.
-- Verification performed: path normalization/root containment, symbolic-link rejection, stream/byte operations, copy/move/delete behavior, URL generation, driver registration and ownership inspected.
-- Verification NOT RUN: restore, build, local filesystem tests, real S3-compatible service tests, symlink-swap race, mutation testing and independent review.
+- Reviewer mode: principal-architect source and contract review; independent second review NOT RUN.
+- Status: REVIEWED WITH FINDINGS (1 P2; source inspection only).
+- Files inspected: `IStorageDriver`, `StorageManager`, registration/options, `LocalStorageDriver`, `S3StorageDriver`, `StorageFake`, local security/link tests, shared contract, S3 tests, package README and filesystem guide..
+- Dependencies: `Naravel.Foundation`, AWS S3 SDK and Microsoft configuration/options packages..
+- Verification performed: source-to-contract tracing and inspection of the listed tests and documentation.
+- Verification NOT RUN: .NET restore/build/test, live provider or service execution unless explicitly stated below, full CI and mutation testing.
 
 ## Executive assessment
 
-The package has a clear storage abstraction and keeps S3 optional. Local path handling checks that paths remain under the configured root and rejects symbolic links that point outside it. The tests cover traversal, file and directory links, and link operations.
-
-One source-level defect affects URLs: the local driver and the non-expiring S3 URL path append the raw object path to a base URL without URL-encoding reserved characters. A valid storage key containing a question mark, hash sign or space can therefore produce a URL that the browser interprets as a different path, query or fragment.
+Local and S3 disks share one driver interface. The local driver rejects traversal and existing symbolic links/reparse points; tests cover reads, writes, copy, move, delete and URL operations through links. S3 operations are separate. URL generation still inserts raw object keys into URLs, so reserved characters may change the URL's meaning.
 
 ## Package and dependency map
 
-- Public contract: IStorageDriver.
-- Manager/registration: StorageManager, FilesystemOptions, DiskOptions and FilesystemServiceCollectionExtensions.
-- Drivers: LocalStorageDriver and optional S3StorageDriver.
-- Test fake: StorageFake, an ordinary instance rather than global state.
-- Project boundary: Filesystem core does not depend on S3; S3 client dependency is confined to its implementation.
+- Contract: `IStorageDriver`.
+- Manager: `StorageManager.Disk(name)` backed by Foundation.
+- Drivers: `LocalStorageDriver`, `S3StorageDriver`; fake: `StorageFake`.
+- S3 driver owns and disposes its client.
 
 ## Findings
 
-### [P2] FS-001 — Public file URLs do not encode reserved characters in the storage key
+
+### [P2] FSS-001 — URL generation does not escape reserved characters in storage keys
 
 - Remediation state: OPEN.
-- Evidence status: SEEN IN SOURCE; reserved-character URL test NOT RUN.
-- Evidence: GetUrlAsync in src/Naravel.Filesystem/Drivers/LocalStorageDriver.cs builds a URL by joining _baseUrl with a relative path after replacing the directory separator only. The non-expiring branch of GetUrlAsync in src/Naravel.Filesystem/Drivers/S3StorageDriver.cs similarly joins service URL, bucket and raw key. StorageFake follows the same raw concatenation. Existing S3 URL tests use only folder/file.txt; local tests verify path/link security but do not test reserved URL characters.
-- In everyday words: The storage driver can save a file whose name contains URL-special characters, but the link it returns does not protect those characters from being interpreted as URL syntax.
-- Realistic example: A stored key named reports/a#final?.csv is appended directly to the URL. A browser treats #final?.csv as a fragment rather than part of the object key, so the link does not address the saved object.
-- Why the evidence proves the risk: neither local nor non-expiring S3 URL construction encodes the key into a URL path component. Characters such as ? and # change how a URL is parsed.
-- What is not proven: the source behavior is clear; the audit did not issue requests against a real local web server or S3-compatible service using reserved-character keys.
-- Required safe outcome: every accepted storage key must be represented as a URL path without changing its identity. Encode each path segment while preserving slash separators, and keep S3 presigned URLs on the AWS SDK's signing path.
-- Regression tests required: local and S3 non-expiring URL generation for spaces, ?, #, %, Unicode and nested path segments; parse the URL and prove the encoded path still names the original object key. Check the fake returns the same externally usable URL shape.
-- Public API / PDR / release impact: URL behavior correction; no API change expected. Existing URLs containing reserved characters may change to their correctly escaped form.
+- Evidence status: CONFIRMED BY SOURCE; runtime reproduction NOT RUN.
+- Exact source evidence: `LocalStorageDriver.GetUrlAsync` appends a relative path after only replacing directory separators. `S3StorageDriver.GetUrlAsync` concatenates the raw key for non-expiring URLs. `StorageFake.GetUrlAsync` also returns the raw normalized path.
+- Affected API/configuration: `IStorageDriver.GetUrlAsync` for local and non-expiring S3 URLs, plus the fake.
+- User impact: A key containing URL-reserved characters can produce a link that no longer identifies the original file. `#` starts a fragment and `?` starts a query.
+- Trigger/example: Store a file using a key like `reports/monthly#final.csv` and return its URL.
+- Why this proves the concern: The characters are passed to the browser without URL path-segment escaping; browser URL parsing assigns them special meaning.
+- Existing test gap: Current URL tests use ordinary ASCII paths; S3 test checks endpoint and signed request fields, not reserved characters in unsigned URLs.
+- Required safe outcome: Encode each path segment while retaining `/` as the path separator. Keep signed URLs generated by the AWS SDK and define whether callers pass raw or already-escaped keys.
+- Regression tests required: Test space, `#`, `?`, `%`, Unicode and nested paths for Local, fake and non-expiring S3 URL generation; assert each URL resolves to the same key.
+- Owner decision: Not required to record this finding; required before changing runtime behavior.
 
-## Existing guarantees and coverage
+#### Plain-language explanation
 
-- Local path resolution rejects paths outside the configured root.
-- Tests cover symbolic links to outside files and directories for read, write, delete, copy, move and URL operations.
-- StorageFake follows the local driver's path rules and copies returned file bytes.
-- S3 copy and move use the expected object operations; move is a copy followed by delete and is not an atomic object-store transaction.
-- Expiring S3 URLs are created by the AWS SDK using a GetPreSignedUrlRequest; the finding concerns the non-expiring URL concatenation path.
-- The local driver performs synchronous filesystem work inside Task-returning methods. This review did not establish a measured throughput defect, so it is recorded as an observation for future load assessment rather than a finding.
+**In everyday words:** The driver puts the file name directly into a web address. Some characters have special meaning in web addresses, so the link may point to a different place.
+
+**A realistic example:** The stored key is `reports/monthly#final.csv`. A browser treats `#final.csv` as a fragment and may never send it to the server as part of the file name.
+
+**What we checked:** `LocalStorageDriver.GetUrlAsync` appends a relative path after only replacing directory separators. `S3StorageDriver.GetUrlAsync` concatenates the raw key for non-expiring URLs. `StorageFake.GetUrlAsync` also returns the raw normalized path.
+
+**Why that proves the concern:** The characters are passed to the browser without URL path-segment escaping; browser URL parsing assigns them special meaning.
+
+**What is not yet proven:** the review inspected source and existing test code only. The behavior was not reproduced by running a test or a live service in this review.
+
+**What should change:** Encode each path segment while retaining `/` as the path separator. Keep signed URLs generated by the AWS SDK and define whether callers pass raw or already-escaped keys.
+
+**How we will prove the fix:** Test space, `#`, `?`, `%`, Unicode and nested paths for Local, fake and non-expiring S3 URL generation; assert each URL resolves to the same key.
+
 
 ## Test assessment
 
-- Tests inspected: LocalStorageDriverContractTests, LocalStorageDriverSecurityTests, LocalStorageDriverLinkOperationTests, StorageDriverContractTests, StorageManagerIntegrationTests and S3StorageDriverTests.
-- Missing test: reserved-character storage keys must round-trip through generated URLs.
-- Tests actually run in this review: NONE.
-- Real S3, build, mutation testing and independent review: NOT RUN.
+- Existing tests inspected: `LocalStorageDriverContractTests`, `LocalStorageDriverSecurityTests`, `LocalStorageDriverLinkOperationTests`, `StorageDriverContractTests`, `S3StorageDriverTests`, `StorageManagerIntegrationTests`..
+- Coverage seen in source: path traversal, symlinks, Windows junction case, shared file operations, manager reload/ownership, S3 endpoint region and presigned request construction..
+- Gaps: reserved URL characters in keys; real AWS parity and presigned URL signature execution.
+- Tests actually run for this review: NONE.
+- Build/restore: NOT RUN.
+- External service/provider integration: NOT RUN.
+- Mutation testing: NOT RUN.
+- Independent review: NOT RUN.
 
 ## Documentation and packaging assessment
 
-- The package README and guide explain local root configuration, S3 options, public URLs and temporary signed URLs.
-- Security notes describe the local filesystem root as an application-owned directory; the link tests prove that existing external symbolic links are rejected.
-- No package sample or S3 service was executed in this audit.
+The guide warns local URLs are unsigned and that file path validation can race concurrent directory-tree changes. No live S3 or Windows test ran in this review.
 
 ## Risk summary and next action
 
-- P2: FS-001.
-- Recommended next task: add URL-path escaping and reserved-character tests; then verify local and S3-compatible behavior. No runtime change is authorized by this audit.
+- P2: FSS-001.
+- P0 / P1 / P3 / OBS / DOC: none recorded.
+
+Recommended next task: encode each path segment for returned URLs and add a shared special-character contract test. Do not change runtime code in this audit without owner approval.
 
 ## Plain-language explanation
 
-The filesystem package has strong path-boundary tests for the local driver, including links that point outside the storage root. The remaining issue is how returned links are built: the code joins the raw file name to a URL instead of encoding it. That can make a valid file name turn into a different browser URL. The source was inspected, but the reserved-character behavior was not tested against a running server.
+This package stores files under a local root or in S3. The source and tests were inspected; no build, local filesystem test, Windows test or live object-store test ran.

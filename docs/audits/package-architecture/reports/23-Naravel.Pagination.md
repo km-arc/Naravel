@@ -2,61 +2,84 @@
 
 ## Review metadata
 
-- Package ID: Naravel.Pagination.
-- Source project: src/Naravel.Pagination/Naravel.Pagination.csproj.
-- Baseline: main at 282a507bead92ae9ca40a9cb060baa2ee1dd7287.
+- Package ID: `Naravel.Pagination`.
+- Source project: `src/Naravel.Pagination/Naravel.Pagination.csproj`.
+- Source-review baseline: `main` at `198b36f9e2753ccfb68354a02480cdc25e7eabc7`; this audit branch contains that commit.
 - Review date: 2026-11-09.
-- Reviewer mode: principal-architect source, test and documentation review; independent fresh-session review NOT RUN.
-- Status: REVIEWED — NO SOURCE-LEVEL FINDINGS (runtime verification pending).
-- Files inspected: paginator result models, cursor codec, page URL builder, pagination options, project metadata, core unit tests, EF Core adapter contract references, package README and pagination guide.
-- Dependencies: no project or third-party package dependency in the core pagination project.
-- Verification performed: input validation, immutable result construction, JSON shape, query escaping, cursor encoding/decoding, cursor validation and public API boundary reviewed.
-- Verification NOT RUN: restore, build, unit tests, live HTTP integration, full CI, mutation testing and independent review.
+- Reviewer mode: principal-architect source and contract review; independent second review NOT RUN.
+- Status: REVIEWED WITH OBSERVATION (1 OBS; source inspection only).
+- Files inspected: `Paginated.cs`, `SimplePaginated.cs`, `CursorPaginated.cs`, `PageUrl.cs`, `PaginationOptions.cs`, `CursorCodec.cs`, `InvalidCursorException.cs`, pagination unit tests and NuGet/English guide..
+- Dependencies: No EF Core, ASP.NET Core or database project reference..
+- Verification performed: source-to-contract tracing and inspection of the listed tests and documentation.
+- Verification NOT RUN: .NET restore/build/test, live provider or service execution unless explicitly stated below, full CI and mutation testing.
 
 ## Executive assessment
 
-The core package is a small, dependency-light set of result models and helpers. It does not execute database queries, read an HTTP request, or require ASP.NET Core. Its main outputs are length-aware pages, simple pages and cursor pages.
-
-The cursor codec uses an explicit format/version and checks direction, expected key types, lengths and malformed input before exposing values. The code documents that a cursor is a position, not a permission or secret. Page links encode query-string keys and values. No source-level correctness issue was established in this pass.
+This package represents a page that an application has already fetched. It provides count-aware, simple and cursor result shapes, fixed JSON property names, URL helpers, a default page-size cap and strict cursor parsing. The page constructors retain the list supplied by the caller instead of making a snapshot, despite immutability wording.
 
 ## Package and dependency map
 
-- Public result types: Paginated<T>, SimplePaginated<T>, CursorPaginated<T> and their link/meta models.
-- Supporting public types: PaginationOptions and InvalidCursorException.
-- Internal helper: CursorCodec and PageUrl.
-- Dependencies: no additional Naravel project and no third-party package references.
-- Public boundary: result construction and link creation only; actual query execution belongs to the optional EntityFrameworkCore adapter or a consumer's own query layer.
+- Public results: `Paginated<T>`, `SimplePaginated<T>`, `CursorPaginated<T>`.
+- Cursor encoding/decoding: `CursorCodec`; max encoded length 1024.
+- Default page size cap: `PaginationOptions.MaxPerPage=100`.
+- It performs no database I/O.
 
 ## Findings
 
-No source-level finding was established in the inspected core package.
 
-## Existing guarantees and coverage
+### [OBS] PGN-001 — Page objects retain a mutable list supplied by the caller
 
-- Paginator constructors reject null item lists, negative totals, page numbers below one and page sizes below one.
-- Simple and cursor pages reject more items than their page size.
-- Page URLs encode query keys/values and replace rather than duplicate the current page/cursor parameter.
-- Cursor parsing checks its prefix/version, direction, encoded length, expected data types and malformed values.
-- Tests cover round trips, malformed/truncated/oversized tokens, wrong key types, query-string escaping, page metadata and serialization shape.
-- The core package deliberately does not validate whether the caller's cursor keys are unique; that is a requirement on the EF adapter/caller and is documented there.
+- Remediation state: OPEN.
+- Evidence status: CONFIRMED BY SOURCE; runtime reproduction NOT RUN.
+- Exact source evidence: The public constructors of `Paginated<T>`, `SimplePaginated<T>` and `CursorPaginated<T>` assign `Items = items` directly. The public `IReadOnlyList<T>` type does not stop the original list owner from changing it.
+- Affected API/configuration: Constructors of the three page result types.
+- User impact: The serialized data can change later while totals, page numbers, cursors and links still describe the old page.
+- Trigger/example: Construct a page from a `List<T>`, then clear or replace items in that original list.
+- Why this proves the concern: Both the page object and caller still refer to the same list object. Read-only access through one reference does not make the object immutable.
+- Existing test gap: Existing tests cover page calculations and JSON but do not mutate the constructor input afterwards.
+- Required safe outcome: Copy the list into a stable snapshot in each constructor, or remove the immutability claim and document caller ownership. A private snapshot is safer.
+- Regression tests required: For all three page kinds, construct from a mutable list, mutate and clear the original list, and assert the page data and metadata remain unchanged.
+- Owner decision: Not required to record this finding; required before changing runtime behavior.
+
+#### Plain-language explanation
+
+**In everyday words:** The page remembers the same list object the caller gave it. If the caller changes that list later, the page contents change but its page information does not.
+
+**A realistic example:** A page is built with ten rows and total 100. The caller clears the original list. The page now serializes no rows but still says total 100 and page 1.
+
+**What we checked:** The public constructors of `Paginated<T>`, `SimplePaginated<T>` and `CursorPaginated<T>` assign `Items = items` directly. The public `IReadOnlyList<T>` type does not stop the original list owner from changing it.
+
+**Why that proves the concern:** Both the page object and caller still refer to the same list object. Read-only access through one reference does not make the object immutable.
+
+**What is not yet proven:** the review inspected source and existing test code only. The behavior was not reproduced by running a test or a live service in this review.
+
+**What should change:** Copy the list into a stable snapshot in each constructor, or remove the immutability claim and document caller ownership. A private snapshot is safer.
+
+**How we will prove the fix:** For all three page kinds, construct from a mutable list, mutate and clear the original list, and assert the page data and metadata remain unchanged.
+
 
 ## Test assessment
 
-- Tests inspected: PaginatedTests, SimpleAndCursorPaginatedTests and CursorCodecTests in Naravel.Pagination.Tests.
-- Tests actually run in this review: NONE.
-- Restore/build, test execution, full CI, mutation testing and independent review: NOT RUN.
+- Existing tests inspected: `PaginatedTests`, `SimpleAndCursorPaginatedTests`, `CursorCodecTests`..
+- Coverage seen in source: JSON shape, page math, empty and out-of-range pages, link/query handling, mapping, cursor directions, invalid cursor, length cap and null cursor values..
+- Gaps: no tests mutate the original list after constructing a page object.
+- Tests actually run for this review: NONE.
+- Build/restore: NOT RUN.
+- External service/provider integration: NOT RUN.
+- Mutation testing: NOT RUN.
+- Independent review: NOT RUN.
 
 ## Documentation and packaging assessment
 
-- The package README explains the three page styles and their JSON output.
-- It distinguishes the core result package from the EF Core query adapter.
-- No sample compilation was performed in this audit.
+README and guide correctly separate the result-only package from the EF adapter. The immutability wording does not match direct list retention.
 
 ## Risk summary and next action
 
-- P0/P1/P2/P3/OBS/DOC: none established by source inspection.
-- Recommended next task: retain the current core/adapter separation and run the package tests in CI before treating this report as runtime verification.
+- OBS: PGN-001.
+- P0 / P1 / P2 / P3 / DOC: none recorded.
+
+Recommended next task: decide whether result objects promise snapshot semantics; if so, copy input lists and add mutation tests. Do not change runtime code in this audit without owner approval.
 
 ## Plain-language explanation
 
-This package shapes the result of pagination; it does not fetch rows from a database. It gives applications three result styles: numbered pages with a total, simple next/previous pages, and cursor pages. The code and tests inspected cover the shape of the results, input validation, link generation and malformed cursors. No source-level bug was identified, but the tests and build were not run in this audit.
+This package describes rows and page links that the application has already fetched; it does not query a database. Source and tests were inspected; no build or test ran.

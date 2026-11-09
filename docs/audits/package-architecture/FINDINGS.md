@@ -1,6 +1,6 @@
 # Package Audit Findings and Remediation Tracker
 
-Current main baseline: `c6a7d58ffb84d885741998bb32d2082c54c4ab61` (merged into the audit branch; main itself was not modified by this review).
+Current main baseline: `198b36f9e2753ccfb68354a02480cdc25e7eabc7` (audit branch is 0 commits behind; main itself was not modified).
 
 ## State definitions
 
@@ -164,3 +164,17 @@ Owner decision AD-021 is recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md). N
 | SQL-002 | Naravel.Database.Sqlite | DOC | English guide reports SQLitePCLRaw.lib.e_sqlite3 2.1.13 while central pin is 2.1.14 | OPEN | [Report](reports/18-Naravel.Database.Sqlite.md) |
 
 | EF-001 | Naravel.Database.EntityFrameworkCore | OBS | Using(DbContext) forwards listeners/query log only for concrete DatabaseService, not IDatabase decorators | OPEN | [Report](reports/22-Naravel.Database.EntityFrameworkCore.md) |
+
+
+## Findings added by the 2026-11-09 remaining-module review
+
+| RQM-001 | Naravel.Queue.RabbitMQ | P1 | Retry/failure acknowledges the original before replacement publication, so a crash can lose the only copy | OPEN | [Report](reports/11-Naravel.Queue.RabbitMQ.md) |
+| RQM-002 | Naravel.Queue.RabbitMQ | P2 | SizeAsync counts ready jobs but omits delayed jobs | OPEN | [Report](reports/11-Naravel.Queue.RabbitMQ.md) |
+| KFK-001 | Naravel.Queue.Kafka | P2 | ConsumeException is returned as an empty queue and can stop StopWhenEmpty workers | OPEN | [Report](reports/12-Naravel.Queue.Kafka.md) |
+| PGN-001 | Naravel.Pagination | OBS | Page result constructors retain caller-owned mutable item lists despite immutable wording | OPEN | [Report](reports/23-Naravel.Pagination.md) |
+| PGE-001 | Naravel.Pagination.EntityFrameworkCore | P2 | Nullable cursor keys can produce predicates that skip SQL NULL rows on some providers | OPEN | [Report](reports/24-Naravel.Pagination.EntityFrameworkCore.md) |
+| FSS-001 | Naravel.Filesystem | P2 | Local and non-expiring S3 URL generation does not escape reserved key characters | OPEN | [Report](reports/26-Naravel.Filesystem.md) |
+| BRD-001 | Naravel.Broadcasting | P2 | Repeating Subscribe on the same presence connection can emit a duplicate MemberJoined event | OPEN | [Report](reports/33-Naravel.Broadcasting.md) |
+| BRD-002 | Naravel.Broadcasting | P2 | Presence heartbeat timer does not follow a reloaded PresenceEntryTtl | OPEN | [Report](reports/33-Naravel.Broadcasting.md) |
+| RTG-001 | Naravel.Routing | P2 | Fallback-created middleware instances have no disposal path | OPEN | [Report](reports/34-Naravel.Routing.md) |
+| RTC-001 | Naravel.Routing.Cache | P2 | Cache-store recreation after reload can block before throttle StoreTimeout starts | OPEN | [Report](reports/35-Naravel.Routing.Cache.md) |

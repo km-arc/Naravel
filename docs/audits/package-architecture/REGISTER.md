@@ -1,6 +1,6 @@
 # Package Review Register
 
-Current synchronization baseline: `main` at `d3f4342db8aa7d0f8085d1205f76f6ae5bfa8ba3` (merged into this audit branch by commit ancestry; this audit branch is 0 commits behind `main`). The audit branch also contains audit-only review commits. `main` was not changed by the audit. Each report retains its original package source-review baseline and records the latest relevant source revalidation.
+Current synchronization baseline: `main` at `198b36f9e2753ccfb68354a02480cdc25e7eabc7` (this audit branch is 0 commits behind `main`). The audit branch contains additional review commits; `main` was not changed by the audit. Each report keeps its original source-review baseline and notes any newer source revalidation.
 
 Inventory: **36** packable source projects. There are 35 package pages in `docs/nuget/`; `Naravel.Foundation` uses `docs/en/foundation.md` as its packed README.
 
@@ -16,8 +16,8 @@ Inventory: **36** packable source projects. There are 35 package pages in `docs/
 | 08 | `Naravel.Queue.File` | `src/Naravel.Queue.File/Naravel.Queue.File.csproj` | `docs/nuget/Naravel.Queue.File.md` | REVIEWED WITH FINDINGS | [Report](reports/08-Naravel.Queue.File.md): 1 P1, 5 P2 |
 | 09 | `Naravel.Queue.Database` | `src/Naravel.Queue.Database/Naravel.Queue.Database.csproj` | `docs/nuget/Naravel.Queue.Database.md` | REVIEWED WITH FINDINGS | [Report](reports/09-Naravel.Queue.Database.md): 3 P2, 1 DOC, 1 OBS |
 | 10 | `Naravel.Queue.Redis` | `src/Naravel.Queue.Redis/Naravel.Queue.Redis.csproj` | `docs/nuget/Naravel.Queue.Redis.md` | REVIEWED WITH FINDINGS | [Report](reports/10-Naravel.Queue.Redis.md): 3 P2, 3 OBS, 1 DOC |
-| 11 | `Naravel.Queue.RabbitMQ` | `src/Naravel.Queue.RabbitMQ/Naravel.Queue.RabbitMQ.csproj` | `docs/nuget/Naravel.Queue.RabbitMQ.md` | REVIEWED WITH FINDINGS | [Report](reports/11-Naravel.Queue.RabbitMQ.md): 1 P1, 2 P2, 1 P3 |
-| 12 | `Naravel.Queue.Kafka` | `src/Naravel.Queue.Kafka/Naravel.Queue.Kafka.csproj` | `docs/nuget/Naravel.Queue.Kafka.md` | REVIEWED WITH FINDINGS | [Report](reports/12-Naravel.Queue.Kafka.md): 2 P2 |
+| 11 | `Naravel.Queue.RabbitMQ` | `src/Naravel.Queue.RabbitMQ/Naravel.Queue.RabbitMQ.csproj` | `docs/nuget/Naravel.Queue.RabbitMQ.md` | REVIEWED WITH FINDINGS | [Report](reports/11-Naravel.Queue.RabbitMQ.md): RQM-001 P1 OPEN, RQM-002 P2 OPEN |
+| 12 | `Naravel.Queue.Kafka` | `src/Naravel.Queue.Kafka/Naravel.Queue.Kafka.csproj` | `docs/nuget/Naravel.Queue.Kafka.md` | REVIEWED WITH FINDINGS | [Report](reports/12-Naravel.Queue.Kafka.md): KFK-001 P2 OPEN |
 | 13 | `Naravel.Queue.Coordination` | `src/Naravel.Queue.Coordination/Naravel.Queue.Coordination.csproj` | `docs/nuget/Naravel.Queue.Coordination.md` | REVIEWED WITH FINDINGS | [Report](reports/13-Naravel.Queue.Coordination.md): 1 P2 OPEN — OWNER DECISION |
 | 14 | `Naravel.Queue.Encryption` | `src/Naravel.Queue.Encryption/Naravel.Queue.Encryption.csproj` | `docs/nuget/Naravel.Queue.Encryption.md` | REVIEWED WITH OBSERVATION | [Report](reports/14-Naravel.Queue.Encryption.md): 1 OBS — TEST COVERAGE |
 | 15 | `Naravel.Events` | `src/Naravel.Events/Naravel.Events.csproj` | `docs/nuget/Naravel.Events.md` | REVIEWED — NO SOURCE-LEVEL FINDINGS | [Report](reports/15-Naravel.Events.md) |
@@ -28,20 +28,20 @@ Inventory: **36** packable source projects. There are 35 package pages in `docs/
 | 20 | `Naravel.Database.Postgres` | `src/Naravel.Database.Postgres/Naravel.Database.Postgres.csproj` | `docs/nuget/Naravel.Database.Postgres.md` | REVIEWED — NO SOURCE-LEVEL FINDINGS | [Report](reports/20-Naravel.Database.Postgres.md) |
 | 21 | `Naravel.Database.SqlServer` | `src/Naravel.Database.SqlServer/Naravel.Database.SqlServer.csproj` | `docs/nuget/Naravel.Database.SqlServer.md` | REVIEWED — NO SOURCE-LEVEL FINDINGS | [Report](reports/21-Naravel.Database.SqlServer.md) |
 | 22 | `Naravel.Database.EntityFrameworkCore` | `src/Naravel.Database.EntityFrameworkCore/Naravel.Database.EntityFrameworkCore.csproj` | `docs/nuget/Naravel.Database.EntityFrameworkCore.md` | REVIEWED WITH OBSERVATION | [Report](reports/22-Naravel.Database.EntityFrameworkCore.md): 1 OBS |
-| 23 | `Naravel.Pagination` | `src/Naravel.Pagination/Naravel.Pagination.csproj` | `docs/nuget/Naravel.Pagination.md` | REVIEWED — NO SOURCE-LEVEL FINDINGS | [Report](reports/23-Naravel.Pagination.md) |
-| 24 | `Naravel.Pagination.EntityFrameworkCore` | `src/Naravel.Pagination.EntityFrameworkCore/Naravel.Pagination.EntityFrameworkCore.csproj` | `docs/nuget/Naravel.Pagination.EntityFrameworkCore.md` | REVIEWED WITH FINDINGS | [Report](reports/24-Naravel.Pagination.EntityFrameworkCore.md): 1 P3 |
-| 25 | `Naravel.Encryption` | `src/Naravel.Encryption/Naravel.Encryption.csproj` | `docs/nuget/Naravel.Encryption.md` | REVIEWED WITH OBSERVATION | [Report](reports/25-Naravel.Encryption.md): 1 OBS |
-| 26 | `Naravel.Filesystem` | `src/Naravel.Filesystem/Naravel.Filesystem.csproj` | `docs/nuget/Naravel.Filesystem.md` | REVIEWED WITH FINDINGS | [Report](reports/26-Naravel.Filesystem.md): 1 P2 |
+| 23 | `Naravel.Pagination` | `src/Naravel.Pagination/Naravel.Pagination.csproj` | `docs/nuget/Naravel.Pagination.md` | REVIEWED WITH OBSERVATION | [Report](reports/23-Naravel.Pagination.md): PGN-001 OBS OPEN |
+| 24 | `Naravel.Pagination.EntityFrameworkCore` | `src/Naravel.Pagination.EntityFrameworkCore/Naravel.Pagination.EntityFrameworkCore.csproj` | `docs/nuget/Naravel.Pagination.EntityFrameworkCore.md` | REVIEWED WITH FINDINGS | [Report](reports/24-Naravel.Pagination.EntityFrameworkCore.md): PGE-001 P2 OPEN |
+| 25 | `Naravel.Encryption` | `src/Naravel.Encryption/Naravel.Encryption.csproj` | `docs/nuget/Naravel.Encryption.md` | REVIEWED — NO SOURCE-LEVEL FINDINGS | [Report](reports/25-Naravel.Encryption.md) |
+| 26 | `Naravel.Filesystem` | `src/Naravel.Filesystem/Naravel.Filesystem.csproj` | `docs/nuget/Naravel.Filesystem.md` | REVIEWED WITH FINDINGS | [Report](reports/26-Naravel.Filesystem.md): FSS-001 P2 OPEN |
 | 27 | `Naravel.Mail` | `src/Naravel.Mail/Naravel.Mail.csproj` | `docs/nuget/Naravel.Mail.md` | REVIEWED — NO SOURCE-LEVEL FINDINGS | [Report](reports/27-Naravel.Mail.md) |
 | 28 | `Naravel.Mail.Smtp` | `src/Naravel.Mail.Smtp/Naravel.Mail.Smtp.csproj` | `docs/nuget/Naravel.Mail.Smtp.md` | REVIEWED — NO SOURCE-LEVEL FINDINGS | [Report](reports/28-Naravel.Mail.Smtp.md) |
 | 29 | `Naravel.Mail.Queue` | `src/Naravel.Mail.Queue/Naravel.Mail.Queue.csproj` | `docs/nuget/Naravel.Mail.Queue.md` | REVIEWED — NO SOURCE-LEVEL FINDINGS | [Report](reports/29-Naravel.Mail.Queue.md) |
 | 30 | `Naravel.Notifications` | `src/Naravel.Notifications/Naravel.Notifications.csproj` | `docs/nuget/Naravel.Notifications.md` | REVIEWED — NO SOURCE-LEVEL FINDINGS | [Report](reports/30-Naravel.Notifications.md) |
 | 31 | `Naravel.Notifications.Mail` | `src/Naravel.Notifications.Mail/Naravel.Notifications.Mail.csproj` | `docs/nuget/Naravel.Notifications.Mail.md` | REVIEWED — NO SOURCE-LEVEL FINDINGS | [Report](reports/31-Naravel.Notifications.Mail.md) |
 | 32 | `Naravel.Notifications.Queue` | `src/Naravel.Notifications.Queue/Naravel.Notifications.Queue.csproj` | `docs/nuget/Naravel.Notifications.Queue.md` | REVIEWED — NO SOURCE-LEVEL FINDINGS | [Report](reports/32-Naravel.Notifications.Queue.md) |
-| 33 | `Naravel.Broadcasting` | `src/Naravel.Broadcasting/Naravel.Broadcasting.csproj` | `docs/nuget/Naravel.Broadcasting.md` | REVIEWED WITH FINDINGS | [Report](reports/33-Naravel.Broadcasting.md): 1 P2 |
-| 34 | `Naravel.Routing` | `src/Naravel.Routing/Naravel.Routing.csproj` | `docs/nuget/Naravel.Routing.md` | REVIEWED WITH FINDINGS | [Report](reports/34-Naravel.Routing.md): 2 P2 |
-| 35 | `Naravel.Routing.Cache` | `src/Naravel.Routing.Cache/Naravel.Routing.Cache.csproj` | `docs/nuget/Naravel.Routing.Cache.md` | REVIEWED — NO SOURCE-LEVEL FINDINGS | [Report](reports/35-Naravel.Routing.Cache.md) |
-| 36 | `Naravel.Scheduling` | `src/Naravel.Scheduling/Naravel.Scheduling.csproj` | `docs/nuget/Naravel.Scheduling.md` | REVIEWED WITH FINDINGS | [Report](reports/36-Naravel.Scheduling.md): 1 P2 |
+| 33 | `Naravel.Broadcasting` | `src/Naravel.Broadcasting/Naravel.Broadcasting.csproj` | `docs/nuget/Naravel.Broadcasting.md` | REVIEWED WITH FINDINGS | [Report](reports/33-Naravel.Broadcasting.md): BRD-001 P2 OPEN, BRD-002 P2 OPEN |
+| 34 | `Naravel.Routing` | `src/Naravel.Routing/Naravel.Routing.csproj` | `docs/nuget/Naravel.Routing.md` | REVIEWED WITH FINDINGS | [Report](reports/34-Naravel.Routing.md): RTG-001 P2 OPEN |
+| 35 | `Naravel.Routing.Cache` | `src/Naravel.Routing.Cache/Naravel.Routing.Cache.csproj` | `docs/nuget/Naravel.Routing.Cache.md` | REVIEWED WITH FINDINGS | [Report](reports/35-Naravel.Routing.Cache.md): RTC-001 P2 OPEN |
+| 36 | `Naravel.Scheduling` | `src/Naravel.Scheduling/Naravel.Scheduling.csproj` | `docs/nuget/Naravel.Scheduling.md` | REVIEWED — NO SOURCE-LEVEL FINDINGS | [Report](reports/36-Naravel.Scheduling.md) |
 
 ## Inventory verification
 
@@ -61,7 +61,7 @@ Individual findings and their remediation states are tracked in [FINDINGS.md](FI
 Owner decisions that must be settled before remediation is scheduled are recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md), including AD-021 for Queue Coordination. These are not pre-approved by the audit.
 
 
-[ARCHITECTURE-VETOES.md](ARCHITECTURE-VETOES.md) records eighteen mandatory architecture vetoes. They supersede historical PDR acceptance for the target production architecture; they are not accepted risks and remain open until verified remediation.
+[ARCHITECTURE-VETOES.md](ARCHITECTURE-VETOES.md) records nineteen mandatory architecture vetoes. They supersede historical PDR acceptance for the target production architecture; they are not accepted risks and remain open until verified remediation.
 
 ## Cross-package findings
 

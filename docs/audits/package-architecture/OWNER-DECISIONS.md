@@ -2,7 +2,7 @@
 
 Date: 2026-11-08  
 Branch: `audit/package-architecture-revalidation`  
-Baseline: `main` at `c6a7d58ffb84d885741998bb32d2082c54c4ab61`
+Baseline: `main` at `198b36f9e2753ccfb68354a02480cdc25e7eabc7`
 
 This register separates **architectural recommendations** from **owner-approved decisions**. Nothing in this file is approved by implication. The principal-architect vetoes AV-001 through AV-019 remain active; the questions below are not silently resolved by this review.
 

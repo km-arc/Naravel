@@ -2,62 +2,84 @@
 
 ## Review metadata
 
-- Package ID: Naravel.Routing.Cache.
-- Source project: src/Naravel.Routing.Cache/Naravel.Routing.Cache.csproj.
-- Baseline: main at d3f4342db8aa7d0f8085d1205f76f6ae5bfa8ba3.
+- Package ID: `Naravel.Routing.Cache`.
+- Source project: `src/Naravel.Routing.Cache/Naravel.Routing.Cache.csproj`.
+- Source-review baseline: `main` at `198b36f9e2753ccfb68354a02480cdc25e7eabc7`; this audit branch contains that commit.
 - Review date: 2026-11-09.
-- Reviewer mode: principal-architect source, distributed-contract and test review; independent fresh-session review NOT RUN.
-- Status: REVIEWED — NO SOURCE-LEVEL FINDINGS (runtime provider verification pending).
-- Files inspected: CacheThrottleStore, service registration, Cache and Routing interfaces, CacheThrottleStoreTests, SharedThrottleHostTests, RedisSharedThrottleTests, support/fakes, README and Routing guide.
-- Dependencies: Naravel.Routing, Naravel.Cache, Naravel.Foundation and the selected cache provider through ICacheStore.
-- Verification performed: fixed-window key construction, counter atomicity, expiry, clock alignment, cache-store opening, cancellation while opening, registration order and multi-host behavior inspected.
-- Verification NOT RUN: restore, build, adapter tests, live Redis provider tests, multi-process clock-skew run, full CI, mutation testing and independent review.
+- Reviewer mode: principal-architect source and contract review; independent second review NOT RUN.
+- Status: REVIEWED WITH FINDINGS (1 P2; source inspection only).
+- Files inspected: `CacheThrottleStore`, registration, `IThrottleStore`, `ThrottleGuard`, cache adapter tests, README and Routing guide..
+- Dependencies: `Naravel.Routing` and `Naravel.Cache`; dependency direction is one-way from adapter to both, Routing does not reference Cache..
+- Verification performed: source-to-contract tracing and inspection of the listed tests and documentation.
+- Verification NOT RUN: .NET restore/build/test, live provider or service execution unless explicitly stated below, full CI and mutation testing.
 
 ## Executive assessment
 
-The adapter implements the shared throttle using one atomic cache increment per request. The key includes a SHA-256 digest of the partition and a fixed-window bucket number. It does not read the current counter before incrementing and does not add a second lock around the attempt.
-
-The fixed-window boundary can allow up to twice the configured limit in a short interval across adjacent windows. That is explicitly documented as the selected fixed-window behavior. The adapter also documents that hosts must keep their clocks within normal NTP skew. No source-level correctness finding was established in this pass.
+The adapter uses a single atomic cache increment per request and a clock-aligned fixed window. It hashes partition keys and tests TTL, boundaries, skew, concurrent increments, first store creation and failed creation retry. After the store has once opened, a store rebuilt during cache configuration reload is opened synchronously before the throttle timeout starts.
 
 ## Package and dependency map
 
-- Implementation: CacheThrottleStore implements IThrottleStore.
-- Registration: AddNaravelSharedThrottle selects a named Naravel.Cache store and registers the adapter as the Routing store.
-- Key: a fixed-format SHA-256 hash of the policy/endpoint/subject partition plus the clock-aligned window number.
-- Store operation: one IncrementAsync call with TTL; no read-modify-write lock is used.
-- Dependencies: Routing, Cache and Foundation abstractions; the concrete cache provider remains configurable.
+- Implementation: `CacheThrottleStore : IThrottleStore`.
+- Registration: `AddNaravelSharedThrottle(storeName)`.
+- Key: hash of partition plus fixed-window bucket.
+- One `ICacheStore.IncrementAsync` per request; first store creation is shared through one task.
 
 ## Findings
 
-No source-level finding was established in the inspected adapter.
 
-## Existing guarantees and coverage
+### [P2] RTC-001 — Cache store recreation after reload can block before the throttle timeout
 
-- The window is aligned to UTC time boundaries.
-- The cache key uses a fixed-length digest rather than raw endpoint/user data.
-- The attempt is one atomic increment, so concurrent requests use the same backend counter.
-- The counter expiry is at least as long as the bucket remains reachable.
-- First store creation is shared by concurrent callers; an individual cancelled caller stops waiting without cancelling the shared creation for other callers.
-- Tests cover aligned boundaries, RetryAfter, fixed-window double-burst behavior, clock skew, concurrent attempts, failed creation and multi-host quota sharing.
-- Redis-specific tests cover the shared store path; those tests require an external provider.
+- Remediation state: OPEN.
+- Evidence status: CONFIRMED BY SOURCE; runtime reproduction NOT RUN.
+- Exact source evidence: `CacheThrottleStore.OpenAsync` uses `Task.Run(OpenOnce)` while `_opened` is false. After `_opened` becomes true, it calls `caches.Store(storeName)` directly. The source comment notes that a store recreated after a cache configuration reload is created inline. `ThrottleGuard.CallStoreAsync` invokes `_store.AttemptAsync(...).AsTask()` before it calls `WaitAsync(_timeout)`.
+- Affected API/configuration: `AddNaravelSharedThrottle`, Cache store configuration reload and `ThrottleOptions.StoreTimeout`.
+- User impact: A slow synchronous driver factory during cache reload can hold an HTTP request longer than the configured throttle timeout. The breaker cannot act until the blocking call returns a task.
+- Trigger/example: The store was opened once; configuration reload retires it; the first request after reload causes CacheManager to build a new Redis store synchronously.
+- Why this proves the concern: The timeout starts only after `AttemptAsync` returns. The inline `caches.Store` call happens before that point.
+- Existing test gap: Tests prove first creation is off the caller thread, but do not recreate a store after `_opened` is true or block that factory inside HTTP throttle.
+- Required safe outcome: Use the same non-blocking single-creation path for cache store recreation as for initial creation, and make the timeout cover store acquisition as well as increment.
+- Regression tests required: Open once, trigger configuration reload, block replacement factory, call through HTTP throttle and prove fallback response arrives within `StoreTimeout`; then release factory and prove recovery.
+- Owner decision: Not required to record this finding; required before changing runtime behavior.
+
+#### Plain-language explanation
+
+**In everyday words:** First connection creation is moved off the request thread. After a configuration reload, the replacement connection is created directly on the request thread before the timeout starts.
+
+**A realistic example:** The throttle timeout is 250 ms. Redis settings are reloaded and the new connection takes several seconds to open. The next request can wait those seconds before the timeout can act.
+
+**What we checked:** `CacheThrottleStore.OpenAsync` uses `Task.Run(OpenOnce)` while `_opened` is false. After `_opened` becomes true, it calls `caches.Store(storeName)` directly. The source comment notes that a store recreated after a cache configuration reload is created inline. `ThrottleGuard.CallStoreAsync` invokes `_store.AttemptAsync(...).AsTask()` before it calls `WaitAsync(_timeout)`.
+
+**Why that proves the concern:** The timeout starts only after `AttemptAsync` returns. The inline `caches.Store` call happens before that point.
+
+**What is not yet proven:** the review inspected source and existing test code only. The behavior was not reproduced by running a test or a live service in this review.
+
+**What should change:** Use the same non-blocking single-creation path for cache store recreation as for initial creation, and make the timeout cover store acquisition as well as increment.
+
+**How we will prove the fix:** Open once, trigger configuration reload, block replacement factory, call through HTTP throttle and prove fallback response arrives within `StoreTimeout`; then release factory and prove recovery.
+
 
 ## Test assessment
 
-- Tests inspected: CacheThrottleStoreTests, SharedThrottleHostTests and RedisSharedThrottleTests.
-- Tests actually run in this review: NONE.
-- Live Redis, build/CI, mutation testing and independent review: NOT RUN.
+- Existing tests inspected: `CacheThrottleStoreTests`, shared-throttle registration/host tests and Routing `ThrottleFailureTests`..
+- Coverage seen in source: window boundaries, retry-after, TTL, hashing, clock skew, concurrent increments, initial async store creation and retry after initial creation failure..
+- Gaps: successful initial open followed by settings reload, blocked replacement factory and proof that `StoreTimeout` applies to that reload path.
+- Tests actually run for this review: NONE.
+- Build/restore: NOT RUN.
+- External service/provider integration: NOT RUN.
+- Mutation testing: NOT RUN.
+- Independent review: NOT RUN.
 
 ## Documentation and packaging assessment
 
-- The package README describes the required shared Cache store and registration.
-- The Routing guide explains fixed-window behavior, host clock skew and failure modes.
-- The adapter does not claim sliding-window semantics or that a process-local Memory store shares quotas across hosts.
+README/guide correctly explain fixed-window behavior, clocks, process-local Memory store and backend failure modes. The timeout promise should also cover reload-time recreation.
 
 ## Risk summary and next action
 
-- P0/P1/P2/P3/OBS/DOC: none established by source inspection.
-- Recommended next task: keep the fixed-window and clock-skew limitations explicit, and run the Redis multi-host tests in CI before release.
+- P2: RTC-001.
+- P0 / P1 / P3 / OBS / DOC: none recorded.
+
+Recommended next task: make store initialization non-blocking on both first creation and recreation after reload, and test HTTP timeout behavior. Do not change runtime code in this audit without owner approval.
 
 ## Plain-language explanation
 
-This adapter lets several application servers use the same cache counter for a route's request limit. Each request increments one shared counter; the adapter does not read a value and then write it back under a separate lock. The counter is tied to a fixed UTC minute/window. Near a boundary, a caller can use the limit just before and just after the boundary; that is the documented trade-off of a fixed window. Tests were inspected but not run, and live Redis behavior was not verified here.
+This adapter lets multiple application instances share throttle counts using a Cache store. Source and tests were inspected; no build, tests or live Redis/Memcached test ran.

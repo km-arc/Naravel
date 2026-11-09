@@ -1,7 +1,7 @@
 # Architecture Vetoes — target production architecture
 
 Date: 2026-11-08  
-Current main baseline: c6a7d58ffb84d885741998bb32d2082c54c4ab61  
+Current main baseline: 198b36f9e2753ccfb68354a02480cdc25e7eabc7
 Scope: the twenty reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.Redis, Naravel.Cache.Redis, Naravel.Cache.Memcached, Naravel.Queue, Naravel.Queue.Memory, Naravel.Queue.File, Naravel.Queue.Database, Naravel.Queue.Redis, Naravel.Queue.Coordination, Naravel.Queue.Encryption, Naravel.Events, Naravel.Events.Queue, Naravel.Database, Naravel.Database.Sqlite, Naravel.Database.MySql, Naravel.Database.Postgres, Naravel.Database.SqlServer and Naravel.Database.EntityFrameworkCore.
 
 ## Disposition
@@ -219,3 +219,8 @@ The following items are source-confirmed observations or contract ambiguities. T
 **Why this is vetoed:** the driver documents support for both `:memory:` and `Mode=Memory`, but only the literal `:memory:` form is rewritten to a unique shared-cache data source. A named `Mode=Memory` source with the default private cache gives each operation a separate database; a shared-cache name reused by two Naravel connection definitions can also violate the documented isolation boundary.
 
 **Required target design:** normalize every memory-mode definition to a unique internal named data source and shared cache for the keeper and operation connections, or explicitly reject unsupported configurations. Tests must prove persistence across leases and isolation across connection names.
+
+
+## Scope note — remaining package reviews (2026-11-09)
+
+The reports for packages 11, 12 and 23–36 were completed after this veto register's original twenty-package scope. Their findings are tracked in `FINDINGS.md` and their package reports. They are not silently added as architecture vetoes: a new veto requires a separate principal-architect disposition and, where appropriate, an owner decision. Existing AV-001 through AV-019 remain unchanged and open until their stated proof requirements are met.
