@@ -8,14 +8,46 @@ Decisions: [PDR-022](../pdr/en/PDR-022-database-query-builder.md).
 
 ## Quickstart
 
-```csharp
-builder.Services.AddNaravelDatabase(builder.Configuration);
-builder.Services.AddNaravelSqliteDatabase(builder.Configuration);   // call after AddNaravelDatabase or before, order does not matter
+A minimal API on in-memory SQLite: one table, one insert, one query. Apart from the package, nothing needs to be installed or started.
+
+```sh
+dotnet add package Naravel.Database.Sqlite
 ```
 
+`Naravel.Database.Sqlite` brings `Naravel.Database` with it. For a server database install its driver instead (see [Server drivers](#server-drivers)).
+
 ```json
-{ "Database": { "Default": "main", "Connections": { "main": { "Driver": "sqlite", "Path": "app.db" } } } }
+{ "Database": { "Default": "main", "Connections": { "main": { "Driver": "sqlite", "Path": ":memory:" } } } }
 ```
+
+```csharp
+using Naravel.Database;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddNaravelDatabase(builder.Configuration);
+builder.Services.AddNaravelSqliteDatabase(builder.Configuration);   // after AddNaravelDatabase
+
+var app = builder.Build();
+
+// IDatabase is a singleton, so it can be used before the app starts. An in-memory database lives as long as the application runs.
+await app.Services.GetRequiredService<IDatabase>().UnpreparedAsync(
+    "create table if not exists notes (id integer primary key autoincrement, title text not null, done integer not null default 0)");
+
+app.MapPost("/notes", async (NewNote note, IDatabase db, CancellationToken ct) =>
+{
+    await db.Table("notes").InsertAsync(new Dictionary<string, object?> { ["title"] = note.Title }, ct);
+    return Results.Created("/notes", note);
+});
+
+app.MapGet("/notes", async (IDatabase db, CancellationToken ct) =>
+    await db.Table("notes").Where("done", false).OrderBy("id").GetAsync(ct));
+
+app.Run();
+
+public sealed record NewNote(string Title);
+```
+
+`POST /notes` with `{"title": "Buy milk"}` answers `201 Created`, and `GET /notes` then returns one object with `id` 1, `title` `Buy milk` and `done` 0. Each row is a dictionary keyed by column name, and SQLite hands integers back as `long`; see [Running queries](#running-queries).
 
 A connection takes either `Path` (a file, or `:memory:`) or a full `ConnectionString`. There is deliberately **no built-in default**: with nothing configured, asking for the default connection throws instead of silently creating a database.
 
@@ -86,13 +118,24 @@ builder.Services.AddOpenTelemetry().WithMetrics(m => m.AddMeter("Naravel.Databas
 **`DatabaseFake`.** For tests that do not need a database, inject `new DatabaseFake()` where `IDatabase` is expected. `Table(...)` compiles real SQL for the dialect you pass (SQLite by default), so you can assert on the SQL and the bindings:
 
 ```csharp
+using Naravel.Database.Testing;
+
+// Your own class: it only needs IDatabase, so a fake or a real database can stand in.
+public sealed class LeaderboardService(IDatabase db)
+{
+    public Task<IReadOnlyList<IReadOnlyDictionary<string, object?>>> TopAsync(int minVotes, CancellationToken ct = default) =>
+        db.Table("users").Where("votes", ">=", minVotes).OrderByDesc("votes").Limit(10).GetAsync(ct);
+}
+
+// In a test:
 var fake = new DatabaseFake().ReturnRows([new Dictionary<string, object?> { ["id"] = 1 }], sqlContains: "from \"users\"");
-var service = new UserService(fake);
-await service.ActiveUsersAsync();
-fake.AssertExecuted(q => q.Sql.Contains("votes") && (int)q.Bindings[0]! == 10);
+var rows = await new LeaderboardService(fake).TopAsync(10);
+fake.AssertExecuted(q => q.Sql.Contains("\"votes\" >=") && (int)q.Bindings[0]! == 10);
 ```
 
 Set results with `ReturnRows`, `ReturnObjects<T>` (for `GetAsync<T>`), `ReturnScalar` and `ReturnAffected`; the latest matching set-up wins, and anything not set up returns no rows, the default value or 0 affected rows. Assert with `AssertExecuted`, `AssertExecutedCount` and `AssertNothingExecuted`. The fake does not execute SQL, so behaviour that depends on a real engine needs a SQLite or server test.
+
+**A real database in a test.** SQLite in memory needs no server: build a provider with `Path` set to `:memory:` (the registration of the Quickstart), create the tables the test needs, and dispose the provider at the end. The data lives as long as the provider, and two providers, like two connection names, never share one database, so tests do not see each other's rows. Raw `IDatabase.UnpreparedAsync` and `StatementAsync` are the quickest way to create and fill a table in a test. Server drivers are tested against a real server only when its connection string is set (see [Running the database tests](#running-the-database-tests)).
 
 ## The query builder
 
@@ -296,6 +339,57 @@ Rules that keep this correct:
 - With a **retrying execution strategy** (for example `EnableRetryOnFailure` on SQL Server) EF requires a manual transaction to run inside `db.Database.CreateExecutionStrategy().ExecuteAsync(...)`, which re-runs the whole block: keep it repeatable.
 - Store money as integer minor units. SQLite has no decimal type, so decimal arithmetic in SQL is not exact there.
 - Supported providers: SQLite, SQL Server, PostgreSQL (Npgsql) and MySQL.
+
+## Errors
+
+The messages below are the ones in the source. .NET adds ` (Parameter 'name')` to the message of an argument exception, which the tables leave out. The portable list of what each bad input does on every dialect is the [error contract](database-dialects.md#error-contract-portable-offline-every-dialect).
+
+**Setup.**
+
+| When | Exception and message |
+|---|---|
+| The default connection is asked for (`db.Table(...)` on the injected `IDatabase`, `DatabaseManager.Connection()`) and `Database:Default` is not set | `InvalidOperationException`: `No default driver is configured for IDatabaseConnection. Set the 'Default' option or pass a driver name explicitly.` |
+| A connection name that is not configured | `DriverNotRegisteredException` (derives from `InvalidOperationException`, namespace `Naravel.Foundation`): `Driver 'reports' is not registered for IDatabaseConnection. Available drivers: main.` The list holds the configured names, or `(none)`. `db.Connection("reports")` itself does not check; `Table(...)` does. |
+| An `sqlite` connection with neither `Path` nor `ConnectionString` | `InvalidOperationException`: `The sqlite database connection 'main' needs either 'ConnectionString' or 'Path' in its configuration section.` Raised when the connection is first resolved, which `Table(...)` does. |
+| A `mysql`, `pgsql` or `sqlserver` connection without `ConnectionString` | `InvalidOperationException`: `The mysql database connection 'main' needs 'ConnectionString' in its configuration section.` (`pgsql` and `sqlserver` in place of `mysql` for those drivers) |
+
+**Building a query.** These need no database and are raised at the call or at `ToSql()`.
+
+| When | Exception and message |
+|---|---|
+| An operator that only another dialect has | `NotSupportedException`: `The operator 'ilike' is not supported by the Sqlite dialect.` |
+| An operator that is not in the allow-list | `ArgumentException`: `'drop' is not an allowed operator.` |
+| A table or column name that is not an identifier | `ArgumentException`: `'users; drop table x' is not a valid identifier. Use letters, digits and underscores in 'name', 'table.name', 'schema.table.name' or 'source as alias'; use a Raw method for anything else.` Long names are cut at 64 characters with `...`. |
+| `Offset` without `OrderBy` on SQL Server | `InvalidOperationException`: `SQL Server needs OrderBy(...) when Offset or Skip is used, because OFFSET ... FETCH requires ORDER BY.` |
+| More values than the dialect allows in one statement | `InvalidOperationException`: `The SqlServer dialect allows at most 2098 parameters per statement, but this query has 2099.` (the dialect name, its limit and the count). |
+| Rows of a batch insert with different columns | `ArgumentException`, parameter `rows`: `Every row must have exactly the columns of the first row (id, name).` |
+| `WhereRaw` and the other `*Raw` methods with a different number of `?` and values | `ArgumentException`, parameter `bindings`: `The raw SQL has 1 '?' placeholders but 0 bindings were given. Write '??' for a literal question mark.` |
+
+**Running.**
+
+| When | Exception and message |
+|---|---|
+| `SoleAsync` and no row matches | `RecordsNotFoundException` (derives from `InvalidOperationException`): `No record matched the query.` |
+| `SoleAsync` and more than one row matches | `MultipleRecordsFoundException` (derives from `InvalidOperationException`): `More than one record matched the query.` |
+| `UpdateAsync` without a `where` | `InvalidOperationException`: `This update has no where, so it would change every row. Add a Where(...), or call AllRows() or UpdateAllAsync to confirm that you mean every row.` |
+| `DeleteAsync` without a `where` | `InvalidOperationException`: `This delete has no where, so it would remove every row. Add a Where(...), or call AllRows() or DeleteAllAsync to confirm that you mean every row, or TruncateAsync to empty the table and reset its counter.` |
+| `ChunkAsync` on a query without `OrderBy` | `InvalidOperationException`: `Chunking with offset needs an OrderBy: pages of an unordered query are not stable. Add OrderBy(<unique column>), or use ChunkByIdAsync.` `LazyAsync` and the offset forms of pagination say the same and name `LazyByIdAsync` or `CursorPaginateAsync`. |
+| `IDatabase.SelectAsync` and the other raw methods with a different number of `?` and values | `ArgumentException`, parameter `bindings`: `The SQL has 1 placeholder(s) but 0 binding(s) were given. Use '??' for a literal question mark.` |
+| A query that was started with `Query.For(...)` is run | `InvalidOperationException`: `This query is not connected to a database. Start it with IDatabase.Table(...) instead of Query.For(...), which only compiles SQL.` |
+
+**Transactions.**
+
+| When | Exception and message |
+|---|---|
+| `BeginTransactionAsync()` inside a `TransactionAsync` callback, or inside any transaction of this connection that Naravel started | `InvalidOperationException`: `Already inside a transaction. Use TransactionAsync on this database to open a savepoint.` |
+| A transaction on a connection that already has one Naravel did not start (for example EF Core's) | `InvalidOperationException`: `This connection is already in a transaction that Naravel did not start (for example from EF Core); neither side commits a transaction it did not begin.` |
+| `Connection(name)` on the database a `TransactionAsync` callback receives, with a name other than the one the transaction was started on (a transaction started on the default connection has no name, so every name counts as another one) | `InvalidOperationException`: `A transaction is bound to one connection; start a new transaction on the other connection instead.` |
+| `CommitAsync` or `RollBackAsync` after the transaction was finished | `InvalidOperationException`: `The transaction was already committed or rolled back.` |
+| `attempts` below 1 | `ArgumentOutOfRangeException`, parameter `attempts` |
+
+**`DatabaseFake`.** `AssertExecuted()` with nothing run says `Expected a database command to run, but none did.`; with a predicate that matches nothing, `No database command matched the predicate; 1 command(s) ran:` and the commands. `AssertExecutedCount(2)` says `Expected 2 database command(s), but found 1:` and the commands, and `AssertNothingExecuted()` says `Expected no database command, but 1 ran:` and the commands. All are `InvalidOperationException`.
+
+`tests/Naravel.Database.Tests/DocsExampleTests.cs` runs the Quickstart, the `DatabaseFake` example and every message above except one: the transaction that EF Core started. That one comes from the source and is not run there. Change one, change the other.
 
 ## How it works and why
 
