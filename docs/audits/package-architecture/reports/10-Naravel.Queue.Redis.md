@@ -144,3 +144,68 @@
 - OBS / owner decisions: RQR-005 (batch retention), RQR-006 (in-flight cancellation semantics).
 - DOC: RQR-007 (explicit Redis Cluster non-support on package page).
 - Recommended next task: obtain AD-018 through AD-020; add tests for positive visibility, SizeAsync cancellation and the registration failure boundary; then decide whether to remove/expose the per-queue failed list and implement a safe batch history retention policy. Do not change runtime code or the Redis key layout during this audit pass.
+
+## Plain-language explanation
+
+### RQR-001 — A zero or negative visibility timeout lets another worker take a live Redis job
+
+- **In everyday words:** Redis queue reservation expiry uses the configured timeout directly. If it is zero or negative, a later poll can immediately treat a live reservation as expired.
+- **A realistic example:** Worker A reserves a message with a zero-second timeout. Worker B polls immediately and receives the same message while A is still processing it.
+- **What we checked:** `src/Naravel.Queue.Redis/RedisQueueDriver.cs`, constructor around lines 43–48 and `PopScript` around lines 77–118; DI parsing is around lines 270–275.
+- **Why that proves the risk:** The script reclaims reservations whose deadline is at or before now, and the constructor does not reject a non-positive timeout.
+- **What is not yet proven here:** This was traced in source; a live Redis duplicate-delivery reproduction was not run.
+- **Safe outcome and proof:** Reject zero and negative values in both constructor and configuration. Test both invalid boundaries and prove a positive timeout does not reclaim a live message early.
+
+### RQR-002 — SizeAsync ignores cancellation and can issue eleven Redis requests anyway
+
+- **In everyday words:** The size method does not check the cancellation token before it asks Redis for queue lengths. A caller can cancel and still cause all of those requests.
+- **A realistic example:** A pre-cancelled request calls `SizeAsync`. The method still queries ten ready lists and the delayed list, then returns a count.
+- **What we checked:** `src/Naravel.Queue.Redis/RedisQueueDriver.cs`, around lines 251–259, where the method issues ten `ListLengthAsync` calls and one `SortedSetLengthAsync` without checking the token.
+- **Why that proves the gap:** Unlike the other public Redis driver operations, this method does not perform a cancellation check before Redis I/O.
+- **What is not yet proven here:** The source gap is confirmed; no pre-cancelled provider test was run. Cancellation after a Redis command starts is a separate client limitation.
+- **Safe outcome and proof:** A pre-cancelled call must issue no Redis request and throw `OperationCanceledException`. Add a proxy test that counts commands and keep the ready-plus-delayed result correct.
+
+### RQR-003 — Every permanently failed job is also copied into an inaccessible Redis list
+
+- **In everyday words:** The Redis queue driver writes failed jobs into an extra per-queue list, but the public API has no way to read or delete that list. The official failed-job store keeps another copy separately.
+- **A realistic example:** A job permanently fails. An operator forgets it through `FailedJobManager`, but the extra per-queue list still contains its full message and error details.
+- **What we checked:** `src/Naravel.Queue.Redis/RedisQueueDriver.cs` defines `FailedKey(queue)` and `FailScript` pushes to it. A repository source search found no read, trim or delete path for that key. `RedisFailedJobStore` separately supports List/Forget/Flush.
+- **Why that proves the risk:** The extra list receives records but no public operation manages its contents or lifetime.
+- **What is not yet proven here:** The source search confirms the missing management path; the report did not run a Redis retention stress test.
+- **Safe outcome and proof:** The owner must decide whether this is an intended administrative dead-letter list or obsolete duplicate storage. If kept, expose and document safe inspection and bounded retention; otherwise use `IFailedJobStore` as the supported source. Test failures with and without that store and prove all intended copies can be inspected and removed. Decision AD-018 is required.
+
+### RQR-004 — A failed second Redis write can leave a batch record that startup recovery cannot find
+
+- **In everyday words:** Redis saves the batch details and the list of batch IDs in two separate commands. If the first succeeds and the second fails, the batch exists but is missing from the list used to find work that needs recovery.
+- **A realistic example:** Redis stores a batch hash. The connection drops before its ID is added to the index. No jobs have been published yet, and the next worker startup never looks at that unindexed batch.
+- **What we checked:** `src/Naravel.Queue.Redis/RedisBatchRepository.cs`, around lines 45–66, writes the hash and then calls `SetAddAsync` separately. `ResumePendingCallbacksAsync` scans only the index.
+- **Why that proves the risk:** A batch hash can be created without the index entry required by the recovery code.
+- **What is not yet proven here:** The command ordering is confirmed; failure injection between the two Redis commands was not run.
+- **Safe outcome and proof:** Both pieces must be written together, or recovery must be able to discover an orphaned hash. Test a failure after the first write, recreate the repository and prove the batch is found and reaches a clear state. This also relates to QUE-001 / AV-009.
+
+### RQR-005 — Completed Redis batch records are never removed and every startup scans them all
+
+- **In everyday words:** The Redis batch index keeps every batch ID forever. Worker startup then reads all of them, even batches whose callbacks have already finished.
+- **A realistic example:** A system has processed a million batches over time. A new worker startup still fetches the whole index and checks every old batch, even though almost all are complete.
+- **What we checked:** `RedisBatchRepository.RegisterAsync` adds IDs to the persistent index; the report found no remove/prune method in `IBatchRepository`. `ResumePendingCallbacksAsync` reads every ID and its hash.
+- **Why that proves the risk:** Neither the index member nor completed batch hash has a normal retention path, and startup cost grows with historical batches.
+- **What is not yet proven here:** The unbounded lifecycle is confirmed from source; no long-running scale or startup benchmark was run.
+- **Safe outcome and proof:** Define a clear retention period or owner-controlled prune operation. Never remove pending callback state. Test many completed batches, cleanup, repository recreation and recovery of still-pending callbacks. Decision AD-019 is required.
+
+### RQR-006 — Cancelling after a Redis command starts does not tell us whether the command completed
+
+- **In everyday words:** The Redis client methods used here do not accept the caller's cancellation token. Once a command has been sent, cancellation cannot promise that the server stops it.
+- **A realistic example:** A worker asks Redis to acknowledge a job and then cancels. The caller may remain waiting for the Redis response; even if its wait is later cancelled, the server may already have performed the acknowledgement.
+- **What we checked:** The Redis driver's `Push`, `Pop`, `Ack`, `Release` and `TryFail` paths check before sending commands, while the relevant StackExchange.Redis calls have no token parameter. The report also checks the batch and failed-job stores.
+- **Why that proves the limitation:** The token is not passed into the already-issued operation, so the adapter cannot stop that server-side command through the current API.
+- **What is not yet proven here:** This is a client-contract limitation confirmed by source/API shape, not a claim that a particular cancellation race was reproduced.
+- **Safe outcome and proof:** The owner must define whether cancellation is preflight-only or may stop only the caller's wait while the result remains uncertain. The report recommends documenting preflight-only semantics for mutating commands. Test that pre-cancelled calls send no commands and that multi-command flows check cancellation between commands. Decision AD-020 is required.
+
+### RQR-007 — The Redis Queue package README does not warn that Redis Cluster is unsupported
+
+- **In everyday words:** The queue driver uses scripts that touch many Redis keys at once. Redis Cluster requires those keys to be in the same slot, but the driver does not arrange that. The package README does not clearly warn buyers about this limit.
+- **A realistic example:** An application connects the queue driver to Redis Cluster. A queue operation runs a script across keys placed in different cluster slots and Redis rejects it with `CROSSSLOT`.
+- **What we checked:** `RedisQueueDriver.PopAsync` uses a 13-key script; other scripts also use several keys. The key builder does not add a shared Redis hash tag. PDR-010 and `docs/en/redis.md` exclude Cluster support, but `docs/nuget/Naravel.Queue.Redis.md` does not state the limit.
+- **Why that proves the mismatch:** The code's multi-key script layout does not meet Redis Cluster's same-slot requirement, while the provider README omits the documented non-goal.
+- **What is not yet proven here:** Cluster incompatibility is established by source/key layout and the approved scope; no live Redis Cluster test was run because Cluster support is not part of the current scope.
+- **Safe outcome and proof:** Add a clear package README warning and link the topology decision. Do not imply the underlying Redis client makes this queue driver Cluster-compatible. A live Cluster suite is needed only if the owner later approves support.
