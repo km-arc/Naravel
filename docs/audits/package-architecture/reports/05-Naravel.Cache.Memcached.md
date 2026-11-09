@@ -222,3 +222,106 @@
 
 
 Owner decisions still pending for the Cache family are tracked in [OWNER-DECISIONS.md](../OWNER-DECISIONS.md); MCD-011 is not a veto and must not be treated as approved behavior.
+
+## Plain-language explanation
+
+The Memcached findings below are based on the adapter source and, where stated, the pinned Enyim 3.5.2 source or Memcached protocol. They are not claims that a live Memcached server reproduced every case.
+
+### MCD-001 — A missing value of some value types can look like a cache hit
+
+- **In everyday words:** For certain types such as `bool` or `DateTime`, the adapter checks whether a result contains a value, but the library's default value can make that check look successful even when the key is missing.
+- **A realistic example:** The key `missing` has never been written. `TryGetAsync<bool>` may report `Found=true` with `false` instead of reporting a miss.
+- **What we checked:** `src/Naravel.Cache.Memcached/MemcachedCacheStore.cs`, around lines 62–63, and the pinned Enyim 3.5.2 `GetOperationResult<T>` source, where `HasValue` checks `Value != null` while success is reported separately.
+- **Why that proves the risk:** A non-nullable value type always has a default value such as false or zero, so checking that value alone does not prove that Memcached found the key.
+- **What is not yet proven here:** The library implementation supports the conclusion, but a live-server missing-key test for these types was not run.
+- **Safe outcome and proof:** Only a real not-found response should become `Found=false`; backend failures must remain visible. Test missing and existing bool, floating-point, DateTime, enum and custom-struct values, plus a failed read.
+
+### MCD-002 — A failed write or failed lock command can be reported as normal success or ordinary contention
+
+- **In everyday words:** The adapter ignores the result of a Memcached write. It also treats every unsuccessful lock-add as “someone else owns the lock,” even when the operation itself failed.
+- **A realistic example:** A value cannot be stored because serialization failed. `SetAsync` still completes normally. Or a lock-add fails because of a server problem and the caller is told only that the lock was busy.
+- **What we checked:** `MemcachedCacheStore.SetAsync` around lines 67–75 discards the returned boolean; `MemcachedLock.AcquireAsync` around lines 23–30 maps every `AddAsync=false` to no lock. The pinned Enyim code returns the operation's success status.
+- **Why that proves the risk:** The adapter drops the information needed to distinguish a successful write from a failed write, and a genuine lock conflict from an operation error.
+- **What is not yet proven here:** The adapter path is confirmed by source and dependency inspection. The report did not run a failure-result integration test.
+- **Safe outcome and proof:** Failed writes and actual backend errors must be visible; a real existing lock may still be reported as contention. Test `SetAsync=false`, serializer failure, duplicate lock and failed lock operation separately.
+
+### MCD-003 — Memcached's unsigned counters do not always fit the Cache package's signed number contract
+
+- **In everyday words:** Cache exposes counters as signed `long` values, but Memcached arithmetic uses unsigned numbers. The adapter casts between them without checking the range.
+- **A realistic example:** A counter at `long.MaxValue` is increased by one. The server can hold a value larger than `long` can represent, while the adapter returns a wrapped negative number.
+- **What we checked:** The signed contract in `ICacheStore.cs`, the casts in `MemcachedCacheStore.cs` around lines 99, 112 and 122, and the pinned Enyim interface and Memcached arithmetic protocol.
+- **Why that proves the risk:** The unsigned result can exceed the signed range, and an unchecked cast cannot represent that value correctly. The protocol also treats decrement below zero differently from signed subtraction.
+- **What is not yet proven here:** The source and protocol establish the mismatch; the boundary cases were not reproduced against a live server.
+- **Safe outcome and proof:** Never return a wrapped number or a default zero after a failed mutation. Define how negative values, overflow and decrement below zero behave. Test `long.MaxValue + 1`, negative stored values, failed mutations and underflow; obtain owner approval for any cross-provider behavior difference.
+
+### MCD-004 — Cancelling after Memcached I/O starts does not stop the caller's wait
+
+- **In everyday words:** The token is checked before sending a request. Once Enyim starts the network operation, the adapter waits for it even if the caller cancels.
+- **A realistic example:** A web request is cancelled while a cache read is waiting on Memcached. The application still waits until the client returns or times out.
+- **What we checked:** `MemcachedCacheStore.cs` around lines 35–90 and 126–130, `MemcachedLock.cs` around lines 23–43, and the Enyim 3.5.2 interface, whose relevant async methods do not accept a cancellation token.
+- **Why that proves the gap:** The adapter awaits those tasks without a cancellable caller wait.
+- **What is not yet proven here:** No pending-task cancellation test was run. This does not mean an already-sent Memcached command can be undone.
+- **Safe outcome and proof:** The caller's wait should follow the approved cancellation contract, while documentation must say that the server may still complete a command already sent. Hold a fake Get/Set/Remove/Add/Flush task pending, cancel after it starts, and verify the caller stops waiting.
+
+### MCD-005 — A null nullable-number value is saved as empty text and cannot be read back
+
+- **In everyday words:** When a nullable number is null, the adapter stores an empty string. Later it tries to parse that empty string as a number and fails.
+- **A realistic example:** Store `null` as `int?` under `optional`. Reading the same key can throw `FormatException` instead of returning a null value or a clear unsupported-value error.
+- **What we checked:** `src/Naravel.Cache.Memcached/MemcachedCacheStore.cs`, around lines 70–74 on write and 39–45 on read.
+- **Why that proves the risk:** The write path converts null to empty text, but the read path passes that text to numeric conversion.
+- **What is not yet proven here:** This was confirmed by tracing the conversion code; no runtime round-trip test was run.
+- **Safe outcome and proof:** Null must either round-trip correctly or be rejected clearly before it is stored. Test nullable int/long null and non-null values, and prove an actual empty string remains a different value.
+
+### MCD-006 — Flushing one Memcached store clears the shared server pool
+
+- **In everyday words:** The provider's flush operation tells Memcached to clear the whole client pool, not only this store's keys. A flush through one named store or tenant view can erase unrelated data.
+- **A realistic example:** A sessions store and a catalogue store use the same Memcached pool. Flushing the sessions store also removes catalogue entries.
+- **What we checked:** `src/Naravel.Cache.Memcached/MemcachedCacheStore.cs` around lines 126–130 calls `FlushAllAsync`; the pinned Enyim 3.5.2 implementation applies that operation to every working node in its pool. The report also traces the shared client registration.
+- **Why that proves the risk:** The operation is pool-wide and does not filter by the Naravel store prefix.
+- **What is not yet proven here:** The dependency source confirms the operation's scope; a live multi-store flush test was not run.
+- **Safe outcome and proof:** Ordinary `ICacheStore.FlushAsync` must never clear data owned by another store or scope. Add a targeted invalidation method, or fail clearly if the provider cannot offer safe scoped cleanup. Keep any full-cluster flush as a separately named administrative action. Test two stores, two scopes and base-store values.
+
+### MCD-007 — An expired lock owner can delete a newer owner's lock
+
+- **In everyday words:** The provider checks the lock token and deletes the key in two separate steps. Another owner can take the lock between those steps, and the old owner can then delete the new owner's lock.
+- **A realistic example:** A's lock expires after A reads its token. B acquires the same lock. A resumes and removes the key without checking B's token atomically. C can then acquire while B is still working.
+- **What we checked:** `src/Naravel.Cache.Memcached/MemcachedLock.cs`, around lines 39–43, reads the token and later calls unconditional `RemoveAsync`. The current protocol/client path does not combine those actions into one token-checked delete.
+- **Why that proves the risk:** The token comparison can become outdated before the separate delete is sent.
+- **What is not yet proven here:** The interleaving is confirmed from source-level ordering; a deterministic two-owner live-server race was not run.
+- **Safe outcome and proof:** An old owner must never release a lock acquired by someone else. Test A-read, A-expiry, B-acquire, A-remove and prove B remains protected. If the provider cannot guarantee atomic ownership checks, it must not be presented as a correctness-grade distributed lock.
+
+### MCD-008 — All named Memcached stores are forced to use one server pool
+
+- **In everyday words:** The registration code refuses to configure two named stores against different Memcached server groups. All stores share one client pool.
+- **A realistic example:** The sessions cache should use cluster A and the product cache should use cluster B. Registration fails instead of allowing the two workloads to be separated.
+- **What we checked:** `src/Naravel.Cache.Memcached/MemcachedCacheServiceCollectionExtensions.cs`, around lines 26–59, compares server lists and registers one shared client for all stores.
+- **Why that proves the risk:** The implementation explicitly rejects different server lists and injects the same client into every store/lock factory.
+- **What is not yet proven here:** The configuration restriction is visible in source and existing tests; no multi-cluster runtime failover test was run.
+- **Safe outcome and proof:** Different named stores must be allowed to use different server pools, while stores with the same pool may share a client safely. Test independent registration, same-pool sharing, isolated reload/disposal and operation of one pool while the other is unavailable.
+
+### MCD-009 — Counter calls block shared worker threads even though the API is asynchronous
+
+- **In everyday words:** The async counter methods run synchronous network calls on `Task.Run`. This still blocks a worker thread while Memcached responds.
+- **A realistic example:** Many requests update rate-limit counters while Memcached is slow. A large number of worker threads can become stuck waiting for the server, delaying unrelated application work.
+- **What we checked:** `src/Naravel.Cache.Memcached/MemcachedCacheStore.cs`, around lines 93–123, wraps synchronous `Increment` / `Decrement` in `Task.Run`. The pinned Enyim interface exposes these methods synchronously.
+- **Why that proves the risk:** Moving a synchronous network call to another thread does not make the call non-blocking; the worker remains occupied until the socket operation ends.
+- **What is not yet proven here:** The source confirms the blocking design. Thread-pool starvation was not load-tested.
+- **Safe outcome and proof:** Use a genuinely asynchronous arithmetic operation or a bounded design that does not consume an unbounded number of workers. Test slow-server concurrency and prove normal application tasks remain schedulable while counters are busy.
+
+### MCD-010 — A positive Memcached lifetime shorter than one second can become “never expire”
+
+- **In everyday words:** The library turns the lifetime into whole seconds. A positive fraction below one second becomes zero, and Memcached interprets zero as no expiry.
+- **A realistic example:** An application asks to cache something for 500 milliseconds. The item may stay in Memcached indefinitely instead.
+- **What we checked:** `MemcachedCacheStore.SetAsync` and the TTL counter path pass the `TimeSpan` to Enyim; the pinned Enyim 3.5.2 `GetExpiration` implementation converts it to `uint` seconds. The Memcached protocol defines zero as no expiry.
+- **Why that proves the risk:** A positive fraction is truncated to zero before the server receives it.
+- **What is not yet proven here:** The dependency source and protocol support the result; a live-server expiry test was not run.
+- **Safe outcome and proof:** A positive lifetime must never become permanent. Round it up to a supported positive duration or reject it clearly. Test 1 ms, 500 ms, 999 ms, one second and the 30-day boundary for both normal writes and TTL counters.
+
+### MCD-011 — The meaning of an explicit zero lifetime is different between Memcached and the test fake
+
+- **In everyday words:** Passing zero as a lifetime is not defined by the shared cache contract. Memcached treats it like “never expire,” while the test fake rejects it.
+- **A realistic example:** A test using `CacheFake` fails for a zero lifetime, but a real Memcached deployment may store the item without an expiry.
+- **What we checked:** `MemcachedCacheStore` forwards `ttl ?? TimeSpan.Zero`; Enyim 3.5.2 encodes zero as Memcached's no-expiry value. `CacheFake` rejects explicitly supplied non-positive TTLs. `ICacheStore` documentation does not define the zero case.
+- **Why that proves the mismatch:** The same API call has different results in the fake and the real adapter.
+- **What is not yet proven here:** The source behavior is confirmed; cross-provider live tests were not run and the shared contract is still a product decision.
+- **Safe outcome and proof:** The owner must choose one shared meaning: immediate expiry or invalid input. The report recommends rejecting zero because `null` already means no expiry, but that recommendation is not approval. After the decision, test the same zero and null cases across Memory, Redis, Memcached and the fake.
