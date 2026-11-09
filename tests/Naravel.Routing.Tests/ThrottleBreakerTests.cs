@@ -6,7 +6,8 @@ namespace Naravel.Routing.Tests;
 /// The state machine of the circuit breaker around the throttle store (PDR-024, R31.T02), tested without HTTP and with a clock that a
 /// test moves by hand. <c>ThrottleFailureTests</c> reaches the breaker only through whole requests; these tests pin the transitions that
 /// are hard to reach that way, above all the probe whose client goes away: if the breaker did not hand that probe on, it would stay
-/// half-open for good, the store would never be called again and every request would be handled as if the store were down.
+/// half-open for good, the store would never be called again and every request would be handled as if the store were down. The last
+/// tests of the breaker alone move the system clock while the process runs: the period is measured on the monotonic timestamp.
 /// </summary>
 public class ThrottleBreakerTests
 {
@@ -137,6 +138,40 @@ public class ThrottleBreakerTests
         breaker.TryEnter().Should().Be(ThrottleBreaker.Entry.Open, "a late answer of an ordinary call does not close the breaker");
     }
 
+    [Fact]
+    public void A_system_clock_that_is_set_back_does_not_keep_the_breaker_open_for_longer_than_the_period()
+    {
+        var clock = new ManualTimeProvider();
+        var breaker = new ThrottleBreaker(clock, Period);
+        breaker.Failed(probe: false);
+
+        // A time synchronization step, a virtual machine that resumes, a person who sets the clock: the date and time of day go back
+        // an hour while the process keeps running.
+        clock.StepSystemClock(TimeSpan.FromHours(-1));
+        breaker.TryEnter().Should().Be(ThrottleBreaker.Entry.Open);
+        breaker.RemainingOpen().Should().Be(Period, "the step does not lengthen the period that is left");
+
+        clock.Advance(AfterPeriod);
+        breaker.TryEnter().Should().Be(ThrottleBreaker.Entry.Probe, "the period is over after its own length, not after an hour");
+    }
+
+    [Fact]
+    public void A_system_clock_that_is_set_forward_does_not_end_the_period_early()
+    {
+        var clock = new ManualTimeProvider();
+        var breaker = new ThrottleBreaker(clock, Period);
+        breaker.Failed(probe: false);
+
+        clock.StepSystemClock(TimeSpan.FromHours(1));
+        breaker.TryEnter().Should().Be(ThrottleBreaker.Entry.Open, "the store is still not called in the period that has not passed");
+        breaker.RemainingOpen().Should().Be(Period, "the step does not shorten the period that is left");
+
+        clock.Advance(Period - TimeSpan.FromMilliseconds(1));
+        breaker.TryEnter().Should().Be(ThrottleBreaker.Entry.Open);
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        breaker.TryEnter().Should().Be(ThrottleBreaker.Entry.Probe);
+    }
+
     // ----- the guard that drives it -----
 
     [Fact]
@@ -217,18 +252,39 @@ public class ThrottleBreakerTests
         }
     }
 
-    /// <summary>A clock a test moves by hand; only the breaker reads it.</summary>
+    /// <summary>
+    /// A clock a test moves by hand; only the breaker reads it. <see cref="Advance"/> is time passing: it moves the date and time of
+    /// day and the monotonic timestamp. <see cref="StepSystemClock"/> moves the date and time of day only, as a change of the system
+    /// clock does.
+    /// </summary>
     private sealed class ManualTimeProvider : TimeProvider
     {
         private readonly object _gate = new();
         private DateTimeOffset _now = new(2026, 11, 8, 12, 0, 0, TimeSpan.Zero);
+        private long _timestamp;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
 
         public override DateTimeOffset GetUtcNow()
         {
             lock (_gate) return _now;
         }
 
+        public override long GetTimestamp()
+        {
+            lock (_gate) return _timestamp;
+        }
+
         public void Advance(TimeSpan by)
+        {
+            lock (_gate)
+            {
+                _now += by;
+                _timestamp += by.Ticks;
+            }
+        }
+
+        public void StepSystemClock(TimeSpan by)
         {
             lock (_gate) _now += by;
         }
