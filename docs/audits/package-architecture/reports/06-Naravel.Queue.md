@@ -104,3 +104,49 @@
 
 See [OWNER-DECISIONS.md](../OWNER-DECISIONS.md): AD-009 through AD-012. No implementation, public API change, dependency change or roadmap-stage change is authorized by this source review.
 
+## Plain-language explanation
+
+### QUE-001 — A batch can be left unfinished when only some jobs are published
+
+- **In everyday words:** The batch record is created for all planned jobs before they are sent to the queue. If sending one of the later jobs fails, the batch still waits for a job that was never published.
+- **A realistic example:** A batch contains two jobs. The first is accepted by the queue, but the second fails to publish. The batch still expects two completions, and the caller does not receive the batch ID because the method throws.
+- **What we checked:** `src/Naravel.Queue/Dispatch/JobDispatcher.cs`, around lines 115–136, registers the full batch and then publishes messages one by one without a recovery path for a partial publish.
+- **Why that proves the risk:** The batch count includes messages that may never reach a worker, and no worker can complete a message that was not sent.
+- **What is not yet proven here:** The source path is confirmed; an injected failure on the second publish was not reproduced in this audit.
+- **Safe outcome and proof:** Partial publication must be visible and recoverable; a batch must not wait forever for a missing job. Test failure on the second and later publish, serialization failure and cancellation, then recreate the persistent repository and prove the batch reaches the documented state. Owner decision AD-009 is required because the result/API contract may change.
+
+### QUE-002 — Retrying a failed batch job can publish a message that the worker then discards
+
+- **In everyday words:** A retry keeps the old batch ID even though that batch may already be finished or cancelled. The worker can therefore acknowledge the retry without running the job.
+- **A realistic example:** A job fails in a fail-fast batch. The batch is marked cancelled. An operator retries the failed record, but the new message still carries the cancelled batch ID, so the worker skips the job.
+- **What we checked:** `src/Naravel.Queue/Failed/FailedJobManager.cs`, around lines 77–88, clones the envelope without clearing `BatchId`. `QueueWorkerService.cs`, around lines 224–234, acknowledges a message whose batch is cancelled.
+- **Why that proves the risk:** The retry republishes the old batch identity, and the worker intentionally does not execute cancelled batch members.
+- **What is not yet proven here:** This was traced in source; a dedicated retry test for a terminal batch was not run.
+- **Safe outcome and proof:** The owner must choose whether retry means a new independent job or reopening the original batch. The report recommends a new independent job, but that is not approved. Test retry from cancelled and `AllowFailures` batches, checking execution, batch history, callbacks and the new envelope's `BatchId`. Decision AD-010 is required.
+
+### QUE-003 — The in-memory batch can lose a completion callback after the callback throws
+
+- **In everyday words:** The in-memory repository marks the batch complete before running its completion callback. If that callback fails, the in-memory repository has no way to retry it, despite the guide describing restart recovery.
+- **A realistic example:** The final job finishes and `OnCompleted` throws once. The batch is already marked finished, so the next worker startup does not run that callback again.
+- **What we checked:** `src/Naravel.Queue/Batching/QueueBatch.cs`, around lines 277–294, marks completion before invoking the callback. `InMemoryBatchRepository.ResumePendingCallbacksAsync` is a no-op, while `docs/en/queue.md` says callback failures remain pending for retry.
+- **Why that proves the mismatch:** The default in-memory implementation has no stored pending-callback state to resume.
+- **What is not yet proven here:** The source path is clear; the report did not run a one-time throwing callback through each repository.
+- **Safe outcome and proof:** Either document that restart recovery is provided only by persistent repositories, or add in-memory retry tracking. Test a one-time callback failure in Memory, Database and Redis; prove the job is not run again and the callback behavior matches the documentation.
+
+### QUE-004 — An empty batch has no consistent completion behavior
+
+- **In everyday words:** The API accepts a batch with no jobs, but there is no agreed rule for when its callbacks should run. Different repositories may behave differently.
+- **A realistic example:** A caller invokes `BatchAsync` with an empty array. No worker receives a message, so no worker can trigger the normal completion path. A persistent repository may only notice the finished batch later during startup.
+- **What we checked:** `JobDispatcher.BatchAsync` accepts an empty list and registers `TotalJobs = 0`; the report compares the in-memory and persistent repository completion paths.
+- **Why that proves the mismatch:** There is no one shared point that guarantees an empty batch's terminal callbacks run immediately.
+- **What is not yet proven here:** The code behavior was inspected, but a cross-provider runtime comparison was not run.
+- **Safe outcome and proof:** The owner must choose to reject empty batches or define them as immediately complete. The report recommends rejection. Test the chosen rule in Memory, Database and Redis. Decision AD-011 remains with the owner.
+
+### QUE-005 — Queue runtime uses the computer clock directly in several places
+
+- **In everyday words:** Queue timestamps and some waits use the system clock rather than one injected clock. This makes behavior harder to test and can make different hosts disagree about time.
+- **A realistic example:** One server's clock is ahead. A delayed job can appear ready earlier on that server, or a retry can be scheduled at a different instant from another server.
+- **What we checked:** Direct time reads are listed in `QueuedMessage.cs`, `DispatchOptions.cs`, `QueueWorkerService.cs`, `FailedJobManager.cs` and File/Database/Kafka driver files. `AGENTS.md` requires injected `TimeProvider`.
+- **Why that proves the risk:** These runtime decisions read the system clock independently instead of using one controllable time source.
+- **What is not yet proven here:** This was confirmed by source search; clock-skew and deterministic-time reproductions were not run.
+- **Safe outcome and proof:** Define one approved clock-injection boundary for dispatch, workers, failed-job retry and providers. Test delayed dispatch, retry dates, worker runtime limits, reservation expiry and polling waits with a manually advanced clock. Owner decision AD-012 is required before choosing the cross-project registration/API design.
