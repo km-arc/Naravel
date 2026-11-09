@@ -158,7 +158,7 @@ How it counts:
 
 ##### When the shared store fails
 
-A throttle sits on the request path, so a slow or unavailable backend must not take the application down, and must not silently remove the limit either (Laravel lets the cache exception escape, which is a 500). Each store call is limited by `Throttle.StoreTimeout` (250 milliseconds by default). A call that throws or times out is a failure and opens one breaker for the store, shared by every policy, for `Throttle.BreakerPeriod` (5 seconds by default): the store is not called in that time. Then one request probes the store; if it answers, the breaker closes, otherwise it opens for another period. A client that went away is not a failure. While the breaker is open, each request follows its policy's `ThrottleFailureMode`:
+A throttle sits on the request path, so a slow or unavailable backend must not take the application down, and must not silently remove the limit either (Laravel lets the cache exception escape, which is a 500). Each store call is limited by `Throttle.StoreTimeout` (250 milliseconds by default). A call that throws or times out is a failure and opens one breaker for the store, shared by every policy, for `Throttle.BreakerPeriod` (5 seconds by default): the store is not called in that time. Then one request probes the store; if it answers, the breaker closes, otherwise it opens for another period. The period is measured on a monotonic clock, so setting the system clock forward or back does not lengthen or shorten it. A client that went away is not a failure. While the breaker is open, each request follows its policy's `ThrottleFailureMode`:
 
 | Mode | A request while the store is failing | Use it for |
 |---|---|---|

@@ -53,7 +53,8 @@ public sealed class ThrottleOptions
 
     /// <summary>
     /// How long the store is not called after a failure; every request in that time is handled by its policy's
-    /// <see cref="ThrottleFailureMode"/>. Then one request probes the store. Default 5 seconds; must be positive.
+    /// <see cref="ThrottleFailureMode"/>. Then one request probes the store. Default 5 seconds; must be positive. The period is
+    /// measured on a monotonic clock, so setting the system clock forward or back does not change it.
     /// </summary>
     public TimeSpan BreakerPeriod
     {

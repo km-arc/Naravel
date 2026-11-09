@@ -4,7 +4,10 @@ namespace Naravel.Routing;
 /// The circuit breaker around one throttle store (PDR-024). <b>Closed</b>: calls go to the store. After a failure it is
 /// <b>open</b> for the break period: the store is not called. When the period has passed it is <b>half-open</b>: exactly one
 /// request (the probe) calls the store while the others are still handled as in open; a successful probe closes it, a failed probe
-/// opens it for another period. Time comes from the <see cref="TimeProvider"/>, so tests move it without waiting.
+/// opens it for another period. Time comes from the <see cref="TimeProvider"/> and is read as its monotonic timestamp
+/// (<see cref="TimeProvider.GetTimestamp"/>), not as the date and time of day: a change of the system clock (a time
+/// synchronization step, a resumed virtual machine, a manual change) must not lengthen or shorten a period that is a few seconds
+/// long. Tests move the timestamp without waiting.
 /// </summary>
 internal sealed class ThrottleBreaker(TimeProvider time, TimeSpan period)
 {
@@ -23,14 +26,14 @@ internal sealed class ThrottleBreaker(TimeProvider time, TimeSpan period)
     private readonly object _gate = new();
     private bool _open;
     private bool _probing;
-    private DateTimeOffset _openUntil;
+    private long _openedAt;
 
     public Entry TryEnter()
     {
         lock (_gate)
         {
             if (!_open) return Entry.Closed;
-            if (time.GetUtcNow() < _openUntil) return Entry.Open;
+            if (time.GetElapsedTime(_openedAt) < period) return Entry.Open;
             if (_probing) return Entry.Open;
             _probing = true;
             return Entry.Probe;
@@ -80,7 +83,7 @@ internal sealed class ThrottleBreaker(TimeProvider time, TimeSpan period)
         lock (_gate)
         {
             if (!_open) return TimeSpan.Zero;
-            var left = _openUntil - time.GetUtcNow();
+            var left = period - time.GetElapsedTime(_openedAt);
             return left > TimeSpan.Zero ? left : TimeSpan.Zero;
         }
     }
@@ -88,6 +91,6 @@ internal sealed class ThrottleBreaker(TimeProvider time, TimeSpan period)
     private void Open()
     {
         _open = true;
-        _openUntil = time.GetUtcNow() + period;
+        _openedAt = time.GetTimestamp();
     }
 }
