@@ -372,7 +372,8 @@ The messages below are the ones in the source. .NET adds ` (Parameter 'name')` t
 | When | Exception and message |
 |---|---|
 | `name` is `/` or contains `{` or `}` | `ArgumentException`, parameter `name`: `The resource name must be a non-empty route path without route parameters.` |
-| `name` or `parameter` is null, empty or whitespace | `ArgumentException`, with the framework's own message |
+| `name` or `parameter` is null | `ArgumentNullException`, parameter `name` or `parameter` |
+| `name` or `parameter` is empty or whitespace | `ArgumentException`, with the framework's own message |
 | `TController` does not derive from `ControllerBase` | `ArgumentException`, parameter `TController`: `The resource type must derive from ControllerBase.` |
 | The class name does not end with `Controller` | `ArgumentException`, parameter `TController`: `The resource type must use the MVC Controller suffix.` |
 
