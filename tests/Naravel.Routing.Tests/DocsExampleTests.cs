@@ -339,9 +339,17 @@ public class DocsErrorsTests
             name.Message.Should().StartWith("The resource name must be a non-empty route path without route parameters.");
         }
 
-        var empty = blank.Should().Throw<ArgumentException>().Which;
+        var empty = blank.Should().ThrowExactly<ArgumentException>().Which;
         empty.ParamName.Should().Be("name");
         empty.Message.Should().NotContain("route path");
+
+        Action blankParameter = () => app.MapNaravelControllerResource<SampleController>("photos", " ");
+        Action nullName = () => app.MapNaravelControllerResource<SampleController>(null!);
+        Action nullParameter = () => app.MapNaravelControllerResource<SampleController>("photos", null!);
+
+        blankParameter.Should().ThrowExactly<ArgumentException>().Which.ParamName.Should().Be("parameter");
+        nullName.Should().ThrowExactly<ArgumentNullException>().Which.ParamName.Should().Be("name");
+        nullParameter.Should().ThrowExactly<ArgumentNullException>().Which.ParamName.Should().Be("parameter");
 
         var type = notController.Should().Throw<ArgumentException>().Which;
         type.ParamName.Should().Be("TController");
