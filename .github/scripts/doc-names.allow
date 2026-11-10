@@ -34,6 +34,7 @@ name: AddSource                       # TracerProviderBuilder
 # --- BCL -----------------------------------------------------------------------------------------------------------------------
 name: AddRange                        # List<T>
 name: AddDays                         # DateTime / DateTimeOffset
+name: AddMinutes                      # DateTime / DateTimeOffset
 
 # --- Labelled illustrations (docs/en/architecture.md and docs/en/foundation.md build a module called "Greeter" to show the shape) -
 name: AddNaravelGreeter               # the example module in architecture.md, not a shipped API

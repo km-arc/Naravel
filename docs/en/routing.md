@@ -3,9 +3,56 @@
 A thin Laravel-style layer on top of ASP.NET Core routing. It reuses the native router and pipeline and adds what Laravel developers miss:
 nested groups (`prefix`, `name`, `domain`, `middleware`), `where()` constraints, named routes with `route()`-style URL generation, route model
 binding, resource routes, and a full **route middleware** system (aliases, groups, parameters, priority, `withoutMiddleware`, terminable).
-Design: [PDR-009](../pdr/en/PDR-009-routing-and-http-middleware.md)..
+Design: [PDR-009](../pdr/en/PDR-009-routing-and-http-middleware.md).
 
 > Routing status and verification are tracked in [ROADMAP.md](../../ROADMAP.md) (R05). This guide describes the implemented behavior.
+>
+> Build and tests are NOT RUN locally (no .NET SDK in the authoring environment); CI is the check.
+
+## Quickstart
+
+A minimal API with a named route, a group that throttles, a constrained parameter and a URL built from a route name. It needs the .NET 10 SDK and nothing else.
+
+```sh
+dotnet new web -o RoutingDemo && cd RoutingDemo
+dotnet add package Naravel.Routing
+```
+
+Replace `Program.cs`:
+
+```csharp
+using Naravel.Routing;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddNaravelRouting(o => o.ConfigureThrottlePolicy("api", 60, TimeSpan.FromMinutes(1)));
+
+var app = builder.Build();
+app.UseNaravelRouting();                                   // runs route middleware; without it .Middleware(...) is silently ignored
+app.MapNaravel(r =>
+{
+    r.Get("/", () => "home").Name("home");
+
+    r.Prefix("api").Name("api.").Middleware("throttle:api").Group(api =>
+    {
+        api.Get("users/{id}", (int id) => $"user {id}").Where("id", "[0-9]+").Name("users.show");
+    });
+
+    r.Get("/links", (IUrlGenerator urls) => urls.Route("api.users.show", new { id = 7 }));
+});
+
+app.Run();
+```
+
+`dotnet run`, then ask the port it prints:
+
+```text
+GET /               home
+GET /api/users/7    user 7      (X-RateLimit-Limit: 60, X-RateLimit-Remaining: 59)
+GET /api/users/abc  404         (the constraint rejects it, so no route matches)
+GET /links          /api/users/7
+```
+
+When a caller has used its 60 permits in a window, the next request to `/api/users/{id}` answers `429` with `Retry-After`. `Prefix`, `Name` and `Middleware` start a group, as in Laravel's `Route::prefix('api')->name('api.')->middleware(...)->group(...)`, and `.Name("users.show")` inside it is stored as `api.users.show`. The rest of this guide goes through each part.
 
 ## Setup
 
@@ -235,7 +282,7 @@ Rules worth knowing:
 - Exclusion is by **type**: `WithoutMiddleware("throttle")` removes every `throttle:*` reference and every alias pointing to the same type.
 - Duplicates (same type and same arguments) run once; different arguments run separately.
 - Priority sorts only the listed types, inside the slots they already occupy (Laravel's algorithm differs slightly).
-- An unknown alias or group throws when routes are mapped, not on the first request.
+- An unknown alias or group on a `MapNaravel` route throws when the routes are mapped, not on the first request. On a native endpoint (`WithNaravelMiddleware`) it is resolved, and throws, on the first request to that endpoint (see [Errors](#errors)).
 - Terminable callbacks run after the response is sent; when several exist their order is not guaranteed.
 - Class-name strings (`'App\Http\Middleware\X'`) are not supported; use an alias or a type.
 
@@ -305,13 +352,133 @@ app.MapNaravel(r =>
 });
 ```
 
+## Errors
+
+The messages below are the ones in the source. .NET adds ` (Parameter 'name')` to the message of an argument exception, which the tables leave out. A mistake shows up at one of three moments. Everything declared inside `MapNaravel` is checked when its callback returns, so the application stops at startup. A native endpoint (`WithNaravelMiddleware`) resolves its aliases when it first receives a request, and the arguments of `throttle` and `cache.headers` are read by the middleware on each request. Leaving out `UseNaravelRouting()` is not reported at all (see the last table).
+
+**Setup.**
+
+| When | Exception and message |
+|---|---|
+| A `MapNaravel` route names an alias or group that is not registered | `InvalidOperationException`: `Middleware 'nope' is not registered. Register it with options.Middleware.Alias(...) or options.Middleware.Group(...).` |
+| `Where("id", ...)` for a parameter the URI does not have | `InvalidOperationException`: `Route '/x' has Where("id", ...) but no {id} parameter.` The URI is the full one, with the prefixes of the groups around it (`/api/x`) |
+| Groups that contain each other, or are nested more than 16 deep | `InvalidOperationException`: `Middleware groups are nested too deeply (is there a cycle?).` |
+| `Alias`, `.Middleware(typeof(X))` or `.WithoutMiddleware(typeof(X))` with a type that is abstract, an interface, or implements neither `IRouteMiddleware` nor ASP.NET Core's `IMiddleware` | `ArgumentException`, parameter `type`: `'System.String' must be a concrete class implementing IRouteMiddleware or Microsoft.AspNetCore.Http.IMiddleware.` (the full name of your type takes the place of `System.String`) |
+| `ConfigureThrottlePolicy` with a blank name (`ArgumentException`), or a limit or window that is zero or negative (`ArgumentOutOfRangeException`) | the framework's message for the parameter |
+| `MapNaravel` when `AddNaravelRouting` was not called | `InvalidOperationException` from the service container: no service for the type `Naravel.Routing.MiddlewarePipelineFactory` is registered |
+
+**Resources for an MVC controller** (`MapNaravelControllerResource<TController>`).
+
+| When | Exception and message |
+|---|---|
+| `name` is `/` or contains `{` or `}` | `ArgumentException`, parameter `name`: `The resource name must be a non-empty route path without route parameters.` |
+| `name` or `parameter` is null, empty or whitespace | `ArgumentException`, with the framework's own message |
+| `TController` does not derive from `ControllerBase` | `ArgumentException`, parameter `TController`: `The resource type must derive from ControllerBase.` |
+| The class name does not end with `Controller` | `ArgumentException`, parameter `TController`: `The resource type must use the MVC Controller suffix.` |
+
+**Building a URL.**
+
+| When | Exception and message |
+|---|---|
+| `Route`, `AbsoluteRoute`, `SignedRoute` or `TemporarySignedRoute` for a name that no route has, or a route whose required value was not given | `RouteNotFoundException` (an `InvalidOperationException`; `RouteName` holds the name): `No route named 'users.show' could be generated. Check the name and that all required parameters were supplied.` It never returns `null` |
+| `SignedRoute` or `TemporarySignedRoute` with a value called `signature` or `expires` that is not a route parameter, so it would become a query key | `ArgumentException`, parameter `url`: `Signed route values cannot contain reserved 'signature' or 'expires' query keys.` |
+
+**While a request runs.** These are unhandled exceptions of that request, so your exception handling decides what the client sees.
+
+| When | Exception and message |
+|---|---|
+| A native endpoint (`WithNaravelMiddleware`) names an alias or group that is not registered, on the first request to that endpoint | `InvalidOperationException`, the same text as in Setup. Controller attributes (`[Middleware("x")]`) are resolved by the same code, so they are not checked at startup either |
+| `throttle` with no argument, with a name that is not a policy you registered, or with a limit or a number of minutes that is not a positive whole number | `InvalidOperationException`: `Throttle middleware expects a configured policy name or positive permit-limit and window-minute arguments.` Nothing checks this at startup, so a typo such as `throttle:logn` is found by the first request through that route |
+| `cache.headers` with no directive | `InvalidOperationException`: `cache.headers requires one or more Cache-Control directives.` |
+
+**What a client gets instead of an exception.**
+
+| Middleware | Response |
+|---|---|
+| `throttle`, over the limit | `429`, with `Retry-After` (whole seconds, at least 1) and `X-RateLimit-Limit` and `X-RateLimit-Remaining` |
+| `signed`, with a missing, repeated, altered or expired signature | `403` |
+| `maintenance`, enabled and without a valid bypass header | `503`, with `Retry-After` (60 seconds unless `Enable` was given another) |
+| `guest`, for an authenticated user | `403` |
+| `bindings`, when the resolver for a parameter returns `null` | `404`; the handler does not run |
+| A value the `Where` or global pattern rejects | `404`: no route matches, so this is the router's answer, not an exception |
+
+**No error at all.** Without `app.UseNaravelRouting()` the routes are mapped and answer, but nothing runs their route middleware: a route with `.Middleware("auth")` is open, and nothing says so. Test one route that must be refused (see [Testing](#testing)).
+
+`tests/Naravel.Routing.Tests/DocsExampleTests.cs` runs the Quickstart, the Complete example, the snippets of Testing and every message above, apart from two cases that are not run there: the controller-attribute case (it shares the code of the native-endpoint case that is run) and `.WithoutMiddleware(typeof(X))` (it shares the type check of `Alias`). Change one, change the other.
+
+## Testing
+
+Naravel.Routing has no fake: a route middleware is a plain class you can call, and `TestServer` runs the real pipeline in memory. Three ways to test your routes:
+
+**A route middleware without a host.** `IRouteMiddleware.InvokeAsync` takes an `HttpContext`, the next delegate and the arguments, so a test can build all three. This is the `RequireRole` of the Complete example:
+
+```csharp
+[Fact]
+public async Task RequireRole_stops_a_request_without_the_header()
+{
+    var context = new DefaultHttpContext();
+    var reached = false;
+
+    await new RequireRole().InvokeAsync(
+        context,
+        _ => { reached = true; return Task.CompletedTask; },
+        new MiddlewareArguments(new[] { "admin" }));
+
+    Assert.False(reached);
+    Assert.Equal(StatusCodes.Status403Forbidden, context.Response.StatusCode);
+}
+```
+
+Setting `context.Request.Headers["X-Role"] = "admin"` before the call makes `reached` true.
+
+**Routes on `TestServer`.** The test project needs `<FrameworkReference Include="Microsoft.AspNetCore.App" />` and the `Microsoft.AspNetCore.TestHost` package, as `tests/Naravel.Routing.Tests` has. Build the host the way `Program.cs` does, start it, and call it with the client:
+
+```csharp
+public sealed class RouteTests
+{
+    private static async Task<WebApplication> StartAsync()
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseTestServer();
+        builder.Services.AddNaravelRouting(o => o.ConfigureThrottlePolicy("api", 2, TimeSpan.FromMinutes(1)));
+
+        var app = builder.Build();
+        app.UseNaravelRouting();
+        app.MapNaravel(r =>
+            r.Prefix("api").Name("api.").Middleware("throttle:api").Group(api =>
+                api.Get("users/{id}", (int id) => $"user {id}").Where("id", "[0-9]+").Name("users.show")));
+
+        await app.StartAsync();
+        return app;
+    }
+
+    [Fact]
+    public async Task The_third_request_in_a_minute_is_throttled()
+    {
+        await using var app = await StartAsync();
+        using var client = ((TestServer)app.Services.GetRequiredService<IServer>()).CreateClient();
+
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/users/7")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/users/7")).StatusCode);
+
+        var third = await client.GetAsync("/api/users/7");
+        Assert.Equal(HttpStatusCode.TooManyRequests, third.StatusCode);
+        Assert.True(third.Headers.Contains("Retry-After"));
+    }
+}
+```
+
+The host needs `using` lines for `Microsoft.AspNetCore.Builder`, `Microsoft.AspNetCore.Hosting`, `Microsoft.AspNetCore.Hosting.Server`, `Microsoft.AspNetCore.TestHost`, `Microsoft.Extensions.DependencyInjection` and `Naravel.Routing`. Each host has its own throttle counters (the default store lives in the service provider), and every request from one client is one caller, so a test that needs a fresh quota starts a fresh host. Because `MapNaravel` checks its routes while the host is built, a test that only builds the host also catches the Setup mistakes above: an unknown alias, a `Where` for a missing parameter and a cycle in a group.
+
+**Signed links and the clock.** The expiry of a `TemporarySignedRoute` is compared with the system clock (`DateTimeOffset.UtcNow`), not with a `TimeProvider`, so a test cannot move time. To get an expired link, sign with a time in the past: `urls.TemporarySignedRoute("download", DateTimeOffset.UtcNow.AddMinutes(-1))` is refused with `403` on a route with `.Middleware("signed")`, and the same call with `AddMinutes(5)` is accepted. `urls` is the `IUrlGenerator` from `app.Services`. A link made by one host is not valid on another unless both share a Data Protection key ring (see "Limitations of this stage").
+
 ## Native middleware
 
 CORS, proxy headers, host filtering, request-size limits and cookie encryption are native ASP.NET Core features and are not re-implemented (see PDR-009). Auth- and Session-backed middleware are native too: route authorization is `RequireAuthorization` through `NaravelRoute.Configure` and sessions are `AddSession` (PDR-016 and PDR-015, both `DECLINED`; see [auth.md](auth.md) and [session.md](session.md)). There is no Naravel Console package (PDR-017 declines it in favour of `System.CommandLine`), so there are no `route:list` or maintenance `down`/`up` commands. A shared store for `throttle` is the separate package `Naravel.Routing.Cache` (PDR-024), so Routing needs no Cache or Redis reference.
 
 ## What the tests cover (`tests/Naravel.Routing.Tests`, `tests/Naravel.Routing.Cache.Tests`)
 
-- The guide's "Complete example" (group with prefix, name prefix and middleware, route model binding, API resource, an alias with an argument, a throttle policy, named URLs): `DocsExampleTests.cs`. Change one, change the other.
+- The guide's Quickstart, "Complete example" (group with prefix, name prefix and middleware, route model binding, API resource, an alias with an argument, a throttle policy, named URLs), the snippets of Testing and the messages of Errors: `DocsExampleTests.cs`. Change one, change the other.
 - Resolution (no HTTP): aliases, arguments, groups (nesting, cycles, mutators), exclusion, de-duplication, priority, per-endpoint caching, controller attributes.
 - End to end on `TestServer`: verbs, groups and name prefixes, URL generation, `Where`/global patterns (anchoring), domains, fallback, redirects,
   middleware order, short-circuit, `WithoutMiddleware`, inline and aliased delegates, `IMiddleware` adapter, terminable, priority, native endpoints and groups,
