@@ -1,4 +1,5 @@
 using System.Net;
+using System.Security.Claims;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Naravel.Routing.Tests;
@@ -25,7 +26,35 @@ public class ThrottleStoreTests
         store.Calls.Should().HaveCount(1);
         store.Calls[0].Limit.Should().Be(5);
         store.Calls[0].Window.Should().Be(TimeSpan.FromMinutes(2));
-        store.Calls[0].Key.Should().StartWith("5:2|");
+        store.Calls[0].Key.Should().StartWith("3:5:2|");
+    }
+
+    [Fact]
+    public async Task Partitions_whose_fields_would_join_to_the_same_text_reach_the_store_under_different_keys()
+    {
+        // The policy 5:2 on the endpoint "a|b" for the subject "c", and on the endpoint "a" for the subject "b|c": joined with
+        // a plain "|" both read 5:2|a|b|c, so two clients would have shared one counter (AUDIT D-87).
+        var store = new ScriptedStore((_, limit, _) => new ThrottleDecision(true, limit - 1, TimeSpan.Zero));
+        await using var app = await TestApp.StartAsync(
+            routes: r =>
+            {
+                r.Get("/one", () => "1").Name("a|b").Middleware("test.user", "throttle:5,2");
+                r.Get("/two", () => "2").Name("a").Middleware("test.user", "throttle:5,2");
+            },
+            options: o => o.Middleware.Alias("test.user", async (context, next, _) =>
+            {
+                var user = context.Request.Headers["X-User"].ToString();
+                context.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, user)], "test"));
+                await next(context);
+            }),
+            services: s => s.AddSingleton<IThrottleStore>(store));
+
+        await GetAsUserAsync(app, "/one", "c");
+        await GetAsUserAsync(app, "/two", "b|c");
+
+        var calls = store.Calls;
+        calls.Should().HaveCount(2);
+        calls[0].Key.Should().NotBe(calls[1].Key);
     }
 
     [Fact]
@@ -112,6 +141,14 @@ public class ThrottleStoreTests
         using var provider = services.BuildServiceProvider();
 
         provider.GetRequiredService<IThrottleStore>().Should().BeSameAs(store);
+    }
+
+    private static async Task GetAsUserAsync(TestApp app, string url, string user)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Add("X-User", user);
+        using var response = await app.Client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     private static async Task<List<string>> RunFourRequestsAsync(Action<IServiceCollection>? services)

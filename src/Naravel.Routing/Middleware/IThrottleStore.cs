@@ -15,7 +15,11 @@ namespace Naravel.Routing;
 public interface IThrottleStore
 {
     /// <summary>Counts one attempt for <paramref name="partitionKey"/> and says whether it is within the limit.</summary>
-    /// <param name="partitionKey">The partition, <c>policy|endpoint|subject</c>; the subject is the authenticated user or the remote address.</param>
+    /// <param name="partitionKey">
+    /// The partition: the policy name, the endpoint and the subject (the authenticated user or the remote address), each written as
+    /// its length, a colon and the text, and joined with <c>|</c>, for example <c>3:5:2|8:/limited|11:203.0.113.7</c>. Two different
+    /// triples never give the same key, so a store may treat the key as opaque; it should not parse it.
+    /// </param>
     /// <param name="permitLimit">The number of attempts allowed in one <paramref name="window"/>.</param>
     /// <param name="window">The length of the fixed window.</param>
     /// <param name="cancellationToken">Cancelled when the client goes away.</param>

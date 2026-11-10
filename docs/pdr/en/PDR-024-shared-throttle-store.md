@@ -6,7 +6,7 @@ Status: **Approved 2026-11-03** (see *Approval*): option A, the clock-aligned co
 
 ## Context
 
-`throttle` (PDR-009) is built on `PartitionedRateLimiter` with one fixed-window limiter per partition, held in `ThrottleLimiterRegistry` in the memory of the process. The partition is `policy|endpoint|subject`, where the subject is the authenticated name identifier, or the remote IP when anonymous. PDR-009 left a shared store to "a separate PDR (after `Naravel.Cache`)"; this is that PDR.
+`throttle` (PDR-009) is built on `PartitionedRateLimiter` with one fixed-window limiter per partition, held in `ThrottleLimiterRegistry` in the memory of the process. The partition is `policy|endpoint|subject`, where the subject is the authenticated name identifier, or the remote IP when anonymous (stage R32, AUDIT D-87, later wrote each of the three with its length in front of it, so a name that contains `|` cannot make two partitions one; the store key below is still the SHA-256 of the partition). PDR-009 left a shared store to "a separate PDR (after `Naravel.Cache`)"; this is that PDR.
 
 | Situation | What happens today |
 |---|---|
