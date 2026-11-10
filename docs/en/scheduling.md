@@ -237,8 +237,8 @@ var eight = new DateTimeOffset(2026, 10, 26, 8, 0, 0, TimeSpan.Zero);
 await first.RunAtAsync(eight);
 await second.RunAtAsync(eight);
 
-first.Outcomes.Should().Equal(new KeyValuePair<string, string>("digest", "succeeded"));
-second.Outcomes.Should().Equal(new KeyValuePair<string, string>("digest", "skipped_other_server"));
+first.Outcomes.Select(o => o.Value).Should().Equal("succeeded");
+second.Outcomes.Select(o => o.Value).Should().Equal("skipped_other_server");
 ```
 
 `MemoryLock` is in `Naravel.Cache.Locks`. With no lock a fake uses a private in-memory lock that reports itself as shared, so `OnOneServer` can be tested without one.

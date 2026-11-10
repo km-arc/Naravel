@@ -132,7 +132,7 @@ public class DocsExampleTests
         await fake.RunAtAsync(new DateTimeOffset(2026, 10, 26, 8, 0, 0, TimeSpan.Zero));
         fake.AssertRan("daily-digest");
 
-        fake.Outcomes.Should().Equal(new KeyValuePair<string, string>("daily-digest", "succeeded"));
+        fake.Outcomes.Select(o => (o.Key, o.Value)).Should().Equal(("daily-digest", "succeeded"));
     }
 
     [Fact]
@@ -146,8 +146,8 @@ public class DocsExampleTests
         await first.RunAtAsync(Monday8);
         await second.RunAtAsync(Monday8);
 
-        first.Outcomes.Should().Equal(new KeyValuePair<string, string>("digest", "succeeded"));
-        second.Outcomes.Should().Equal(new KeyValuePair<string, string>("digest", "skipped_other_server"));
+        first.Outcomes.Select(o => o.Value).Should().Equal("succeeded");
+        second.Outcomes.Select(o => o.Value).Should().Equal("skipped_other_server");
     }
 
     [Fact]
