@@ -2,20 +2,39 @@
 
 `Naravel.Scheduling` runs named tasks on a schedule inside your host. A task is a delegate; the schedule says when it is due; a hosted service wakes once a minute and starts what is due. Two guards work across several running instances: `WithoutOverlapping` (do not start a run while the previous one is still going) and `OnOneServer` (run a due minute on one instance only). Both use the cache locks of `Naravel.Cache`.
 
-Decision and reasons: [PDR-017](../pdr/en/PDR-017-console-and-scheduling.md)..
+Decision and reasons: [PDR-017](../pdr/en/PDR-017-console-and-scheduling.md).
+
+> Build and tests are NOT RUN locally (no .NET SDK in the authoring environment); CI is the check.
 
 ## Quickstart
 
-```csharp
-builder.Services.AddNaravelCache(builder.Configuration);   // the lock driver for the guards (Redis or Memcached when you run several instances)
-builder.Services.AddNaravelScheduling(schedule =>
-{
-    schedule.Call("prune-sessions", (sp, ct) => sp.GetRequiredService<SessionPruner>().RunAsync(ct)).EveryFiveMinutes().WithoutOverlapping();
-    schedule.Call("daily-digest", (sp, ct) => sp.GetRequiredService<Digest>().SendAsync(ct)).DailyAt(8, 0).OnOneServer();
-});
+A worker that prints a line every minute. It needs the .NET 10 SDK and nothing else: no cache, no cron line.
+
+```sh
+dotnet new worker -o SchedulingDemo && cd SchedulingDemo
+dotnet add package Naravel.Scheduling
 ```
 
-That is all: there is no cron line to add and no command to run. The hosted service starts and stops with your host (`dotnet run`, a container, a Windows service). Each run gets a **new DI scope**: the handler receives a scoped `IServiceProvider` and the host's `CancellationToken`.
+Delete `Worker.cs` and replace `Program.cs`:
+
+```csharp
+var builder = Host.CreateApplicationBuilder(args);
+builder.Services.AddNaravelScheduling(schedule =>
+{
+    schedule.Call("heartbeat", (sp, ct) =>
+    {
+        var now = sp.GetRequiredService<TimeProvider>().GetUtcNow();
+        Console.WriteLine($"{now:HH:mm} tick");
+        return Task.CompletedTask;
+    }).EveryMinute();
+});
+
+await builder.Build().RunAsync();
+```
+
+`dotnet run`, then wait for the next minute (UTC): `12:01 tick`, `12:02 tick`, and so on until you stop it with Ctrl+C. A task with no frequency also runs every minute.
+
+The hosted service starts and stops with your host (`dotnet run`, a container, a Windows service). Each run gets a **new DI scope**: the handler receives a scoped `IServiceProvider` and the host's `CancellationToken`. The two guards, `WithoutOverlapping` and `OnOneServer`, use the cache lock: with no cache registered they use a lock of this process only, which `OnOneServer` refuses (see [Errors](#errors)); register a cache whose lock all instances share (Redis or Memcached) when you run more than one, as in the complete example below.
 
 ## Using it
 
@@ -141,6 +160,55 @@ builder.Services.AddNaravelScheduling(configure, options =>
 - Tags never carry exception messages, task data or lock tokens. Task names come from your code, so they are bounded.
 - Logs name the task and carry the exception; they never contain lock tokens.
 
+## Errors
+
+`AddNaravelScheduling` runs your `configure` callback at once, so a bad name, frequency or cron expression is thrown by that call, before the host is built. The one-server check runs when the host starts, and the lock lifetimes are checked when the scheduler is first created, which the host does at start. The messages are the ones in the source; .NET adds ` (Parameter 'name')` to the message of an argument exception, which the tables leave out.
+
+**Building the schedule.**
+
+| When | Exception and message |
+|---|---|
+| `Call` with a null name, or an empty or blank one | `ArgumentNullException` for null, `ArgumentException` for the others; the framework's message |
+| A name longer than 100 characters | `ArgumentException`, parameter `name`: `A task name is at most 100 characters.` |
+| A name with a character other than ASCII letters, digits and `. _ : -` | `ArgumentException`, parameter `name`: `A task name may contain only ASCII letters, digits and . _ : - (it is used in lock keys and metric tags).` |
+| A name that is already scheduled | `ArgumentException`, parameter `name`: `A task named 'daily-digest' is already scheduled.` |
+| `Every(interval)` shorter than a minute or not a whole number of minutes | `ArgumentOutOfRangeException`, parameter `interval`: `The interval must be a whole number of minutes, at least one.` |
+| `WeeklyOn` with a value that is not a `DayOfWeek` | `ArgumentOutOfRangeException`, parameter `day`: `Not a day of the week.` |
+| `HourlyAt`, `DailyAt` or `WeeklyOn` with a minute outside 0 to 59 or an hour outside 0 to 23; `WithoutOverlapping(ttl)` with zero or less | `ArgumentOutOfRangeException`; the framework's message |
+| `Cron` with text that is not five fields, such as `daily` or a six-field expression with seconds | `ArgumentException`, parameter `expression`: `Not a valid five-field cron expression (minute hour day-of-month month day-of-week): ` followed by the message of the Cronos library |
+| A null handler, zone or predicate: `Call`, `InTimeZone`, `When`, `Skip`, `OnSuccess`, `OnFailure` | `ArgumentNullException` |
+
+**Starting the host.**
+
+| When | Exception and message |
+|---|---|
+| A task uses `OnOneServer` and the lock driver is not shared between processes (the default one, when no cache is registered, is `MemoryLock`) | `InvalidOperationException` from the host's start: `OnOneServer is used by daily-digest, but the cache lock driver 'MemoryLock' is not shared between processes, so every instance would run the task. Configure a shared lock driver (Redis or Memcached).` Several tasks are listed in the order they were added, separated by `, `. The application does not start. `Scheduler.Validate()` and `SchedulerFake.Validate()` run the same check |
+| `SchedulingOptions.OverlapTtl` or `SlotLockTtl` zero or negative | `ArgumentOutOfRangeException`, when the `Scheduler` is first created (the host start, or the first `GetRequiredService<Scheduler>()`); `AddNaravelScheduling` does not check it |
+
+**Asking the scheduler and the fake.**
+
+| When | Exception and message |
+|---|---|
+| `Scheduler.IsDue` or `SchedulerFake.IsDue` for a name that is not scheduled | `ArgumentException`, parameter `name`: `No task named 'nope' is scheduled.` |
+| `SchedulerFake.AssertRan` for a task that has no `succeeded` run | `InvalidOperationException`: `Scheduled task 'daily-digest' did not run successfully. Runs: none.` The runs are `name=outcome` pairs separated by `, `, such as `bad=failed` |
+| `SchedulerFake.AssertNotRan` for a task that has any run, including a skipped one | `InvalidOperationException`: `Scheduled task 'bad' was expected not to run. Runs: bad=failed.` |
+
+**While tasks run: logged, never thrown.** A failure in one task does not reach the caller of `RunDueAsync` or stop the loop. The task name fills `{Task}`.
+
+| Level | Message | When |
+|---|---|---|
+| Error | `Scheduled task {Task} failed.`, with the exception | A handler throws. The `OnFailure` hooks run and the outcome is `failed` |
+| Error | `A hook of scheduled task {Task} failed.`, with the exception | An `OnSuccess` or `OnFailure` hook throws; it is ignored |
+| Error | `Evaluating when scheduled task {Task} is due failed; the task is skipped for this minute.`, with the exception | A `When` or `Skip` predicate throws. The task is not run and not counted |
+| Warning | `Releasing the overlap lock of scheduled task {Task} failed; it expires on its own.` | The lock driver throws while the overlap lock is released (not run by a test) |
+| Warning | `The host stopped before {Count} scheduled task(s) finished.` | The host's shutdown timeout ran out (not run by a test) |
+
+These go to the logger category `Naravel.Scheduling`, and the last one to the category of the hosted service. They need a logging provider: the Generic Host has one, but a plain `ServiceCollection` has none unless you call `AddLogging()`, and then the scheduler logs nothing.
+
+**No error at all.** A frequency is read in UTC unless the task has `InTimeZone`, so `DailyAt(8, 0)` on a server in Tehran runs at 08:00 UTC (11:30 in Tehran); nothing reports it. Missed minutes are skipped, not replayed (see "Missed minutes").
+
+`tests/Naravel.Scheduling.Tests/DocsExampleTests.cs` runs the Quickstart, the Complete example, the snippets of Testing and every message above, apart from the two warnings of the logging table, which have no test.
+
 ## Testing
 
 `SchedulerFake` runs a schedule at times you choose: no host, no timer, no waiting.
@@ -155,7 +223,39 @@ await fake.RunAtAsync(new DateTimeOffset(2026, 10, 26, 8, 0, 0, TimeSpan.Zero));
 fake.AssertRan("daily-digest");
 ```
 
-`Outcomes` lists every run with its outcome. To test the guards, build two fakes over one lock (`new SchedulerFake(configure, sharedLock)`); with no lock a fake uses a private in-memory lock that reports itself as shared. Task handlers under the fake get an empty service provider, so a task that needs services is better tested through a real container: resolve `Scheduler` and call `RunDueAsync(time)`.
+`Outcomes` lists every run as a (task name, outcome) pair, in the order the runs finished: here `("daily-digest", "succeeded")`. `List()` counts the next run from the real clock, not from the time you passed to `RunAtAsync`.
+
+**The guards.** To test them, build two fakes over one lock. `MemoryLock` keeps its state per process, so give each test its own prefix:
+
+```csharp
+var shared = new MemoryLock(Guid.NewGuid().ToString("N"));
+Action<Schedule> tasks = schedule => schedule.Call("digest", (sp, ct) => Task.CompletedTask).DailyAt(8, 0).OnOneServer();
+var first = new SchedulerFake(tasks, shared);
+var second = new SchedulerFake(tasks, shared);
+
+var eight = new DateTimeOffset(2026, 10, 26, 8, 0, 0, TimeSpan.Zero);
+await first.RunAtAsync(eight);
+await second.RunAtAsync(eight);
+
+first.Outcomes.Should().Equal(new KeyValuePair<string, string>("digest", "succeeded"));
+second.Outcomes.Should().Equal(new KeyValuePair<string, string>("digest", "skipped_other_server"));
+```
+
+`MemoryLock` is in `Naravel.Cache.Locks`. With no lock a fake uses a private in-memory lock that reports itself as shared, so `OnOneServer` can be tested without one.
+
+**A task that needs services.** Task handlers under the fake get an empty service provider, so test such a task through a real container: resolve `Scheduler` and call `RunDueAsync(time)`.
+
+```csharp
+var services = new ServiceCollection();
+services.AddSingleton<Digest>();
+services.AddNaravelScheduling(schedule =>
+    schedule.Call("daily-digest", (sp, ct) => sp.GetRequiredService<Digest>().SendAsync(ct)).DailyAt(8, 0));
+await using var provider = services.BuildServiceProvider();
+
+await provider.GetRequiredService<Scheduler>().RunDueAsync(new DateTimeOffset(2026, 10, 26, 8, 0, 0, TimeSpan.Zero));
+```
+
+`Digest` is your own service. The time you pass decides what is due; nothing here waits for the clock, and the hosted service is registered but not started.
 
 ## Not ported, and why
 
