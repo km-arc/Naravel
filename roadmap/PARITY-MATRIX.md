@@ -312,3 +312,9 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 - Value: N instances behind a load balancer enforce one limit instead of N, and a restarted instance keeps the quota, without making every Routing user depend on Cache or a Redis round trip. Laravel's behavior on a store outage (an exception, so a 500) is deliberately not copied.
 - Native baseline: `System.Threading.RateLimiting` stays the default and the degraded limiter; it cannot share state between processes, and no native .NET component does.
 
+## R32 — Hardening: the throttle partition key and the records of D-82 to D-87
+
+- Laravel surface: none; this is hardening of code that already exists, not a Laravel feature.
+- Naravel: the route `throttle` middleware builds its partition key so that two different policy, endpoint and subject triples cannot share a key, and the audit findings of the Foundation `Manager` and of the throttle breaker are recorded as resolved.
+- Value: names that contain the separator cannot mix the counters of two partitions in a shared store, and this is fixed before the key becomes part of a released `IThrottleStore`.
+- Native baseline: plain string building; no new dependency.
