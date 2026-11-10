@@ -78,6 +78,17 @@ internal sealed class ThrottleMiddleware(
             ?? context.GetEndpoint()?.DisplayName
             ?? context.Request.Path.Value
             ?? "/";
-        return $"{policyName}|{endpoint}|{subject}";
+        return PartitionKey(policyName, endpoint, subject);
     }
+
+    /// <summary>
+    /// The partition of one attempt. Each of the policy name, the endpoint and the subject is written as its length (in UTF-16
+    /// code units), a colon and the text, and the three are joined with <c>|</c>, for example
+    /// <c>3:5:2|8:/limited|11:203.0.113.7</c>. The length lets the text be read back in one way only, so a name that itself
+    /// contains <c>|</c> or <c>:</c> cannot make two different triples give the same key (AUDIT D-87).
+    /// </summary>
+    internal static string PartitionKey(string policyName, string endpoint, string subject) =>
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"{policyName.Length}:{policyName}|{endpoint.Length}:{endpoint}|{subject.Length}:{subject}");
 }
