@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Naravel.Broadcasting.Testing;
 using Naravel.Foundation;
 using LogEntry = (Microsoft.Extensions.Logging.LogLevel Level, string Category, string Message, string? Error);
@@ -177,17 +178,13 @@ public class DocsErrorsTests
     }
 
     [Fact]
-    public async Task A_presence_lifetime_that_is_not_a_time_span_stops_the_host_from_starting()
+    public async Task A_presence_lifetime_that_is_not_a_time_span_fails_when_the_options_are_read()
     {
-        var builder = WebApplication.CreateBuilder();
-        builder.WebHost.UseTestServer();
-        builder.Configuration["Broadcasting:PresenceEntryTtl"] = "two minutes";
-        builder.Services.AddNaravelBroadcasting(builder.Configuration);
-        await using var app = builder.Build();
+        await using var provider = Build(null, ("PresenceEntryTtl", "two minutes"));
 
-        var start = () => app.StartAsync();
+        var read = () => provider.GetRequiredService<IOptionsMonitor<BroadcastingOptions>>().CurrentValue;
 
-        await start.Should().ThrowAsync<FormatException>();
+        read.Should().Throw<FormatException>();
     }
 
     [Fact]

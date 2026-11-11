@@ -138,7 +138,7 @@ The messages below are the ones in the source. .NET adds ` (Parameter 'pattern')
 | The overload with `(user, id)` and a pattern with no placeholder or with two or more | `ArgumentException`, parameter `pattern`: `This overload needs exactly one placeholder; use the overload that receives a dictionary for any other number.` |
 | `new PresenceMember` or `PresenceMember.FromJson` with a null, empty or blank user id | `ArgumentNullException` for null, `ArgumentException` for the others; the framework's message |
 | Member information whose JSON is longer than 2048 characters | `ArgumentException`, parameter `info`: `The member information is larger than 2048 characters.` |
-| `Broadcasting:PresenceEntryTtl` that is not a time span (two minutes is `00:02:00`) | `FormatException` from `TimeSpan.Parse`, when the options are first read. The presence heartbeat reads them when the host starts, so the host does not start |
+| `Broadcasting:PresenceEntryTtl` that is not a time span (two minutes is `00:02:00`) | `FormatException` from `TimeSpan.Parse`, when the options are first read (for example by `IOptionsMonitor<BroadcastingOptions>.CurrentValue`). The module reads them in its presence heartbeat, a hosted service; no test starts a host with a bad value, so what the host does then is not documented here |
 
 **Sending** (`IBroadcaster.BroadcastAsync`; `BroadcastFake` throws the same first five).
 
