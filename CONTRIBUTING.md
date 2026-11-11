@@ -55,7 +55,8 @@ A change is ready when:
 - **New public API is declared.** `Microsoft.CodeAnalysis.PublicApiAnalyzers` fails the build until each new public member
   is listed in that project's `PublicAPI.Unshipped.txt` (the IDE quick fix adds the line). Removing or changing a public
   member of a released package is a breaking change: say so in the pull request and in `CHANGELOG.md` (Naravel is 0.x, so
-  it is allowed when listed, OD-09).
+  it is allowed when listed, OD-09). A release moves its `Unshipped` entries into `Shipped`, and on a version tag
+  `.github/scripts/check-api-shipped.py` fails the build, and with it the publish, while any `PublicAPI.Unshipped.txt` still has one.
 - **It has tests.** xUnit and FluentAssertions 7.x (8.x and later are commercially licensed, so the repository stays on
   7.x). A driver module also needs a runtime `Extend` test, a config-reload test when it is config-driven, a contract test
   for every driver and a fake. Tests that need a real Redis, RabbitMQ, Kafka or Memcached are gated on the
