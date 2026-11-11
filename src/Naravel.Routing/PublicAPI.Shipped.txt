@@ -159,3 +159,33 @@ static Naravel.Routing.MiddlewareSpec.FromDelegate(Naravel.Routing.RouteMiddlewa
 static Naravel.Routing.MiddlewareSpec.Named(string! nameWithArguments) -> Naravel.Routing.MiddlewareSpec!
 static Naravel.Routing.MiddlewareSpec.OfType(System.Type! type, params string![]! arguments) -> Naravel.Routing.MiddlewareSpec!
 virtual Naravel.Routing.RouteMiddlewareDelegate.Invoke(Microsoft.AspNetCore.Http.HttpContext! context, Microsoft.AspNetCore.Http.RequestDelegate! next, Naravel.Routing.MiddlewareArguments! arguments) -> System.Threading.Tasks.Task!
+Naravel.Routing.IThrottleStore
+Naravel.Routing.IThrottleStore.AttemptAsync(string! partitionKey, int permitLimit, System.TimeSpan window, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Naravel.Routing.ThrottleDecision>
+Naravel.Routing.RoutingOptions.ConfigureThrottlePolicy(string! name, int permitLimit, System.TimeSpan window, Naravel.Routing.ThrottleFailureMode failureMode) -> Naravel.Routing.RoutingOptions!
+Naravel.Routing.RoutingOptions.Throttle.get -> Naravel.Routing.ThrottleOptions!
+Naravel.Routing.ThrottleDecision
+Naravel.Routing.ThrottleDecision.Allowed.get -> bool
+Naravel.Routing.ThrottleDecision.Allowed.init -> void
+Naravel.Routing.ThrottleDecision.Deconstruct(out bool Allowed, out int Remaining, out System.TimeSpan RetryAfter) -> void
+Naravel.Routing.ThrottleDecision.Equals(Naravel.Routing.ThrottleDecision other) -> bool
+Naravel.Routing.ThrottleDecision.Remaining.get -> int
+Naravel.Routing.ThrottleDecision.Remaining.init -> void
+Naravel.Routing.ThrottleDecision.RetryAfter.get -> System.TimeSpan
+Naravel.Routing.ThrottleDecision.RetryAfter.init -> void
+Naravel.Routing.ThrottleDecision.ThrottleDecision() -> void
+Naravel.Routing.ThrottleDecision.ThrottleDecision(bool Allowed, int Remaining, System.TimeSpan RetryAfter) -> void
+Naravel.Routing.ThrottleFailureMode
+Naravel.Routing.ThrottleFailureMode.DegradeToLocal = 0 -> Naravel.Routing.ThrottleFailureMode
+Naravel.Routing.ThrottleFailureMode.FailClosed = 1 -> Naravel.Routing.ThrottleFailureMode
+Naravel.Routing.ThrottleFailureMode.FailOpen = 2 -> Naravel.Routing.ThrottleFailureMode
+Naravel.Routing.ThrottleOptions
+Naravel.Routing.ThrottleOptions.BreakerPeriod.get -> System.TimeSpan
+Naravel.Routing.ThrottleOptions.BreakerPeriod.set -> void
+Naravel.Routing.ThrottleOptions.StoreTimeout.get -> System.TimeSpan
+Naravel.Routing.ThrottleOptions.StoreTimeout.set -> void
+Naravel.Routing.ThrottleOptions.ThrottleOptions() -> void
+~override Naravel.Routing.ThrottleDecision.Equals(object obj) -> bool
+override Naravel.Routing.ThrottleDecision.GetHashCode() -> int
+~override Naravel.Routing.ThrottleDecision.ToString() -> string
+static Naravel.Routing.ThrottleDecision.operator !=(Naravel.Routing.ThrottleDecision left, Naravel.Routing.ThrottleDecision right) -> bool
+static Naravel.Routing.ThrottleDecision.operator ==(Naravel.Routing.ThrottleDecision left, Naravel.Routing.ThrottleDecision right) -> bool
