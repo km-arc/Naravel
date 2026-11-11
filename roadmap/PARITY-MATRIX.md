@@ -318,3 +318,10 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 - Naravel: the route `throttle` middleware builds its partition key so that two different policy, endpoint and subject triples cannot share a key, and the audit findings of the Foundation `Manager` and of the throttle breaker are recorded as resolved.
 - Value: names that contain the separator cannot mix the counters of two partitions in a shared store, and this is fixed before the key becomes part of a released `IThrottleStore`.
 - Native baseline: plain string building; no new dependency.
+
+## R33 — Release 0.2.0: the release gates, the release commit and the published-version smoke
+
+- Laravel surface: none; this is release engineering for the packages that already exist.
+- Naravel: the consumer smoke blocks a change that stops the packed packages from installing, a version tag cannot publish while any `PublicAPI.Unshipped.txt` still has an entry, and 0.2.0 is released and then installed from nuget.org without leaving a package out.
+- Value: the fixes of the Foundation `Manager` and the throttle partition key, and the shared throttle store of `Naravel.Routing.Cache`, reach users from nuget.org, and a release cannot go out with an unshipped API or with a package that does not install.
+- Native baseline: none; the checks are Python scripts and workflow steps like the existing ones.
