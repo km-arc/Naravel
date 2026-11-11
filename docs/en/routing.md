@@ -178,7 +178,7 @@ Whichever store counts, the caller is identified the same way:
 
 ##### Share one quota between instances (`Naravel.Routing.Cache`)
 
-`Naravel.Routing.Cache` counts `throttle` attempts in a [Naravel.Cache](cache.md) store. Every instance that uses the same store shares one quota per policy and caller, and a restarted instance keeps it. Routing itself does not reference Cache, so nobody who only wants the in-process throttle pulls it in. The package is new and is not in the 0.1.1 packages; it ships with the next version (see [CHANGELOG.md](../../CHANGELOG.md)).
+`Naravel.Routing.Cache` counts `throttle` attempts in a [Naravel.Cache](cache.md) store. Every instance that uses the same store shares one quota per policy and caller, and a restarted instance keeps it. Routing itself does not reference Cache, so nobody who only wants the in-process throttle pulls it in. The package is new in 0.2.0 and is not in the 0.1.1 packages (see [CHANGELOG.md](../../CHANGELOG.md)).
 
 ```csharp
 // appsettings.json: "Cache": { "Stores": { "shared": { "Driver": "redis", "ConnectionString": "localhost:6379", "Prefix": "myapp" } } }
