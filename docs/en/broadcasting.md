@@ -191,7 +191,87 @@ The category is `Naravel.Broadcasting` for the third row and for the `log` drive
 
 ## Testing
 
-`BroadcastFake` is an `IBroadcaster` that records what was sent: register it in place of the real one and call `AssertBroadcast(predicate)`, `AssertBroadcastCount(n)` or `AssertNothingBroadcast()`. To test authorization, use `Microsoft.AspNetCore.TestHost` and `Microsoft.AspNetCore.SignalR.Client` against `MapNaravelBroadcasting`, as this package's own tests do. The presence list is also tested on a real Redis with two connections that stand for two servers (`PresenceRedisTests`); those tests run only when `NARAVEL_TEST_REDIS` is set, which the CI `services` job does.
+**Code that sends.** `BroadcastFake` is an `IBroadcaster` that records the message the real one would send, built the same way, so a bad channel name or a null payload fails in the fake too. `OrderShipped` is the event of the [complete example](#complete-example).
+
+```csharp
+var fake = new BroadcastFake();
+await fake.BroadcastAsync(new OrderShipped(7, "DHL"));      // the code under test does this
+
+var message = fake.AssertBroadcast(m => m.Channels.Contains("private-orders.7"));
+message.Name.Should().Be("OrderShipped");                    // BroadcastAs()
+message.Payload.Should().Be(new OrderShipped(7, "DHL"));     // BroadcastWith(): the event itself by default
+fake.AssertBroadcastCount(1);
+```
+
+To use it in a host, register it in place of the real broadcaster. Before or after `AddNaravelBroadcasting` both work, because the module registers its own with `TryAdd`. A listener added with `AddBroadcastOn` then broadcasts into the fake:
+
+```csharp
+var services = new ServiceCollection();
+services.AddLogging();
+services.AddNaravelEvents();
+services.AddNaravelBroadcasting(new ConfigurationManager());
+services.AddSingleton<IBroadcaster>(fake);
+services.AddBroadcastOn<OrderShipped>();
+await using var provider = services.BuildServiceProvider();
+
+await using var scope = provider.CreateAsyncScope();
+await scope.ServiceProvider.GetRequiredService<IEventDispatcher>().DispatchAsync(new OrderShipped(7, "DHL"));
+fake.AssertBroadcastCount(1);
+```
+
+**Rules.** `ChannelRules` has no method that asks "may this user join?", so a rule is tested either as a plain function or through the hub. A rule is a delegate: keep its logic in a method, give the method to `Authorize` and call it directly in a test.
+
+```csharp
+static class OrderRules
+{
+    public static bool CanSee(ClaimsPrincipal user, string id) => user.FindFirst("order")?.Value == id;
+}
+
+// registration: o.Channels.Authorize("private-orders.{id}", OrderRules.CanSee)
+var user = new ClaimsPrincipal(new ClaimsIdentity([new Claim("order", "7")], authenticationType: "test"));
+OrderRules.CanSee(user, "7").Should().BeTrue();
+OrderRules.CanSee(user, "8").Should().BeFalse();
+```
+
+**Through the hub.** To test the whole path (sign-in, the rule, the group, the delivery) start the app on `Microsoft.AspNetCore.TestHost` and connect with `Microsoft.AspNetCore.SignalR.Client`, as this package's own tests do. The middleware stands in for your authentication scheme; the client goes through the handler of the test server over long polling.
+
+```csharp
+var builder = WebApplication.CreateBuilder();
+builder.WebHost.UseTestServer();
+builder.Services.AddNaravelBroadcasting(builder.Configuration, o => o.Channels.Authorize("private-orders.{id}", OrderRules.CanSee));
+var app = builder.Build();
+app.Use((context, next) =>      // "X-Order: 7" signs the request in with the claim order=7
+{
+    if (context.Request.Headers.TryGetValue("X-Order", out var order))
+    {
+        context.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("order", order.ToString())], authenticationType: "test"));
+    }
+
+    return next();
+});
+app.MapNaravelBroadcasting("/hubs/broadcast");
+await app.StartAsync();
+
+var server = (TestServer)app.Services.GetRequiredService<IServer>();
+var connection = new HubConnectionBuilder()
+    .WithUrl(server.BaseAddress + "hubs/broadcast", o =>
+    {
+        o.HttpMessageHandlerFactory = _ => server.CreateHandler();
+        o.Transports = HttpTransportType.LongPolling;
+        o.Headers["X-Order"] = "7";
+    })
+    .Build();
+connection.On<OrderShipped>("OrderShipped", shipped => Console.WriteLine(shipped.OrderId));   // a test collects it instead
+await connection.StartAsync();
+
+await connection.InvokeAsync("Subscribe", "private-orders.7");                 // allowed
+var other = () => connection.InvokeAsync("Subscribe", "private-orders.8");     // refused
+await other.Should().ThrowAsync<HubException>().WithMessage("*Subscription denied.*");
+
+await app.Services.GetRequiredService<IBroadcaster>().BroadcastAsync(new OrderShipped(7, "DHL"));   // the client receives it
+```
+
+A test that waits for a message must wait with a timeout, and one that proves that a message did *not* arrive sends a second, marker message to a channel the client does listen to and checks that only the marker came. The presence list is readable without a second client: `IPresence` is registered by the module, so `await app.Services.GetRequiredService<IPresence>().MembersAsync("presence-room.1")` shows who joined. The list is also tested on a real Redis with two connections that stand for two servers (`PresenceRedisTests`); those tests run only when `NARAVEL_TEST_REDIS` is set, which the CI `services` job does.
 
 ## Complete example
 

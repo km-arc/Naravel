@@ -14,12 +14,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Naravel.Broadcasting.Testing;
+using Naravel.Events;
 using Naravel.Foundation;
 using LogEntry = (Microsoft.Extensions.Logging.LogLevel Level, string Category, string Message, string? Error);
 
 namespace Naravel.Broadcasting.Tests;
 
-// Runs the "Quickstart" and "Errors" sections of docs/en/broadcasting.md.
+// Runs the "Quickstart", "Testing" and "Errors" sections of docs/en/broadcasting.md.
 public class DocsQuickstartTests
 {
     // The types of the quickstart server and its client; the two projects share only the JSON shape.
@@ -64,6 +65,107 @@ public class DocsQuickstartTests
 
             response.StatusCode.Should().Be(System.Net.HttpStatusCode.Accepted);
             (await received.Task.WaitAsync(TimeSpan.FromSeconds(10))).Should().Be("hello");
+        }
+        finally
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+}
+
+public class DocsTestingTests
+{
+    // The event and the rule of the guide's testing examples.
+    public sealed record OrderShipped(int OrderId, string Carrier) : IBroadcastable
+    {
+        public IEnumerable<string> Channels() => [$"private-orders.{OrderId}"];
+    }
+
+    public static class OrderRules
+    {
+        public static bool CanSee(ClaimsPrincipal user, string id) => user.FindFirst("order")?.Value == id;
+    }
+
+    [Fact]
+    public async Task The_fake_records_the_message_and_a_listener_broadcasts_into_it_wherever_it_is_registered()
+    {
+        var fake = new BroadcastFake();
+        await fake.BroadcastAsync(new OrderShipped(7, "DHL"));
+
+        var message = fake.AssertBroadcast(m => m.Channels.Contains("private-orders.7"));
+
+        message.Name.Should().Be("OrderShipped");
+        message.Payload.Should().Be(new OrderShipped(7, "DHL"));
+        fake.AssertBroadcastCount(1);
+
+        foreach (var before in new[] { true, false })   // the module registers its own with TryAdd, so the order does not matter
+        {
+            var registered = new BroadcastFake();
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddNaravelEvents();
+            if (before) services.AddSingleton<IBroadcaster>(registered);
+            services.AddNaravelBroadcasting(new ConfigurationManager());
+            if (!before) services.AddSingleton<IBroadcaster>(registered);
+            services.AddBroadcastOn<OrderShipped>();
+            await using var provider = services.BuildServiceProvider();
+
+            await using var scope = provider.CreateAsyncScope();
+            await scope.ServiceProvider.GetRequiredService<IEventDispatcher>().DispatchAsync(new OrderShipped(7, "DHL"));
+
+            registered.AssertBroadcastCount(1);
+        }
+    }
+
+    [Fact]
+    public void A_rule_kept_in_a_method_is_tested_without_a_host()
+    {
+        var user = new ClaimsPrincipal(new ClaimsIdentity([new Claim("order", "7")], authenticationType: "test"));
+
+        OrderRules.CanSee(user, "7").Should().BeTrue();
+        OrderRules.CanSee(user, "8").Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task The_hub_test_of_the_guide_allows_the_matching_order_refuses_the_other_and_delivers()
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseTestServer();
+        builder.Services.AddNaravelBroadcasting(builder.Configuration, o => o.Channels.Authorize("private-orders.{id}", OrderRules.CanSee));
+        var app = builder.Build();
+        app.Use((context, next) =>      // "X-Order: 7" signs the request in with the claim order=7
+        {
+            if (context.Request.Headers.TryGetValue("X-Order", out var order))
+            {
+                context.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("order", order.ToString())], authenticationType: "test"));
+            }
+
+            return next();
+        });
+        app.MapNaravelBroadcasting("/hubs/broadcast");
+        await app.StartAsync();
+        try
+        {
+            var server = (TestServer)app.Services.GetRequiredService<IServer>();
+            await using var connection = new HubConnectionBuilder()
+                .WithUrl(server.BaseAddress + "hubs/broadcast", o =>
+                {
+                    o.HttpMessageHandlerFactory = _ => server.CreateHandler();
+                    o.Transports = HttpTransportType.LongPolling;
+                    o.Headers["X-Order"] = "7";
+                })
+                .Build();
+            var received = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+            connection.On<OrderShipped>("OrderShipped", shipped => received.TrySetResult(shipped.OrderId));   // the guide prints it; a test collects it
+            await connection.StartAsync();
+
+            await connection.InvokeAsync("Subscribe", "private-orders.7");                 // allowed
+            var other = () => connection.InvokeAsync("Subscribe", "private-orders.8");     // refused
+            await other.Should().ThrowAsync<HubException>().WithMessage("*Subscription denied.*");
+            await app.Services.GetRequiredService<IBroadcaster>().BroadcastAsync(new OrderShipped(7, "DHL"));
+
+            (await received.Task.WaitAsync(TimeSpan.FromSeconds(10))).Should().Be(7);
         }
         finally
         {
