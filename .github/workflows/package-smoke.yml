@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Published version to verify, for example 0.1.1
+        description: Published version to verify, for example 0.2.0
         required: true
         type: string
       exclude:
