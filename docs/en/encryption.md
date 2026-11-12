@@ -20,13 +20,40 @@ builder.Services.AddDataProtection()
 
 ## Quickstart
 
-```csharp
-builder.Services.AddNaravelEncryption();   // calls AddDataProtection() only if you have not
+A minimal API that seals a text and opens it again. Nothing needs to be installed or started besides the package.
 
-var token = encrypter.Encrypt("secret");            // Laravel: Crypt::encryptString
-var text  = encrypter.Decrypt(token);               // Crypt::decryptString
-var card  = encrypter.Decrypt<CardInfo>(encrypter.Encrypt(new CardInfo("Ada", 4242)));   // Crypt::encrypt / decrypt
+```sh
+dotnet new web -n EncryptionDemo
+cd EncryptionDemo
+dotnet add package Naravel.Encryption
 ```
+
+Replace `Program.cs`:
+
+```csharp
+using Naravel.Encryption;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddNaravelEncryption();   // calls AddDataProtection() only if you have not
+var app = builder.Build();
+
+app.MapPost("/seal", (string text, IEncrypter encrypter) => new { token = encrypter.Encrypt(text) });   // Laravel: Crypt::encryptString
+
+app.MapGet("/open/{token}", (string token, IEncrypter encrypter) =>                                      // Crypt::decryptString
+    encrypter.TryDecrypt(token, out var text) ? Results.Ok(new { text }) : Results.BadRequest());
+
+app.Run();
+```
+
+Try it, with `$URL` set to the address `dotnet run` prints:
+
+```sh
+curl -X POST "$URL/seal?text=hello"      # {"token":"<URL-safe text>"}
+curl "$URL/open/<token>"                 # {"text":"hello"}
+curl "$URL/open/garbage"                 # 400 Bad Request
+```
+
+This uses the key ring that Data Protection chooses by default, which is enough to try it. Set one up as described above before you deploy. For typed values (`Crypt::encrypt`) see [Values](#values).
 
 ## Using it
 
@@ -34,7 +61,7 @@ var card  = encrypter.Decrypt<CardInfo>(encrypter.Encrypt(new CardInfo("Ada", 42
 
 `Encrypt(string)` returns URL-safe text. `Encrypt<T>` / `Decrypt<T>` store the value as JSON (`System.Text.Json`) inside the protected text; an overload takes a `JsonTypeInfo<T>` for source-generated metadata. All members are synchronous, because the Data Protection primitive is.
 
-A value that cannot be decrypted (tampered, malformed, protected for another purpose, key missing) throws `DecryptException` with a fixed message that never contains the input or any plaintext. `TryDecrypt` returns `false` instead.
+A value that cannot be decrypted (tampered, malformed, protected for another purpose, key missing) throws `DecryptException` with a fixed message that never contains the input or any plaintext. `TryDecrypt` returns `false` instead; it exists for strings only, so around `Decrypt<T>` you catch `DecryptException`. See [Errors](#errors).
 
 **Trimming and Native AOT.** `Encrypt<T>(T)` and `Decrypt<T>(string)` use reflection-based JSON, so they carry `RequiresUnreferencedCode` and `RequiresDynamicCode`: in a project that enables the trim or AOT analyzers (`PublishAot`, `IsTrimmable`) every call site gets warning IL2026 and IL3050. Strings (`Encrypt(string)`, `Decrypt(string)`) are not affected. For typed values in such a project, pass the metadata of a source-generated context to the `JsonTypeInfo` overloads:
 
@@ -69,14 +96,79 @@ public sealed class ChargeCard : Job, IShouldBeEncrypted { public string CardNum
 
 **Migrating.** A job queued as plaintext before its class was marked is refused by default. To let in-flight jobs finish, set `AddNaravelQueueEncryption(o => o.AcceptPlaintextForMarkedJobs = true)` for a deploy window, then switch it off. If you remove the marker later, workers still decrypt messages that were stored encrypted.
 
-### Testing
+## Errors
 
-There is no `EncryptionFake`: a reversible fake would fake a cryptographic guarantee. Data Protection ships a real in-memory test double:
+The messages below are the ones in the source. .NET adds ` (Parameter 'value')` to the message of an argument exception, which the table leaves out. `Naravel.Encryption` writes no log lines: an unreadable value is either an exception or, with `TryDecrypt`, a `false` and the `invalid` outcome of the [metric](#observability).
+
+| When | Exception and message |
+|---|---|
+| `AddNaravelEncryption` with a null `services` | `ArgumentNullException`, parameter `services` |
+| `Encrypt(null)` | `ArgumentNullException`, parameter `value` |
+| `Decrypt(null)`, `TryDecrypt(null, out _)` or `Decrypt<T>(null)` | `ArgumentNullException`, parameter `payload` |
+| `Encrypt<T>` or `Decrypt<T>` with a null `JsonTypeInfo` | `ArgumentNullException`, parameter `typeInfo` |
+| `ForPurpose` with a null, empty or blank name | `ArgumentNullException` for null, `ArgumentException` for the others; the framework's message |
+| A token that cannot be opened: text that is not a token (the empty string too), a token changed after it was made, one made under another purpose, another application name or another key ring, or one whose key is gone | `DecryptException`: `The value could not be decrypted. First check that every application and instance that reads it shares the same Data Protection key ring and application name; then check that it is not malformed or tampered with and was written under the same purpose.` `TryDecrypt` returns `false` and sets `value` to `null` instead |
+| `Decrypt<T>` of a token that opens but whose text is not JSON for `T` | `DecryptException`: `The value was decrypted but is not valid for the requested type.` |
+
+A token is opened before its type is read, so `Decrypt<T>` of a token that cannot be opened gives the first message, not the second. Every cause in the table is covered by a test except the lost key, which is read from Data Protection's own behavior.
+
+**What a `DecryptException` carries.** It derives from `Exception` directly, so catch it by its own type. Neither message contains the token, the decrypted text or a purpose. When Data Protection reported the failure with a `CryptographicException`, that is the inner exception (text that is not valid base64 has none), and the type mismatch has none at all, because a JSON error can quote a part of the plaintext.
+
+**Not wrapped.** `Encrypt` does not catch what the Data Protection protector throws, so a failure of the key ring on the way in (it cannot create or write a key) reaches you as Data Protection's own exception, not as a `DecryptException`. No test makes the key ring fail, so this is read from the source.
+
+**No error at all.** `TryDecrypt` with a token that cannot be opened (only the metric counts it), `Encrypt("")` (the empty string round-trips), `ForPurpose` with the same name twice (the two encrypters read each other's tokens), and `AddNaravelEncryption` more than once (one `IEncrypter`; a Data Protection registration of your own is kept).
+
+## Testing
+
+There is no `EncryptionFake`: a reversible fake would fake a cryptographic guarantee. Data Protection ships a real in-memory test double, `EphemeralDataProtectionProvider`. Register it before `AddNaravelEncryption` and the library keeps it, because it adds Data Protection only when none is registered. A helper that builds an `IEncrypter` over a key ring of its own:
 
 ```csharp
-services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvider());
-services.AddNaravelEncryption();
+static IEncrypter NewEncrypter(IDataProtectionProvider? keys = null)
+{
+    var services = new ServiceCollection();
+    services.AddSingleton<IDataProtectionProvider>(keys ?? new EphemeralDataProtectionProvider());   // without `keys`, a new key ring
+    services.AddNaravelEncryption();
+    return services.BuildServiceProvider().GetRequiredService<IEncrypter>();
+}
 ```
+
+Round trips, a reader that cannot read, and a reader that shares the key ring:
+
+```csharp
+[Fact]
+public void A_value_round_trips_and_the_token_is_not_the_plaintext()
+{
+    var encrypter = NewEncrypter();
+
+    var token = encrypter.Encrypt("secret");
+
+    token.Should().NotContain("secret");
+    encrypter.Decrypt(token).Should().Be("secret");
+}
+
+[Fact]
+public void A_reader_with_another_key_ring_is_refused()
+{
+    var token = NewEncrypter().Encrypt("secret");
+    var other = NewEncrypter();     // another application, or the same one after it lost its keys
+
+    other.TryDecrypt(token, out _).Should().BeFalse();
+    var act = () => other.Decrypt(token);
+    act.Should().Throw<DecryptException>().Which.Message.Should().Contain("key ring");
+}
+
+[Fact]
+public void A_reader_that_shares_the_key_ring_agrees()
+{
+    var keys = new EphemeralDataProtectionProvider();
+
+    var token = NewEncrypter(keys).Encrypt("secret");
+
+    NewEncrypter(keys).Decrypt(token).Should().Be("secret");
+}
+```
+
+Code that handles a `DecryptException`, such as the invite endpoint of the [complete example](#complete-example), is tested the same way: make a token with one encrypter, change or replace it, and assert the answer.
 
 ## Complete example
 
@@ -118,7 +210,7 @@ app.MapGet("/invite/{token}", (string token, IEncrypter encrypter) =>
     }
     catch (DecryptException)
     {
-        return Results.BadRequest("invalid or expired invite");                       // the message never contains the input
+        return Results.BadRequest("invalid invite");                                   // the message never contains the input
     }
 });
 
