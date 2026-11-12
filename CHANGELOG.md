@@ -6,6 +6,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 
 ### Changed
 - Docs: the `Naravel.Encryption` guide (the module-guide rewrite goes on after 0.2.0) has a runnable quickstart that seals and opens a text, an Errors section with the exact messages and exception types (what a `DecryptException` carries and what it never contains, which causes give which message), and a Testing section with an in-memory key ring, a reader that cannot read and a reader that shares the key ring. The invite example no longer says "expired": a token has no lifetime. The `DocsExampleTests.cs` in `Naravel.Encryption.Tests` runs the snippets and asserts the messages. No code changes.
+- Docs: the queue part of the `Naravel.Encryption` guide (`Naravel.Queue.Encryption`) has a complete job example, the exact messages a worker throws and when, what happens to a job that cannot be read, that the producer and the worker must both register it, that a second `AddNaravelQueueEncryption` call does not run its `configure`, and a Testing example for the stored envelope and the key ring. `DocsExampleTests.cs` in `Naravel.Queue.Encryption.Tests` runs them, including a worker that records an unreadable job as failed. No code changes.
 
 ## [0.2.0] - 2026-11-11
 
