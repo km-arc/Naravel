@@ -4,7 +4,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). All packages s
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+- Docs: the `Naravel.Encryption` guide (the module-guide rewrite goes on after 0.2.0) has a runnable quickstart that seals and opens a text, an Errors section with the exact messages and exception types (what a `DecryptException` carries and what it never contains, which causes give which message), and a Testing section with an in-memory key ring, a reader that cannot read and a reader that shares the key ring. The invite example no longer says "expired": a token has no lifetime. The `DocsExampleTests.cs` in `Naravel.Encryption.Tests` runs the snippets and asserts the messages. No code changes.
 
 ## [0.2.0] - 2026-11-11
 
