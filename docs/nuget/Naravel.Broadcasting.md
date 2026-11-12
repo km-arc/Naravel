@@ -1,18 +1,28 @@
 # Naravel.Broadcasting
 
+[![NuGet](https://img.shields.io/nuget/v/Naravel.Broadcasting.svg?label=nuget)](https://www.nuget.org/packages/Naravel.Broadcasting)
+[![Downloads](https://img.shields.io/nuget/dt/Naravel.Broadcasting.svg)](https://www.nuget.org/packages/Naravel.Broadcasting)
+[![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)](https://dotnet.microsoft.com/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/km-arc/Naravel/blob/main/LICENSE)
+
 Typed real-time broadcasting over SignalR for Naravel: IBroadcastable events, channel authorization rules, signalr/log/null drivers and a test fake, built on Naravel.Foundation and Naravel.Events.
 
-Part of [Naravel](https://github.com/km-arc/Naravel): Laravel's names, .NET's type system. All Naravel packages share one version.
+| Fact | Detail |
+|---|---|
+| **Install** | `dotnet add package Naravel.Broadcasting` |
+| **Targets** | .NET 10 |
+| **Needs** | `Naravel.Foundation`, `Naravel.Cache` and `Naravel.Events`, which NuGet installs with it, and ASP.NET Core (the `Microsoft.AspNetCore.App` shared framework) |
+| **Drivers** | `signalr` (the default), `log` and `null`, chosen by `Broadcasting:Default` |
 
-## Install
+## What you get
 
-```bash
-dotnet add package Naravel.Broadcasting
-```
+- **Events that name their channels.** An `IBroadcastable` event returns its `Channels()`, and `AddBroadcastOn<T>()` opts each event type in.
+- **Who may join is a registered rule.** `Channels.Authorize("private-orders.{id}", ...)` decides which connections may join a channel.
+- **Presence channels** tell their members who else is there, like Laravel's `Echo.join()`.
+- **Swappable drivers.** Switch in configuration, or add your own at run time with `BroadcastManager.Extend`.
+- **A test fake.** `BroadcastFake` is an `IBroadcaster` that records the message the real one would send.
 
-Targets .NET 10. It depends on `Naravel.Foundation`, `Naravel.Cache` and `Naravel.Events`, which NuGet installs with it.
-
-## Use
+## Quick start
 
 ```csharp
 using Naravel.Broadcasting;
@@ -42,7 +52,9 @@ A client calls the hub method `Subscribe` with a channel name and listens under 
 
 Delivery is inline and at most once: it finishes before `BroadcastAsync` returns, nothing is replayed, and a client that is offline misses the message. With several instances, configure a SignalR backplane yourself. `Broadcasting:Default` is `signalr`; named drivers go under `Broadcasting:Stores:<name>:Driver` (`signalr`, `log` or `null`). Presence lists live in the application's cache, so they are shared between instances only when `AddNaravelCache` (from `Naravel.Cache`) is configured with a Redis or Memcached default store; otherwise they are per process. In tests, register `BroadcastFake` from `Naravel.Broadcasting.Testing` in place of the real `IBroadcaster`.
 
-## Documentation
+## Learn more
 
 - Broadcasting: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/broadcasting.md)
 - [Changelog](https://github.com/km-arc/Naravel/blob/main/CHANGELOG.md) · [Source and issues](https://github.com/km-arc/Naravel) · MIT license
+
+Part of [Naravel](https://github.com/km-arc/Naravel): Laravel's names, .NET's type system. All Naravel packages share one version.
