@@ -218,7 +218,7 @@ public sealed class DocsExampleTests
 
         sessions.Name.Should().Be("sessions");
         opener.Opened.Should().Equal("localhost:6379,defaultDatabase=2");
-        manager.Connection("reports").Should().BeOfType<ReportsRedisConnection>().Which.Provider.Should().BeSameAs(provider);
+        manager.Connection("reports").Should().BeOfType<ReportsRedisConnection>().Which.Provider.GetRequiredService<RedisManager>().Should().BeSameAs(manager);   // the factory gets the application's services
         manager.Connection("reports").Should().BeSameAs(manager.Connection("reports"));
     }
 }
