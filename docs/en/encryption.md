@@ -81,18 +81,31 @@ The two forms read each other's tokens. See [Trimming and Native AOT](trimming-a
 
 ### Encrypted queue jobs (`Naravel.Queue.Encryption`)
 
-```csharp
-builder.Services.AddQueue(configuration).AddMemoryDriver(configuration);   // first
-builder.Services.AddNaravelQueueEncryption();
+Add it to the app of the [queue quickstart](queue.md#quickstart); the job below replaces its `SendWelcomeEmailJob`.
 
-public sealed class ChargeCard : Job, IShouldBeEncrypted { public string CardNumber { get; set; } = ""; ... }
+```csharp
+using Naravel.Queue.Encryption;   // IShouldBeEncrypted
+using Naravel.Queue.Extensions;
+using Naravel.Queue.Jobs;
+
+builder.Services.AddQueue(builder.Configuration).AddMemoryDriver(builder.Configuration);   // first
+builder.Services.AddJob<ChargeCard>("charge-card");
+builder.Services.AddQueueWorker();
+builder.Services.AddNaravelQueueEncryption();                                              // after AddQueue
+
+public sealed class ChargeCard : Job, IShouldBeEncrypted
+{
+    public string CardNumber { get; set; } = "";
+
+    public override Task HandleAsync(JobContext context, CancellationToken cancellationToken) => Task.CompletedTask;   // your work
+}
 ```
 
 - Only classes that implement the empty marker `IShouldBeEncrypted` are encrypted. Unmarked jobs keep the existing wire format; nothing is encrypted by default.
 - A marked job is stored as `naravel:enc:v1:` + the Data Protection output of its normal payload, under the purpose `Naravel.Queue.Encryption.v1` (separate from the facade's purpose, so an `IEncrypter` value is never accepted as a job).
 - The job type is still chosen only by the alias registry. Decryption happens afterwards, so decrypted data never selects a type (OD-07).
 - Chains, batches and failed jobs already carry the stored string, so they carry ciphertext.
-- An undecryptable marked job fails through the normal failed-job path with `DecryptException`; its message names the shared key ring and application name as the first thing to check. Where `AddNaravelQueueEncryption` is registered, a marked job is never sent or run as plaintext; register it in every application that dispatches marked jobs and in every worker, because a dispatching application without it sends them as plaintext. An unknown envelope version fails too.
+- An undecryptable marked job fails through the normal failed-job path with `DecryptException`; its message names the shared key ring and application name as the first thing to check. Where `AddNaravelQueueEncryption` is registered, a marked job is never sent or run as plaintext; register it in every application that dispatches marked jobs and in every worker, because a dispatching application without it sends them as plaintext. An unknown envelope version fails too. The messages are in [Errors](#queue-jobs-naravelqueueencryption).
 
 **Migrating.** A job queued as plaintext before its class was marked is refused by default. To let in-flight jobs finish, set `AddNaravelQueueEncryption(o => o.AcceptPlaintextForMarkedJobs = true)` for a deploy window, then switch it off. If you remove the marker later, workers still decrypt messages that were stored encrypted.
 
@@ -117,6 +130,29 @@ A token is opened before its type is read, so `Decrypt<T>` of a token that canno
 **Not wrapped.** `Encrypt` does not catch what the Data Protection protector throws, so a failure of the key ring on the way in (it cannot create or write a key) reaches you as Data Protection's own exception, not as a `DecryptException`. No test makes the key ring fail, so this is read from the source.
 
 **No error at all.** `TryDecrypt` with a token that cannot be opened (only the metric counts it), `Encrypt("")` (the empty string round-trips), `ForPurpose` with the same name twice (the two encrypters read each other's tokens), and `AddNaravelEncryption` more than once (one `IEncrypter`; a Data Protection registration of your own is kept).
+
+### Queue jobs (`Naravel.Queue.Encryption`)
+
+| When | Exception and message |
+|---|---|
+| `AddNaravelQueueEncryption` with a null `services` | `ArgumentNullException`, parameter `services` |
+| `AddNaravelQueueEncryption` before `AddQueue`, so that no `IJobSerializer` is registered | `InvalidOperationException`: `No IJobSerializer is registered. Call AddQueue before AddNaravelQueueEncryption.` |
+
+A worker that reads a job throws a `DecryptException` (the facade's type) with one of these messages. The alias registry has chosen the job class by then; the payload is read after that.
+
+| The stored payload | Message |
+|---|---|
+| Starts with `naravel:enc:v1:` and cannot be opened: another key ring or application name, a changed text, text that is not base64 after the prefix, another purpose, or a value made by `IEncrypter` | `A queued job payload could not be decrypted. First check that this worker and the application that queued the job share the same Data Protection key ring and application name; then check that the payload was not altered and that every worker runs a version that understands the envelope.` |
+| Starts with `naravel:enc:` and any other version, such as `naravel:enc:v9:` | `A queued job payload uses an encryption envelope version this worker does not understand. Update the worker, or check that the producer and worker run compatible versions and share the same Data Protection key ring and application name.` |
+| Has no envelope, the job class implements `IShouldBeEncrypted`, and `AcceptPlaintextForMarkedJobs` is `false` (the default) | `A job of a class marked IShouldBeEncrypted was stored as plaintext and was refused. If it was queued before the class was marked, let it drain or set QueueEncryptionOptions.AcceptPlaintextForMarkedJobs for a deploy window; otherwise treat the message as untrusted.` |
+
+None of the messages contains the payload. When Data Protection reported the failure with a `CryptographicException`, it is the inner exception of the first message. Every cause of the first row is covered by a test of the adapter except another application name, which the facade's test covers and the adapter reads through the same Data Protection provider.
+
+**What happens to the job.** The exception is thrown while the worker reads the payload, before the job runs. It takes the path of any exception that is thrown before a job runs: the attempt is counted, the job is retried with its backoff, and when `MaxAttempts` is reached it is recorded as a failed job. The record keeps the stored payload, which is still ciphertext, and the text of the exception, which names the key ring first. A key ring that differs fails the same way on every attempt, so the retries only delay the record. The test of this guide uses one attempt; the retry is read from `QueueWorkerService`.
+
+**The two sides must agree.** A dispatching application without `AddNaravelQueueEncryption` raises nothing and sends a marked job as plaintext; a worker that has the registration then refuses it with the third message (with `AcceptPlaintextForMarkedJobs` it runs the job). A worker without the registration reads an envelope as ordinary JSON and fails with the JSON serializer's own `JsonException`, which does not mention encryption, so check that every worker registers it.
+
+**No error at all.** A second call of `AddNaravelQueueEncryption` does nothing, so its `configure` is not run: call it once, with the options. An unmarked job keeps the existing wire format. An unmarked class still reads a payload that was stored encrypted.
 
 ## Testing
 
@@ -167,6 +203,51 @@ public void A_reader_that_shares_the_key_ring_agrees()
     NewEncrypter(keys).Decrypt(token).Should().Be("secret");
 }
 ```
+
+**Queue jobs.** Build the serializer that your application registers over an in-memory key ring, and look at what is stored:
+
+```csharp
+static IJobSerializer NewSerializer(IDataProtectionProvider? keys = null)
+{
+    var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+    {
+        ["NaravelQueue:Default"] = "local",
+        ["NaravelQueue:Stores:local:Driver"] = "memory"
+    }).Build();
+    var services = new ServiceCollection();
+    services.AddLogging();
+    services.AddSingleton<IDataProtectionProvider>(keys ?? new EphemeralDataProtectionProvider());
+    services.AddQueue(configuration).AddMemoryDriver(configuration);   // your application's queue registrations
+    services.AddJob<ChargeCard>("charge-card");
+    services.AddNaravelQueueEncryption();
+    return services.BuildServiceProvider().GetRequiredService<IJobSerializer>();
+}
+
+[Fact]
+public void A_charge_card_job_is_stored_as_an_envelope_and_reads_back()
+{
+    var serializer = NewSerializer();
+
+    var stored = serializer.Serialize(new ChargeCard { CardNumber = "4242424242424242" });
+
+    stored.Should().StartWith("naravel:enc:v1:").And.NotContain("4242");
+    ((ChargeCard)serializer.Deserialize(stored, typeof(ChargeCard))).CardNumber.Should().Be("4242424242424242");
+}
+
+[Fact]
+public void A_worker_reads_the_job_only_when_it_shares_the_key_ring()
+{
+    var keys = new EphemeralDataProtectionProvider();
+    var stored = NewSerializer(keys).Serialize(new ChargeCard { CardNumber = "4242424242424242" });
+
+    NewSerializer(keys).Deserialize(stored, typeof(ChargeCard)).Should().BeOfType<ChargeCard>();
+
+    var act = () => NewSerializer().Deserialize(stored, typeof(ChargeCard));   // a new key ring
+    act.Should().Throw<DecryptException>().Which.Message.Should().Contain("key ring");
+}
+```
+
+To see a failed job end to end, push a `QueuedMessage` whose `Payload` you changed to the driver (`QueueManager.Connection(...).PushAsync`), set its `MaxAttempts` to `1`, start the worker's hosted services, and read `IFailedJobStore`: the record holds the changed payload and an `Error` that contains the `DecryptException` text.
 
 Code that handles a `DecryptException`, such as the invite endpoint of the [complete example](#complete-example), is tested the same way: make a token with one encrypter, change or replace it, and assert the answer.
 
