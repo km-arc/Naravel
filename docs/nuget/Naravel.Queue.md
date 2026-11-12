@@ -1,18 +1,28 @@
 # Naravel.Queue
 
-A Laravel-inspired, driver-based background job queue for .NET. Dispatch, retry with backoff, chaining, batching and a background worker - core package (add Naravel.Queue.Memory for the in-process driver, or Naravel.Queue.Redis/.File/.Database/.RabbitMQ/.Kafka for other backends).
+[![NuGet](https://img.shields.io/nuget/v/Naravel.Queue.svg?label=nuget)](https://www.nuget.org/packages/Naravel.Queue)
+[![Downloads](https://img.shields.io/nuget/dt/Naravel.Queue.svg)](https://www.nuget.org/packages/Naravel.Queue)
+[![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)](https://dotnet.microsoft.com/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/km-arc/Naravel/blob/main/LICENSE)
 
-Part of [Naravel](https://github.com/km-arc/Naravel): Laravel's names, .NET's type system. All Naravel packages share one version.
+A Laravel-inspired, driver-based background job queue for .NET: dispatch, retry with backoff, chaining, batching and a background worker.
 
-## Install
+| Fact | Detail |
+|---|---|
+| **Install** | `dotnet add package Naravel.Queue` |
+| **Targets** | .NET 10 |
+| **Needs** | `Naravel.Foundation`, which NuGet installs with it |
+| **Drivers** | install one next to this package: `Memory` (in-process), `File`, `Redis`, `Database`, `RabbitMQ` or `Kafka` (listed below) |
 
-```bash
-dotnet add package Naravel.Queue
-```
+## What you get
 
-Targets .NET 10. It depends on `Naravel.Foundation`, which NuGet installs with it.
+- **Dispatch with options.** Per job you choose the connection, the queue, a delay, a priority from 0 to 9 and the maximum number of attempts.
+- **Retry with backoff, chaining and batching.** A job lists its own backoff delays; `Chain` runs jobs one after another, and `BatchAsync` groups jobs and counts how many succeeded and failed.
+- **A background worker.** `AddQueueWorker` runs the jobs; failed jobs land in a failed-job store that `FailedJobManager` lets you inspect.
+- **The driver is a configuration value.** Memory, file, Redis, database (any EF Core provider), RabbitMQ or Kafka: the store's `Driver` picks the backend. Kafka is the one driver without delayed delivery.
+- **At-least-once delivery, stated plainly.** A job can run more than once after a crash, so write jobs that can safely run twice.
 
-## Use
+## Quick start
 
 ```json
 {
@@ -46,20 +56,24 @@ public sealed class SendWelcomeEmail : Job
 var id = await jobs.DispatchAsync(new SendWelcomeEmail("ada@example.com"), cancellationToken: ct);
 ```
 
-The store above uses the `memory` driver, so it needs `Naravel.Queue.Memory` and its `AddMemoryDriver(builder.Configuration)` call; every other driver is chosen the same way, by the `Driver` of the store. `DispatchAsync` returns the message id, or `null` when the job is an `IUniqueJob` (it needs `AddQueueCoordination()` from `Naravel.Queue.Coordination`) and an identical job is already waiting or running; with `UniqueUntilProcessing` a running one no longer counts. The lock is bounded by the job's `UniqueFor` (default one hour), so a job that stays waiting or running longer than that no longer blocks a new dispatch, and on a Memory cache store uniqueness holds inside one process only. The worker takes jobs from the `default` queue, one at a time, unless `AddQueueWorker` is given other `Queues` or a `Concurrency`.
+The store above uses the `memory` driver, so it needs `Naravel.Queue.Memory` and its `AddMemoryDriver(builder.Configuration)` call; every other driver is chosen the same way, by the `Driver` of the store. `DispatchAsync` returns the message id, or `null` when the job is an `IUniqueJob` and an identical job is already waiting or running; unique jobs need `AddQueueCoordination()` from `Naravel.Queue.Coordination` and are covered in the [coordination guide](https://github.com/km-arc/Naravel/blob/main/docs/en/queue-coordination.md#unique-jobs-iuniquejob). The worker takes jobs from the `default` queue, one at a time, unless `AddQueueWorker` is given other `Queues` or a `Concurrency`.
 
 ## Related packages
 
-- [`Naravel.Queue.Memory`](https://www.nuget.org/packages/Naravel.Queue.Memory): In-process "memory" queue driver for Naravel.Queue - zero dependencies, ideal for tests and local development.
-- [`Naravel.Queue.File`](https://www.nuget.org/packages/Naravel.Queue.File): File-based queue driver for Naravel.Queue - durable, zero external services required, JSON files on disk.
-- [`Naravel.Queue.Redis`](https://www.nuget.org/packages/Naravel.Queue.Redis): Redis queue driver for Naravel.Queue, built on StackExchange.Redis - priority buckets, delayed jobs and automatic reclaim of jobs left behind by a crashed worker.
-- [`Naravel.Queue.Database`](https://www.nuget.org/packages/Naravel.Queue.Database): EF Core-backed queue driver for Naravel.Queue - works with any EF Core provider (SQL Server, PostgreSQL, SQLite, MySQL).
-- [`Naravel.Queue.RabbitMQ`](https://www.nuget.org/packages/Naravel.Queue.RabbitMQ): RabbitMQ queue driver for Naravel.Queue - delayed jobs via per-message TTL + dead-lettering, no plugin required.
-- [`Naravel.Queue.Kafka`](https://www.nuget.org/packages/Naravel.Queue.Kafka): Kafka queue driver for Naravel.Queue, built on Confluent.Kafka - semantics adapted for a log-based broker (see class docs for details).
-- [`Naravel.Queue.Coordination`](https://www.nuget.org/packages/Naravel.Queue.Coordination): Optional Naravel.Queue job middleware that coordinates workers through Naravel.Cache locks and rate limits: WithoutOverlapping, RateLimited and ThrottlesExceptions.
-- [`Naravel.Queue.Encryption`](https://www.nuget.org/packages/Naravel.Queue.Encryption): Optional Naravel.Queue adapter that encrypts the payload of jobs marked IShouldBeEncrypted with ASP.NET Core Data Protection. Unmarked jobs keep the existing wire format.
+| Package | Adds |
+|---|---|
+| [`Naravel.Queue.Memory`](https://www.nuget.org/packages/Naravel.Queue.Memory) | In-process driver with no dependencies, for tests and local development |
+| [`Naravel.Queue.File`](https://www.nuget.org/packages/Naravel.Queue.File) | JSON files on disk: durable, no external service |
+| [`Naravel.Queue.Redis`](https://www.nuget.org/packages/Naravel.Queue.Redis) | Redis driver on StackExchange.Redis: priority buckets, delayed jobs, recovery of jobs a crashed worker left behind |
+| [`Naravel.Queue.Database`](https://www.nuget.org/packages/Naravel.Queue.Database) | Any EF Core provider: SQL Server, PostgreSQL, SQLite, MySQL |
+| [`Naravel.Queue.RabbitMQ`](https://www.nuget.org/packages/Naravel.Queue.RabbitMQ) | RabbitMQ driver; delayed jobs by per-message TTL and dead-lettering, no plugin required |
+| [`Naravel.Queue.Kafka`](https://www.nuget.org/packages/Naravel.Queue.Kafka) | Kafka driver on Confluent.Kafka; it does not support delayed delivery |
+| [`Naravel.Queue.Coordination`](https://www.nuget.org/packages/Naravel.Queue.Coordination) | Optional job middleware over Naravel.Cache locks: WithoutOverlapping, RateLimited, ThrottlesExceptions |
+| [`Naravel.Queue.Encryption`](https://www.nuget.org/packages/Naravel.Queue.Encryption) | Optional: encrypts the payload of jobs marked IShouldBeEncrypted with ASP.NET Core Data Protection |
 
-## Documentation
+## Learn more
 
 - Queue: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/queue.md)
 - [Changelog](https://github.com/km-arc/Naravel/blob/main/CHANGELOG.md) · [Source and issues](https://github.com/km-arc/Naravel) · MIT license
+
+Part of [Naravel](https://github.com/km-arc/Naravel): Laravel's names, .NET's type system. All Naravel packages share one version.
