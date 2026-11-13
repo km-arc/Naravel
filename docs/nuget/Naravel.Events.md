@@ -1,18 +1,28 @@
 # Naravel.Events
 
+[![NuGet](https://img.shields.io/nuget/v/Naravel.Events.svg?label=nuget)](https://www.nuget.org/packages/Naravel.Events)
+[![Downloads](https://img.shields.io/nuget/dt/Naravel.Events.svg)](https://www.nuget.org/packages/Naravel.Events)
+[![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)](https://dotnet.microsoft.com/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/km-arc/Naravel/blob/main/LICENSE)
+
 Typed event dispatcher with listener ordering, stop propagation, and optional queue adapter support.
 
-Part of [Naravel](https://github.com/km-arc/Naravel): Laravel's names, .NET's type system. All Naravel packages share one version.
+| Fact | Detail |
+|---|---|
+| **Install** | `dotnet add package Naravel.Events` |
+| **Targets** | .NET 10 |
+| **Needs** | No other Naravel package |
+| **Add-on** | [`Naravel.Events.Queue`](https://www.nuget.org/packages/Naravel.Events.Queue) runs selected listeners through Naravel.Queue |
 
-## Install
+## What you get
 
-```bash
-dotnet add package Naravel.Events
-```
+- **Typed, asynchronous dispatch.** `DispatchAsync(new OrderPaid(...))` runs every listener of exactly that event type, in order, before it returns.
+- **Listeners are ordinary DI services.** You implement `IEventListener<T>` and register it explicitly.
+- **Deterministic order and stop propagation.** `EventDispatchContext.Stop()` skips the remaining listeners.
+- **Queued listeners.** With `Naravel.Events.Queue`, selected listeners run through `Naravel.Queue`.
+- **Observable.** A `Meter` and an `ActivitySource`, both named `Naravel.Events`, report dispatched and failed events and the dispatch duration.
 
-Targets .NET 10.
-
-## Use
+## Quick start
 
 ```csharp
 using Naravel.Events;
@@ -40,9 +50,13 @@ public sealed class WriteAuditLine : IEventListener<OrderPaid>
 
 ## Related packages
 
-- [`Naravel.Events.Queue`](https://www.nuget.org/packages/Naravel.Events.Queue): Optional Naravel.Events adapter for running selected event listeners through Naravel.Queue.
+| Package | Adds |
+|---|---|
+| [`Naravel.Events.Queue`](https://www.nuget.org/packages/Naravel.Events.Queue) | Runs selected event listeners through Naravel.Queue |
 
-## Documentation
+## Learn more
 
 - Events: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/events.md)
 - [Changelog](https://github.com/km-arc/Naravel/blob/main/CHANGELOG.md) · [Source and issues](https://github.com/km-arc/Naravel) · MIT license
+
+Part of [Naravel](https://github.com/km-arc/Naravel): Laravel's names, .NET's type system. All Naravel packages share one version.
