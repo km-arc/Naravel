@@ -81,12 +81,13 @@ The two forms read each other's tokens. See [Trimming and Native AOT](trimming-a
 
 ### Encrypted queue jobs (`Naravel.Queue.Encryption`)
 
-Add it to the app of the [queue quickstart](queue.md#quickstart); the job below replaces its `SendWelcomeEmailJob`.
+Add it to the app of the [queue quickstart](queue.md#quickstart), next to its `SendWelcomeEmailJob`: the registration lines are the quickstart's, plus `AddJob<ChargeCard>` and `AddNaravelQueueEncryption`.
 
 ```csharp
 using Naravel.Queue.Encryption;   // IShouldBeEncrypted
 using Naravel.Queue.Extensions;
 using Naravel.Queue.Jobs;
+using Naravel.Queue.Memory;
 
 builder.Services.AddQueue(builder.Configuration).AddMemoryDriver(builder.Configuration);   // first
 builder.Services.AddJob<ChargeCard>("charge-card");
@@ -101,11 +102,17 @@ public sealed class ChargeCard : Job, IShouldBeEncrypted
 }
 ```
 
+Dispatch it as the quickstart dispatches its job, with `IJobDispatcher`:
+
+```csharp
+await jobs.DispatchAsync(new ChargeCard { CardNumber = number }, cancellationToken: ct);
+```
+
 - Only classes that implement the empty marker `IShouldBeEncrypted` are encrypted. Unmarked jobs keep the existing wire format; nothing is encrypted by default.
 - A marked job is stored as `naravel:enc:v1:` + the Data Protection output of its normal payload, under the purpose `Naravel.Queue.Encryption.v1` (separate from the facade's purpose, so an `IEncrypter` value is never accepted as a job).
 - The job type is still chosen only by the alias registry. Decryption happens afterwards, so decrypted data never selects a type (OD-07).
 - Chains, batches and failed jobs already carry the stored string, so they carry ciphertext.
-- An undecryptable marked job fails through the normal failed-job path with `DecryptException`; its message names the shared key ring and application name as the first thing to check. Where `AddNaravelQueueEncryption` is registered, a marked job is never sent or run as plaintext; register it in every application that dispatches marked jobs and in every worker, because a dispatching application without it sends them as plaintext. An unknown envelope version fails too. The messages are in [Errors](#queue-jobs-naravelqueueencryption).
+- An undecryptable marked job fails through the normal failed-job path with `DecryptException`; its message names the shared key ring and application name as the first thing to check. Where `AddNaravelQueueEncryption` is registered, a marked job is never sent as plaintext, and it is not run from plaintext either unless you turned on `AcceptPlaintextForMarkedJobs` for a migration (below); register it in every application that dispatches marked jobs and in every worker, because a dispatching application without it sends them as plaintext. An unknown envelope version fails too. The messages are in [Errors](#queue-jobs-naravelqueueencryption).
 
 **Migrating.** A job queued as plaintext before its class was marked is refused by default. To let in-flight jobs finish, set `AddNaravelQueueEncryption(o => o.AcceptPlaintextForMarkedJobs = true)` for a deploy window, then switch it off. If you remove the marker later, workers still decrypt messages that were stored encrypted.
 
@@ -148,7 +155,7 @@ A worker that reads a job throws a `DecryptException` (the facade's type) with o
 
 None of the messages contains the payload. When Data Protection reported the failure with a `CryptographicException`, it is the inner exception of the first message. Every cause of the first row is covered by a test of the adapter except another application name, which the facade's test covers and the adapter reads through the same Data Protection provider.
 
-**What happens to the job.** The exception is thrown while the worker reads the payload, before the job runs. It takes the path of any exception that is thrown before a job runs: the attempt is counted, the job is retried with its backoff, and when `MaxAttempts` is reached it is recorded as a failed job. The record keeps the stored payload, which is still ciphertext, and the text of the exception, which names the key ring first. A key ring that differs fails the same way on every attempt, so the retries only delay the record. The test of this guide uses one attempt; the retry is read from `QueueWorkerService`.
+**What happens to the job.** The exception is thrown while the worker reads the payload, before the job runs. It takes the path of any exception that is thrown before a job runs: the attempt is counted, the job is retried, and when `MaxAttempts` is reached it is recorded as a failed job. The retry delay is the worker's default, 5 seconds times the attempt number and at most 60 seconds, because the job was never built and so its own `Backoff` cannot apply; a driver without delayed delivery, such as Kafka, retries at once. The record keeps the stored payload, which is still ciphertext, and the text of the exception, which names the key ring first. A key ring that differs fails the same way on every attempt, so the retries only delay the record. The test of this guide uses one attempt; the retry and its delay are read from `QueueWorkerService`.
 
 **The two sides must agree.** A dispatching application without `AddNaravelQueueEncryption` raises nothing and sends a marked job as plaintext; a worker that has the registration then refuses it with the third message (with `AcceptPlaintextForMarkedJobs` it runs the job). A worker without the registration reads an envelope as ordinary JSON and fails with the JSON serializer's own `JsonException`, which does not mention encryption, so check that every worker registers it.
 
