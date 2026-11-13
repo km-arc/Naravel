@@ -1,18 +1,26 @@
 # Naravel.Pagination.EntityFrameworkCore
 
+[![NuGet](https://img.shields.io/nuget/v/Naravel.Pagination.EntityFrameworkCore.svg?label=nuget)](https://www.nuget.org/packages/Naravel.Pagination.EntityFrameworkCore)
+[![Downloads](https://img.shields.io/nuget/dt/Naravel.Pagination.EntityFrameworkCore.svg)](https://www.nuget.org/packages/Naravel.Pagination.EntityFrameworkCore)
+[![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)](https://dotnet.microsoft.com/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/km-arc/Naravel/blob/main/LICENSE)
+
 PaginateAsync, SimplePaginateAsync and CursorPaginateAsync for EF Core queries, returning Naravel.Pagination results. Keyset (cursor) paging applies both the order and the filter from one key declaration.
 
-Part of [Naravel](https://github.com/km-arc/Naravel): Laravel's names, .NET's type system. All Naravel packages share one version.
+| Fact | Detail |
+|---|---|
+| **Install** | `dotnet add package Naravel.Pagination.EntityFrameworkCore` |
+| **Targets** | .NET 10 |
+| **Needs** | `Naravel.Pagination` and `Microsoft.EntityFrameworkCore`, which NuGet installs with it, and the EF Core provider that your own `DbContext` uses |
 
-## Install
+## What you get
 
-```bash
-dotnet add package Naravel.Pagination.EntityFrameworkCore
-```
+- **Three kinds of page.** `PaginateAsync` returns a `Paginated<T>` with a total, `SimplePaginateAsync` a `SimplePaginated<T>` with no count, and `CursorPaginateAsync` a `CursorPaginated<T>` read by keyset.
+- **Laravel's page shape.** A page serializes as `data`, `links` and `meta`, and `WithPath` sets where the links point.
+- **One key declaration.** `k.By(p => p.CreatedAt, descending: true).Then(p => p.Id)` gives the cursor query its order and its filter.
+- **Back and forth.** `NextCursor` and `PreviousCursor` walk a feed in both directions, and an exact fit does not invent a next page.
 
-Targets .NET 10. It depends on `Naravel.Pagination`, which NuGet installs with it.
-
-## Use
+## Quick start
 
 ```csharp
 using Naravel.Pagination;   // PaginateAsync, SimplePaginateAsync and CursorPaginateAsync extend IQueryable<T>
@@ -46,7 +54,15 @@ app.MapGet("/feed", async (AppDb db, string? cursor, CancellationToken ct) =>
 
 The keys together must be unique, so end with the primary key: if two rows share every key, one of them can be skipped or repeated, and the helper cannot check that. A cursor is a position, not a secret and not a permission. It is not signed, so a client can edit it, and one that cannot be read throws `InvalidCursorException`.
 
-## Documentation
+## Related packages
+
+| Package | Adds |
+|---|---|
+| [`Naravel.Pagination`](https://www.nuget.org/packages/Naravel.Pagination) | The page types and options that this package fills from EF Core queries |
+
+## Learn more
 
 - Pagination: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/pagination.md)
 - [Changelog](https://github.com/km-arc/Naravel/blob/main/CHANGELOG.md) · [Source and issues](https://github.com/km-arc/Naravel) · MIT license
+
+Part of [Naravel](https://github.com/km-arc/Naravel): Laravel's names, .NET's type system. All Naravel packages share one version.

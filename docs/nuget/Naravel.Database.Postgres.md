@@ -1,18 +1,27 @@
 # Naravel.Database.Postgres
 
+[![NuGet](https://img.shields.io/nuget/v/Naravel.Database.Postgres.svg?label=nuget)](https://www.nuget.org/packages/Naravel.Database.Postgres)
+[![Downloads](https://img.shields.io/nuget/dt/Naravel.Database.Postgres.svg)](https://www.nuget.org/packages/Naravel.Database.Postgres)
+[![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)](https://dotnet.microsoft.com/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/km-arc/Naravel/blob/main/LICENSE)
+
 PostgreSQL driver for Naravel.Database, built on Npgsql.
 
-Part of [Naravel](https://github.com/km-arc/Naravel): Laravel's names, .NET's type system. All Naravel packages share one version.
+| Fact | Detail |
+|---|---|
+| **Install** | `dotnet add package Naravel.Database.Postgres` |
+| **Targets** | .NET 10 |
+| **Needs** | `Naravel.Database`, which NuGet installs with it |
+| **Driver** | `pgsql`, not `postgres` |
 
-## Install
+## What you get
 
-```bash
-dotnet add package Naravel.Database.Postgres
-```
+- **A named connection per server.** Every connection whose `Driver` is `pgsql` takes its own `ConnectionString`, so one application can use several PostgreSQL databases.
+- **Npgsql's own pooling.** Each connection holds one `NpgsqlDataSource`, Npgsql's recommended entry point, created without touching the network and disposed with the driver.
+- **The whole query builder.** Fluent queries, raw SQL and transactions from `Naravel.Database`, written in PostgreSQL's dialect.
+- **PostgreSQL's own SQL.** `UpsertAsync` writes `on conflict (uniqueBy)`, which needs a unique index on those columns, and `*ReturningAsync` writes `returning`.
 
-Targets .NET 10. It depends on `Naravel.Database`, which NuGet installs with it.
-
-## Use
+## Quick start
 
 ```json
 { "Database": { "Default": "main", "Connections": {
@@ -24,10 +33,19 @@ builder.Services.AddNaravelDatabase(builder.Configuration);         // from Nara
 builder.Services.AddNaravelPostgresDatabase(builder.Configuration);
 ```
 
-The connection `Driver` is `pgsql` and `ConnectionString` is required: without it the first use fails with an `InvalidOperationException` that names the key. The driver is built on Npgsql, which pools connections. Keep the password out of the file, for example in user secrets or the variable `Database__Connections__main__ConnectionString`. Note that the `Driver` value is `pgsql`, not `postgres`.
+`ConnectionString` is required: without it the first use fails with an `InvalidOperationException` that names the key. Keep the password out of the file, for example in user secrets or the variable `Database__Connections__main__ConnectionString`. PostgreSQL refuses a `Having` on a select alias.
 
-## Documentation
+## Related packages
+
+| Package | Adds |
+|---|---|
+| [`Naravel.Database`](https://www.nuget.org/packages/Naravel.Database) | The query builder and named connections that this driver plugs into |
+| [`Naravel.Database.EntityFrameworkCore`](https://www.nuget.org/packages/Naravel.Database.EntityFrameworkCore) | A DbContext and the query builder share one connection and one transaction |
+
+## Learn more
 
 - Database: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/database.md)
 - Database dialect differences: [English guide](https://github.com/km-arc/Naravel/blob/main/docs/en/database-dialects.md)
 - [Changelog](https://github.com/km-arc/Naravel/blob/main/CHANGELOG.md) · [Source and issues](https://github.com/km-arc/Naravel) · MIT license
+
+Part of [Naravel](https://github.com/km-arc/Naravel): Laravel's names, .NET's type system. All Naravel packages share one version.
