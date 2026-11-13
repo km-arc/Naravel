@@ -87,13 +87,16 @@ public sealed class DocsExampleTests
         Refused<ArgumentNullException>(() => redis.FromConnectionString(null!), "connectionString");
         Refused<ArgumentException>(() => redis.FromConnectionString(""), "connectionString");
         Refused<ArgumentException>(() => redis.FromConnectionString(" "), "connectionString");
-        foreach (var blank in new[] { "", " " })
-        {
-            var act = () => redis.Connection(blank);
-            var error = act.Should().ThrowExactly<ArgumentException>().Which;
-            error.ParamName.Should().Be("name");
-            error.Message.Should().StartWith("Driver name must not be blank.");
-        }
+        BlankName(redis, "");
+        BlankName(redis, " ");
+    }
+
+    private static void BlankName(RedisManager redis, string name)
+    {
+        var act = () => redis.Connection(name);
+        var error = act.Should().ThrowExactly<ArgumentException>().Which;
+        error.ParamName.Should().Be("name");
+        error.Message.Should().StartWith("Driver name must not be blank.");
     }
 
     [Fact]
@@ -126,7 +129,7 @@ public sealed class DocsExampleTests
     }
 
     [Fact]
-    public void A_manager_that_was_disposed_refuses_every_call_with_its_name()
+    public void A_manager_that_was_disposed_refuses_to_resolve_a_connection_with_its_name()
     {
         var provider = Provider(Configuration(("Redis:Default", "main"), ("Redis:Stores:main:ConnectionString", "main-host:6379")));
         var redis = provider.GetRequiredService<RedisManager>();
@@ -135,6 +138,10 @@ public sealed class DocsExampleTests
 
         var act = () => redis.Connection("main");
         act.Should().ThrowExactly<ObjectDisposedException>().Which.ObjectName.Should().Be("RedisManager");
+        redis.Forget("main").Should().BeFalse();                      // these three do not throw
+        redis.ForgetAll();
+        redis.Extend("late", p => new ReportsRedisConnection(p));
+        ((Action)(() => redis.Connection("late"))).Should().ThrowExactly<ObjectDisposedException>();   // and the new factory cannot be used
     }
 
     [Fact]
