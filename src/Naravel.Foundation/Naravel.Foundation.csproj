@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Naravel.Foundation</RootNamespace>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <Description>Shared driver-manager infrastructure for Naravel: named drivers resolved and cached from configuration, runtime Extend, reaction to configuration changes and single-owner disposal. Used by Naravel.Cache, Naravel.Queue and Naravel.Filesystem.</Description>
+    <Description>Shared driver-manager infrastructure for Naravel: named drivers resolved and cached from configuration, runtime Extend, reaction to configuration changes and single-owner disposal. Used by Naravel.Cache, Naravel.Database, Naravel.Filesystem, Naravel.Mail, Naravel.Queue, Naravel.Redis and Naravel.Broadcasting.</Description>
     <PackageTags>dependency-injection;driver;manager;configuration;laravel;naravel</PackageTags>
   </PropertyGroup>
 
@@ -17,7 +17,7 @@
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\docs\en\foundation.md" Pack="true" PackagePath="README.md" />
+    <None Include="..\..\docs\nuget\Naravel.Foundation.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 
 </Project>
