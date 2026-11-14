@@ -2,7 +2,7 @@
 
 **Native-first verdict:** the .NET SDK already has the mechanism for "one command to a new project": a `dotnet new` template pack, a NuGet package of package type `Template`, installed with `dotnet new install <package id>` and found by `dotnet new search`. No tool has to be built for that. What does not exist is the content. Today a Naravel project is `dotnet new web`, then `dotnet add package`, then a `Program.cs` written by hand from the guides: there is no folder structure, no sample configuration and no generator. **Proposed outcome: accept, as a template pack and not as a command-line tool.** The pack carries the starter application and a few item templates; it adds no runtime API and no dependency to any existing package.
 
-Status: **Proposed 2026-11-14.** The approach, the defaults and the release were agreed in the session of 2026-11-14 (see *Approval*); this document is the written decision for the owner's review. Stage R34 is blocked until it is merged. No template file is written before that.
+Status: **Approved 2026-11-14** by merging it (PR #285; see *Approval*). The approach, the defaults and the release were agreed in the session of 2026-11-14; this document is the written decision. Stage R34 starts from this approval.
 
 ## Context
 
