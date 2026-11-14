@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The `dotnet new` template pack (PDR-025, stage R34). Content only: it has no assembly, so it is not under src/, it has no API
+       baseline and no analyzers, and no other project references it. Everything under content/ is packed as it is and is never
+       compiled here; each template is a folder with .template.config/template.json. The pack takes the lock-step version from
+       Directory.Build.props like every other package. -->
+  <PropertyGroup>
+    <PackageType>Template</PackageType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <NoDefaultExcludes>true</NoDefaultExcludes>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <IncludeSymbols>false</IncludeSymbols>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>dotnet new templates for Naravel: a ready application with a Laravel-like folder structure, a sample configuration for each module and generators for jobs, events, listeners, mailables and controllers.</Description>
+    <PackageTags>naravel;dotnet-new;templates;project-template;starter;laravel</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- content/<template>/... is packed at the same path, dot folders included; bin and obj of a template that was built by hand are not. -->
+    <None Include="content\**\*" Exclude="content\**\bin\**;content\**\obj\**" Pack="true" PackagePath="content\%(RecursiveDir)" />
+    <None Include="..\..\docs\nuget\Naravel.Templates.md" Pack="true" PackagePath="README.md" />
+  </ItemGroup>
+
+</Project>

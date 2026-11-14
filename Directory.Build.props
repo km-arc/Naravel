@@ -42,11 +42,11 @@
   <ItemGroup Condition="$([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('/src/')) Or $([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('\src\'))">
     <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
   </ItemGroup>
-  <!-- What nuget.org shows for every package under src/ (NuGet metadata cannot be edited after a version is pushed, so a change here ships with the next version).
+  <!-- What nuget.org shows for every package under src/ and for the template pack under templates/ (NuGet metadata cannot be edited after a version is pushed, so a change here ships with the next version).
        Release notes: a link to the GitHub release named by the tag the publish job checks (v + version), plus the changelog.
        Icon: drop a PNG (128x128 or larger, at most 1 MB) at build/icon.png and every package picks it up; without the file nothing changes.
        Tags: a project's own PackageTags replaces this fallback. -->
-  <PropertyGroup Condition="$([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('/src/')) Or $([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('\src\'))">
+  <PropertyGroup Condition="$([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('/src/')) Or $([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('\src\')) Or $([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('/templates/')) Or $([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('\templates\'))">
     <Copyright>Copyright (c) 2026 km-arc</Copyright>
     <PackageTags>naravel;laravel;dotnet</PackageTags>
     <NaravelReleaseTag>v$(VersionPrefix)</NaravelReleaseTag>
@@ -54,7 +54,7 @@
     <PackageReleaseNotes>Release notes: https://github.com/km-arc/Naravel/releases/tag/$(NaravelReleaseTag) - full history: https://github.com/km-arc/Naravel/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <PackageIcon Condition="Exists('$(MSBuildThisFileDirectory)build/icon.png')">icon.png</PackageIcon>
   </PropertyGroup>
-  <ItemGroup Condition="$([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('/src/')) Or $([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('\src\'))">
+  <ItemGroup Condition="$([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('/src/')) Or $([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('\src\')) Or $([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('/templates/')) Or $([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('\templates\'))">
     <None Include="$(MSBuildThisFileDirectory)build/icon.png" Pack="true" PackagePath="\" Visible="false" Condition="Exists('$(MSBuildThisFileDirectory)build/icon.png')" />
   </ItemGroup>
 </Project>
