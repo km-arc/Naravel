@@ -27,6 +27,14 @@ public sealed class DocsExampleTests
         return services;
     }
 
+    private static void BlankName(GreeterManager manager, string name)
+    {
+        var act = () => manager.Driver(name);
+        var error = act.Should().ThrowExactly<ArgumentException>().Which;
+        error.ParamName.Should().Be("name");
+        error.Message.Should().StartWith("Driver name must not be blank.");
+    }
+
     [Fact]
     public void The_quickstart_answers_hello_with_the_driver_it_names()
     {
@@ -150,14 +158,8 @@ public sealed class DocsExampleTests
         var manager = provider.GetRequiredService<GreeterManager>();
         manager.Extend("shout", _ => new ShoutingGreeter());
 
-        foreach (var blank in new[] { "", " " })
-        {
-            var act = () => manager.Driver(blank);
-
-            var blankError = act.Should().ThrowExactly<ArgumentException>().Which;
-            blankError.ParamName.Should().Be("name");
-            blankError.Message.Should().StartWith("Driver name must not be blank.");
-        }
+        BlankName(manager, "");
+        BlankName(manager, " ");
 
         var unknown = () => manager.Driver("x");
 
