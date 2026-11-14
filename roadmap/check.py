@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ROADMAP = ROOT / "ROADMAP.md"
 MATRIX = ROOT / "roadmap" / "PARITY-MATRIX.md"
 STAGES = ROOT / "roadmap" / "stages"
-EXPECTED_IDS = {f"R{i:02}" for i in range(34)}
+EXPECTED_IDS = {f"R{i:02}" for i in range(35)}
 
 def fail(errors: list[str]) -> int:
     for error in errors:
