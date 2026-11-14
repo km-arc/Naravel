@@ -149,6 +149,11 @@ or the restore fails on it: 0.1.1 predates `Naravel.Routing.Cache`, so
 `gh workflow run package-smoke.yml -f version=0.1.1 -f exclude=Naravel.Routing.Cache` (or `--exclude Naravel.Routing.Cache`). Only the
 named ids are left out, and the run prints them, so a package that a release forgot to publish is not skipped without notice.
 
+Run it after nuget.org has indexed the new version, not the moment the publish job ends. A run that starts too early fails with
+`NU1102` ("Unable to find package ... with version (= 0.2.0)") for every package: the first smoke run of 0.2.0 started 42 seconds after
+the publish job finished and failed that way, and the same run ten minutes later passed. Wait several minutes and run it again; a failure
+that is still there then is a finding about a package.
+
 ### Dev container
 
 Open the repository in VS Code or Codespaces ("Reopen in Container") for a ready .NET 10 SDK with Docker access
