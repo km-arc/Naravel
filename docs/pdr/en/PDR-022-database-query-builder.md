@@ -166,3 +166,21 @@ Per stage: regression tests first; compile tests for every new method on all fou
 Amendment of 2026-10-17 (A1 to A6) was written at the owner's request after an architecture review; it keeps every approved decision and adds the constraints above. Its open items are decided by the owner at the stage that implements them.
 
 The owner approved on 2026-10-16: (a) Dapper stays in `Naravel.Database` core (the proposed option); (b) the stage boundaries R19 to R26 are accepted; (c) the owner asked for the best option, and the decision is **all four databases from the first release**. The three server containers start in parallel in the existing `services` job; if that job's duration becomes a problem, the database contract tests move to their own CI job (a separate job started from the same workflow) instead of dropping a dialect. Packages (Dapper, MySqlConnector, Microsoft.Data.SqlClient, Npgsql, Microsoft.Data.Sqlite) are approved; exact versions are verified from NuGet metadata at R19.T02 and R20.T01.
+
+
+## Architecture review veto — 2026-11-08 (post-Revert revalidation)
+
+The original PDR decisions remain historical implementation context and do not waive the following target-architecture requirements:
+
+- **AV-014:** JSON-path updates must encode JSON null correctly on SQLite, MySQL and PostgreSQL. SQL Server's current explicit unsupported behavior remains until a separate delete-key contract is approved.
+- **AV-015:** `InsertGetId` must enforce the dialect parameter limit against the final expanded binding count, including `Raw` values.
+- **AV-016:** direct raw SQL entry points must reject the reserved generated parameter namespace `@pN`, consistently with Query raw methods.
+- **AV-017:** ambient transaction scopes captured by detached ExecutionContexts must be invalidated at owner completion; stale acquisition must fail before reaching a disposed provider connection. Owner decision AD-022 records the enforcement choice.
+- **AV-018:** transaction disposal must release its owned connection lease even if provider transaction disposal fails.
+
+See [the architecture veto register](../../audits/package-architecture/ARCHITECTURE-VETOES.md), [the Database review report](../../audits/package-architecture/reports/17-Naravel.Database.md) and [owner decisions](../../audits/package-architecture/OWNER-DECISIONS.md). No runtime fix or public API change is authorized by this audit entry.
+
+
+## SQLite provider architecture review veto — 2026-11-08
+
+**AV-019:** all in-memory SQLite connection definitions must be normalized to a unique internal named shared-cache database, held alive by the driver keeper. The current implementation only does this for the literal `:memory:` data source; a named `Mode=Memory` configuration can instead create one private database per operation, or share a named shared-cache database across two Naravel connection definitions. See [SQL-001](../../audits/package-architecture/reports/18-Naravel.Database.Sqlite.md) and the [architecture veto register](../../audits/package-architecture/ARCHITECTURE-VETOES.md). This is a target requirement, not authorization to change the provider implementation.

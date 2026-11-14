@@ -82,8 +82,57 @@ Owner approved this proposal on 2026-10-06. The failed-record delivery semantics
 This section records the implementation and tests found in the repository. It does not add or imply owner approval beyond the approval stated above.
 
 a. **NOT IMPLEMENTED across all drivers.** `JobContext.Attempt` presents the initial attempt as 1, and Database, File, and Redis increment stored attempts on expired reservation reclaim. Kafka and RabbitMQ broker redelivery do not persist an increment to the envelope, and there is no test proving one-based attempt values on broker redelivery. Evidence: `src/Naravel.Queue/Jobs/JobContext.cs:25`, `src/Naravel.Queue/Worker/QueueWorkerService.cs:305`, `src/Naravel.Queue.Database/DatabaseQueueDriver.cs:45`, `src/Naravel.Queue.File/FileQueueDriver.cs:132`, `src/Naravel.Queue.Redis/RedisQueueDriver.cs:74`, `src/Naravel.Queue.Kafka/KafkaQueueDriver.cs:93`, `src/Naravel.Queue.RabbitMQ/RabbitMqQueueDriver.cs:114`, `tests/Naravel.Queue.Providers.Tests/QueueProviderContractTests.cs:40`, `tests/Naravel.Queue.Tests/DriverTests.cs:168`.
-b. **NOT IMPLEMENTED as approved.** The worker logs a warning for a short visibility timeout against its default/effective job timeout; it does not fail startup when visibility is below the worker default, nor calculate the maximum configured job timeout plus margin. Evidence: `src/Naravel.Queue/Worker/QueueWorkerService.cs:87`, `src/Naravel.Queue/Worker/QueueWorkerService.cs:343`; no corresponding validation test was found.
+b. **IMPLEMENTED (D-13, R07.T03).** `QueueWorkerService.StartAsync` throws before starting when a driver's visibility timeout is below the worker `JobTimeout`, and logs a warning when `MaxJobTimeout` is set and the driver's visibility is below `MaxJobTimeout + VisibilityMargin`. Evidence: `src/Naravel.Queue/Worker/QueueWorkerService.cs:87`, `src/Naravel.Queue/Worker/QueueWorkerService.cs:343`, `tests/Naravel.Queue.Tests/WorkerStartupValidationTests.cs`.
 c. **IMPLEMENTED.** Trace fields are nullable/additive, and the worker restores trace context. `Old_chain_envelope_without_connection_continues_on_the_worker_connection` processes an envelope serialized without nullable fields, including the trace fields; it does not explicitly assert their absence. Evidence: `src/Naravel.Queue/Drivers/QueuedMessage.cs:49`, `src/Naravel.Queue/Drivers/QueuedMessage.cs:52`, `src/Naravel.Queue/Worker/QueueWorkerService.cs:157`, `tests/Naravel.Queue.Tests/WorkerTests.cs:229`.
-d. **IMPLEMENTED policy; SQL-script deliverable NOT IMPLEMENTED.** The Database provider supplies EF model mappings, documents that the application creates/applies migrations, and does not create schema automatically. No checked-in SQL scripts or provider migration files were found. Evidence: `src/Naravel.Queue.Database/QueueModelBuilderExtensions.cs:13`, `docs/en/queue.md:224`, `docs/en/queue.md:231`, `docs/en/queue.md:236`.
-e. **NOT IMPLEMENTED; D-21 remains open.** Kafka `PopAsync` still calls synchronous `IConsumer.Consume` with a 200 ms poll timeout. The limitation is recorded in `roadmap/AUDIT.md:26`; `docs/en/queue.md` does not mention the blocking poll. Evidence: `src/Naravel.Queue.Kafka/KafkaQueueDriver.cs:93`.
-f. **IMPLEMENTED package bump; behavior/test coverage NOT IMPLEMENTED.** `MessagePack` is 3.1.7 centrally; the changelog says the bump from 2.5.301 was required by `EnyimMemcachedCore` 3.5.1. No C# source usage or tests of MessagePack were found; restore/build can validate package resolution, not serializer behavior. Evidence: `Directory.Packages.props:23`, `CHANGELOG.md:55`.
+d. **IMPLEMENTED for SQLite Development/Test; production provider DDL remains consumer-managed.** `src/Naravel.Queue.Database/Schema/sqlite.sql` is embedded and shipped as a plain file; `QueueSchema.SqliteScript` exposes it and `EnsureSqliteSchemaAsync` applies it only in Development/Test/Testing. `docs/en/queue.md` documents EF Core migrations as the production path for all providers and documents the UTC-ticks converter needed by the SQLite script. No SQL Server, PostgreSQL or MySQL scripts are shipped; whether those were intended by the approved deliverable is pending owner decision AD-016. Evidence: `src/Naravel.Queue.Database/QueueSchema.cs`, `src/Naravel.Queue.Database/Schema/sqlite.sql`, `tests/Naravel.Queue.Providers.Tests/DatabaseSchemaTests.cs`.
+e. **IMPLEMENTED (D-21, R17).** Kafka `PopAsync` calls `IConsumer.Consume(TimeSpan.Zero)` and awaits a short cancellable delay between polls; an idle poll does not block a worker thread. The roadmap audit records D-21 closed, and `docs/en/queue.md` documents the non-blocking 20 ms polling interval and cancellation behavior. Evidence: `src/Naravel.Queue.Kafka/KafkaQueueDriver.cs`, `tests/Naravel.Queue.Providers.Tests/QueueProviderContractTests.cs`, `roadmap/AUDIT.md` D-21.
+f. **IMPLEMENTED package bump; indirect behavior coverage exists through Enyim.** The current central pin is `MessagePack` 3.1.12 with `EnyimMemcachedCore` 3.5.2 (D-65). Naravel does not expose MessagePack as its own serialization API; the Memcached provider uses Enyim's transcoder. `MemcachedSerializerRoundTripTests` exercises that transcoder against a real Memcached service for common CLR types and objects. This is indirect Enyim integration coverage, not a direct MessagePack API test. Evidence: `Directory.Packages.props`, `roadmap/AUDIT.md` D-65, `tests/Naravel.Cache.Tests/CacheStoreContractTests.cs` (Memcached serializer round-trip tests).
+
+
+## Architecture review veto — 2026-11-08 (post-Revert revalidation)
+
+The 2026-10-06 approval remains historical and does not waive **AV-009**: `BatchAsync` must not leave a permanently-pending batch when only a prefix of its planned messages was published. The current implementation registers the full job count before sequential publishing and has no partial-publication recovery contract. The required design must expose/reconcile partial publication and account for each planned member without assuming an atomic transaction across arbitrary brokers. See [the architecture veto register](../../audits/package-architecture/ARCHITECTURE-VETOES.md) and owner decision AD-009.
+
+The following behavior clarifications are still open and are not silently decided by this review:
+- AD-010: failed-job retry for a member of a terminal batch (independent retry vs reopening original batch accounting).
+- AD-011: empty batch behavior.
+- AD-012: a shared `TimeProvider` injection boundary for Queue runtime/provider clocks.
+
+These are recorded in [OWNER-DECISIONS.md](../../audits/package-architecture/OWNER-DECISIONS.md). No implementation or public API change is authorized by this audit entry.
+
+
+## Architecture review veto — Naravel.Queue.Memory (2026-11-08)
+
+**AV-010** records a target-architecture requirement for the in-process Memory driver: its static queue lists, per-queue lock objects and private failed-message dictionary must have a bounded lifecycle while preserving the documented sharing between driver instances with the same connection name. Empty-queue probes must not leak unbounded state, and terminal failures must not retain unreachable payloads forever. See [the architecture veto register](../../audits/package-architecture/ARCHITECTURE-VETOES.md) and [report 07](../../audits/package-architecture/reports/07-Naravel.Queue.Memory.md).
+
+The Memory driver's cancellation-token parameters must also be honored consistently; cancelled calls must not enqueue, reserve, acknowledge, release, fail or mutate queue state. The File provider's static per-queue `QueueGates` semaphore table is also covered by AV-010: it must have a safe bounded lifecycle while preserving coordination among active callers on the same filesystem queue.
+
+
+## Architecture review veto — File queue path containment (2026-11-08)
+
+**AV-011** records a release-blocking path-boundary requirement for `Naravel.Queue.File`: queue names must map safely and injectively below the configured base path. The current delete-invalid-characters sanitization allows `..` path traversal and aliases distinct logical names into the same folder. The owner must approve the backward-compatible safe-name validation or a versioned encoded layout/migration policy under [AD-014](../../audits/package-architecture/OWNER-DECISIONS.md) before implementation.
+
+See [report 08](../../audits/package-architecture/reports/08-Naravel.Queue.File.md). No runtime code or on-disk data was changed by the audit.
+
+
+## Architecture review veto — Database queue contracts (2026-11-08)
+
+- **AV-012 — Positive reservation visibility:** Database, File and Redis drivers accept non-positive visibility timeouts; these values make an active reservation immediately eligible for reclaim. Reclaim-capable drivers must reject zero/negative timeouts at constructor and configuration boundaries. See [the veto register](../../audits/package-architecture/ARCHITECTURE-VETOES.md), findings DBQ-001 / FILE-004 and owner decision AD-017.
+- **DBQ-002 — SizeAsync semantics:** the Database driver counts reserved rows even though `IQueueDriver.SizeAsync` is documented as ready plus delayed pending work. Align the provider with the existing contract, or obtain an explicit owner decision to redefine the contract.
+- **DBQ-003 — Transactional enqueue connection:** the current `DatabaseJobEnqueuer` uses the normal message factory, which persists the QueueManager default or caller-selected Connection. PDR-023 says Connection is ignored for transactional enqueue; the actual behavior can route chain follow-ups and failed-job retries to another backend. The owner must decide the enqueuer's explicit Database connection identity under AD-015 before changing the API.
+- **SQLite quickstart:** the package README's SQLite example must show the UTC-ticks converter required by the shipped SQLite schema; see DBQ-004.
+- **Schema deliverable record:** a SQLite DDL script and opt-in Development/Test helper now exist. PDR implementation item d has been corrected to reflect that current state; whether provider-specific DDL scripts are also required remains AD-016.
+
+No runtime code or tests were changed by this architecture review.
+
+
+## Redis Queue architecture review follow-up — 2026-11-08
+
+- **AV-009 / RQR-004:** the Redis batch repository writes the batch hash and callback-recovery index in two separate commands. Failure after the hash write leaves a batch that startup recovery cannot enumerate.
+- **AV-012 / RQR-001:** RedisQueueDriver does not reject a zero/negative visibility timeout; this makes a live reservation immediately eligible for reclaim.
+- **RQR-002:** RedisQueueDriver.SizeAsync does not inspect its cancellation token before its eleven Redis count operations.
+- **AD-018:** FailScript writes a per-queue failed list that has no public read/cleanup path, in addition to the optional RedisFailedJobStore. Confirm whether this is an intended administrative DLQ.
+- **AD-019:** RedisBatchRepository's batch index has no retention/removal lifecycle and is scanned in full on worker startup.
+- **AD-020:** StackExchange.Redis commands do not take a CancellationToken; cancellation semantics after issuing a command need an explicit contract.
+
+See [report 10](../../audits/package-architecture/reports/10-Naravel.Queue.Redis.md) and [OWNER-DECISIONS.md](../../audits/package-architecture/OWNER-DECISIONS.md). No Redis key layout, runtime code or tests were changed by this review.

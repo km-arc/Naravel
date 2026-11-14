@@ -88,3 +88,10 @@ Owner approved on 2026-10-13 with these answers to the open questions:
 - Already present, so not repeated: the `outcome` meter tag (`released`/`skipped`) shipped with the core change in PR #31.
 - 2026-10-14 (R08.T03, part): `AddQueueCoordination()` now logs a startup warning when the Cache lock/store is Memory and the default queue driver is not the Memory one (the driver is recognised by type name because the Memory queue package is not referenced); parity table added to `roadmap/PARITY-MATRIX.md`. Not added: a sample job (the sample app has no Cache registration, so it would widen the change; the docs carry the examples) and a test of the warning (needs log capture against a non-Memory driver). NOT RUN; CI is the verification.
 - Still open: CI evidence for R08 (including the two env-gated Redis tests) before the stage can be closed in ROADMAP.md.
+
+
+## Architecture review veto — 2026-11-08 (post-Revert revalidation)
+
+The historical approval and implementation record remain context, not a waiver from **AV-013**. The current `CacheUniqueJobGate` stores the message owner in a separate Cache key. Its release path reads that key, token-releases the lock, then unconditionally removes the owner key. A newer dispatch can acquire the released lock and write its owner record before the stale removal runs; the old releaser can therefore delete the new owner's metadata. A delayed owner write can also overwrite a newer owner's metadata after lease expiry.
+
+The target design must atomically bind the owner to the lock lease or use a backend-guaranteed compare-and-set/delete operation. See [QCO-001](../../audits/package-architecture/reports/13-Naravel.Queue.Coordination.md) and owner decision [AD-021](../../audits/package-architecture/OWNER-DECISIONS.md). No runtime or Cache API change is authorized by this audit entry.

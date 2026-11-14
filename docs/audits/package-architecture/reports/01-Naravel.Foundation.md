@@ -1,0 +1,165 @@
+# Review Report — Naravel.Foundation
+
+## Review metadata
+
+- Package ID: Naravel.Foundation (default PackageId follows the project/assembly name; no explicit PackageId element is set).
+- Source project: src/Naravel.Foundation/Naravel.Foundation.csproj
+- Original source-review baseline: `99ea264e11bf4bcb9e4ae87a0d1519452f8570ed` (main).
+- Latest revalidation baseline: `c2b7e88b552088b7606286173fa6e51156163f1d` (main, PR #246 merged).
+- Review date: 2026-11-07
+- Reviewer mode: principal-architect source review; independent fresh-session review NOT RUN
+- Status: REVIEWED WITH FINDINGS (source review; runtime verification pending)
+- Files inspected: all files under src/Naravel.Foundation/; the Foundation test project and its test files; docs/en/foundation.md; PDR-002; shared build/package metadata.
+- Verification performed: source and project-file review; public API baseline inspected; test cases and assertions inspected; package README mapping inspected.
+- Verification NOT RUN: dotnet restore, dotnet build, dotnet test, trimmed/AOT publish, concurrency stress reproduction, and mutation testing. No executable repository checkout/SDK was available in this review pass.
+
+## Executive assessment
+
+- Overall risk: **Medium (P2)** pending the findings below.
+- Architectural fit: Strong alignment with accepted PDR-002: Foundation supplies the runtime named-driver manager/registry and leaves service construction to Microsoft DI.
+- Release readiness: No immediate release blocker established by source inspection alone; the three correctness risks should be reproduced with regression tests and reviewed before the next package release.
+- Summary: The package has a coherent public contract, useful separation between the driver registry and manager, a mature ownership model, explicit sync/async factory APIs, configuration reload handling, and meaningful tests for concurrency, replacement, DI ownership, and disposal. That initial assessment predates the second-pass revalidation below; fingerprint encoding and manager disposal cleanup have since been corrected and verified in main. The remaining open risks are the registry replacement race and late-created driver cleanup diagnostics.
+
+## Package and dependency map
+
+- Public package contract: Manager<TDriver,TOptions>, IDriverRegistry<TDriver>, DriverRegistry<TDriver>, IManagerOptions, ManagerOptions, ManagerOptionsExtensions.GetStore, ServiceCollectionExtensions, and DriverNotRegisteredException.
+- Package metadata: net10.0; PackageReadmeFile=README.md; package README is packed from docs/en/foundation.md; description and tags are present; shared build metadata supplies version, authors, license, and common NuGet properties.
+- Package ID: no explicit PackageId is declared; SDK default is the project/assembly name Naravel.Foundation.
+- Project references: none.
+- Package references: Microsoft.Extensions.Configuration, Microsoft.Extensions.DependencyInjection.Abstractions, Microsoft.Extensions.Options, and Microsoft.Extensions.Options.ConfigurationExtensions.
+- Registration / DI: AddNaravelManager registers the ownership tracker, one singleton registry per driver contract, the manager, and the direct default-driver service; registration callbacks are applied when the registry is first resolved.
+- Driver/provider map: Foundation is the shared abstraction and does not ship a concrete backend driver.
+- Resource ownership: manager-created drivers are disposed by the manager; the direct default-driver instance is marked as container-owned and skipped by manager disposal. Reference identity prevents double disposal for one object registered under multiple names.
+
+## Second-pass architecture revalidation — 2026-11-08
+
+- Latest revalidation baseline: `main` at `c2b7e88b552088b7606286173fa6e51156163f1d` (PR #246, `DriverAsync does not start over for a caller that has cancelled`, merged).
+- The audit branch contains this main commit: GitHub compare reports main as the branch's merge base (`behind = 0`); Foundation source, tests and guide blobs are identical on main and the audit branch.
+- **FND-001 — VERIFIED CLOSED.** The fingerprint now length-prefixes tagged store/key/value components, preserves null separately from empty, and includes a store's own scalar value. Four collision/single-value regressions and an identical-reload guard were added (D-82).
+- **FND-002 — narrowed, still OPEN.** The sync-to-async replacement race after `IsAsyncOnly` is fixed by creating through `IDriverRegistry.Create` and refusing an async factory selected at creation time. A narrower race remains: while `DriverAsync` is awaiting an old async factory, another thread replaces it with a sync factory; before the manager receives the registry's `Registered` event, `Driver` can observe the new sync registration but join the still-running old async entry and block. This is reproduced/documented in `docs/en/foundation.md` and D-83; eliminating it requires an atomic registry API that returns factory and factory kind together.
+- **FND-003 — VERIFIED CLOSED.** Registry detach, options-subscription disposal and lifetime-token cancellation are guarded; failures are collected and reported with driver-disposal failures after every owned driver is disposed. Five regression tests were added (D-84).
+- **D-85 — VERIFIED CLOSED in main.** PR #246 added a cancellation check before `DriverAsync` retries after a synchronous creator refused an entry. Its regression test `An_async_caller_that_cancelled_does_not_start_a_creation_when_the_refusal_ends_its_wait` proves a cancelled waiter receives `OperationCanceledException`, does not start a new async creation, and a subsequent live caller can create the driver.
+- **FND-004 — remains OPEN and vetoed as AV-006.** Late-created driver disposal still goes through `DisposeQuietlyAsync`, which catches and discards every exception.
+- PR #246's CI workflow run `42478727741` completed successfully. Windows, macOS, Ubuntu, Provider integration, Postgres, MySQL, SQL Server, service-image pins and `ci-ok` all completed with success; NuGet publish was skipped as expected for a non-tag event.
+- Verification performed here: source/blob comparison, PR/CI metadata inspection and control-flow re-review. The .NET tests were NOT RUN locally by this audit session; PR #246 CI is the verification evidence for FND-001, FND-003 and D-85.
+- No runtime code, tests, dependencies or public API were changed by this audit branch.
+
+## Findings
+
+### [P2 — VERIFIED CLOSED] FND-001 — Configuration fingerprint was not an unambiguous encoding
+
+- Prior status: CONFIRMED BY SOURCE and reproduction described in upstream PR #244 / D-82.
+- Current state: VERIFIED CLOSED in main. The fix and regression tests were merged in PR #244; the full CI matrix was green on PR #246 (`42478727741`).
+- Evidence: current `src/Naravel.Foundation/Manager.cs:554-592` writes tagged, length-prefixed components, includes the store's own value and differentiates null from empty. The old ambiguous `key=value;` encoding is removed.
+- Regression tests added upstream: separator movement between a value and the next key; equals sign moved between key and value; missing versus empty value; scalar store value change; identical separator-bearing reload does not rebuild.
+- Verification: PR #246 workflow run `42478727741` completed successfully on all listed build/test, provider and database jobs.
+- Required follow-up: none. No further implementation is requested by this finding.
+- Public API / PDR / release impact: implementation-only; no public API change.
+
+### [P2] FND-002 — Driver can still join an in-flight asynchronous creation after factory replacement
+
+- Remediation state: OPEN — NARROWED BY MAIN FIX; OWNER DECISION FOR FULL CLOSURE.
+- Evidence status: CONFIRMED BY UPSTREAM TARGETED REPRODUCTION / DOCUMENTED LIMITATION; independent reproduction NOT RUN in this pass.
+- Evidence: current `src/Naravel.Foundation/Manager.cs:108-137` checks the registry's current async-only flag and then calls `GetOrStart`. If `DriverAsync` has already created an entry from an async factory, another thread replaces that registration with a sync factory, and the registry's `Registered` event has not yet reached the manager, the existing incomplete entry can still be returned and synchronously awaited. The limitation is explicitly documented in `docs/en/foundation.md` and recorded in roadmap D-83.
+- Fixed portion: the previous sync-to-async race (sync factory replaced with async after the check) is mitigated: creation for a sync caller now uses `IDriverRegistry.Create`, which reads the selected factory once and rejects an async factory; an async waiter that shared this refusal starts over.
+- Affected contract: `Manager.Driver` guarantee that it does not block on an asynchronous factory.
+- User impact: a synchronous caller may still block while an already-started asynchronous factory finishes, but only in the narrow replacement/event-delivery window described above.
+- Required correction: close the atomicity gap between registry replacement and manager cache invalidation. The upstream D-83 record says the clean boundary requires `IDriverRegistry` to expose the factory and its kind in one atomic read; that is a public API change and remains an owner decision. Do not claim the guarantee is absolute until this is resolved.
+- Regression tests required: a deterministic registry must hold the `Registered` notification after replacing an in-flight async factory with a sync factory; call `Driver` in that interval and assert it never waits on the old async creation. Also preserve the already-added sync-to-async replacement tests.
+- Public API / PDR / release impact: likely public `IDriverRegistry` API change; owner decision required before implementation.
+
+### [P2 — VERIFIED CLOSED] FND-003 — A throwing lifetime-cancellation callback could abort manager cleanup
+
+- Prior status: CONFIRMED BY SOURCE and reproduced in upstream PR #244 / D-84.
+- Current state: VERIFIED CLOSED in main. The fix and regression tests were merged in PR #244; the full CI matrix was green on PR #246 (`42478727741`).
+- Evidence: current `src/Naravel.Foundation/Manager.cs:445-522` guards registry unsubscription, options-subscription disposal and lifetime cancellation independently. Cancellation callback failures are collected, all owned drivers are still disposed, the token source is finalized, and one `AggregateException` reports all failures.
+- Regression tests added upstream: throwing token callback during `Dispose` and `DisposeAsync`; aggregation with a driver-disposal failure; a second Dispose does not double-dispose; registry-detach and options-subscription disposal failures.
+- Verification: PR #246 workflow run `42478727741` completed successfully on all listed build/test, provider and database jobs.
+- Required follow-up: none. No further implementation is requested by this finding.
+- Public API / PDR / release impact: no public API change; the AggregateException message changed and is documented.
+
+### [P2] FND-004 — Disposal failures after late creation are silently swallowed
+
+- Remediation state: OPEN.
+- Architecture disposition: VETO AV-006 — late resource cleanup failures must remain observable.
+- Evidence status: CONFIRMED BY SOURCE.
+- Evidence: src/Naravel.Foundation/Manager.cs:390, 526-544. RunCreationAsync disposes a driver that completes after manager disposal, and DisposeQuietlyAsync catches every exception without logging, returning it, or recording a diagnostic.
+- Affected contract: manager lifetime, late driver creation, and resource ownership.
+- User impact: a late-created connection pool, socket pool, or other disposable driver may fail to release its resources, while the host receives no signal. This hides cleanup failures during shutdown/reload races and prevents operators from distinguishing clean shutdown from leaked resources.
+- Why existing tests do not catch it: current disposal tests verify normal disposal and that cleanup does not produce an unobserved background exception; they do not verify that a failure from disposing a late-created driver is observable.
+- Required correction: preserve the no-unobserved-background-exception property, but report the failure through a manager-owned diagnostic/logging mechanism. The failure must be visible to the host/operator without preventing disposal of other owned drivers.
+- Regression tests required: make a pending factory complete after manager disposal and return a driver whose Dispose/DisposeAsync throws; verify exactly-once disposal and an observable structured diagnostic; verify no unobserved task exception.
+- Public API / PDR / release impact: a diagnostic mechanism may be internal or additive; choose it without forcing application code to depend on private manager internals.
+
+## Test assessment
+
+- Existing tests inspected: manager resolution/defaults, concurrent one-time creation, sync/async factories, cancellation of individual waiters, runtime extension/replacement, options reload, forgetting, manager disposal, DI ownership, duplicate driver-instance disposal, registry concurrency, and provider-aware registration callbacks.
+- Missing regression coverage: the narrower async-in-flight-to-sync-factory replacement/event-delivery race (AD-013); late-created driver disposal failure observability.
+- Provider integration tests: not applicable to Foundation itself; provider-specific behavior belongs to each package review.
+- Tests actually run: none in this remote source-inspection pass.
+- Tests NOT RUN: Foundation test project and full solution tests; no runtime execution was performed.
+- Mutation testing: NOT RUN; no mutation-testing tool/run was available in this pass.
+- Independent review: fresh-session/independent reviewer NOT RUN; concurrency findings should receive that review before remediation is accepted.
+
+## Documentation and packaging assessment
+
+- Source-to-doc mismatches established: none yet.
+- Code sample validity: quickstart API names and registration calls match the inspected source signatures; sample was not compiled.
+- README pack metadata and actual file: project sets PackageReadmeFile=README.md and packs docs/en/foundation.md to that path.
+- Dependencies: only Microsoft.Extensions packages are referenced directly; no unexpected Naravel project reference.
+- Compatibility: source targets net10.0; the AOT-safe registration path is documented separately from the reflection-based configuration overload. The trim/AOT publish was not executed.
+- Public API baseline: PublicAPI.Shipped.txt contains the reviewed API surface and PublicAPI.Unshipped.txt contains no pending members.
+
+## Risk summary and next action
+
+- P0: none established.
+- P1: none established from this pass.
+- P2: FND-002 and FND-004 remain OPEN; FND-004 is Architecture Veto AV-006. FND-001 and FND-003 are VERIFIED CLOSED in main; D-85 is also fixed and covered by PR #246 CI.
+- P3: none established.
+- OBS: none.
+- DOC: none established.
+- Recommended next task: obtain the owner's decision on the remaining FND-002 registry API race and include AV-006 in Foundation lifecycle remediation. No additional verification follow-up is required for FND-001/FND-003 after the fully green PR #246 run. The late-disposal failure must be observable while preserving exactly-once cleanup and avoiding unobserved background exceptions. No remediation has been made in this audit branch.
+
+## Plain-language explanation
+
+The report contains four findings. Two are already marked as fixed in the report because later changes reached `main`; two remain open. The examples below preserve that distinction.
+
+### FND-001 — Configuration fingerprint could treat different settings as the same
+
+- **In everyday words:** The manager used to turn settings into one text string without clearly separating each value. Different settings could therefore produce the same text, making the manager think nothing had changed.
+- **A realistic example:** One configuration could contain a value with `;`, while another uses that character to separate the next setting. The old text could look identical even though the actual settings differ.
+- **What we checked:** `src/Naravel.Foundation/Manager.cs`, method area around lines 554–592, now writes labelled parts with their lengths, keeps null separate from empty, and includes the store's own value. The report also names the regression cases added upstream.
+- **Why that proves the issue was addressed:** The new format keeps each setting boundary clear, so moving separators between values cannot make two different configurations look alike.
+- **What is not yet proven here:** This audit session did not run the .NET tests locally. The report records that PR #246 CI run `42478727741` passed; that is upstream CI evidence, not a local test run.
+- **Safe outcome and proof:** Keep the distinct-configuration cases and the unchanged-configuration case as regression tests. The report marks this finding **VERIFIED CLOSED** based on the merged fix and successful CI.
+
+### FND-002 — A synchronous caller can still wait for an old asynchronous driver creation
+
+- **In everyday words:** A driver is being created in the background. If its registration is replaced at just the wrong moment, a normal synchronous request can still attach itself to the old creation and wait for it to finish.
+- **A realistic example:** An asynchronous Redis driver is still starting. Another thread replaces it with a synchronous driver. Before the manager hears about the replacement, a call to `Driver` can join the old unfinished task instead of using the new synchronous factory.
+- **What we checked:** `src/Naravel.Foundation/Manager.cs`, around lines 108–137, checks the current async-only flag and then calls `GetOrStart`. The report also points to the documented limitation in `docs/en/foundation.md` and roadmap item D-83.
+- **Why that proves the remaining risk:** The factory replacement and the manager's notification are separate steps. During the gap, the manager can still see the old unfinished creation.
+- **What is not yet proven here:** The narrow race was documented by an upstream targeted reproduction, but this audit pass did not independently reproduce it or run a stress test.
+- **Safe outcome and proof:** A synchronous call must never wait for an asynchronous factory, even during replacement. Add a deterministic test that pauses the registry notification after replacing an in-flight async factory, calls `Driver`, and proves it does not wait for the old creation. The report keeps this finding **OPEN** and requires an owner decision because the clean fix may change the public registry API.
+
+### FND-003 — One throwing shutdown callback used to stop cleanup of other drivers
+
+- **In everyday words:** If one shutdown callback threw an error, the manager could stop cleaning up before it had disposed of the other drivers it owned.
+- **A realistic example:** The application shuts down. A callback attached to the lifetime token throws. Without separate error handling, a database driver later in the cleanup list might never be disposed.
+- **What we checked:** `src/Naravel.Foundation/Manager.cs`, around lines 445–522, now handles registry detachment, options-subscription disposal and lifetime cancellation separately, collects errors, and still disposes all owned drivers. The report lists five upstream regression cases.
+- **Why that proves the issue was addressed:** Each cleanup step can fail without preventing the remaining cleanup steps from running; failures are reported together afterwards.
+- **What is not yet proven here:** This audit pass did not execute the tests locally. The report records successful PR #246 CI, but not a local reproduction.
+- **Safe outcome and proof:** Keep tests for throwing callbacks, combined driver-disposal failures, repeated disposal and subscription failures. The report marks this finding **VERIFIED CLOSED** based on the merged implementation and CI.
+
+### FND-004 — A late-created driver can fail to dispose without anyone being told
+
+- **In everyday words:** A driver may finish starting after the manager has already shut down. The manager tries to dispose it, but currently hides any error from that cleanup.
+- **A realistic example:** A connection pool finishes opening after application shutdown has started. Its disposal fails. The host receives no warning, so an operator cannot tell that a resource may have been left behind.
+- **What we checked:** `src/Naravel.Foundation/Manager.cs`, around lines 390 and 526–544. `RunCreationAsync` calls `DisposeQuietlyAsync`, which catches and discards every exception.
+- **Why that proves the risk:** The code explicitly suppresses the only error from disposing that late-created driver; it does not log or return it.
+- **What is not yet proven here:** The audit inspected the source. It did not reproduce a real leaked connection pool or run a shutdown race.
+- **Safe outcome and proof:** Disposal errors must be visible through a manager-owned diagnostic while cleanup remains safe and does not create an unobserved task exception. Test a factory that completes after shutdown and returns a driver whose disposal throws; assert exactly-once disposal and a visible diagnostic. This finding remains **OPEN**.
+
+### Overall plain-language status
+
+The two closed items describe fixes already merged and checked by upstream CI. The two open items describe remaining risks found by reading the code and the recorded targeted reproduction; this audit did not run the Foundation test project, full solution tests, trimming/AOT publish or mutation tests locally.
