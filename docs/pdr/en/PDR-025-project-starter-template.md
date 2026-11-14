@@ -137,7 +137,7 @@ Verified by reading each script and workflow; each row is a task of the stage.
 
 ## Approval
 
-On 2026-11-14 the owner asked for Naravel to be installable like Laravel, "with one command, with an initial structure and sample configuration", and approved the proposal to build it as a `dotnet new` template pack, with these answers to the three open questions: **`dotnet new` first, a command-line tool only later and only on real need**; **the default application needs no external service**; **the release is 0.3.0**. The owner asked for the work to continue with the greatest care. Merging this PDR is the approval of what is written here, in particular of D3 (the structure and the default module set), D4 (the parameters), D8 (the three test packages) and D10.
+On 2026-11-14 the owner asked for Naravel to be installable like Laravel, "with one command, with an initial structure and sample configuration", and approved the proposal to build it as a `dotnet new` template pack, with these answers to the three open questions: **`dotnet new` first, a command-line tool only later and only on real need**; **the default application needs no external service**; **the release is 0.3.0**. The owner asked for the work to continue with the greatest care. Merging this PDR is the approval of what is written here, in particular of D3 (the structure and the default module set), D4 (the parameters), D8 (the three test packages) and D10. The owner merged it on 2026-11-14 (PR #285, merge `b33863e`).
 
 ## Not decided here
 

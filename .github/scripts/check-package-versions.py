@@ -20,6 +20,12 @@ def properties(root: ET.Element, names: set[str]) -> list[tuple[str, str]]:
     return values
 
 
+def is_template_content(path: Path) -> bool:
+    """True for a project file inside templates/<pack>/content/, which is template content and not a project of this repository."""
+    parts = path.relative_to(ROOT).parts
+    return len(parts) > 3 and parts[0] == "templates" and parts[2] == "content"
+
+
 def main() -> int:
     errors: list[str] = []
     build_props_path = ROOT / "Directory.Build.props"
@@ -64,7 +70,10 @@ def main() -> int:
         if not version:
             errors.append(f"central package {package_id} has no version")
 
-    project_files = sorted(ROOT.rglob("*.csproj"))
+    # The files under templates/<pack>/content/ are the projects that `dotnet new` generates for a user. They pin their Naravel and
+    # test packages inline on purpose, because the user's repository has no Directory.Packages.props; check-template-pins.py (PDR-025 D8)
+    # checks those pins. The template pack's own project, templates/<pack>/<pack>.csproj, is checked like any other.
+    project_files = sorted(path for path in ROOT.rglob("*.csproj") if not is_template_content(path))
     source_projects = [path for path in project_files if path.is_relative_to(ROOT / "src")]
     package_references = 0
     for project in project_files:
