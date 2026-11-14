@@ -2,7 +2,7 @@
 
 **Native-first verdict:** the .NET SDK already has the mechanism for "one command to a new project": a `dotnet new` template pack, a NuGet package of package type `Template`, installed with `dotnet new install <package id>` and found by `dotnet new search`. No tool has to be built for that. What does not exist is the content. Today a Naravel project is `dotnet new web`, then `dotnet add package`, then a `Program.cs` written by hand from the guides: there is no folder structure, no sample configuration and no generator. **Proposed outcome: accept, as a template pack and not as a command-line tool.** The pack carries the starter application and a few item templates; it adds no runtime API and no dependency to any existing package.
 
-Status: **Proposed 2026-11-14.** The approach, the defaults and the release were agreed in the session of 2026-11-14 (see *Approval*); this document is the written decision for the owner's review. Stage R34 is blocked until it is merged. No template file is written before that.
+Status: **Approved 2026-11-14.** The owner merged this PDR (PR #285, merge `b33863e`); the approach, the defaults and the release were agreed in the session of the same day (see *Approval*). Stage R34 may start; no template file existed before this approval.
 
 ## Context
 
@@ -137,7 +137,7 @@ Verified by reading each script and workflow; each row is a task of the stage.
 
 ## Approval
 
-On 2026-11-14 the owner asked for Naravel to be installable like Laravel, "with one command, with an initial structure and sample configuration", and approved the proposal to build it as a `dotnet new` template pack, with these answers to the three open questions: **`dotnet new` first, a command-line tool only later and only on real need**; **the default application needs no external service**; **the release is 0.3.0**. The owner asked for the work to continue with the greatest care. Merging this PDR is the approval of what is written here, in particular of D3 (the structure and the default module set), D4 (the parameters), D8 (the three test packages) and D10.
+On 2026-11-14 the owner asked for Naravel to be installable like Laravel, "with one command, with an initial structure and sample configuration", and approved the proposal to build it as a `dotnet new` template pack, with these answers to the three open questions: **`dotnet new` first, a command-line tool only later and only on real need**; **the default application needs no external service**; **the release is 0.3.0**. The owner asked for the work to continue with the greatest care. Merging this PDR is the approval of what is written here, in particular of D3 (the structure and the default module set), D4 (the parameters), D8 (the three test packages) and D10. The owner merged it on 2026-11-14 (PR #285, merge `b33863e`).
 
 ## Not decided here
 
