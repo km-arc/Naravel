@@ -325,3 +325,10 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 - Naravel: the consumer smoke blocks a change that stops the packed packages from installing, a version tag cannot publish while any `PublicAPI.Unshipped.txt` still has an entry, and 0.2.0 is released and then installed from nuget.org without leaving a package out.
 - Value: the fixes of the Foundation `Manager` and the throttle partition key, and the shared throttle store of `Naravel.Routing.Cache`, reach users from nuget.org, and a release cannot go out with an unshipped API or with a package that does not install.
 - Native baseline: none; the checks are Python scripts and workflow steps like the existing ones.
+
+## R34 — Project starter: the `Naravel.Templates` template pack
+
+- Laravel surface: `laravel new` and `composer create-project laravel/laravel` (a project with `app/`, `config/`, `routes/`, `resources/`, `storage/` and `tests/`), `config/*.php` with the drivers of each module, `.env`, and the `make:job`, `make:event`, `make:listener`, `make:mail` and `make:controller` generators. `key:generate` and `.env` are not ported (PDR-025 D6); the Artisan command layer stays declined (PDR-017).
+- Naravel: a `dotnet new` template pack, installed once with `dotnet new install Naravel.Templates`, that creates a working application with `dotnet new naravel -n Blog` (defaults that need no external service; parameters for the database, cache, queue and mail drivers) and item templates (`naravel-job` and four more) that stand in for the `make:*` generators.
+- Value: a new user gets a runnable project, a structure and a sample configuration in one command, pinned to the package version that the template was released with, and CI generates, builds, tests and starts it from the packed packages on every change.
+- Native baseline: `dotnet new web` and `dotnet add package` plus the hand-written registration of the guides; the template engine of the .NET SDK does the generation, so no tool and no runtime code is added.
