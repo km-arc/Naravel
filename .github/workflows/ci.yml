@@ -612,6 +612,8 @@ jobs:
         run: python3 .github/scripts/check-doc-names.py
       - name: Validate lock-step package versions
         run: python3 .github/scripts/check-package-versions.py
+      - name: The starter template writes the repository version and the repository test pins
+        run: python3 .github/scripts/check-template-pins.py
       - name: Publishing must wait for every required job
         run: python3 .github/scripts/check-publish-gates.py
       - name: Tag/version guard still works
@@ -624,6 +626,8 @@ jobs:
         run: python3 .github/scripts/check-package-readmes.py --self-test
       - name: Template smoke script still works
         run: python3 .github/scripts/template-smoke.py --self-test
+      - name: Template pins guard still works
+        run: python3 .github/scripts/check-template-pins.py --self-test
 
   # The starter template (R34, PDR-025 D9). The template content is never compiled in this repository, so this is the only job that installs
   # the packed Naravel.Templates like a user, generates the default application outside the repository against the packed Naravel packages,
