@@ -199,6 +199,11 @@ def nupkg_problems(names: list[str], nuspec_text: str, sources: list[str]) -> li
         shown = ", ".join(f"content/naravel/{relative}" for relative in missing[:4])
         problems.append(f"{len(missing)} of {len(sources)} files of the template folder are not in the package under content/naravel/, "
                         f"for example {shown}")
+    # NuGet appends the folder of each file to PackagePath by itself; a PackagePath that names that folder too repeats it.
+    repeated = sorted(name for name in packed if re.match(r"^content/naravel/(?P<d>(?:.*/)?)naravel/(?P=d)[^/]+$", name))
+    if repeated:
+        problems.append(f"{len(repeated)} entries repeat the template folder, for example {repeated[0]}: NuGet already appends the folder of "
+                        f"each file to PackagePath, so PackagePath in Naravel.Templates.csproj must be content\\ and nothing more")
     stray = sorted(name for name in packed if re.search(r"/(bin|obj)/", name))
     problems.extend(f"{name} is a build output and must not be packed" for name in stray)
     return problems
@@ -560,6 +565,19 @@ def self_test() -> int:
     dropped = nupkg_problems(only_dot_files, good_nuspec, sources)
     expect("a package that kept only the dot files is one problem that counts the files",
            len(dropped) == 1 and f"{len(sources) - len(only_dot_files) + 1} of {len(sources)} files" in dropped[0])
+    # The listing the first CI run printed for PackagePath="content\\%(RecursiveDir)\\": every folder is written twice.
+    doubled = ["Naravel.Templates.nuspec", "content/naravel/naravel/Program.cs", "content/naravel/naravel/.gitignore",
+               "content/naravel/app/Events/naravel/app/Events/UserRegistered.cs",
+               "content/naravel/.template.config/naravel/.template.config/template.json"]
+    repeats = nupkg_problems(doubled, good_nuspec, sources)
+    expect("a package that repeats the template folder is reported with the cause",
+           any("4 entries repeat the template folder" in p and "must be content" in p for p in repeats))
+    expect("a package with the right paths does not report a repeated folder", not any("repeat" in p for p in nupkg_problems(packed, good_nuspec, sources)))
+    import xml.etree.ElementTree as ET
+    pack_project = ROOT / "templates" / "Naravel.Templates" / "Naravel.Templates.csproj"
+    content_items = [item for item in ET.parse(pack_project).getroot().iter("None") if item.get("Include", "").startswith("content\\")]
+    expect("the template project packs the content folder with PackagePath content\\ and without RecursiveDir",
+           len(content_items) == 1 and content_items[0].get("PackagePath") == "content\\")
     listing = entry_listing(["b.txt", "a.txt", "c.txt"], limit=2)
     expect("the entry listing is sorted, counted and cut", "3 entries" in listing and listing.index("a.txt") < listing.index("b.txt")
            and "c.txt" not in listing and "1 more" in listing)
