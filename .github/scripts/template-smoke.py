@@ -150,12 +150,24 @@ def nupkg_problems(names: list[str], nuspec_text: str, sources: list[str]) -> li
     if not re.search(r'<packageType\s+name="Template"', nuspec_text):
         problems.append('the nuspec does not have <packageType name="Template" />')
     packed = {name for name in names if name.startswith("content/naravel/")}
-    for relative in sources:
-        if f"content/naravel/{relative}" not in packed:
-            problems.append(f"content/naravel/{relative} is in the template folder but not in the package")
+    missing = [relative for relative in sources if f"content/naravel/{relative}" not in packed]
+    if missing:
+        # One problem, not one per file: a packing rule that is wrong drops most files, and twenty annotations hide the cause.
+        shown = ", ".join(f"content/naravel/{relative}" for relative in missing[:4])
+        problems.append(f"{len(missing)} of {len(sources)} files of the template folder are not in the package under content/naravel/, "
+                        f"for example {shown}")
     stray = sorted(name for name in packed if re.search(r"/(bin|obj)/", name))
     problems.extend(f"{name} is a build output and must not be packed" for name in stray)
     return problems
+
+
+def entry_listing(names: list[str], limit: int = 150) -> str:
+    """The entries of the package as they are stored, one per line, so a wrong packing rule can be seen and not guessed."""
+    entries = sorted(names)
+    lines = [f"  {name}" for name in entries[:limit]]
+    if len(entries) > limit:
+        lines.append(f"  ... and {len(entries) - limit} more")
+    return f"the package holds {len(entries)} entries:\n" + "\n".join(lines)
 
 
 def trx_problems(trx_text: str, required_test: str) -> list[str]:
@@ -301,12 +313,14 @@ def smoke(local: Path, work: Path, extra_args: list[str]) -> tuple[list[str], li
 
     # 1. The packed template.
     with zipfile.ZipFile(nupkg) as package:
-        nuspec = next((package.read(n).decode("utf-8", "replace") for n in package.namelist() if n.endswith(".nuspec")), "")
-        problems = nupkg_problems(package.namelist(), nuspec, sources)
+        entries = package.namelist()
+        nuspec = next((package.read(n).decode("utf-8", "replace") for n in entries if n.endswith(".nuspec")), "")
+        problems = nupkg_problems(entries, nuspec, sources)
     json_text = (TEMPLATE_DIRECTORY / ".template.config" / "template.json").read_text(encoding="utf-8")
     if default_version(json_text) != version:
         problems.append(f"template.json: NaravelVersion defaults to {default_version(json_text)!r}, the packed version is {version!r}")
     if phase_failed("nupkg", problems):
+        print(entry_listing(entries), flush=True)
         return failed, notes
 
     runner = consumer.Runner(work, extra_args)
@@ -455,6 +469,13 @@ def self_test() -> int:
     expect("a complete package has no problems", nupkg_problems(packed, good_nuspec, sources) == [])
     expect("a wrong package type is reported", len(nupkg_problems(packed, good_nuspec.replace("Template", "Dependency"), sources)) == 1)
     expect("a missing file is reported", len(nupkg_problems(packed[1:], good_nuspec, sources)) == 1)
+    only_dot_files = [f"content/naravel/{s}" for s in sources if s.startswith(".")] + ["Naravel.Templates.nuspec"]
+    dropped = nupkg_problems(only_dot_files, good_nuspec, sources)
+    expect("a package that kept only the dot files is one problem that counts the files",
+           len(dropped) == 1 and f"{len(sources) - len(only_dot_files) + 1} of {len(sources)} files" in dropped[0])
+    listing = entry_listing(["b.txt", "a.txt", "c.txt"], limit=2)
+    expect("the entry listing is sorted, counted and cut", "3 entries" in listing and listing.index("a.txt") < listing.index("b.txt")
+           and "c.txt" not in listing and "1 more" in listing)
     expect("a packed build output is reported",
            len(nupkg_problems(packed + ["content/naravel/bin/Debug/x.dll"], good_nuspec, sources)) == 1)
 
