@@ -7,7 +7,7 @@
 - Review date: 2026-11-08.
 - Reviewer mode: principal-architect source and contract review; independent fresh-session review NOT RUN.
 - Status: REVIEWED WITH FINDINGS (source inspection only; runtime verification pending).
-- Files inspected: core project metadata and package references; shipped/unshipped public API; manager/driver registration; dispatcher and message creation; worker lifecycle, reservation/settlement, failure and retry paths; job type registry and serializer; envelope source generation; batches and callback registries; fake; telemetry; failed-job stores/managers; provider batch repositories; relevant worker/provider tests; Queue guide and PDR-012/012a/012b.
+- Files inspected: core project metadata and package references; shipped/unshipped public API; manager/driver registration; dispatcher and message creation; worker lifecycle, reservation/settlement, failure and retry paths; job type registry and serializer; envelope source generation; batches and callback registries; fake; telemetry; failed-job stores/managers; provider batch repositories; relevant worker/provider tests; Queue guide and PDR-012, PDR-012a and PDR-012b.
 - Dependencies: core package references `Naravel.Foundation` and Microsoft.Extensions abstractions; no direct broker/client provider dependency. Provider projects remain optional.
 - Verification performed: source-level control-flow tracing for batch dispatch, terminal batch callback delivery, failed-job retry and batch cancellation; test coverage mapping; direct clock inventory.
 - Verification NOT RUN: `dotnet restore`, `dotnet build`, `dotnet test`, live Redis/RabbitMQ/Kafka service tests, full CI, mutation testing, and independent review. Do not treat source inspection as runtime proof.

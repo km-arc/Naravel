@@ -11,7 +11,7 @@
 - Files inspected: project metadata and central Npgsql pin; `PostgresDatabaseConnection`; DI registration and connection-string handling; shared dialect contract fixtures; PostgreSQL server transaction integration tests; PDR-022; PostgreSQL NuGet README and English database guide.
 - Dependency boundary: optional provider package references `Naravel.Database` and `Npgsql`; no Npgsql type leaks into the provider-neutral core API.
 - Verification performed: NpgsqlDataSource lifetime and pooling trace; async connection opening/cancellation; disposal and configuration reload ownership; server contract and transaction test mapping.
-- Verification NOT RUN: `.NET restore/build/test`, live PostgreSQL 17 provider tests, concurrent dispose/open fault injection, full CI, mutation testing and independent review.
+- Verification NOT RUN: `.NET restore/build/test`, live provider tests against PostgreSQL 17, concurrent dispose/open fault injection, full CI, mutation testing and independent review.
 
 ## Executive assessment
 

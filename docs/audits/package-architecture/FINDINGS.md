@@ -17,7 +17,7 @@ A prior PDR approval is not a waiver from this architecture review. Items in the
 
 ## Architecture vetoes
 
-The following are vetoed as target architecture. AV-001, AV-002 and AV-011 are P1 release blockers; AV-003 through AV-010 and AV-012 through AV-019 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable.
+The following are vetoed as target architecture. AV-001, AV-002 and AV-011 are P1 release blockers; AV-003 through AV-005, AV-007 through AV-010 and AV-012 through AV-019 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable. AV-006 was superseded by an owner decision on 2026-11-10 (D-84).
 
 | Veto ID | Severity | Required architectural outcome | Related findings |
 |---|---:|---|---|
@@ -26,13 +26,20 @@ The following are vetoed as target architecture. AV-001, AV-002 and AV-011 are P
 | AV-003 | P2 | Tag metadata must have a safe bounded lifecycle; it must not grow forever or be expired in a way that resurrects old values. | CCH-008 |
 | AV-004 | P2 | No synchronous network I/O on request-path threads; Redis connection opening and Memcached counter operations must be genuinely asynchronous. | RED-002, MCD-009 |
 | AV-005 | P2 | Named Memcached stores support independent clusters while sharing clients for identical normalized topologies and disposing each client exactly once. | MCD-008 |
-| AV-006 | P2 | Late resource disposal failures remain observable without unobserved background exceptions or skipped cleanup. | FND-004 |
+| AV-006 | P2 | SUPERSEDED 2026-11-10 by owner decision D-84: a failure while disposing a late-created driver stays unreported, and `docs/en/foundation.md` documents how to prevent it. Original outcome: late resource disposal failures remain observable without unobserved background exceptions or skipped cleanup. | FND-004 |
 | AV-007 | P2 | Cache stores and locks expose low-cardinality operational telemetry without keys, values, subjects, tokens or secrets. | CCH-007 |
 | AV-008 | P2 | Positive TTLs must not become infinite because a provider truncates sub-second durations to zero. | MCD-010 |
 | AV-009 | P2 | Batch dispatch must recover from partial publication; no planned member may become permanently pending and unreachable. | QUE-001, RQR-004 |
 | AV-010 | P2 | Process-local queue coordination state must have a bounded lifecycle without removing active gates. | MEM-001, FILE-002 |
 | AV-011 | P1 | File queue names must map injectively beneath the configured root; no traversal or logical queue aliasing. | FILE-001 |
 | AV-012 | P2 | Reclaim-capable queue drivers must reject zero/negative visibility timeouts; a live reservation must not be immediately reclaimable. | DBQ-001, FILE-004, RQR-001 |
+| AV-013 | P2 | Unique-job owner metadata must be bound to the lock lease; a stale owner must never overwrite or remove a newer lease's metadata. | QCO-001 |
+| AV-014 | P2 | JSON-path updates must encode JSON null as the JSON literal `null` on SQLite, MySQL and PostgreSQL; SQL Server keeps its explicit unsupported behaviour. | DBC-001 |
+| AV-015 | P2 | Every insert compiler path, including InsertGetId, must enforce the dialect parameter limit on the final expanded binding count. | DBC-002 |
+| AV-016 | P2 | Direct raw SQL must reject the reserved generated `@pN` marker namespace at the shared preparation boundary. | DBC-003 |
+| AV-017 | P2 | Ambient transaction scopes must be invalidated at owner completion; stale acquisition must fail before reaching a provider connection. | DBC-004 |
+| AV-018 | P2 | Transaction cleanup must always release the owned connection lease, even when provider transaction disposal fails. | DBC-005 |
+| AV-019 | P2 | Every SQLite in-memory connection must be normalized to a unique internal named shared-cache database, or rejected. | SQL-001 |
 
 Veto status is separate from finding lifecycle status. Related findings remain OPEN; a veto is cleared only after its required design is implemented, regression tests and relevant CI pass, and verification evidence is recorded. Historical PDR approvals remain in the files as design history, but veto sections in the PDRs supersede them for the target architecture.
 
@@ -41,9 +48,9 @@ Veto status is separate from finding lifecycle status. Related findings remain O
 | ID | Package | Severity | Finding | State | Evidence / report |
 |---|---|---:|---|---|---|
 | FND-001 | Naravel.Foundation | P2 | Configuration fingerprint collision | VERIFIED CLOSED — PR #244 fix; full CI run #42478727741 on PR #246 | [Report](reports/01-Naravel.Foundation.md) |
-| FND-002 | Naravel.Foundation | P2 | Narrow sync Driver race remains while an in-flight async creation is being replaced by a sync factory (D-83) | OPEN — OWNER DECISION | [Report](reports/01-Naravel.Foundation.md) |
+| FND-002 | Naravel.Foundation | P2 | Narrow sync Driver race remains while an in-flight async creation is being replaced by a sync factory (D-83) | ACCEPTED RISK — owner decision D-83 (2026-11-09) | [Report](reports/01-Naravel.Foundation.md) |
 | FND-003 | Naravel.Foundation | P2 | Throwing lifetime callback can abort manager cleanup | VERIFIED CLOSED — PR #244 fix; full CI run #42478727741 on PR #246 | [Report](reports/01-Naravel.Foundation.md) |
-| FND-004 | Naravel.Foundation | P2 | Late-created driver disposal errors are swallowed without diagnostics (AV-006) | OPEN | [Report](reports/01-Naravel.Foundation.md) |
+| FND-004 | Naravel.Foundation | P2 | Late-created driver disposal errors are swallowed without diagnostics (AV-006) | ACCEPTED RISK — owner decision D-84 (2026-11-10) | [Report](reports/01-Naravel.Foundation.md) |
 | CCH-001 | Naravel.Cache | P1 | Scoped flush clears the backing store beyond the scope (AV-001) | OPEN | [Report](reports/02-Naravel.Cache.md) |
 | CCH-002 | Naravel.Cache | P2 | Distinct tag sets can generate the same cache key | OPEN | [Report](reports/02-Naravel.Cache.md) |
 | CCH-003 | Naravel.Cache | P2 | Production expiry/lock/rate-limit paths bypass TimeProvider | OPEN | [Report](reports/02-Naravel.Cache.md) |
@@ -151,14 +158,14 @@ Owner decision AD-021 is recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md). N
 
 | QEN-001 | Naravel.Queue.Encryption | OBS | Queue-specific Data Protection purpose lacks a persisted-key-ring cross-provider integration test | OPEN — TEST COVERAGE | [Report](reports/14-Naravel.Queue.Encryption.md) |
 
-| DBQ-001 | Naravel.Database | P2 | JSON-path update of JSON null throws before compilation on SQLite/MySQL/PostgreSQL (AV-014) | OPEN | [Report](reports/17-Naravel.Database.md) |
-| DBQ-002 | Naravel.Database | P2 | InsertGetId does not enforce final expanded Raw binding count (AV-015) | OPEN | [Report](reports/17-Naravel.Database.md) |
-| DBQ-003 | Naravel.Database | P2 | Direct raw SQL does not reject reserved @pN marker collisions (AV-016) | OPEN | [Report](reports/17-Naravel.Database.md) |
-| DBQ-004 | Naravel.Database | P2 | Detached child ExecutionContexts can retain a stale ambient transaction (AV-017) | OPEN — OWNER DECISION | [Report](reports/17-Naravel.Database.md) |
-| DBQ-005 | Naravel.Database | P2 | Provider transaction disposal failure can skip owned lease disposal (AV-018) | OPEN | [Report](reports/17-Naravel.Database.md) |
-| DBQ-006 | Naravel.Database | OBS | Transaction-bound Connection rejects aliases of the same default connection | OPEN | [Report](reports/17-Naravel.Database.md) |
-| DBQ-007 | Naravel.Database | OBS | Multi-statement rollback failure masks the original statement failure | OPEN | [Report](reports/17-Naravel.Database.md) |
-| DBQ-008 | Naravel.Database | OBS | DatabaseFake scalar conversion and cancellation diverge from production behavior | OPEN | [Report](reports/17-Naravel.Database.md) |
+| DBC-001 | Naravel.Database | P2 | JSON-path update of JSON null throws before compilation on SQLite/MySQL/PostgreSQL (AV-014) | OPEN | [Report](reports/17-Naravel.Database.md) |
+| DBC-002 | Naravel.Database | P2 | InsertGetId does not enforce final expanded Raw binding count (AV-015) | OPEN | [Report](reports/17-Naravel.Database.md) |
+| DBC-003 | Naravel.Database | P2 | Direct raw SQL does not reject reserved @pN marker collisions (AV-016) | OPEN | [Report](reports/17-Naravel.Database.md) |
+| DBC-004 | Naravel.Database | P2 | Detached child ExecutionContexts can retain a stale ambient transaction (AV-017) | OPEN — OWNER DECISION | [Report](reports/17-Naravel.Database.md) |
+| DBC-005 | Naravel.Database | P2 | Provider transaction disposal failure can skip owned lease disposal (AV-018) | OPEN | [Report](reports/17-Naravel.Database.md) |
+| DBC-006 | Naravel.Database | OBS | Transaction-bound Connection rejects aliases of the same default connection | OPEN | [Report](reports/17-Naravel.Database.md) |
+| DBC-007 | Naravel.Database | OBS | Multi-statement rollback failure masks the original statement failure | OPEN | [Report](reports/17-Naravel.Database.md) |
+| DBC-008 | Naravel.Database | OBS | DatabaseFake scalar conversion and cancellation diverge from production behavior | OPEN | [Report](reports/17-Naravel.Database.md) |
 
 | SQL-001 | Naravel.Database.Sqlite | P2 | Named Mode=Memory connections are not normalized to unique shared-cache databases (AV-019) | OPEN | [Report](reports/18-Naravel.Database.Sqlite.md) |
 | SQL-002 | Naravel.Database.Sqlite | DOC | English guide reports SQLitePCLRaw.lib.e_sqlite3 2.1.13 while central pin is 2.1.14 | OPEN | [Report](reports/18-Naravel.Database.Sqlite.md) |

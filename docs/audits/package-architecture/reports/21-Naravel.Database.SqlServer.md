@@ -11,7 +11,7 @@
 - Files inspected: project metadata and central SqlClient/Pkcs pins; `SqlServerDatabaseConnection`; DI registration and connection-string handling; shared dialect contract fixtures; SQL Server server transaction integration tests; PDR-022; SQL Server NuGet README and English database guide.
 - Dependency boundary: optional provider package references `Naravel.Database`, `Microsoft.Data.SqlClient` and the explicitly pinned Pkcs dependency; SqlClient types do not leak into the core API.
 - Verification performed: async open/cancellation/failure cleanup trace; provider pooling and connection ownership review; dependency pin rationale; SQL Server contract and server test mapping.
-- Verification NOT RUN: `.NET restore/build/test`, live SQL Server 2022 provider tests, full CI, mutation testing and independent review.
+- Verification NOT RUN: `.NET restore/build/test`, live provider tests against SQL Server 2022, full CI, mutation testing and independent review.
 
 ## Executive assessment
 
