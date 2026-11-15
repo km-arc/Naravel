@@ -18,8 +18,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- content/<template>/... is packed at the same path, dot folders included; bin and obj of a template that was built by hand are not. -->
-    <None Include="content\**\*" Exclude="content\**\bin\**;content\**\obj\**" Pack="true" PackagePath="content\%(RecursiveDir)" />
+    <!-- PackagePath must end in a separator so NuGet appends each source filename to its recursive directory. -->
+    <None Include="content\**\*" Exclude="content\**\bin\**;content\**\obj\**" Pack="true" PackagePath="content\%(RecursiveDir)\" />
     <None Include="..\..\docs\nuget\Naravel.Templates.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 
