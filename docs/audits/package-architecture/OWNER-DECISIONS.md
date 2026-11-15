@@ -4,7 +4,7 @@ Date: 2026-11-08
 Branch: `audit/package-architecture-revalidation`  
 Baseline: `main` at `198b36f9e2753ccfb68354a02480cdc25e7eabc7`
 
-This register separates **architectural recommendations** from **owner-approved decisions**. Nothing in this file is approved by implication. The principal-architect vetoes AV-001 through AV-019 remain active; the questions below are not silently resolved by this review.
+This register separates **architectural recommendations** from **owner-approved decisions**. Nothing in this file is approved by implication. The principal-architect vetoes AV-001 through AV-019 remain active, except AV-006, which the owner superseded on 2026-11-10 (D-84); the questions below are not silently resolved by this review.
 
 ## AD-001 — Explicit zero TTL for `ICacheStore.SetAsync`
 
@@ -152,7 +152,7 @@ This register separates **architectural recommendations** from **owner-approved 
 
 **Architect recommendation:** approve a backward-compatible additive snapshot/version API if possible; otherwise define a safe failure behavior for `Driver` during that window rather than waiting. The exact public contract and compatibility impact require owner approval.
 
-**Status:** WAITING FOR OWNER.
+**Status:** DECIDED by the owner on 2026-11-09 (`roadmap/AUDIT.md` D-83): `IDriverRegistry` is not changed, and the remaining window is an accepted limit that `docs/en/foundation.md` documents; it is reopened as a new row if a consumer meets it. The architect recommendation above was not adopted.
 
 
 ## AD-014 — File queue name mapping and existing on-disk queue compatibility

@@ -15,7 +15,7 @@
 
 ## Executive assessment
 
-- Overall risk: **High (P1)** until AV-001 and AV-002 are remediated; AV-003 through AV-008 are mandatory P2 architecture work.
+- Overall risk: **High (P1)** until AV-001 and AV-002 are remediated; AV-003 through AV-005, AV-007 and AV-008 are mandatory P2 architecture work (AV-006 was superseded by an owner decision).
 - Architectural fit: The adapter is thin, but four previously accepted PDR-007 constraints are vetoed as final architecture: cluster-wide flush, non-atomic lock release, a single global server pool, and blocking counter I/O scheduled on the ThreadPool. They describe current implementation behaviour; they are not accepted target-state guarantees.
 - Strengths: per-store key prefixes are applied consistently; configured Memcached stores share one normalized server pool and mismatched pools are rejected; TTL counter creation uses atomic add followed by atomic increment with the same TTL in the expiry race; the provider keeps numeric values as invariant decimal text for server-side arithmetic; the documented flush and lock limitations match the code.
 - Summary: Ten issues are now tracked. In addition to the five provider correctness gaps, the package can flush the entire shared cluster through a store-level method, release a new owner's lock in a read/delete race, forces all named stores onto one server pool, schedules blocking counter network calls on ThreadPool workers, and converts positive sub-second TTLs to Memcached's no-expiry value. The first two are P1 isolation/concurrency vetoes; the remaining architecture vetoes are mandatory before final production acceptance.

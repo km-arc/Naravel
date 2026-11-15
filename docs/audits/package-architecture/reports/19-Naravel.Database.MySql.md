@@ -11,7 +11,7 @@
 - Files inspected: project metadata and central MySqlConnector pin; `MySqlDatabaseConnection`; DI registration and required connection-string handling; shared four-dialect contract fixtures; server transaction integration tests; PDR-022; MySQL NuGet README and English database guide.
 - Dependency boundary: optional provider package references `Naravel.Database` and `MySqlConnector`; no MySQL provider type leaks into the core package.
 - Verification performed: async open/cancellation/failure cleanup trace; pooling and connection ownership review; registration and configuration path; dialect contract and server test mapping.
-- Verification NOT RUN: `.NET restore/build/test`, live MySQL 8.4 provider tests, full CI, mutation testing and independent review.
+- Verification NOT RUN: `.NET restore/build/test`, live provider tests against MySQL 8.4, full CI, mutation testing and independent review.
 
 ## Executive assessment
 
@@ -29,7 +29,7 @@
 - Configuration errors identify the missing `ConnectionString` key; invalid/whitespace connection strings fail at driver construction.
 - Server tests are environment-gated and carry the `Dialect=MySql` trait used by the CI database matrix; a skipped local server test is NOT RUN, not a pass.
 - The core dialect contract and write/read tests exercise MySQL semantics; provider-specific version requirements (including MySQL 8.0.19+ row alias syntax for upsert) are documented in the core dialect guide.
-- The shared Database core findings DBQ-001 through DBQ-008 apply to the query/transaction core, not to this driver adapter; no duplicate finding is created here.
+- The shared Database core findings DBC-001 through DBC-008 apply to the query/transaction core, not to this driver adapter; no duplicate finding is created here.
 
 ## Test assessment
 

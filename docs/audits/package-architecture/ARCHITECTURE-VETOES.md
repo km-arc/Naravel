@@ -8,7 +8,7 @@ Scope: the twenty reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.R
 
 This is a principal-architect decision, not a suggestion list. Some of the designs below were explicitly approved in earlier PDRs and documented as intentional limitations. That historical approval explains the implementation; it does not make the trade-off safe or acceptable as the target architecture for a reliable, isolated and scalable platform.
 
-**AV-001, AV-002 and AV-011 are P1 release blockers. AV-003 through AV-010 and AV-012 through AV-019 are mandatory P2 architecture work.** None is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
+**AV-001, AV-002 and AV-011 are P1 release blockers. AV-003 through AV-005, AV-007 through AV-010 and AV-012 through AV-019 are mandatory P2 architecture work. AV-006 was superseded by an owner decision on 2026-11-10 (see its section).** None of the others is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
 
 A veto does not authorize an uncontrolled runtime/API/dependency change. Remediation must be a separate, scoped task with an updated PDR where required. An old PDR approval alone is not a valid reason to move a veto to ACCEPTED RISK.
 
@@ -67,6 +67,8 @@ A veto does not authorize an uncontrolled runtime/API/dependency change. Remedia
 ### AV-006 — P2: Late resource cleanup failures must be observable
 
 **Affected finding:** FND-004.
+
+**Status: SUPERSEDED on 2026-11-10 by an explicit owner decision.** The owner decided (`roadmap/AUDIT.md` D-84, R32.T02, PR #259) that a failure while disposing a driver that finishes creation after its manager was disposed stays unreported, and `docs/en/foundation.md` documents how to prevent it ("Disposing while a driver is still being created"). `src/Naravel.Foundation/Manager.cs` is unchanged by that decision. The text below is the original veto, kept as history; it is no longer a required remediation.
 
 **Why this is vetoed:** Foundation silently catches every exception while disposing a driver that finishes creation after its manager has already been disposed. Avoiding an unobserved background exception is correct; making a resource-release failure invisible is not.
 
@@ -150,7 +152,7 @@ The PDRs retain their original approval text as historical context and append th
 - Test changes or tests run: none.
 - Build/CI: NOT RUN.
 - Vetoes cleared: none.
-- Next gate: obtain owner decisions AD-001 through AD-022, then create a prioritized remediation stage for AV-001, AV-002 and AV-011 first and schedule AV-003 through AV-010 and AV-012 through AV-019. Do not mark the architecture accepted for production until the required verification evidence is present.
+- Next gate: obtain owner decisions AD-001 through AD-022, then create a prioritized remediation stage for AV-001, AV-002 and AV-011 first and schedule AV-003 through AV-005, AV-007 through AV-010 and AV-012 through AV-019 (AV-006 is superseded). Do not mark the architecture accepted for production until the required verification evidence is present.
 
 
 ## Owner decisions pending — not architecture vetoes
@@ -173,7 +175,7 @@ The following items are source-confirmed observations or contract ambiguities. T
 
 ### AV-014 — P2: JSON-path updates must represent JSON null correctly
 
-**Affected finding:** DBQ-001.
+**Affected finding:** DBC-001.
 
 **Why this is vetoed:** SQLite, MySQL and PostgreSQL JSON-path update compilers call `JsonText(value!)`; the JSON serializer helper has no null case and dereferences the null value. The documented JSON-path null update therefore fails before SQL is generated on three supported dialects, while SQL Server explicitly rejects this operation because its `json_modify` semantics delete the key.
 
@@ -181,7 +183,7 @@ The following items are source-confirmed observations or contract ambiguities. T
 
 ### AV-015 — P2: Every insert compiler path must enforce the final expanded parameter count
 
-**Affected finding:** DBQ-002.
+**Affected finding:** DBC-002.
 
 **Why this is vetoed:** `Raw` values can expand to multiple bound parameters. Batch insert checks the final binding count after expansion, but `CompileInsertGetId` checks only the number of columns and returns without checking the expanded count.
 
@@ -189,7 +191,7 @@ The following items are source-confirmed observations or contract ambiguities. T
 
 ### AV-016 — P2: Direct raw SQL must reserve the generated `@pN` marker namespace
 
-**Affected finding:** DBQ-003.
+**Affected finding:** DBC-003.
 
 **Why this is vetoed:** Query raw methods and `Raw` reject `@pN` markers, but direct `IDatabase` raw SQL passes through `DatabaseExecutor.Prepare` without the same check. A caller's existing marker can alias a generated marker and silently change the SQL's meaning.
 
@@ -197,7 +199,7 @@ The following items are source-confirmed observations or contract ambiguities. T
 
 ### AV-017 — P2: Ambient transaction scopes must be invalidated at owner completion
 
-**Affected finding:** DBQ-004.
+**Affected finding:** DBC-004.
 
 **Why this is vetoed:** `AsyncLocal` values are captured by child ExecutionContexts. Restoring the parent value after a callback does not clear a detached task's captured ambient node. The current leased scope continues returning borrowed leases after its owning transaction has committed/disposed.
 
@@ -205,7 +207,7 @@ The following items are source-confirmed observations or contract ambiguities. T
 
 ### AV-018 — P2: Transaction cleanup must always release the connection lease
 
-**Affected finding:** DBQ-005.
+**Affected finding:** DBC-005.
 
 **Why this is vetoed:** `DatabaseTransaction.DisposeAsync` disposes the provider transaction and then the owned lease sequentially. If provider transaction disposal throws, lease disposal is skipped and the connection pool resource can remain held.
 
@@ -223,4 +225,4 @@ The following items are source-confirmed observations or contract ambiguities. T
 
 ## Scope note — remaining package reviews (2026-11-09)
 
-The reports for packages 11, 12 and 23–36 were completed after this veto register's original twenty-package scope. Their findings are tracked in `FINDINGS.md` and their package reports. They are not silently added as architecture vetoes: a new veto requires a separate principal-architect disposition and, where appropriate, an owner decision. Existing AV-001 through AV-019 remain unchanged and open until their stated proof requirements are met.
+The reports for packages 11, 12 and 23–36 were completed after this veto register's original twenty-package scope. Their findings are tracked in `FINDINGS.md` and their package reports. They are not silently added as architecture vetoes: a new veto requires a separate principal-architect disposition and, where appropriate, an owner decision. Existing AV-001 through AV-019 remain unchanged and open until their stated proof requirements are met, except AV-006, which the owner decision of 2026-11-10 superseded.

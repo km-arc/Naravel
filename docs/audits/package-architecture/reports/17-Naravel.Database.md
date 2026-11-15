@@ -24,7 +24,7 @@
 
 ## Findings
 
-### [P2] DBQ-001 — JSON-path updates cannot write JSON null on SQLite, MySQL or PostgreSQL
+### [P2] DBC-001 — JSON-path updates cannot write JSON null on SQLite, MySQL or PostgreSQL
 
 - Remediation state: OPEN.
 - Architecture disposition: VETO AV-014 — supported JSON-path update values must include JSON null on dialects whose documented implementation can represent it; unsupported dialect behavior must fail explicitly.
@@ -35,7 +35,7 @@
 - Required correction: encode JSON null as the JSON text `null` for SQLite/MySQL/PostgreSQL; preserve SQL Server's explicit `NotSupportedException` unless the owner approves a distinct delete-key API.
 - Regression tests required: compile tests asserting the JSON-null binding is the string `"null"` for SQLite/MySQL/PostgreSQL; a SQL Server test retaining the explicit unsupported exception; real SQLite execution proving the member is JSON null and the containing column is not replaced with SQL NULL.
 
-### [P2] DBQ-002 — InsertGetId bypasses the actual parameter-count limit for Raw values
+### [P2] DBC-002 — InsertGetId bypasses the actual parameter-count limit for Raw values
 
 - Remediation state: OPEN.
 - Architecture disposition: VETO AV-015 — every compiled statement must enforce its dialect's maximum against the final expanded binding count.
@@ -46,7 +46,7 @@
 - Required correction: check the final `context.Bindings.Count` after `AppendInsertValues`, using the same dialect-specific limit and diagnostic convention as the other compiler paths.
 - Regression tests required: for each dialect, a `Raw` value whose expanded bindings equal the limit compiles and limit+1 fails; retain ordinary InsertGetId behavior and MySQL same-connection identity retrieval.
 
-### [P2] DBQ-003 — Raw IDatabase SQL can collide with reserved generated parameter markers
+### [P2] DBC-003 — Raw IDatabase SQL can collide with reserved generated parameter markers
 
 - Remediation state: OPEN.
 - Architecture disposition: VETO AV-016 — raw SQL entry points must reject `@p` followed by digits, just as Query's `*Raw` methods and `Raw` already do.
@@ -57,7 +57,7 @@
 - Required correction: reject reserved markers in `DatabaseExecutor.Prepare` before replacement, with the same clear diagnostic used by Query raw methods. Do not silently rename user SQL.
 - Regression tests required: direct Select/Scalar/Statement paths reject `@p0` plus `?`; a plain SQL variable name such as `@userId` remains permitted; Query raw and direct raw SQL have the same reserved-marker rule.
 
-### [P2] DBQ-004 — Detached tasks can retain an ambient transaction scope after callback completion
+### [P2] DBC-004 — Detached tasks can retain an ambient transaction scope after callback completion
 
 - Remediation state: OPEN — OWNER DECISION AD-022.
 - Architecture disposition: VETO AV-017 — an ambient transaction scope must not remain usable in an execution context after its owning callback has completed and its transaction has committed/rolled back.
@@ -69,7 +69,7 @@
 - Regression tests required: create a child task inside a callback, let the callback commit, then release the child and verify it is rejected by the scope guard; verify an awaited child task still joins the transaction; verify nested savepoints and retry attempts do not invalidate the active parent scope.
 - Owner decision required: AD-022 asks whether the framework should enforce post-completion invalidation (recommended) in addition to documenting the no-detached-work rule, or whether the owner explicitly wants a weaker documentation-only contract.
 
-### [P2] DBQ-005 — Transaction disposal can leak its owned connection lease
+### [P2] DBC-005 — Transaction disposal can leak its owned connection lease
 
 - Remediation state: OPEN.
 - Architecture disposition: VETO AV-018 — disposal of a transaction must release its owned connection lease even when provider transaction disposal fails.
@@ -80,21 +80,21 @@
 - Required correction: put lease disposal in a guaranteed `finally` path; preserve the primary transaction-disposal exception if lease disposal also fails, while retaining both failures for diagnosis.
 - Regression tests required: fake lease and transaction where transaction disposal throws; assert lease disposal is still attempted exactly once; test dual transaction/lease disposal failures and deterministic exception preservation.
 
-### [OBS] DBQ-006 — Transaction-bound Connection rejects aliases of the same default connection
+### [OBS] DBC-006 — Transaction-bound Connection rejects aliases of the same default connection
 
 - Evidence status: CONFIRMED BY SOURCE.
 - Evidence: `DatabaseService.Connection` compares the requested name and stored `connectionName` as raw ordinal strings whenever the scope is a `LeasedTransactionScope`. The database contract also defines `null` as the default connection. If the default connection is named `main`, a transaction opened as `db.Connection("main")` rejects `tx.Database.Connection(null)`, and a transaction opened as `db` rejects `tx.Database.Connection("main")`, despite both names resolving to the same connection.
 - User impact: harmless aliases of the same connection are rejected inside a transaction, while the error message suggests only a true connection switch is prohibited.
 - Recommendation: compare a captured, normalized connection identity rather than the raw nullable alias; add both default-to-explicit and explicit-to-default tests. Capture the resolved identity at transaction start so a configuration reload cannot change the meaning of `null` mid-transaction.
 
-### [OBS] DBQ-007 — Multi-statement rollback failure masks the original statement failure
+### [OBS] DBC-007 — Multi-statement rollback failure masks the original statement failure
 
 - Evidence status: CONFIRMED BY SOURCE.
 - Evidence: `DatabaseExecutor.NonQueryManyAsync` catches a statement/commit exception and awaits `own.RollbackAsync(CancellationToken.None)` before rethrowing. If rollback also throws, the rollback exception escapes and replaces the original operation exception. The savepoint rollback path explicitly suppresses a secondary rollback exception to preserve the original, but this path does not.
 - User impact: the primary SQL error can be lost precisely when the provider/connection is unhealthy.
 - Recommendation: preserve the original exception and retain the rollback failure as secondary diagnostic information; add a fault-injected transaction test.
 
-### [OBS] DBQ-008 — DatabaseFake conversion and cancellation do not fully match the real executor
+### [OBS] DBC-008 — DatabaseFake conversion and cancellation do not fully match the real executor
 
 - Evidence status: CONFIRMED BY SOURCE.
 - Evidence: `DatabaseFake.Convert<T>` uses `Convert.ChangeType`, whereas production reads use `ValueConverter.Convert<T>` (which handles Guid, DateOnly, TimeOnly, enums and provider-specific values). The fake's async stream yields a pre-materialized list without checking cancellation between items, and `FakeTransaction.CommitAsync/RollBackAsync` ignore their cancellation tokens.
@@ -128,13 +128,13 @@ See [OWNER-DECISIONS.md](../OWNER-DECISIONS.md), AD-022. No runtime fix, public 
 
 The following explains the findings without requiring the reader to know the database internals. The source evidence above remains the precise technical record.
 
-- **DBQ-001 — Writing JSON null:** A JSON column can contain an object such as `{"name":"Ada"}`. The query builder promises that setting `data->name` to `null` writes the JSON value `null` inside that object. On SQLite, MySQL and PostgreSQL, the code tries to inspect the value before turning it into JSON text. Because the value is actually null, that code throws instead. In simple terms: the user asks to store “no value” inside the JSON document, but the query fails before it reaches the database. We saw this in `Query.UpdateAsync`, the three dialect `JsonSet` methods and `Grammar.JsonText`; we did not run a reproducing test. SQL Server is different: its current implementation treats JSON null as deleting the property, so it deliberately rejects this request.
-- **DBQ-002 — Generated-ID insert can exceed the database limit:** A normal insert checks how many values will be sent to the database. An insert that also asks for the new row's ID does not perform that final check. A `Raw` expression can contain several values even though it looks like one insert field. So a caller can build a statement with more parameters than the database allows; the database then rejects it later instead of Naravel rejecting it early and clearly. We traced `CompileInsert`, `CompileInsertGetId` and `CompileContext.Add(Raw)`. We did not send an oversized statement to a live database.
-- **DBQ-003 — Raw SQL parameter names can clash:** Naravel replaces each `?` in direct SQL with names such as `@p0`. If the SQL already contains `@p0`, both places can end up using the same value. For example, `select @p0, ?` can become `select @p0, @p0`; the second value is no longer separate. The query-builder raw methods already block this reserved name, but the direct `IDatabase` methods do not. We traced `DatabaseExecutor.Prepare` and compared it with `Query.CheckRaw`; we did not execute this against a provider.
-- **DBQ-004 — Work started in the background can outlive its transaction:** If code starts a task inside a transaction callback but does not wait for it, that task can keep a copy of the transaction context. The callback can then finish and close the transaction while the background task still believes it is inside it. The background task may try to use a connection that has already been closed. We saw that the transaction context is stored in `AsyncLocal` and that the leased scope has no “already finished” check. This conclusion follows from .NET task-context behavior and the source path; a deterministic reproducing test has not been run. Owner choice AD-022 is still required.
-- **DBQ-005 — A cleanup error can leave a connection checked out:** When a transaction is disposed, Naravel should also return its connection to the connection pool. The current code disposes the database transaction first and the connection lease second. If the first cleanup step throws, the second step is skipped. That can leave a connection unavailable for other work. We traced `DatabaseTransaction.DisposeAsync`; we have not run a fault-injection test that makes transaction disposal throw.
-- **DBQ-006 — Two names for the same connection are treated as different:** A configured default connection may be called `main`. Inside a transaction, asking for the default connection and asking for `main` should refer to the same database. The current comparison checks the literal names, so it can reject one spelling even though both resolve to the same connection. This is a usability/consistency observation, not a demonstrated data corruption issue. We traced the name comparison in `DatabaseService.Connection`; no runtime test was run.
-- **DBQ-007 — A rollback error can hide the original SQL error:** Suppose a multi-statement operation fails because one SQL statement is invalid. Naravel then tries to roll the transaction back. If rollback also fails, the rollback error can replace the original SQL error. The person debugging the incident may see only the cleanup failure and lose the reason the operation first failed. We traced the catch/rollback path in `DatabaseExecutor.NonQueryManyAsync`; fault injection has not been run.
-- **DBQ-008 — The test fake can behave differently from a real database:** The fake database used in unit tests converts returned values using simpler rules than the real database code. It also does not always notice cancellation after a stream has started. A test can therefore pass with the fake even though the real provider behaves differently for values such as GUIDs, dates or enums, or when a caller cancels midway. We compared `DatabaseFake.Convert<T>` and its async stream/transaction methods with `ValueConverter.Convert<T>` and the real executor. The suggested parity tests have not been run.
+- **DBC-001 — Writing JSON null:** A JSON column can contain an object such as `{"name":"Ada"}`. The query builder promises that setting `data->name` to `null` writes the JSON value `null` inside that object. On SQLite, MySQL and PostgreSQL, the code tries to inspect the value before turning it into JSON text. Because the value is actually null, that code throws instead. In simple terms: the user asks to store “no value” inside the JSON document, but the query fails before it reaches the database. We saw this in `Query.UpdateAsync`, the three dialect `JsonSet` methods and `Grammar.JsonText`; we did not run a reproducing test. SQL Server is different: its current implementation treats JSON null as deleting the property, so it deliberately rejects this request.
+- **DBC-002 — Generated-ID insert can exceed the database limit:** A normal insert checks how many values will be sent to the database. An insert that also asks for the new row's ID does not perform that final check. A `Raw` expression can contain several values even though it looks like one insert field. So a caller can build a statement with more parameters than the database allows; the database then rejects it later instead of Naravel rejecting it early and clearly. We traced `CompileInsert`, `CompileInsertGetId` and `CompileContext.Add(Raw)`. We did not send an oversized statement to a live database.
+- **DBC-003 — Raw SQL parameter names can clash:** Naravel replaces each `?` in direct SQL with names such as `@p0`. If the SQL already contains `@p0`, both places can end up using the same value. For example, `select @p0, ?` can become `select @p0, @p0`; the second value is no longer separate. The query-builder raw methods already block this reserved name, but the direct `IDatabase` methods do not. We traced `DatabaseExecutor.Prepare` and compared it with `Query.CheckRaw`; we did not execute this against a provider.
+- **DBC-004 — Work started in the background can outlive its transaction:** If code starts a task inside a transaction callback but does not wait for it, that task can keep a copy of the transaction context. The callback can then finish and close the transaction while the background task still believes it is inside it. The background task may try to use a connection that has already been closed. We saw that the transaction context is stored in `AsyncLocal` and that the leased scope has no “already finished” check. This conclusion follows from .NET task-context behavior and the source path; a deterministic reproducing test has not been run. Owner choice AD-022 is still required.
+- **DBC-005 — A cleanup error can leave a connection checked out:** When a transaction is disposed, Naravel should also return its connection to the connection pool. The current code disposes the database transaction first and the connection lease second. If the first cleanup step throws, the second step is skipped. That can leave a connection unavailable for other work. We traced `DatabaseTransaction.DisposeAsync`; we have not run a fault-injection test that makes transaction disposal throw.
+- **DBC-006 — Two names for the same connection are treated as different:** A configured default connection may be called `main`. Inside a transaction, asking for the default connection and asking for `main` should refer to the same database. The current comparison checks the literal names, so it can reject one spelling even though both resolve to the same connection. This is a usability/consistency observation, not a demonstrated data corruption issue. We traced the name comparison in `DatabaseService.Connection`; no runtime test was run.
+- **DBC-007 — A rollback error can hide the original SQL error:** Suppose a multi-statement operation fails because one SQL statement is invalid. Naravel then tries to roll the transaction back. If rollback also fails, the rollback error can replace the original SQL error. The person debugging the incident may see only the cleanup failure and lose the reason the operation first failed. We traced the catch/rollback path in `DatabaseExecutor.NonQueryManyAsync`; fault injection has not been run.
+- **DBC-008 — The test fake can behave differently from a real database:** The fake database used in unit tests converts returned values using simpler rules than the real database code. It also does not always notice cancellation after a stream has started. A test can therefore pass with the fake even though the real provider behaves differently for values such as GUIDs, dates or enums, or when a caller cancels midway. We compared `DatabaseFake.Convert<T>` and its async stream/transaction methods with `ValueConverter.Convert<T>` and the real executor. The suggested parity tests have not been run.
 
 **Verification reminder:** these are source-review findings, not claims that the suggested regression tests have passed. No Database runtime code was changed in this audit.
