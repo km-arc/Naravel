@@ -4,6 +4,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- The name given with -n, made safe for C#: the namespace of the code below (a name such as my-blog is not a namespace). -->
+    <RootNamespace>AppRootNamespace</RootNamespace>
     <!-- The test project lives in tests/. Keep its sources, files and build output out of the application. -->
     <DefaultItemExcludes>$(DefaultItemExcludes);tests/**</DefaultItemExcludes>
   </PropertyGroup>

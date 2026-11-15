@@ -1,8 +1,8 @@
 using Naravel.Mail;
 using Naravel.Queue.Jobs;
-using NaravelApp.App.Mail;
+using AppRootNamespace.App.Mail;
 
-namespace NaravelApp.App.Jobs;
+namespace AppRootNamespace.App.Jobs;
 
 /// <summary>
 /// A queued job. Its public properties are stored as JSON and rebuilt in the queue worker, so keep them small and serializable.

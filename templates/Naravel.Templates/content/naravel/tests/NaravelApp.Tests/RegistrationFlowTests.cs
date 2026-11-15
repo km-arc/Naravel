@@ -3,14 +3,14 @@ using Naravel.Events;
 using Naravel.Events.Testing;
 using Naravel.Mail.Testing;
 using Naravel.Queue.Testing;
-using NaravelApp.App.Events;
-using NaravelApp.App.Http.Controllers;
-using NaravelApp.App.Http.Requests;
-using NaravelApp.App.Jobs;
-using NaravelApp.App.Listeners;
-using NaravelApp.App.Mail;
+using AppRootNamespace.App.Events;
+using AppRootNamespace.App.Http.Controllers;
+using AppRootNamespace.App.Http.Requests;
+using AppRootNamespace.App.Jobs;
+using AppRootNamespace.App.Listeners;
+using AppRootNamespace.App.Mail;
 
-namespace NaravelApp.Tests;
+namespace AppRootNamespace.Tests;
 
 // The three steps of the example flow, each against a fake, so no queue and no mail server is needed.
 public sealed class RegistrationFlowTests

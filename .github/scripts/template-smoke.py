@@ -51,7 +51,11 @@ TEMPLATE_DIRECTORY = ROOT / "templates" / "Naravel.Templates" / "content" / "nar
 SOURCE_NAME = "NaravelApp"  # sourceName in template.json: replaced by the name the user passes with -n
 VERSION_PLACEHOLDER = "NARAVEL_VERSION"
 APP_NAME = "Blog"
-HYPHEN_NAME = "my-blog"
+NAMESPACE_TOKEN = "AppRootNamespace"  # the derived symbol of template.json: the name given with -n, made safe for a C# namespace
+# (the name given with -n, the namespace the generated C# must have, whether that application is also compiled). The expected values are
+# written out here and not computed, so the template's own rules are checked against an independent answer.
+NAME_CASES = [("my-blog", "my_blog", True), ("Acme.Blog", "Acme.Blog", False), ("1st-blog", "_1st_blog", False)]
+NAMESPACE_FILE = "app/Events/UserRegistered.cs"
 START_TIMEOUT = 60
 
 # What a generated application must hold whatever else is added to the template (paths with the name already replaced).
@@ -122,6 +126,8 @@ def leftover_placeholders(files: dict[str, str], name: str) -> list[str]:
     for relative, text in sorted(files.items()):
         if VERSION_PLACEHOLDER in text:
             problems.append(f"{relative}: still contains {VERSION_PLACEHOLDER}")
+        if NAMESPACE_TOKEN in text or NAMESPACE_TOKEN in relative:
+            problems.append(f"{relative}: still contains {NAMESPACE_TOKEN}")
         if SOURCE_NAME not in name and (SOURCE_NAME in text or SOURCE_NAME in relative):
             problems.append(f"{relative}: still contains {SOURCE_NAME}")
     return problems
@@ -132,16 +138,53 @@ def referenced_versions(csproj_text: str) -> set[str]:
     return set(re.findall(r'<PackageReference\s+Include="Naravel\.[^"]+"\s+Version="([^"]+)"', csproj_text))
 
 
-def hyphen_in_namespaces(files: dict[str, str], name: str) -> list[str]:
-    """The C# lines in which the name is written into a namespace or using directive as it is (a hyphen is not an identifier)."""
+def raw_name_in_namespaces(files: dict[str, str], name: str) -> list[str]:
+    """The C# files in which the name is written into a namespace or using directive as it was given (a hyphen is not an identifier)."""
     pattern = re.compile(rf"^\s*(namespace|using)\s+[^;{{]*{re.escape(name)}", re.M)
     return sorted(relative for relative, text in files.items() if relative.endswith(".cs") and pattern.search(text))
+
+
+def namespace_problems(files: dict[str, str], name: str, expected: str) -> list[str]:
+    """What is wrong with the namespace of an application generated with -n <name>: it must be <expected>, in the C# and in RootNamespace."""
+    problems = []
+    if f"namespace {expected}.App.Events;" not in files.get(NAMESPACE_FILE, ""):
+        problems.append(f"{NAMESPACE_FILE} does not declare 'namespace {expected}.App.Events;'")
+    if f"<RootNamespace>{expected}</RootNamespace>" not in files.get(f"{name}.csproj", ""):
+        problems.append(f"{name}.csproj does not set <RootNamespace>{expected}</RootNamespace>")
+    if name != expected:
+        problems.extend(f"{relative}: the name {name!r} is written into a namespace or using directive as it was given"
+                        for relative in raw_name_in_namespaces(files, name))
+    return problems
+
+
+def apply_forms(template_json_text: str, name: str) -> str | None:
+    """The value of the AppRootNamespace symbol for a name, computed from the forms of template.json with Python's regular expressions.
+
+    This is a rehearsal of what the template engine does with them, not the engine: \\p{L} and \\p{Nd} are written as the ASCII and the
+    Arabic letters and the digits, which is enough for the names tried here. The real proof is the generation in the run."""
+    document = json.loads(template_json_text)
+    symbol = document["symbols"].get("AppRootNamespace")
+    if not symbol or symbol.get("type") != "derived" or symbol.get("valueSource") != "name":
+        return None
+    forms = document.get("forms", {})
+
+    def transform(form_name: str, value: str) -> str:
+        form = forms[form_name]
+        if form["identifier"] == "chain":
+            for step in form["steps"]:
+                value = transform(step, value)
+            return value
+        pattern = form["pattern"].replace("\\p{L}", "A-Za-z\u0600-\u06FF").replace("\\p{Nd}", "0-9")
+        return re.sub(pattern, form["replacement"], value)
+
+    return transform(symbol["valueTransform"], name)
 
 
 def summary_line(version: str) -> str:
     return (f"Template smoke passed: {TEMPLATE_PACKAGE} {version}: the default application (cache memory, mail log, queue file, "
             f"database sqlite) was generated, built, tested, published and started; /up and / answered 200 and POST /register "
-            f"answered 202. Only the default combination was started.")
+            f"answered 202. Only the default combination was started. Project names tried: "
+            f"{', '.join(name + (' (built)' if built else '') for name, _, built in NAME_CASES)}.")
 
 
 def nupkg_problems(names: list[str], nuspec_text: str, sources: list[str]) -> list[str]:
@@ -392,26 +435,31 @@ def smoke(local: Path, work: Path, extra_args: list[str]) -> tuple[list[str], li
             annotate("run", tail)
         if phase_failed("run", problems):
             return failed, notes
+
+        # Names that are not valid C# namespaces as they are (a hyphen, a leading digit): the file names and the README keep the name,
+        # the namespace is made safe. The first case is also compiled, tests project included.
+        problems = []
+        for index, (name, expected, build) in enumerate(NAME_CASES):
+            folder = work / "names" / str(index)
+            folder.mkdir(parents=True)
+            ok, output = runner.run(f"dotnet new naravel -n {name}", ["dotnet", "new", "naravel", "-n", name], folder, 180, True)
+            project = folder / name
+            if not ok or not project.is_dir():
+                problems.append(f"dotnet new naravel -n {name} did not generate a project")
+                annotate("names", output)
+                continue
+            files = read_text_files(project)
+            problems += [f"-n {name}: {problem}" for problem in leftover_placeholders(files, name) + namespace_problems(files, name, expected)]
+            if build:
+                built, output = runner.dotnet(f"build a project named {name}",
+                                              ["build", f"tests/{name}.Tests/{name}.Tests.csproj", "-c", "Release"], project)
+                if not built:
+                    problems.append(f"-n {name}: the generated application and its tests project do not build")
+                    annotate("names", output)
+        if not phase_failed("names", problems):
+            notes.append("Project names generated: " + ", ".join(f"{name} (namespace {expected})" for name, expected, _ in NAME_CASES))
         if not failed:
             print(summary_line(version), flush=True)
-
-        # Report only: a name with a hyphen. It does not decide the result; it records what the template engine does with it.
-        probe = work / "probe"
-        probe.mkdir()
-        probe_ok, _ = runner.run(f"probe: dotnet new naravel -n {HYPHEN_NAME}", ["dotnet", "new", "naravel", "-n", HYPHEN_NAME], probe, 180)
-        if probe_ok and (probe / HYPHEN_NAME).is_dir():
-            written = hyphen_in_namespaces(read_text_files(probe / HYPHEN_NAME), HYPHEN_NAME)
-            if written:
-                note = (f"probe (report only): the name {HYPHEN_NAME!r} is written into C# namespaces as it is, in {len(written)} file(s), "
-                        f"so such a project name does not compile")
-            else:
-                note = f"probe (report only): the name {HYPHEN_NAME!r} is not written into any C# namespace as it is"
-        else:
-            note = f"probe (report only): dotnet new naravel -n {HYPHEN_NAME} did not generate a project"
-        notes.append(note)
-        print(note, flush=True)
-        if os.environ.get("GITHUB_ACTIONS") and "does not compile" in note:
-            print(f"::warning title=template-smoke::{note}")
     finally:
         runner.run(f"dotnet new uninstall {TEMPLATE_PACKAGE}", ["dotnet", "new", "uninstall", TEMPLATE_PACKAGE], work, 120)
     return failed, notes
@@ -459,10 +507,49 @@ def self_test() -> int:
            referenced_versions('<PackageReference Include="xunit" Version="2.9.3" /><PackageReference Include="Naravel.Mail" Version="0.2.0" />')
            == {"0.2.0"})
 
-    expect("a hyphenated name in a namespace is found",
-           hyphen_in_namespaces({"a.cs": "namespace my-blog.App;", "b.cs": "using System;"}, "my-blog") == ["a.cs"])
+    expect("a raw name in a namespace is found",
+           raw_name_in_namespaces({"a.cs": "namespace my-blog.App;", "b.cs": "using System;"}, "my-blog") == ["a.cs"])
     expect("a name that appears only in a string is not a namespace problem",
-           hyphen_in_namespaces({"a.cs": 'var x = "my-blog";'}, "my-blog") == [])
+           raw_name_in_namespaces({"a.cs": 'var x = "my-blog";'}, "my-blog") == [])
+    expect("a surviving namespace token is found", len(leftover_placeholders({"a.cs": "namespace AppRootNamespace;"}, "Blog")) == 1)
+
+    # The namespace of the generated application. The template's forms are rehearsed with Python's regular expressions (the engine is
+    # the real proof, in the run); a plain replacement of the token by the name is what the first version did, and must be found.
+    json_text_for_forms = (TEMPLATE_DIRECTORY / ".template.config" / "template.json").read_text(encoding="utf-8")
+    table = [("Blog", "Blog"), ("my-blog", "my_blog"), ("my blog", "my_blog"), ("Acme.Blog", "Acme.Blog"), ("1st-blog", "_1st_blog"),
+             ("a.2b", "a._2b"), ("a--b", "a__b"), ("وبلاگ-من", "وبلاگ_من")]
+    table += [(name, expected) for name, expected, _ in NAME_CASES]
+    expect("template.json derives AppRootNamespace from the name", apply_forms(json_text_for_forms, "Blog") == "Blog")
+    for name, expected in table:
+        expect(f"the namespace form turns {name!r} into {expected!r}", apply_forms(json_text_for_forms, name) == expected)
+    symbol = json.loads(json_text_for_forms)["symbols"]["AppRootNamespace"]
+    expect("the derived symbol replaces the token the C# files use", symbol["replaces"] == NAMESPACE_TOKEN)
+
+    def generate(name: str, namespace: str) -> dict[str, str]:
+        """The plain replacements of the engine, applied to the template folder."""
+        out = {}
+        for relative in sources:
+            if relative.startswith(".template.config/"):
+                continue
+            try:
+                text = (TEMPLATE_DIRECTORY / relative).read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
+            out[generated_path(relative, name)] = (
+                text.replace(SOURCE_NAME, name).replace(NAMESPACE_TOKEN, namespace).replace(VERSION_PLACEHOLDER, "0.2.0"))
+        return out
+
+    for name, expected, _ in NAME_CASES:
+        generated = generate(name, apply_forms(json_text_for_forms, name))
+        expect(f"a generation with -n {name} has the namespace {expected}",
+               namespace_problems(generated, name, expected) == [] and leftover_placeholders(generated, name) == [])
+    expect("the plain replacement of the token by a hyphenated name is found",
+           len(namespace_problems(generate("my-blog", "my-blog"), "my-blog", "my_blog")) > 3)
+    expect("no C# file of the template writes the source name into a namespace",
+           not any(SOURCE_NAME in (TEMPLATE_DIRECTORY / relative).read_text(encoding="utf-8") for relative in sources if relative.endswith(".cs")))
+    for project in (f"{SOURCE_NAME}.csproj", f"tests/{SOURCE_NAME}.Tests/{SOURCE_NAME}.Tests.csproj"):
+        expect(f"{project} sets RootNamespace from the token",
+               f"<RootNamespace>{NAMESPACE_TOKEN}" in (TEMPLATE_DIRECTORY / project).read_text(encoding="utf-8"))
 
     good_nuspec = '<package><metadata><packageTypes><packageType name="Template" /></packageTypes></metadata></package>'
     packed = [f"content/naravel/{s}" for s in sources] + ["Naravel.Templates.nuspec"]

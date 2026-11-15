@@ -1,9 +1,9 @@
 using Naravel.Events;
 using Naravel.Queue.Dispatch;
-using NaravelApp.App.Events;
-using NaravelApp.App.Jobs;
+using AppRootNamespace.App.Events;
+using AppRootNamespace.App.Jobs;
 
-namespace NaravelApp.App.Listeners;
+namespace AppRootNamespace.App.Listeners;
 
 /// <summary>
 /// A listener of <see cref="UserRegistered"/>. It runs inside the dispatch, so it only queues the slow work as a job and returns.

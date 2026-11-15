@@ -1,4 +1,4 @@
-namespace NaravelApp.App.Events;
+namespace AppRootNamespace.App.Events;
 
 /// <summary>
 /// An application event. Keep events small (ids and scalar values): they are plain records, and a queued listener or job receives a

@@ -12,6 +12,12 @@
   },
   "sourceName": "NaravelApp",
   "preferNameDirectory": true,
+  "forms": {
+    "csharpUnsafeChars": { "identifier": "replace", "pattern": "[^\\p{L}\\p{Nd}_.]", "replacement": "_" },
+    "csharpLeadingDigit": { "identifier": "replace", "pattern": "^(?=[\\p{Nd}])", "replacement": "_" },
+    "csharpDotDigit": { "identifier": "replace", "pattern": "\\.(?=[\\p{Nd}])", "replacement": "._" },
+    "csharpNamespace": { "identifier": "chain", "steps": [ "csharpUnsafeChars", "csharpLeadingDigit", "csharpDotDigit" ] }
+  },
   "symbols": {
     "NaravelVersion": {
       "type": "parameter",
@@ -19,6 +25,13 @@
       "description": "The version of the Naravel packages the application references. The default is the version of this template pack.",
       "defaultValue": "0.2.0",
       "replaces": "NARAVEL_VERSION"
+    },
+    "AppRootNamespace": {
+      "type": "derived",
+      "description": "The name given with -n, made safe to use as a C# namespace (my-blog becomes my_blog, 1st becomes _1st). The C# files and RootNamespace use this; file names, the README and the configuration keep the name as it was given.",
+      "valueSource": "name",
+      "valueTransform": "csharpNamespace",
+      "replaces": "AppRootNamespace"
     }
   },
   "primaryOutputs": [

@@ -1,6 +1,6 @@
 using Naravel.Routing;
 
-namespace NaravelApp.Routes;
+namespace AppRootNamespace.Routes;
 
 public static class WebRoutes
 {

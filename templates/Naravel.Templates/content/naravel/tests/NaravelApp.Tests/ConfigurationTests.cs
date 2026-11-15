@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Configuration;
-using NaravelApp.Bootstrap;
+using AppRootNamespace.Bootstrap;
 
-namespace NaravelApp.Tests;
+namespace AppRootNamespace.Tests;
 
 public sealed class ConfigurationTests
 {

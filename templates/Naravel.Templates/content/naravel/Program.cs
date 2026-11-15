@@ -1,11 +1,11 @@
 using Naravel.Events;
 using Naravel.Queue.Extensions;
 using Naravel.Queue.File;
-using NaravelApp.App.Jobs;
-using NaravelApp.App.Listeners;
-using NaravelApp.App.Events;
-using NaravelApp.Bootstrap;
-using NaravelApp.Routes;
+using AppRootNamespace.App.Jobs;
+using AppRootNamespace.App.Listeners;
+using AppRootNamespace.App.Events;
+using AppRootNamespace.Bootstrap;
+using AppRootNamespace.Routes;
 
 var builder = WebApplication.CreateBuilder(args);
 

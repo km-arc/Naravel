@@ -1,4 +1,4 @@
-namespace NaravelApp.Bootstrap;
+namespace AppRootNamespace.Bootstrap;
 
 public static class ConfigurationSetup
 {

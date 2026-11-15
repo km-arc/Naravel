@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Naravel.Events;
-using NaravelApp.App.Events;
-using NaravelApp.App.Http.Requests;
+using AppRootNamespace.App.Events;
+using AppRootNamespace.App.Http.Requests;
 
-namespace NaravelApp.App.Http.Controllers;
+namespace AppRootNamespace.App.Http.Controllers;
 
 /// <summary>
 /// An example controller. It does one thing: it announces that a user registered. What happens next (a welcome mail) is the business of

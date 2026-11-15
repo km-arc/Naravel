@@ -1,6 +1,6 @@
 using Naravel.Mail;
 
-namespace NaravelApp.App.Mail;
+namespace AppRootNamespace.App.Mail;
 
 /// <summary>
 /// A mailable: the message as a class. The sender comes from <c>Mail:From</c> in config/mail.json and the transport from
