@@ -258,6 +258,13 @@ def annotate(phase: str, output: str) -> None:
         print(f"::error title=template-smoke ({phase})::{line.strip()[:900]}")
 
 
+def absolute_directory(path: Path) -> Path:
+    """The packed directory as an absolute path. Every dotnet call of the smoke runs in a temporary folder, where a relative
+    --local ./nupkgs-template names nothing: `dotnet new install` then answers "is not supported" and a relative package source in
+    the nuget.config would be read from the wrong folder."""
+    return path.expanduser().resolve()
+
+
 def free_port() -> int:
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
@@ -342,8 +349,10 @@ def write_summary(version: str, failed: list[str], notes: list[str]) -> None:
 def smoke(local: Path, work: Path, extra_args: list[str]) -> tuple[list[str], list[str]]:
     """Return (failed phases, notes). Every phase prints its own output; a failed phase stops the phases that depend on it."""
     consumer = load_consumer_smoke()
+    local = absolute_directory(local)
     failed: list[str] = []
     notes: list[str] = []
+    installed = False
     version = consumer.packed_version(local, [TEMPLATE_PACKAGE])
     nupkg = local / f"{TEMPLATE_PACKAGE}.{version}.nupkg"
     sources = template_files(TEMPLATE_DIRECTORY)
@@ -381,6 +390,7 @@ def smoke(local: Path, work: Path, extra_args: list[str]) -> tuple[list[str], li
         if not ok:
             annotate("install", output)
             return failed + ["install"], notes
+        installed = True
         ok, output = runner.run("dotnet new list naravel", ["dotnet", "new", "list", "naravel"], work, 120, True)
         if not ok or "Naravel application" not in output or not re.search(r"\bnaravel\b", output):
             annotate("install", output)
@@ -466,7 +476,8 @@ def smoke(local: Path, work: Path, extra_args: list[str]) -> tuple[list[str], li
         if not failed:
             print(summary_line(version), flush=True)
     finally:
-        runner.run(f"dotnet new uninstall {TEMPLATE_PACKAGE}", ["dotnet", "new", "uninstall", TEMPLATE_PACKAGE], work, 120)
+        if installed:  # leave the machine as it was; a failed install has nothing to remove
+            runner.run(f"dotnet new uninstall {TEMPLATE_PACKAGE}", ["dotnet", "new", "uninstall", TEMPLATE_PACKAGE], work, 120)
     return failed, notes
 
 
@@ -578,6 +589,10 @@ def self_test() -> int:
     content_items = [item for item in ET.parse(pack_project).getroot().iter("None") if item.get("Include", "").startswith("content\\")]
     expect("the template project packs the content folder with PackagePath content\\ and without RecursiveDir",
            len(content_items) == 1 and content_items[0].get("PackagePath") == "content\\")
+    relative = absolute_directory(Path("nupkgs-template"))
+    expect("a relative packed directory becomes absolute, below the current directory", relative.is_absolute() and relative.name == "nupkgs-template"
+           and relative.parent == Path.cwd().resolve())
+    expect("an absolute packed directory stays as it is", absolute_directory(Path("/tmp")) == Path("/tmp").resolve())
     listing = entry_listing(["b.txt", "a.txt", "c.txt"], limit=2)
     expect("the entry listing is sorted, counted and cut", "3 entries" in listing and listing.index("a.txt") < listing.index("b.txt")
            and "c.txt" not in listing and "1 more" in listing)
@@ -675,6 +690,7 @@ def main() -> int:
     if args.self_test:
         return self_test()
 
+    args.local = absolute_directory(args.local)
     if not args.local.is_dir():
         print(f"ERROR: {args.local} is not a directory", file=sys.stderr)
         return 1
