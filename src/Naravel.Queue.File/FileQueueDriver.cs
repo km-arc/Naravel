@@ -15,6 +15,12 @@ namespace Naravel.Queue.File;
 ///   {queue}/reserved/{sortKey}_{id}.json  - currently being processed by a worker
 ///   {queue}/failed/{id}.json              - exhausted all attempts
 ///
+/// The queue name is the folder name, so it must be portable: ASCII letters and digits, '_' and '-', with '.' allowed only
+/// between two other characters (for example <c>emails</c>, <c>high-priority</c>, <c>mail.high</c>). Any other name is
+/// rejected with an <see cref="ArgumentException"/> before the file system is touched; a name is never altered, so no
+/// name turns into another name and no name can leave the configured Path (the names <c>.</c> and <c>..</c>,
+/// path separators, drive or stream markers such as ':' and control characters are all outside that set).
+///
 /// Reservation uses File.Move (pending -> reserved), which is effectively atomic on a single
 /// volume, so two workers racing for the same file will not both succeed.
 ///
@@ -42,7 +48,7 @@ public class FileQueueDriver : IQueueDriver
 
     private string Dir(string queue, string sub)
     {
-        var dir = Path.Combine(_basePath, Sanitize(queue), sub);
+        var dir = Path.Combine(_basePath, QueueFolder(queue), sub);
         Directory.CreateDirectory(dir);
         return dir;
     }
@@ -84,7 +90,30 @@ public class FileQueueDriver : IQueueDriver
     private static Task DeleteWithRetryAsync(string file, CancellationToken cancellationToken)
         => RetryTransientAsync(() => System.IO.File.Delete(file), cancellationToken);
 
-    private static string Sanitize(string name) => string.Concat(name.Split(Path.GetInvalidFileNameChars()));
+    // The folder of a queue is its name, unchanged, or the call fails: stripping characters would let "a/b" and "ab" share
+    // a folder, and ".." would still point above the base path.
+    private static string QueueFolder(string queue)
+    {
+        ArgumentNullException.ThrowIfNull(queue);
+        if (IsPortableQueueName(queue)) return queue;
+        throw new ArgumentException(
+            $"Queue name '{queue}' is not valid for the file driver. Use ASCII letters, digits, '_' and '-', and '.' only between two other characters.",
+            nameof(queue));
+    }
+
+    private static bool IsPortableQueueName(string name)
+    {
+        if (name.Length == 0 || name[0] == '.' || name[^1] == '.') return false;
+        var previousWasDot = false;
+        foreach (var c in name)
+        {
+            var isDot = c == '.';
+            if (isDot && previousWasDot) return false;
+            if (!isDot && !char.IsAsciiLetterOrDigit(c) && c != '_' && c != '-') return false;
+            previousWasDot = isDot;
+        }
+        return true;
+    }
 
     // Sort key packs priority (descending) and availability time (ascending) into the filename so a
     // plain alphabetical directory listing already gives us the correct pop order.
@@ -107,7 +136,7 @@ public class FileQueueDriver : IQueueDriver
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> QueueGates = new(StringComparer.OrdinalIgnoreCase);
 
     private SemaphoreSlim GateFor(string queue)
-        => QueueGates.GetOrAdd(Path.GetFullPath(Path.Combine(_basePath, Sanitize(queue))), _ => new SemaphoreSlim(1, 1));
+        => QueueGates.GetOrAdd(Path.GetFullPath(Path.Combine(_basePath, QueueFolder(queue))), _ => new SemaphoreSlim(1, 1));
 
     private async Task<T> WithGateAsync<T>(string queue, Func<Task<T>> action, CancellationToken cancellationToken)
     {
