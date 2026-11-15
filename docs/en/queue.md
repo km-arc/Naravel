@@ -100,6 +100,14 @@ type with different settings** (`redis` and `backup` above are both Redis, point
 servers), which is exactly what the driver-registration helper (`AddQueueDriver`, internal to
 `Naravel.Queue`) was built to support.
 
+**Queue names with the `file` driver.** The file driver uses the queue name as the folder name under its
+`Path`, so the name must be portable: ASCII letters, digits, `_` and `-`, and `.` only between two other
+characters (`emails`, `high-priority`, `mail.high`). Any other name (empty, `.`, `..`, a space, `:`, a path
+separator, a control character, a letter outside ASCII) throws an `ArgumentException` with `ParamName` `queue`
+before any folder is made; the driver never alters a name, so no name can leave the `Path` and no name is changed into another one.
+A file system that ignores letter case (Windows, and macOS by default) still treats `Emails` and `emails` as one
+folder.
+
 ## The same job on Redis, with worker settings
 
 The quickstart job again, with the Redis driver and explicit worker settings.
