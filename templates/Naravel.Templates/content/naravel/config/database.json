@@ -1,0 +1,12 @@
+// Database connections. Guide: https://github.com/km-arc/Naravel/blob/main/docs/en/database.md
+{
+  "Database": {
+    "Default": "main",
+    "Connections": {
+      "main": {
+        "Driver": "sqlite",
+        "Path": "storage/database.sqlite"
+      }
+    }
+  }
+}

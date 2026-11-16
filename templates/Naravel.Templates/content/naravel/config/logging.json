@@ -1,0 +1,9 @@
+// Log levels. Guide: https://learn.microsoft.com/en-us/dotnet/core/extensions/logging
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  }
+}

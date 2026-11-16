@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- The name given with -n, made safe for C#: the namespace of the code below (a name such as my-blog is not a namespace). -->
+    <RootNamespace>AppRootNamespace</RootNamespace>
+    <!-- The test project lives in tests/. Keep its sources, files and build output out of the application. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);tests/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Naravel.Routing" Version="NARAVEL_VERSION" />
+    <PackageReference Include="Naravel.Cache" Version="NARAVEL_VERSION" />
+    <PackageReference Include="Naravel.Queue" Version="NARAVEL_VERSION" />
+    <PackageReference Include="Naravel.Queue.File" Version="NARAVEL_VERSION" />
+    <PackageReference Include="Naravel.Events" Version="NARAVEL_VERSION" />
+    <PackageReference Include="Naravel.Mail" Version="NARAVEL_VERSION" />
+    <PackageReference Include="Naravel.Database" Version="NARAVEL_VERSION" />
+    <PackageReference Include="Naravel.Database.Sqlite" Version="NARAVEL_VERSION" />
+  </ItemGroup>
+
+  <!-- config/ and resources/ are read from the application folder at run time, so they are copied to the build and the publish output.
+       The Web SDK treats some of these files as Content and some as None; an Update line for each covers both. -->
+  <ItemGroup>
+    <None Update="config\**\*.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Update="config\**\*.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="resources\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Update="resources\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

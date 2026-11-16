@@ -1,0 +1,10 @@
+// Cache stores. Guide: https://github.com/km-arc/Naravel/blob/main/docs/en/cache.md
+{
+  "Cache": {
+    "Default": "memory",
+    "AppPrefix": "AppRootNamespace",
+    "Stores": {
+      "memory": { "Driver": "memory" }
+    }
+  }
+}

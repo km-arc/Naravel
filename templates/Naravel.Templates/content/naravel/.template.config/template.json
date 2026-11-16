@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "km-arc",
+  "classifications": [ "Web", "API", "Naravel" ],
+  "identity": "Naravel.Templates.App",
+  "name": "Naravel application",
+  "description": "A Naravel web application: routing, events, queue, mail, cache and database configured with one file per module, a welcome page, a health check and a test project that uses the fakes. It needs no database server, no Redis and no broker.",
+  "shortName": "naravel",
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "sourceName": "NaravelApp",
+  "preferNameDirectory": true,
+  "forms": {
+    "csharpUnsafeChars": { "identifier": "replace", "pattern": "[^\\p{L}\\p{Nd}_.]", "replacement": "_" },
+    "csharpLeadingDigit": { "identifier": "replace", "pattern": "^(?=[\\p{Nd}])", "replacement": "_" },
+    "csharpDotDigit": { "identifier": "replace", "pattern": "\\.(?=[\\p{Nd}])", "replacement": "._" },
+    "csharpNamespace": { "identifier": "chain", "steps": [ "csharpUnsafeChars", "csharpLeadingDigit", "csharpDotDigit" ] }
+  },
+  "symbols": {
+    "NaravelVersion": {
+      "type": "parameter",
+      "datatype": "text",
+      "description": "The version of the Naravel packages the application references. The default is the version of this template pack.",
+      "defaultValue": "0.2.0",
+      "replaces": "NARAVEL_VERSION"
+    },
+    "AppRootNamespace": {
+      "type": "derived",
+      "description": "The name given with -n, made safe to use as a C# namespace (my-blog becomes my_blog, 1st becomes _1st). The C# files, RootNamespace and the cache key prefix use this.",
+      "valueSource": "name",
+      "valueTransform": "csharpNamespace",
+      "replaces": "AppRootNamespace"
+    },
+    "AppProjectName": {
+      "type": "derived",
+      "description": "The name given with -n, exactly as it was given: the name of the project file and of the tests folder, which a path inside a file has to repeat. The engine writes a safe form (my_blog) for sourceName inside a file, so a path must not use sourceName.",
+      "valueSource": "name",
+      "valueTransform": "identity",
+      "replaces": "AppProjectName"
+    }
+  },
+  "primaryOutputs": [
+    { "path": "NaravelApp.csproj" }
+  ]
+}
