@@ -71,13 +71,104 @@ public sealed class RedisProviderTests
         proxy.LastScript.Should().Contain("redis.call('PEXPIRE'");
     }
 
+    private static (RedisCacheStore Store, RedisFlushServerProxy Server, RedisFlushDatabaseProxy Database) FlushFixture()
+    {
+        var multiplexer = DispatchProxy.Create<IConnectionMultiplexer, RedisFlushMultiplexerProxy>();
+        var database = DispatchProxy.Create<IDatabase, RedisFlushDatabaseProxy>();
+        var server = DispatchProxy.Create<IServer, RedisFlushServerProxy>();
+        var muxProxy = (RedisFlushMultiplexerProxy)(object)multiplexer;
+        muxProxy.Database = database;
+        muxProxy.Server = server;
+        return (new RedisCacheStore("one", multiplexer, "app[one]"), (RedisFlushServerProxy)(object)server, (RedisFlushDatabaseProxy)(object)database);
+    }
+
+    [Fact]
+    public async Task Redis_flush_never_deletes_the_keys_of_a_lock_that_shares_the_store_prefix()
+    {
+        var (store, server, database) = FlushFixture();
+        using var _ = store;
+        server.Keys = ["app[one]:owned", "app[one]:lock:order"];
+
+        await store.FlushAsync();
+
+        database.DeletedKeys.Should().Equal("app[one]:owned");
+    }
+
+    [Fact]
+    public async Task The_key_that_RedisLock_writes_is_a_key_that_the_flush_skips()
+    {
+        var mux = DispatchProxy.Create<IConnectionMultiplexer, CacheProviderDispatchProxy>();
+        var lockDatabase = DispatchProxy.Create<IDatabase, RedisDatabaseProxy>();
+        ((CacheProviderDispatchProxy)(object)mux).NextResult = lockDatabase;
+        using var cacheLock = new RedisLock(mux, "app[one]");
+        (await cacheLock.AcquireAsync("order", TimeSpan.FromSeconds(5))).Should().NotBeNull();
+        var lockKey = ((RedisDatabaseProxy)(object)lockDatabase).LastKey!;
+        lockKey.Should().Be("app[one]:" + RedisLock.KeyNamespace + "order");
+
+        var (store, server, database) = FlushFixture();
+        using var _ = store;
+        server.Keys = [lockKey];
+        await store.FlushAsync();
+
+        database.DeletedKeys.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Redis_flush_fails_without_removing_anything_when_a_primary_is_not_connected()
+    {
+        var (store, server, database) = FlushFixture();
+        using var _ = store;
+        server.Connected = false;
+        server.Keys = ["app[one]:owned"];
+
+        Func<Task> flush = async () => await store.FlushAsync();
+
+        var error = (await flush.Should().ThrowExactlyAsync<InvalidOperationException>()).Which;
+        error.Message.Should().Contain("not connected").And.Contain("Nothing was removed");
+        server.LastPattern.Should().BeNull("a primary that is down is reported before any scan starts");
+        database.DeletedKeys.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Redis_flush_ignores_a_replica_even_when_it_is_not_connected()
+    {
+        var (store, server, database) = FlushFixture();
+        using var _ = store;
+        server.Replica = true;
+        server.Connected = false;
+        server.Keys = ["app[one]:owned"];
+
+        await store.FlushAsync();
+
+        server.LastPattern.Should().BeNull();
+        database.DeletedKeys.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Redis_flush_deletes_every_key_when_there_are_more_than_one_batch()
+    {
+        var (store, server, database) = FlushFixture();
+        using var _ = store;
+        server.Keys = Enumerable.Range(0, 600).Select(i => $"app[one]:key-{i}").ToArray();
+
+        await store.FlushAsync();
+
+        database.DeletedKeys.Should().BeEquivalentTo(server.Keys);
+    }
+
     public class RedisDatabaseProxy : DispatchProxy
     {
         public long ScriptResult { get; set; }
         public string? LastScript { get; private set; }
+        public string? LastKey { get; private set; }
         protected override object? Invoke(System.Reflection.MethodInfo? targetMethod, object?[]? args)
         {
-            if (targetMethod?.Name == nameof(IDatabase.StringSetAsync)) return Task.FromResult(true);
+            if (targetMethod?.Name == nameof(IDatabase.StringSetAsync))
+            {
+                LastKey = args?[0]?.ToString();
+                return Task.FromResult(true);
+            }
+
             if (targetMethod?.Name == nameof(IDatabase.ScriptEvaluateAsync))
             {
                 LastScript = args?[0]?.ToString();
@@ -106,11 +197,13 @@ public sealed class RedisProviderTests
     {
         public string[] Keys { get; set; } = [];
         public string? LastPattern { get; private set; }
+        public bool Connected { get; set; } = true;
+        public bool Replica { get; set; }
 
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
-            if (targetMethod?.Name == "get_IsConnected") return true;
-            if (targetMethod?.Name == "get_IsReplica") return false;
+            if (targetMethod?.Name == "get_IsConnected") return Connected;
+            if (targetMethod?.Name == "get_IsReplica") return Replica;
             if (targetMethod?.Name == nameof(IServer.KeysAsync))
             {
                 LastPattern = args?[1]?.ToString();

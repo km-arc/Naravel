@@ -82,7 +82,7 @@ Register the core package before backend providers. Add only providers used by t
 
 Use environment variables or a secret provider for credentials. Store names are case-insensitive. `Default` defaults to `memory`; `AppPrefix` defaults to `app`. A provider registers the configured store names at startup. Changes to values in an existing store are reloaded by Foundation; adding a new store after startup requires registering/restarting the host.
 
-The `Prefix` is applied to raw keys before they reach the backend. Redis flush is restricted to that prefix. Memcached has no prefix-scoped delete operation; see limitations below.
+The `Prefix` is applied to raw keys before they reach the backend. Redis flush is restricted to that prefix and leaves the keys of locks (`<Prefix>:lock:<name>`) alone. Memcached has no prefix-scoped delete operation; see limitations below.
 
 Named Memory stores use their store name as the default prefix when `Prefix` is omitted, so they remain isolated despite sharing the process memory cache. For connection-pool efficiency, all configured Memcached stores use one client and must declare the same server list. Changing that server list requires a host restart; other store settings continue to follow Foundation's reload behavior.
 
@@ -362,7 +362,7 @@ Foundation's own errors (no default store, a disposed manager) are listed in the
 | Provider | Value handling | Lock behavior | Flush behavior |
 |---|---|---|---|
 | Memory | Typed in-process values | Process-local token locks | Removes keys tracked by that store instance |
-| Redis | JSON via `System.Text.Json` | Distributed; token release is atomic | Scans/deletes only keys under the configured prefix |
+| Redis | JSON via `System.Text.Json` | Distributed; token release is atomic | Scans and deletes only keys under the configured prefix, never the keys of locks; throws `InvalidOperationException`, removing nothing, when a primary is not connected. It scans the whole keyspace of every primary, so its cost grows with the number of keys, and it is not atomic: after an error some keys may be gone and it can be repeated |
 | Memcached | Typed values via the configured Enyim transcoder; `ttl: null` means no expiry | Distributed acquisition; release is not fully atomic | **Flushes the entire shared Memcached cluster**, not only this store prefix |
 
 Use tag invalidation instead of `FlushAsync` when using Memcached or when only a subset of keys should be invalidated. The existing Memcached increment/decrement operations still require existing numeric values; the TTL increment overload uses atomic add for first creation. The current Enyim client exposes counter commands synchronously; the provider schedules them on the thread pool, and cancellation cannot interrupt a command after it starts.
