@@ -33,7 +33,29 @@ The full mapping, including what Naravel leaves to .NET and what it rejects, is 
 
 ## Get started
 
-Naravel targets **.NET 10**. Every module is its own NuGet package, so you add only what you use.
+Naravel targets **.NET 10**.
+
+### A whole application in one command
+
+<img src="docs/assets/template-what-you-get.png" alt="What dotnet new naravel creates: the commands, the files of the new application, and its welcome page, which is a first page of documentation with a route group and a middleware to copy" width="100%">
+
+The `dotnet new` template creates a running application with a Laravel-like folder structure (`app/`, `config/`, `routes/`, `resources/`, `tests/`), one JSON configuration file per module, an example flow from an event through a listener and a queued job to a welcome mail, tests that run on the fakes, and a welcome page that shows a first route group and a first middleware. It needs no database server, no Redis and no broker.
+
+`Naravel.Templates` is not on nuget.org yet, so install the template from a clone. Create the application next to the clone, not inside it, because the repository's own build files would otherwise apply to it:
+
+```sh
+git clone https://github.com/km-arc/Naravel.git
+dotnet new install ./Naravel/templates/Naravel.Templates/content/naravel
+dotnet new naravel -n Blog
+cd Blog
+dotnet run
+```
+
+The generated application uses the published Naravel packages (`dotnet run` restores them from nuget.org). Its [README](templates/Naravel.Templates/content/naravel/README.md) describes every folder and the example flow.
+
+### One module in a project you already have
+
+Every module is its own NuGet package, so you add only what you use.
 
 ```sh
 dotnet new web -n Hello && cd Hello
