@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AppProjectName</title>
+  <style>
+    body { font: 16px/1.5 system-ui, sans-serif; max-width: 40rem; margin: 4rem auto; padding: 0 1rem; color: #1f2328; }
+    code { background: #f3f4f6; padding: .1rem .3rem; border-radius: .25rem; }
+    @media (prefers-color-scheme: dark) { body { background: #0d1117; color: #e6edf3; } code { background: #161b22; } }
+  </style>
+</head>
+<body>
+  <h1>AppProjectName</h1>
+  <p>Your Naravel application is running.</p>
+  <ul>
+    <li>Routes: <code>routes/WebRoutes.cs</code></li>
+    <li>Configuration, one file per module: <code>config/</code></li>
+    <li>Events, listeners, jobs and mail: <code>app/</code></li>
+    <li>Health check: <a href="/up"><code>/up</code></a></li>
+  </ul>
+  <p>Try the example flow: <code>POST /register</code> with <code>{"email":"ada@example.com","name":"Ada"}</code> dispatches an event, a listener queues a job, and the queue worker sends a welcome mail (the <code>log</code> mail transport writes it to the log).</p>
+</body>
+</html>

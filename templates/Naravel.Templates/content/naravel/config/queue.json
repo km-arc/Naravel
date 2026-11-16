@@ -1,0 +1,14 @@
+// Queue stores. The "file" store keeps jobs in files under storage/queue, so no broker is needed.
+// Guide: https://github.com/km-arc/Naravel/blob/main/docs/en/queue.md
+{
+  "NaravelQueue": {
+    "Default": "file",
+    "Stores": {
+      "file": {
+        "Driver": "file",
+        "Queue": "default",
+        "Path": "storage/queue"
+      }
+    }
+  }
+}

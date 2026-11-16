@@ -18,8 +18,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- content/<template>/... is packed at the same path, dot folders included; bin and obj of a template that was built by hand are not. -->
-    <None Include="content\**\*" Exclude="content\**\bin\**;content\**\obj\**" Pack="true" PackagePath="content\%(RecursiveDir)" />
+    <!-- content/<template>/... is packed at the same path, dot folders included; bin and obj of a template that was built by hand are not.
+         PackagePath is only the folder, with a separator at its end: NuGet itself appends the folder of each file below content\ and the
+         file name (content\naravel\app\Events\UserRegistered.cs). Adding %(RecursiveDir) here repeats that folder in the package
+         (content/naravel/app/Events/naravel/app/Events/UserRegistered.cs), as the template smoke showed. -->
+    <None Include="content\**\*" Exclude="content\**\bin\**;content\**\obj\**" Pack="true" PackagePath="content\" />
     <None Include="..\..\docs\nuget\Naravel.Templates.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 

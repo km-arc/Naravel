@@ -1,0 +1,8 @@
+// Mail. With the "log" transport a message is written to the application log and nothing is delivered.
+// Guide: https://github.com/km-arc/Naravel/blob/main/docs/en/mail.md
+{
+  "Mail": {
+    "Default": "log",
+    "From": "hello@example.com"
+  }
+}
