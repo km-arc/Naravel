@@ -18,7 +18,7 @@ Redis cache and distributed-lock providers for Naravel.Cache.
 
 - **One cache for every instance.** Name `"Driver": "redis"` in a store, and all instances read and write the same keys.
 - **Distributed locks.** Acquisition is an atomic `SET NX`, and release compares the token before it deletes.
-- **Flush stays inside the store.** `FlushAsync` removes only the keys under the store's `Prefix` and never the keys of locks, so clearing the cache does not release a lock that is held. It throws, removing nothing, when a primary is not connected.
+- **Flush stays inside the store.** `FlushAsync` removes only the keys under the store's `Prefix`, a scope flush removes only that scope, and the keys of locks are never removed. A flush throws, removing nothing, when a primary is not connected.
 - **Counters in one step.** `IncrementAsync` with a TTL sets the first expiry in the same Lua operation.
 - **One connection per server.** The store and its lock borrow the connection that `Naravel.Redis` owns, and equal connection strings share one.
 
