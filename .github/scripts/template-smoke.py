@@ -16,6 +16,10 @@ up when a user runs `dotnet new naravel`, after the pack is on nuget.org. This s
 6. publish:   `dotnet publish`; the output holds config/*.json and resources/views/welcome.html.
 7. run:       the published application is started from its own folder; /up answers 200, / answers the welcome page, and
               POST /register answers 202 (the event, the listener, the queue and the mail wiring is built and resolves).
+8. names:     the template is generated again with names that are not valid C# namespaces as they are (my-blog, 1st-blog, Acme.Blog).
+              Every project reference must point to a file that was generated, the name must appear as it was given where a user reads
+              it, and the first of these applications is built and its tests are run, so a path or a namespace that the template
+              engine rewrote cannot go unnoticed.
 
 Usage:
   template-smoke.py --local <directory-containing-nupkgs>   packages from `dotnet pack` (CI, before anything is pushed)
@@ -32,6 +36,7 @@ import argparse
 import importlib.util
 import json
 import os
+import posixpath
 import re
 import shutil
 import socket
@@ -52,8 +57,9 @@ SOURCE_NAME = "NaravelApp"  # sourceName in template.json: replaced by the name 
 VERSION_PLACEHOLDER = "NARAVEL_VERSION"
 APP_NAME = "Blog"
 NAMESPACE_TOKEN = "AppRootNamespace"  # the derived symbol of template.json: the name given with -n, made safe for a C# namespace
-# (the name given with -n, the namespace the generated C# must have, whether that application is also compiled). The expected values are
-# written out here and not computed, so the template's own rules are checked against an independent answer.
+PROJECT_NAME_TOKEN = "AppProjectName"  # the derived symbol of template.json: the name given with -n, as it was given (paths, display)
+# (the name given with -n, the namespace the generated C# must have, whether that application is also built and its tests run). The
+# expected values are written out here and not computed, so the template's own rules are checked against an independent answer.
 NAME_CASES = [("my-blog", "my_blog", True), ("Acme.Blog", "Acme.Blog", False), ("1st-blog", "_1st_blog", False)]
 NAMESPACE_FILE = "app/Events/UserRegistered.cs"
 START_TIMEOUT = 60
@@ -126,8 +132,9 @@ def leftover_placeholders(files: dict[str, str], name: str) -> list[str]:
     for relative, text in sorted(files.items()):
         if VERSION_PLACEHOLDER in text:
             problems.append(f"{relative}: still contains {VERSION_PLACEHOLDER}")
-        if NAMESPACE_TOKEN in text or NAMESPACE_TOKEN in relative:
-            problems.append(f"{relative}: still contains {NAMESPACE_TOKEN}")
+        for token in (NAMESPACE_TOKEN, PROJECT_NAME_TOKEN):
+            if token in text or token in relative:
+                problems.append(f"{relative}: still contains {token}")
         if SOURCE_NAME not in name and (SOURCE_NAME in text or SOURCE_NAME in relative):
             problems.append(f"{relative}: still contains {SOURCE_NAME}")
     return problems
@@ -154,6 +161,36 @@ def namespace_problems(files: dict[str, str], name: str, expected: str) -> list[
     if name != expected:
         problems.extend(f"{relative}: the name {name!r} is written into a namespace or using directive as it was given"
                         for relative in raw_name_in_namespaces(files, name))
+    return problems
+
+
+def project_reference_problems(files: dict[str, str]) -> list[str]:
+    """Every ProjectReference of a generated project file must point to a file that was generated.
+
+    The template engine writes the name given with -n into a file name as it is (my-blog.csproj) but into the content of a file in its
+    safe form (my_blog), so a path written with the source name points to a file that does not exist. NuGet skips such a reference
+    without an error; the project then compiles without the application and fails far from the cause."""
+    problems = []
+    for relative, text in sorted(files.items()):
+        if not relative.endswith(".csproj"):
+            continue
+        for include in re.findall(r'<ProjectReference\s+Include="([^"]+)"', text):
+            target = posixpath.normpath(posixpath.join(posixpath.dirname(relative), include.replace("\\", "/")))
+            if target not in files:
+                problems.append(f"{relative}: the project reference '{include}' points to '{target}', which was not generated")
+    return problems
+
+
+def given_name_problems(files: dict[str, str], name: str) -> list[str]:
+    """Where a user reads the name, it is the name that was given: the README title, the test command and the welcome page title."""
+    problems = []
+    readme = files.get("README.md", "")
+    if not readme.startswith(f"# {name}\n"):
+        problems.append(f"README.md does not start with '# {name}'")
+    if f"dotnet test tests/{name}.Tests" not in readme:
+        problems.append(f"README.md does not say 'dotnet test tests/{name}.Tests'")
+    if f"<title>{name}</title>" not in files.get("resources/views/welcome.html", ""):
+        problems.append(f"resources/views/welcome.html does not have <title>{name}</title>")
     return problems
 
 
@@ -249,13 +286,18 @@ def trx_problems(trx_text: str, required_test: str) -> list[str]:
 # The run
 # ---------------------------------------------------------------------------------------------------------------------------------
 
+EXCERPTS: list[tuple[str, list[str]]] = []  # what annotate showed, for the job summary: GitHub keeps only 10 annotations per step
+
+
 def annotate(phase: str, output: str) -> None:
-    """Make the cause readable in the check annotations; the raw log is not readable without authentication."""
+    """Make the cause readable in the check annotations and the job summary; the raw log is not readable without authentication."""
+    lines = [line.strip()[:900] for line in output.splitlines() if re.search(r"error|NU\d{4}|failed|exception|timed out|skipping", line, re.I)]
+    lines = list(dict.fromkeys(lines))[:15]
+    EXCERPTS.append((phase, lines))
     if not os.environ.get("GITHUB_ACTIONS"):
         return
-    lines = [line for line in output.splitlines() if re.search(r"error|NU\d{4}|failed|exception|timed out", line, re.I)]
-    for line in list(dict.fromkeys(lines))[:15]:
-        print(f"::error title=template-smoke ({phase})::{line.strip()[:900]}")
+    for line in lines:
+        print(f"::error title=template-smoke ({phase})::{line}")
 
 
 def absolute_directory(path: Path) -> Path:
@@ -342,6 +384,9 @@ def write_summary(version: str, failed: list[str], notes: list[str]) -> None:
     lines = ["### Template smoke", f"- Template pack: `{TEMPLATE_PACKAGE}` `{version}`",
              "- Combination started: default (cache memory, mail log, queue file, database sqlite)",
              f"- Result: {'passed' if not failed else 'FAILED in: ' + ', '.join(failed)}", *[f"- {note}" for note in notes], ""]
+    for phase, excerpt in EXCERPTS:
+        if excerpt:
+            lines += [f"<details><summary>{phase}: the first {len(excerpt)} error lines</summary>", "", "```", *excerpt, "```", "</details>", ""]
     with open(path, "a", encoding="utf-8") as handle:
         handle.write("\n".join(lines))
 
@@ -405,7 +450,7 @@ def smoke(local: Path, work: Path, extra_args: list[str]) -> tuple[list[str], li
         generated = read_text_files(app)
         problems = [f"{path} was not generated" for path in expected_generated(sources, APP_NAME) if not (app / path).is_file()]
         problems += [f"{path} was not generated" for path in (p.format(name=APP_NAME) for p in MUST_HAVE) if not (app / path).is_file()]
-        problems += leftover_placeholders(generated, APP_NAME)
+        problems += leftover_placeholders(generated, APP_NAME) + project_reference_problems(generated) + given_name_problems(generated, APP_NAME)
         versions = referenced_versions(generated.get(f"{APP_NAME}.csproj", ""))
         if versions != {version}:
             problems.append(f"{APP_NAME}.csproj references Naravel packages at {sorted(versions)}, expected only {version}")
@@ -451,8 +496,8 @@ def smoke(local: Path, work: Path, extra_args: list[str]) -> tuple[list[str], li
         if phase_failed("run", problems):
             return failed, notes
 
-        # Names that are not valid C# namespaces as they are (a hyphen, a leading digit): the file names and the README keep the name,
-        # the namespace is made safe. The first case is also compiled, tests project included.
+        # Names that are not valid C# namespaces as they are (a hyphen, a leading digit): file names, paths and what a user reads keep
+        # the name, the namespace is made safe. The first case is also built and its tests are run.
         problems = []
         for index, (name, expected, build) in enumerate(NAME_CASES):
             folder = work / "names" / str(index)
@@ -464,12 +509,13 @@ def smoke(local: Path, work: Path, extra_args: list[str]) -> tuple[list[str], li
                 annotate("names", output)
                 continue
             files = read_text_files(project)
-            problems += [f"-n {name}: {problem}" for problem in leftover_placeholders(files, name) + namespace_problems(files, name, expected)]
+            problems += [f"-n {name}: {problem}" for problem in leftover_placeholders(files, name) + namespace_problems(files, name, expected)
+                         + project_reference_problems(files) + given_name_problems(files, name)]
             if build:
-                built, output = runner.dotnet(f"build a project named {name}",
-                                              ["build", f"tests/{name}.Tests/{name}.Tests.csproj", "-c", "Release"], project)
+                built, output = runner.dotnet(f"build the application and run the tests of a project named {name}",
+                                              ["test", f"tests/{name}.Tests/{name}.Tests.csproj", "-c", "Release"], project)
                 if not built:
-                    problems.append(f"-n {name}: the generated application and its tests project do not build")
+                    problems.append(f"-n {name}: the generated application and its tests project do not build, or a test fails")
                     annotate("names", output)
         if not phase_failed("names", problems):
             notes.append("Project names generated: " + ", ".join(f"{name} (namespace {expected})" for name, expected, _ in NAME_CASES))
@@ -542,7 +588,8 @@ def self_test() -> int:
     expect("the derived symbol replaces the token the C# files use", symbol["replaces"] == NAMESPACE_TOKEN)
 
     def generate(name: str, namespace: str) -> dict[str, str]:
-        """The plain replacements of the engine, applied to the template folder."""
+        """The replacements of the engine, applied to the template folder as the real engine was seen to apply them: the source name
+        becomes the name in a file name but its safe form inside a file; each derived symbol replaces its own token by its value."""
         out = {}
         for relative in sources:
             if relative.startswith(".template.config/"):
@@ -551,8 +598,8 @@ def self_test() -> int:
                 text = (TEMPLATE_DIRECTORY / relative).read_text(encoding="utf-8")
             except UnicodeDecodeError:
                 continue
-            out[generated_path(relative, name)] = (
-                text.replace(SOURCE_NAME, name).replace(NAMESPACE_TOKEN, namespace).replace(VERSION_PLACEHOLDER, "0.2.0"))
+            out[generated_path(relative, name)] = (text.replace(SOURCE_NAME, namespace).replace(NAMESPACE_TOKEN, namespace)
+                                                   .replace(PROJECT_NAME_TOKEN, name).replace(VERSION_PLACEHOLDER, "0.2.0"))
         return out
 
     for name, expected, _ in NAME_CASES:
@@ -561,8 +608,38 @@ def self_test() -> int:
                namespace_problems(generated, name, expected) == [] and leftover_placeholders(generated, name) == [])
     expect("the plain replacement of the token by a hyphenated name is found",
            len(namespace_problems(generate("my-blog", "my-blog"), "my-blog", "my_blog")) > 3)
-    expect("no C# file of the template writes the source name into a namespace",
-           not any(SOURCE_NAME in (TEMPLATE_DIRECTORY / relative).read_text(encoding="utf-8") for relative in sources if relative.endswith(".cs")))
+    contents = {relative: text for relative, text in read_text_files(TEMPLATE_DIRECTORY).items() if not relative.startswith(".template.config/")}
+    expect("the template's files are read", len(contents) > 10 and ".gitignore" in contents)
+    expect("no file of the template writes the source name in its content (only file names carry it; the template engine rewrites the "
+           "name inside a file, so a path or a name written with it is wrong for a name such as my-blog)",
+           not [relative for relative, text in contents.items() if SOURCE_NAME in text])
+    project_symbol = json.loads(json_text_for_forms)["symbols"][PROJECT_NAME_TOKEN]
+    expect("the derived symbol of the project name replaces its token with the name as it was given",
+           project_symbol["replaces"] == PROJECT_NAME_TOKEN and project_symbol["valueSource"] == "name"
+           and project_symbol["valueTransform"] == "identity")
+
+    # The failure of the first names run: the engine wrote my_blog.csproj into the reference of the tests project, the file is
+    # my-blog.csproj, NuGet skipped the reference and the tests project compiled without the application.
+    for name, expected, _ in NAME_CASES:
+        generated = generate(name, apply_forms(json_text_for_forms, name))
+        expect(f"every project reference of a generation with -n {name} points to a generated file", project_reference_problems(generated) == [])
+        expect(f"a generation with -n {name} shows the name as it was given", given_name_problems(generated, name) == [])
+    reference = "tests/my-blog.Tests/my-blog.Tests.csproj"
+    broken = dict(generate("my-blog", "my_blog"))
+    broken[reference] = broken[reference].replace("my-blog.csproj", "my_blog.csproj")
+    found = project_reference_problems(broken)
+    expect("a reference to a file that was not generated is found and named", len(found) == 1 and "my_blog.csproj" in found[0] and reference in found[0])
+    expect("a reference written with backslashes and parent folders is resolved",
+           project_reference_problems({"a/b/b.csproj": '<ProjectReference Include="..\\a.csproj" />', "a/a.csproj": ""}) == [])
+    expect("a project file without references has no problems", project_reference_problems({"a.csproj": "<Project />"}) == [])
+    unsafe = dict(generate("my-blog", "my_blog"))
+    unsafe["README.md"] = unsafe["README.md"].replace("my-blog", "my_blog")
+    expect("a README that shows the safe form instead of the given name is found", len(given_name_problems(unsafe, "my-blog")) == 2)
+    expect("a welcome page that shows the safe form is found",
+           len(given_name_problems({**generate("my-blog", "my_blog"), "resources/views/welcome.html": "<title>my_blog</title>"}, "my-blog")) == 1)
+    expect("a surviving project name token is found", len(leftover_placeholders({"a.md": "# AppProjectName"}, "Blog")) == 1)
+    expect("the tests project references the application through the project name token",
+           f"..\\..\\{PROJECT_NAME_TOKEN}.csproj" in (TEMPLATE_DIRECTORY / f"tests/{SOURCE_NAME}.Tests/{SOURCE_NAME}.Tests.csproj").read_text(encoding="utf-8"))
     for project in (f"{SOURCE_NAME}.csproj", f"tests/{SOURCE_NAME}.Tests/{SOURCE_NAME}.Tests.csproj"):
         expect(f"{project} sets RootNamespace from the token",
                f"<RootNamespace>{NAMESPACE_TOKEN}" in (TEMPLATE_DIRECTORY / project).read_text(encoding="utf-8"))

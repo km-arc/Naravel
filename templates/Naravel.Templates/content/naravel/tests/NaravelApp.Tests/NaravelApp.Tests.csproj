@@ -18,7 +18,7 @@
   <ItemGroup>
     <!-- The application is a web project; its controller types come from the ASP.NET Core shared framework. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <ProjectReference Include="..\..\NaravelApp.csproj" />
+    <ProjectReference Include="..\..\AppProjectName.csproj" />
   </ItemGroup>
 
   <ItemGroup>

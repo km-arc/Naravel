@@ -2,7 +2,7 @@
 {
   "Cache": {
     "Default": "memory",
-    "AppPrefix": "NaravelApp",
+    "AppPrefix": "AppRootNamespace",
     "Stores": {
       "memory": { "Driver": "memory" }
     }

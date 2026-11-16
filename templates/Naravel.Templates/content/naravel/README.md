@@ -1,4 +1,4 @@
-# NaravelApp
+# AppProjectName
 
 A [Naravel](https://github.com/km-arc/Naravel) application. It runs with no database server, no Redis and no message broker.
 
@@ -21,7 +21,7 @@ The controller dispatches the `UserRegistered` event, a listener queues the `Sen
 ## Tests
 
 ```sh
-dotnet test tests/NaravelApp.Tests
+dotnet test tests/AppProjectName.Tests
 ```
 
 The tests use the fakes that ship with the packages (`EventFake`, `QueueFake`, `MailFake`), so they need no queue and no mail server.
