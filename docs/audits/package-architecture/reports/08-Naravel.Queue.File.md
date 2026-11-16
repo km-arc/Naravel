@@ -19,14 +19,16 @@
 - A critical path-boundary flaw exists: queue names are transformed by deleting invalid filename characters, so the result is not a safe or unique directory component. A queue named `..` escapes the configured root, and different names can collapse onto the same directory.
 - Several lifecycle/recovery details need hardening: static gate objects are never reclaimed; failed temporary writes can leave orphan files; non-positive visibility timeout is accepted; malformed queue files are silently skipped or can block stale-reservation reclaim; and `SizeAsync` ignores cancellation.
 - No runtime code, tests, dependencies or public APIs were changed by this review.
+- Follow-up of 2026-11-16: FILE-001 (AV-011) was fixed after this review by PR #293 and is VERIFIED CLOSED; the residual FILE-007 was found while recording that. The sections below keep the review as it was written against the baseline above, and each one that the fix changed says so.
 
 ## Findings
 
 ### [P1] FILE-001 — Queue-name sanitization allows path traversal and namespace collisions
 
-- Remediation state: OPEN.
+- Remediation state: VERIFIED CLOSED — fixed on 2026-11-15 by PR #293 (merge `6052441`) with option A of AD-014; CI [run 43751562401](https://github.com/km-arc/Naravel/actions/runs/43751562401) on the PR branch (head `93775b7`) is green on Windows, macOS and Ubuntu, and CI [run 43752294489](https://github.com/km-arc/Naravel/actions/runs/43752294489) on `main` at the merge is green too.
+- Resolution: `Sanitize` was replaced by `QueueFolder` and `IsPortableQueueName` in `src/Naravel.Queue.File/FileQueueDriver.cs`. A name is used unchanged when it holds only ASCII letters, digits, `_` and `-`, and `.` only between two other characters; any other name throws `ArgumentException` (`ParamName` `queue`) before a folder is made or a gate is taken, and a `null` name throws `ArgumentNullException`. Owner decision AD-014 is option A. `tests/Naravel.Queue.Tests/FileDriverQueueNameTests.cs` is the regression test. Public API files are unchanged. The independent review and mutation testing NOT RUN. The evidence below describes the baseline.
 - Architecture disposition: VETO AV-011 — queue names must map safely and injectively beneath the configured file-store root.
-- Evidence status: CONFIRMED BY SOURCE-LEVEL PATH ANALYSIS; OS-level exploit/collision reproduction NOT RUN.
+- Evidence status: CONFIRMED BY SOURCE-LEVEL PATH ANALYSIS at the baseline; OS-level exploit/collision reproduction NOT RUN. After the fix, the rejection of those names is exercised by `FileDriverQueueNameTests` in CI on Windows, macOS and Ubuntu.
 - Evidence: `src/Naravel.Queue.File/FileQueueDriver.cs:36-40` combines `_basePath`, `Sanitize(queue)` and a subdirectory. `Sanitize` at line 87 removes characters from `Path.GetInvalidFileNameChars()` but leaves dots unchanged. Therefore `Sanitize("..")` is still `".."`; `Dir("..", "pending")` resolves one level above the configured base directory. On Windows and Unix-like systems, slash is an invalid filename character, so names such as `"a/b"` and `"ab"` are both reduced to `"ab"`. The public `DispatchOptions.OnQueue` setter simply stores the provided name and `QueuedMessage.Queue` is publicly settable; this provider does not validate the value before constructing the path.
 - Affected contract: every File-queue operation that calls `Dir`, including enqueue, pop, ack, release, fail and size.
 - User impact: a caller-controlled or malformed queue name can create/read/write pending, reserved and failed directories outside the configured root. Separately, distinct logical queues can alias to the same physical directory, allowing one queue consumer to read or settle another queue's messages. This is both a storage-boundary/security issue and a cross-queue isolation failure.
@@ -38,7 +40,7 @@
 - Why existing tests do not catch it: the shared contract uses ordinary alphanumeric queue names. File recovery tests use simple fixed names such as `"q"`, `"fence"` and `"stress"`. There are no tests for dot segments, invalid characters, path containment or name collisions.
 - Required correction: queue names must be rejected or encoded injectively; deleting invalid characters is not safe. Every resolved queue directory must be proven to remain under a canonicalized base root. Keep path semantics independent of the host OS, and ensure two distinct accepted queue names cannot map to the same directory. Include protection against `.`, `..`, rooted/drive-qualified paths, separators, empty names and platform-specific invalid characters.
 - Regression tests required: traversal attempts for `..`, `../x`, `..\x`, rooted paths and drive-qualified paths; collision pairs including `a/b` vs `ab`, `a:b` vs `ab` on Windows, and empty/invalid-only names; verify all accepted paths remain under the configured root on Windows and Linux; prove distinct logical queues remain isolated.
-- Public API / PDR / release impact: queue-name acceptance and on-disk directory mapping may change. Existing pending/reserved/failed files may be stranded if path mapping changes; owner decision AD-014 is required before choosing strict validation versus an encoded/versioned layout and migration policy.
+- Public API / PDR / release impact: queue-name acceptance and on-disk directory mapping may change. Existing pending/reserved/failed files may be stranded if path mapping changes; owner decision AD-014 is required before choosing strict validation versus an encoded/versioned layout and migration policy. Outcome: AD-014 chose strict validation (option A); names inside the grammar keep their folder, a name outside it now throws and its folder is not read, and no public API changed.
 
 ### [P2] FILE-002 — Static per-queue semaphores are never reclaimed
 
@@ -101,6 +103,19 @@
 - Regression tests required: pre-cancelled token throws before filesystem access; large-directory cancellation stops enumeration within a bounded cooperative interval.
 - Public API / PDR / release impact: contract-consistency correction; no public API change.
 
+### [P2] FILE-007 — Queue names that differ only by letter case share a folder on a case-insensitive file system, and reserved device names are accepted
+
+- Remediation state: OPEN.
+- Architecture disposition: residual of veto AV-011, whose target design asks that distinct accepted names map to distinct folders; it is not a path-containment flaw.
+- Evidence status: CONFIRMED BY SOURCE for what the grammar accepts; the behaviour of the operating systems NOT RUN.
+- Evidence: `IsPortableQueueName` in `src/Naravel.Queue.File/FileQueueDriver.cs` accepts upper and lower case letters and does not look at the host file system, so `Emails` and `emails` are two valid names. `QueueGates` in the same file already compares its keys with `StringComparer.OrdinalIgnoreCase`, so the in-process gate treats them as one queue. On a file system that ignores letter case (Windows NTFS and macOS APFS in their default settings) the two names resolve to one directory. The grammar also accepts the Windows reserved device names (`con`, `prn`, `aux`, `nul`, `com1` and the like); what `Directory.CreateDirectory` does with them was not tried.
+- Affected contract: every File-queue operation that takes a queue name, on a host whose file system ignores letter case or reserves device names.
+- User impact: a consumer of `emails` can read or settle the messages of `Emails` on such a host, and the same application behaves differently on Linux, where the two are separate folders. A reserved device name may fail at the first push or may not behave as a folder.
+- Why existing tests do not catch it: `FileDriverQueueNameTests` lists accepted names such as `Reports` and `default`, but never compares two accepted names that differ only by case and never uses a reserved device name; the CI hosts that ignore case (Windows and macOS) do not run such a pair.
+- Required correction: owner decision. Either require lowercase names and reject the reserved device names (a further behaviour change for a queue such as `Reports`), or keep the limit and record it as ACCEPTED RISK. `docs/en/queue.md` and `docs/nuget/Naravel.Queue.File.md` already state the letter-case limit; they do not mention the device names.
+- Regression tests required: two names that differ only by case either both work as one queue on every host or the second is rejected on every host; each reserved device name is rejected, or a push and pop on it is shown to work, on Windows.
+- Public API / PDR / release impact: stricter validation of a released package if the first option is chosen; no public API change.
+
 ## Existing guarantees and test coverage
 
 - The shared contract exercises empty queue, push/pop/ack, availability delay, priority, release with attempt propagation, terminal failure, queue isolation and concurrent consumers.
@@ -111,10 +126,11 @@
 ## Test assessment
 
 - Reviewed: `tests/Naravel.Queue.Tests/DriverTests.cs`, shared `QueueDriverContractTests`, `FileDriverRecoveryTests`, worker queue docs and package README.
-- Missing regression coverage: malicious/colliding queue names and root containment; static gate reclamation; temporary write cleanup; non-positive timeout validation; corrupt/null pending and reserved envelopes; pre-cancelled and mid-enumeration `SizeAsync`.
+- Regression coverage added since the review: `FileDriverQueueNameTests` covers dot segments, rooted and drive-qualified names, separators, empty and invalid-only names, control characters, `null`, accepted names and the `a/b` against `ab` collision on every operation that takes a queue name (FILE-001).
+- Missing regression coverage: names that differ only by letter case and reserved device names (FILE-007); static gate reclamation; temporary write cleanup; non-positive timeout validation; corrupt/null pending and reserved envelopes; pre-cancelled and mid-enumeration `SizeAsync`.
 - Tests run for this review: NONE.
 - Build/CI: NOT RUN.
-- Windows/Linux path tests: NOT RUN.
+- Windows/Linux path tests: for FILE-001, run in CI for PR #293 on Windows, macOS and Ubuntu (green); for FILE-007, NOT RUN.
 - Disk-full/cancellation injection: NOT RUN.
 - Mutation testing: NOT RUN.
 - Independent review: NOT RUN.
@@ -122,9 +138,9 @@
 ## Risk summary and next action
 
 - P0: none established.
-- P1: FILE-001 (AV-011).
-- P2: FILE-002 (AV-010), FILE-003, FILE-004, FILE-005, FILE-006.
-- Recommended next task: resolve queue-path containment and injective name mapping first, with an approved on-disk compatibility/migration policy; then address bounded gate lifetime, atomic-write cleanup, timeout validation and poison-file quarantine before accepting the File driver as safe for untrusted or multi-tenant queue names.
+- P1: FILE-001 (AV-011), VERIFIED CLOSED by PR #293.
+- P2: FILE-002 (AV-010), FILE-003, FILE-004, FILE-005, FILE-006, FILE-007 (residual of AV-011), all OPEN.
+- Recommended next task: queue-path containment is done (FILE-001); decide FILE-007 (letter case and reserved device names), then address bounded gate lifetime, atomic-write cleanup, timeout validation and poison-file quarantine before accepting the File driver as safe for untrusted or multi-tenant queue names.
 
 ## Plain-language explanation
 
@@ -136,6 +152,16 @@
 - **Why that proves the risk:** The sanitizing step deletes characters rather than proving that the final path stays under the configured root or that accepted names remain unique.
 - **What is not yet proven here:** This is a source-level path analysis. No operating-system exploit or collision test was run.
 - **Safe outcome and proof:** Reject unsafe names or encode them so each accepted name maps to one unique directory below the canonical queue root. Test dot segments, rooted paths, separators, Windows drive paths, invalid-only names and collision pairs on Windows and Linux. Owner decision AD-014 is needed because changing the folder mapping may affect existing queue files.
+- **What changed afterwards:** On 2026-11-15 PR #293 made the driver accept a queue name only when it is made of ASCII letters, digits, `_`, `-` and `.` between two other characters, and reject every other name before it touches the disk. A queue named `..` or `a/b` now fails at once, and the folder of every accepted name is unchanged. The new `FileDriverQueueNameTests` ran in CI on Windows, macOS and Ubuntu and are green. This finding is closed; FILE-007 below is the part that it does not cover.
+
+### FILE-007 — Names that differ only by letter case can share a folder
+
+- **In everyday words:** The File driver accepts `Emails` and `emails` as two different queues, but Windows and macOS normally treat them as one folder.
+- **A realistic example:** An application that pushes to `Emails` and a worker that listens on `emails` work as two queues on Linux and as one queue on Windows, so the same code behaves differently on two machines.
+- **What we checked:** `IsPortableQueueName` and `QueueGates` in `src/Naravel.Queue.File/FileQueueDriver.cs`: the name check accepts both spellings, while the in-process gate already ignores case.
+- **Why that proves the gap:** The driver does not look at the file system it runs on, so it cannot tell that two accepted names are one folder there.
+- **What is not yet proven here:** No test was run on a case-insensitive file system with two such names, and nobody tried a reserved Windows device name such as `con`.
+- **Safe outcome and proof:** The owner decides whether to require lowercase names and reject reserved device names, or to keep this as a documented limit. Either way a test should show the chosen behaviour on Windows and Linux.
 
 ### FILE-002 — File queue keeps a semaphore for every queue path forever
 

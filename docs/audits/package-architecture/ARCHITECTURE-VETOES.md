@@ -8,7 +8,7 @@ Scope: the twenty reviewed packages Naravel.Foundation, Naravel.Cache, Naravel.R
 
 This is a principal-architect decision, not a suggestion list. Some of the designs below were explicitly approved in earlier PDRs and documented as intentional limitations. That historical approval explains the implementation; it does not make the trade-off safe or acceptable as the target architecture for a reliable, isolated and scalable platform.
 
-**AV-001, AV-002 and AV-011 are P1 release blockers. AV-003 through AV-005, AV-007 through AV-010 and AV-012 through AV-019 are mandatory P2 architecture work. AV-006 was superseded by an owner decision on 2026-11-10 (see its section).** None of the others is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
+**AV-001 and AV-002 are P1 release blockers. AV-011 was a P1 release blocker; its path traversal and queue aliasing were fixed on 2026-11-15 (see its section), and one smaller residual case is tracked as FILE-007. AV-003 through AV-005, AV-007 through AV-010 and AV-012 through AV-019 are mandatory P2 architecture work. AV-006 was superseded by an owner decision on 2026-11-10 (see its section).** None of the others, apart from AV-011, is implemented or verified by this audit commit. The related findings remain OPEN until the design is corrected, the exact regression tests pass, and required CI evidence is recorded.
 
 A veto does not authorize an uncontrolled runtime/API/dependency change. Remediation must be a separate, scoped task with an updated PDR where required. An old PDR approval alone is not a valid reason to move a veto to ACCEPTED RISK.
 
@@ -120,7 +120,9 @@ A veto does not authorize an uncontrolled runtime/API/dependency change. Remedia
 
 ### AV-011 — P1: File queue names must not escape or alias the configured root
 
-**Affected finding:** FILE-001.
+**Affected finding:** FILE-001 (and its residual FILE-007).
+
+**Status: FIXED on 2026-11-15; the veto is not superseded, and one residual case is open as FILE-007.** Owner decision AD-014 is recorded as option A: the owner merged PR #293 (merge `6052441`), whose description said it implemented option A and asked for that confirmation. `FileQueueDriver` now uses a queue name unchanged when it holds only ASCII letters, digits, `_` and `-`, and `.` only between two other characters, and rejects every other name with an `ArgumentException` before a folder is made or a gate is taken; `Sanitize` is gone. `tests/Naravel.Queue.Tests/FileDriverQueueNameTests.cs` runs every operation that takes a queue name against dot segments, rooted and drive-qualified names, separators, empty and invalid-only names, control characters, `null`, accepted names, and the `a/b` against `ab` collision. CI [run 43751562401](https://github.com/km-arc/Naravel/actions/runs/43751562401) on the PR branch is green on Windows, macOS and Ubuntu, and CI [run 43752294489](https://github.com/km-arc/Naravel/actions/runs/43752294489) on `main` at the merge is green too. Not covered by that fix: a file system that ignores letter case still gives `Emails` and `emails` one folder, and the Windows reserved device names are accepted (FILE-007). The independent review and the mutation testing that `AGENTS.md` asks for on a security-sensitive change were NOT RUN. The text below is the original veto, kept as history.
 
 **Why this is vetoed:** `FileQueueDriver.Sanitize` deletes invalid filename characters rather than validating or injectively encoding queue names. The dot-segment name `..` survives unchanged, so combining it with the configured base path and the `pending`, `reserved` or `failed` suffix can write outside that root. Different logical names can also collapse to the same sanitized directory (for example, a slash-containing name and the name without the slash). This breaks filesystem containment and queue namespace isolation.
 
@@ -151,8 +153,8 @@ The PDRs retain their original approval text as historical context and append th
 - Runtime code changes: none.
 - Test changes or tests run: none.
 - Build/CI: NOT RUN.
-- Vetoes cleared: none.
-- Next gate: obtain owner decisions AD-001 through AD-022, then create a prioritized remediation stage for AV-001, AV-002 and AV-011 first and schedule AV-003 through AV-005, AV-007 through AV-010 and AV-012 through AV-019 (AV-006 is superseded). Do not mark the architecture accepted for production until the required verification evidence is present.
+- Vetoes cleared: none by this audit commit. Follow-up of 2026-11-16: the traversal and aliasing part of AV-011 was fixed by PR #293 (see its section), and AV-006 was superseded by D-84.
+- Next gate: obtain owner decisions AD-001 through AD-022, then create a prioritized remediation stage for AV-001 and AV-002 first (AV-011 is fixed apart from FILE-007) and schedule AV-003 through AV-005, AV-007 through AV-010 and AV-012 through AV-019 (AV-006 is superseded). Do not mark the architecture accepted for production until the required verification evidence is present.
 
 
 ## Owner decisions pending — not architecture vetoes
