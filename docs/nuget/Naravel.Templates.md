@@ -17,7 +17,9 @@
 
 ## What you get
 
-- **A working application in one command.** `app/`, `config/`, `routes/`, `resources/`, `storage/` and `tests/`, with a welcome page at `/` and a health check at `/up`.
+![The commands, the files of the new application and its welcome page, which is a first page of documentation with a route group and a middleware to copy](https://raw.githubusercontent.com/km-arc/Naravel/main/docs/assets/template-what-you-get.png)
+
+- **A working application in one command.** `app/`, `bootstrap/`, `config/`, `routes/`, `resources/` and `tests/`, with a welcome page at `/` that doubles as a first page of documentation (a route group with the built-in `throttle` and a small middleware to copy) and a health check at `/up`. `storage/` is created on the first run.
 - **No service to run.** The defaults are the memory cache, the `log` mail transport, the file queue and a SQLite file; parameters pick PostgreSQL, MySQL, SQL Server, Redis, RabbitMQ, Kafka or SMTP instead.
 - **One configuration file per module.** The driver you chose is active; secrets come from environment variables or `dotnet user-secrets`, and there is no `.env` file and no application key.
 - **Generators.** The item templates add a job, an event, a listener, a mailable or a controller in the folder you name.
