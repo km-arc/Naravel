@@ -5,20 +5,99 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AppProjectName</title>
   <style>
-    body { font: 16px/1.5 system-ui, sans-serif; max-width: 40rem; margin: 4rem auto; padding: 0 1rem; color: #1f2328; }
-    code { background: #f3f4f6; padding: .1rem .3rem; border-radius: .25rem; }
-    @media (prefers-color-scheme: dark) { body { background: #0d1117; color: #e6edf3; } code { background: #161b22; } }
+    :root { --bg: #fff; --fg: #1f2328; --mute: #59636e; --line: #d1d9e0; --code: #f6f8fa; --accent: #4f46e5; --k: #cf222e; --s: #0a3069; --c: #6e7781; --t: #8250df; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #0d1117; --fg: #e6edf3; --mute: #9198a1; --line: #30363d; --code: #161b22; --accent: #a5b4fc; --k: #ff7b72; --s: #a5d6ff; --c: #8b949e; --t: #d2a8ff; }
+    }
+    body { font: 16px/1.55 system-ui, sans-serif; max-width: 46rem; margin: 3rem auto; padding: 0 1.25rem 3rem; background: var(--bg); color: var(--fg); }
+    h1 { margin: 0 0 .25rem; font-size: 2.4rem; letter-spacing: -.02em; }
+    h2 { margin: 2rem 0 .5rem; font-size: 1.2rem; }
+    h2 small { margin-left: .5rem; font-weight: 400; font-size: .85rem; color: var(--mute); }
+    p, ul { margin: .5rem 0; }
+    .lead { font-size: 1.1rem; color: var(--mute); }
+    code { background: var(--code); padding: .1rem .3rem; border-radius: .25rem; font-size: .9em; }
+    pre { margin: .75rem 0; padding: .85rem 1rem; overflow-x: auto; background: var(--code); border: 1px solid var(--line); border-radius: .5rem; font-size: .8rem; line-height: 1.55; }
+    pre code { padding: 0; background: none; font-size: 1em; }
+    .k { color: var(--k); } .s { color: var(--s); } .c { color: var(--c); } .t { color: var(--t); }
+    table { width: 100%; margin: .5rem 0; border-collapse: collapse; font-size: .95rem; }
+    td { padding: .35rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+    td:first-child { white-space: nowrap; }
+    a { color: var(--accent); }
   </style>
 </head>
 <body>
   <h1>AppProjectName</h1>
-  <p>Your Naravel application is running.</p>
+  <p class="lead">Your Naravel application is running. This page is <code>resources/views/welcome.html</code>; replace it when you are ready.</p>
   <ul>
     <li>Routes: <code>routes/WebRoutes.cs</code></li>
     <li>Configuration, one file per module: <code>config/</code></li>
     <li>Events, listeners, jobs and mail: <code>app/</code></li>
     <li>Health check: <a href="/up"><code>/up</code></a></li>
   </ul>
-  <p>Try the example flow: <code>POST /register</code> with <code>{"email":"ada@example.com","name":"Ada"}</code> dispatches an event, a listener queues a job, and the queue worker sends a welcome mail (the <code>log</code> mail transport writes it to the log).</p>
+
+  <h2>1. Add a route <small>routes/WebRoutes.cs, inside <code>app.MapNaravel(routes =&gt; ...)</code></small></h2>
+  <p>A group takes a prefix, a name prefix and middleware, as in Laravel. <code>throttle</code> is built in: 60 requests a minute for each caller, then <code>429</code>.</p>
+<pre><code>routes.Prefix("api").Name("api.").Middleware("throttle:60,1").Group(api =&gt;
+{
+    api.Get("posts/{id}", (int id) =&gt; $"post {id}")
+       .Where("id", "[0-9]+")
+       .Name("posts.show");
+});
+
+routes.Prefix("admin").Middleware("role:admin").Group(admin =&gt;
+{
+    admin.Get("stats", () =&gt; "only for admins").Name("admin.stats");
+});</code></pre>
+
+  <h2>2. Write a middleware <small>app/Http/Middleware/RequireRole.cs</small></h2>
+  <p>A middleware that does not call <code>next</code> ends the request. <code>role:admin</code> passes <code>admin</code> in as an argument. The header check stands in for your own rule.</p>
+<pre><code>using Naravel.Routing;
+
+namespace AppRootNamespace.App.Http.Middleware;
+
+public sealed class RequireRole : IRouteMiddleware
+{
+    public async Task InvokeAsync(HttpContext context, RequestDelegate next,
+        MiddlewareArguments arguments)
+    {
+        var role = arguments.At(0) ?? "user";   // "role:admin" gives "admin"
+        if (context.Request.Headers["X-Role"] != role)
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return;                             // stop here, next is not called
+        }
+        await next(context);
+    }
+}</code></pre>
+  <p>Register it under the name <code>role</code> in <code>Program.cs</code>, where <code>AddNaravelRouting()</code> is called now (add <code>using AppRootNamespace.App.Http.Middleware;</code> at the top):</p>
+<pre><code>builder.Services.AddNaravelRouting(o =&gt; o.Middleware.Alias&lt;RequireRole&gt;("role"));</code></pre>
+
+  <h2>3. See it work</h2>
+  <table>
+    <tr><td><code>GET /api/posts/7</code></td><td><code>post 7</code>, with <code>X-RateLimit-Limit</code> and <code>X-RateLimit-Remaining</code> headers</td></tr>
+    <tr><td><code>GET /api/posts/abc</code></td><td><code>404</code>: the constraint rejects it</td></tr>
+    <tr><td><code>GET /admin/stats</code></td><td><code>403</code>; with the header <code>X-Role: admin</code> it answers <code>only for admins</code></td></tr>
+  </table>
+
+  <h2>The example flow that is already here</h2>
+  <p><code>POST /register</code> with <code>{"email":"ada@example.com","name":"Ada"}</code> dispatches an event, a listener queues a job, and the queue worker sends a welcome mail (the <code>log</code> mail transport writes it to the log).</p>
+
+  <p class="lead">More: <a href="https://github.com/km-arc/Naravel/blob/main/docs/en/routing.md">Routing and middleware</a> · <a href="https://github.com/km-arc/Naravel/blob/main/docs/en/getting-started.md">Getting started</a></p>
+
+  <script>
+    // Colours the code above in the browser; nothing is loaded from the network.
+    const keywords = new Set(["using", "namespace", "public", "sealed", "class", "async", "await", "return", "var", "if", "new", "null"]);
+    const esc = (text) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    for (const code of document.querySelectorAll("pre code")) {
+      const text = code.textContent;
+      let html = "", last = 0;
+      for (const m of text.matchAll(/(\/\/[^\n]*)|("(?:[^"\\\n]|\\.)*")|\b([A-Za-z_]\w*)\b/g)) {
+        const kind = m[1] ? "c" : m[2] ? "s" : keywords.has(m[3]) ? "k" : /^[A-Z]/.test(m[3]) ? "t" : "";
+        html += esc(text.slice(last, m.index)) + (kind ? `<span class="${kind}">${esc(m[0])}</span>` : esc(m[0]));
+        last = m.index + m[0].length;
+      }
+      code.innerHTML = html + esc(text.slice(last));
+    }
+  </script>
 </body>
 </html>
