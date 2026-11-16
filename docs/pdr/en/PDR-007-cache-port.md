@@ -78,3 +78,20 @@ The bilingual Cache guides, parity tables, `AGENTS.md`, `PROGRESS.md`, README fi
 ## Approval recorded
 
 The owner approved the PDR on 2026-10-04, including separate `CacheManager` and `LockManager` sharing `Default`/`Stores`, the Memcached provider, serialization behavior and prefix-safe Redis flushing.
+
+
+## Architecture review veto — 2026-11-08 (post-Revert revalidation)
+
+The approval recorded above remains historical and does not waive the following target-architecture requirements:
+
+- **AV-001 — Flush isolation:** ordinary store/scope flush must never widen to a backing store, cluster or tenant outside the requested namespace. Memcached `FlushAll` is not an acceptable implementation of ordinary `ICacheStore.FlushAsync`; unsupported scoped invalidation must fail explicitly.
+- **AV-002 — Lock and limiter correctness:** atomic token-checked release alone does not fence a stale holder that continues after lease expiry. Correctness-grade critical sections require enforceable fencing at the protected resource or an equivalent guarantee. Prefer one atomic backend-side rate-limit transition over a multi-await operation protected only by a fixed lease. A backend that cannot provide the required guarantee must not be represented as correctness-grade distributed coordination.
+- **AV-003 — Tag metadata lifecycle:** tag versions require bounded reclamation that cannot make invalidated, still-live values visible again.
+- **AV-004 — Non-blocking I/O:** synchronous Memcached network operations moved to ThreadPool workers are not a valid final async design.
+- **AV-005 — Independent Memcached pools:** named stores must support different server pools; identical normalized topologies may share a client.
+- **AV-007 — Safe telemetry:** Cache/Lock instrumentation must be provider-neutral and low-cardinality. Caller-controlled limiter names cannot be emitted as unbounded metric dimensions.
+- **AV-008 — TTL precision:** positive TTLs must remain positive when encoded for Memcached; a positive sub-second TTL must be rounded up or rejected, never converted to no-expiry.
+
+The explicit-zero `SetAsync` TTL behavior is **not** included as a veto pending owner decision AD-001; see [OWNER-DECISIONS.md](../../audits/package-architecture/OWNER-DECISIONS.md).
+
+See [the architecture veto register](../../audits/package-architecture/ARCHITECTURE-VETOES.md). Related findings remain open pending separately approved remediation and required verification.
