@@ -11,7 +11,7 @@ namespace Naravel.Cache.Testing;
 /// <para><b>Time:</b> expiry follows the <see cref="TimeProvider"/> you pass, so a test can move the clock instead of sleeping.</para>
 /// <para><b>Not ported on purpose:</b> global fake state; the fake is an ordinary object you pass in.</para>
 /// </remarks>
-public sealed class CacheFake : ICacheStore
+public sealed class CacheFake : ICacheStore, IPrefixFlushableCacheStore
 {
     private sealed record Entry(object? Value, DateTimeOffset? ExpiresAt);
 
@@ -138,6 +138,22 @@ public sealed class CacheFake : ICacheStore
     {
         cancellationToken.ThrowIfCancellationRequested();
         lock (_gate) _entries.Clear();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Removes every stored value whose key starts with <paramref name="keyPrefix"/>.</summary>
+    /// <param name="keyPrefix">The key prefix; matched literally.</param>
+    /// <param name="cancellationToken">Cancels the call before any value is removed.</param>
+    /// <exception cref="ArgumentException"><paramref name="keyPrefix"/> is <see langword="null"/>, empty or white space.</exception>
+    public Task FlushPrefixAsync(string keyPrefix, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(keyPrefix);
+        lock (_gate)
+        {
+            foreach (var key in _entries.Keys.Where(key => key.StartsWith(keyPrefix, StringComparison.Ordinal)).ToArray()) _entries.Remove(key);
+        }
+
         return Task.CompletedTask;
     }
 

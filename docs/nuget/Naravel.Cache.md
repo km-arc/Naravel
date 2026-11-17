@@ -18,7 +18,7 @@ Named cache stores, tagging, scoping and locks for Naravel, built on Naravel.Fou
 
 - **Named stores.** The default store is `memory`, so it runs with no configuration; `CacheManager` picks another store by name at run time.
 - **The everyday calls.** `SetAsync` with a TTL, `TryGetAsync`, `PullAsync`, counters with `IncrementAsync`, and `RememberAsync`, which loads a value on a miss and stores it.
-- **Scopes and tags.** `ForUser(userId)` and `Scope(...)` prefix the keys, and `Tags("orders").FlushAsync()` clears a tag without scanning keys.
+- **Scopes and tags.** `ForUser(userId)` and `Scope(...)` prefix the keys, `FlushAsync()` on a scope removes only that scope's keys (Memory and Redis; Memcached throws), and `Tags("orders").FlushAsync()` clears a tag without scanning keys.
 - **Locks.** `LockManager` and `BlockAsync` run a callback while holding a lock; with the Redis provider the lock is shared between instances.
 - **A fixed-window rate limiter and a test fake.** `AddNaravelRateLimiter` counts attempts in a named store; `CacheFake` is an in-memory `ICacheStore` for your tests.
 

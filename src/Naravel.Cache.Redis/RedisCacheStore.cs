@@ -9,7 +9,7 @@ namespace Naravel.Cache.Redis;
 
 /// <summary>Redis cache store with JSON values and prefix-bounded flush.</summary>
 /// <remarks><b>Laravel equivalent:</b> the Redis cache store. Every key and flush scan is restricted to this store's configured prefix.</remarks>
-public sealed class RedisCacheStore : ICacheStore, IDisposable
+public sealed class RedisCacheStore : ICacheStore, IPrefixFlushableCacheStore, IDisposable
 {
     private const string IncrementWithExpiryScript = """
         local value = redis.call('INCRBY', KEYS[1], ARGV[1])
@@ -158,10 +158,21 @@ public sealed class RedisCacheStore : ICacheStore, IDisposable
     /// <exception cref="InvalidOperationException">A Redis primary is not connected. Nothing is removed in that case, because skipping it would leave its keys in place.</exception>
     /// <remarks>
     /// The keys of <see cref="RedisLock"/> live under the same prefix (<c>&lt;prefix&gt;:lock:&lt;name&gt;</c>) and are not touched: clearing the cache must not release a lock that is held.
-    /// The call is complete-or-fail but not atomic: if it throws, some keys may already be gone and it can be repeated, and a key written while it runs may survive.
-    /// It scans the whole keyspace of every primary, so its cost grows with the number of keys in the database.
+    /// The call is complete-or-fail but not atomic; see <see cref="IPrefixFlushableCacheStore"/>. It scans the whole keyspace of every primary, so its cost grows with the number of keys in the database.
     /// </remarks>
     public Task FlushAsync(CancellationToken cancellationToken = default) => DeleteMatchingAsync(_scanPattern, cancellationToken);
+
+    /// <summary>Removes every key of this store whose name, after the store prefix, starts with <paramref name="keyPrefix"/>; the keys of <see cref="RedisLock"/> are never removed.</summary>
+    /// <param name="keyPrefix">The key prefix, relative to the store; matched literally, so Redis glob characters in it have no special meaning.</param>
+    /// <param name="cancellationToken">Cancels the call; keys already removed stay removed.</param>
+    /// <exception cref="ArgumentException"><paramref name="keyPrefix"/> is <see langword="null"/>, empty or white space.</exception>
+    /// <exception cref="InvalidOperationException">A Redis primary is not connected. Nothing is removed in that case.</exception>
+    /// <remarks>Same cost and guarantees as <see cref="FlushAsync"/>.</remarks>
+    public Task FlushPrefixAsync(string keyPrefix, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(keyPrefix);
+        return DeleteMatchingAsync(EscapeGlob(_keyPrefix + keyPrefix) + "*", cancellationToken);
+    }
 
     private async Task DeleteMatchingAsync(string pattern, CancellationToken cancellationToken)
     {
