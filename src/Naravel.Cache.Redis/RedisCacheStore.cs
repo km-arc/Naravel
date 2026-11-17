@@ -21,6 +21,7 @@ public sealed class RedisCacheStore : ICacheStore, IDisposable
     private readonly IConnectionMultiplexer _multiplexer;
     private readonly IDatabase _database;
     private readonly string _keyPrefix;
+    private readonly string _lockKeyPrefix;
     private readonly string _scanPattern;
 
     private readonly bool _ownsConnection;
@@ -50,6 +51,7 @@ public sealed class RedisCacheStore : ICacheStore, IDisposable
         _multiplexer = multiplexer;
         _database = multiplexer.GetDatabase(database);
         _keyPrefix = prefix.TrimEnd(':') + ":";
+        _lockKeyPrefix = _keyPrefix + RedisLock.KeyNamespace;
         _scanPattern = BuildScanPattern(_keyPrefix);
     }
 
@@ -148,21 +150,53 @@ public sealed class RedisCacheStore : ICacheStore, IDisposable
         return await _database.StringDecrementAsync(Key(key), by).ConfigureAwait(false);
     }
 
-    /// <inheritdoc />
-    public async Task FlushAsync(CancellationToken cancellationToken = default)
+    // Keys are removed in bounded batches of single-key deletes, never one multi-key DEL, which a Redis Cluster refuses when the keys sit in different slots.
+    private const int DeleteBatchSize = 256;
+
+    /// <summary>Removes every key of this store, which means every key under its prefix except the keys of <see cref="RedisLock"/>.</summary>
+    /// <param name="cancellationToken">Cancels the call; keys already removed stay removed.</param>
+    /// <exception cref="InvalidOperationException">A Redis primary is not connected. Nothing is removed in that case, because skipping it would leave its keys in place.</exception>
+    /// <remarks>
+    /// The keys of <see cref="RedisLock"/> live under the same prefix (<c>&lt;prefix&gt;:lock:&lt;name&gt;</c>) and are not touched: clearing the cache must not release a lock that is held.
+    /// The call is complete-or-fail but not atomic: if it throws, some keys may already be gone and it can be repeated, and a key written while it runs may survive.
+    /// It scans the whole keyspace of every primary, so its cost grows with the number of keys in the database.
+    /// </remarks>
+    public Task FlushAsync(CancellationToken cancellationToken = default) => DeleteMatchingAsync(_scanPattern, cancellationToken);
+
+    private async Task DeleteMatchingAsync(string pattern, CancellationToken cancellationToken)
     {
+        // Look at every endpoint before deleting anything: a primary that is down is reported, not skipped, so the call never claims
+        // to have cleared keys that it could not reach.
+        var primaries = new List<IServer>();
         foreach (var endpoint in _multiplexer.GetEndPoints())
         {
             cancellationToken.ThrowIfCancellationRequested();
             var server = _multiplexer.GetServer(endpoint);
-            if (!server.IsConnected || server.IsReplica) continue;
+            if (server.IsReplica) continue;
+            if (!server.IsConnected)
+            {
+                throw new InvalidOperationException(
+                    $"Redis server {endpoint} is not connected, so the keys under it cannot be removed. Nothing was removed; repeat the call when the server is back.");
+            }
 
-            await foreach (var key in server.KeysAsync(database: _database.Database, pattern: _scanPattern).WithCancellation(cancellationToken).ConfigureAwait(false))
+            primaries.Add(server);
+        }
+
+        var pending = new List<Task>(DeleteBatchSize);
+        foreach (var server in primaries)
+        {
+            await foreach (var key in server.KeysAsync(database: _database.Database, pattern: pattern).WithCancellation(cancellationToken).ConfigureAwait(false))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await _database.KeyDeleteAsync(key).ConfigureAwait(false);
+                if (key.ToString().StartsWith(_lockKeyPrefix, StringComparison.Ordinal)) continue;
+                pending.Add(_database.KeyDeleteAsync(key));
+                if (pending.Count < DeleteBatchSize) continue;
+                await Task.WhenAll(pending).ConfigureAwait(false);
+                pending.Clear();
             }
         }
+
+        await Task.WhenAll(pending).ConfigureAwait(false);
     }
 
     /// <inheritdoc />

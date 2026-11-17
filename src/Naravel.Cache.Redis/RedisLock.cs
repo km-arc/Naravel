@@ -7,6 +7,9 @@ namespace Naravel.Cache.Redis;
 /// <remarks><b>Laravel equivalent:</b> the Redis implementation of <c>Cache::lock()</c>.</remarks>
 public sealed class RedisLock : ICacheLock, IDisposable
 {
+    // The part of a lock key after the store prefix. RedisCacheStore skips keys that start with it, so a flush of the cache never releases a held lock.
+    internal const string KeyNamespace = "lock:";
+
     private const string ReleaseScript = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
     private readonly IConnectionMultiplexer _multiplexer;
     private readonly IDatabase _database;
@@ -28,7 +31,7 @@ public sealed class RedisLock : ICacheLock, IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(prefix);
         _multiplexer = multiplexer;
         _database = multiplexer.GetDatabase(database);
-        _keyPrefix = prefix.TrimEnd(':') + ":lock:";
+        _keyPrefix = prefix.TrimEnd(':') + ":" + KeyNamespace;
     }
 
     /// <inheritdoc />
