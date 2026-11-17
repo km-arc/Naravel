@@ -1,14 +1,36 @@
-// Queue stores. The "file" store keeps jobs in files under storage/queue, so no broker is needed.
-// Guide: https://github.com/km-arc/Naravel/blob/main/docs/en/queue.md
+// Queue stores. Guide: https://github.com/km-arc/Naravel/blob/main/docs/en/queue.md
 {
   "NaravelQueue": {
+//#if (queue == "file")
     "Default": "file",
     "Stores": {
-      "file": {
-        "Driver": "file",
-        "Queue": "default",
-        "Path": "storage/queue"
-      }
+      // Jobs are files under storage/queue, so no broker is needed.
+      "file": { "Driver": "file", "Path": "storage/queue" }
     }
+//#elseif (queue == "memory")
+    "Default": "memory",
+    "Stores": {
+      // Jobs live in this process and are lost when the application stops.
+      "memory": { "Driver": "memory" }
+    }
+//#elseif (queue == "redis")
+    "Default": "redis",
+    "Stores": {
+      // The address is a placeholder. A password belongs in the environment or in user secrets, not here.
+      "redis": { "Driver": "redis", "ConnectionString": "localhost:6379" }
+    }
+//#elseif (queue == "rabbitmq")
+    "Default": "rabbitmq",
+    "Stores": {
+      // The host is a placeholder. The user name and the password belong in the environment or in user secrets, not here.
+      "rabbitmq": { "Driver": "rabbitmq", "HostName": "localhost" }
+    }
+//#else
+    "Default": "kafka",
+    "Stores": {
+      // The address is a placeholder.
+      "kafka": { "Driver": "kafka", "BootstrapServers": "localhost:9092" }
+    }
+//#endif
   }
 }
