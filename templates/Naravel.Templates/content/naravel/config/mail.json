@@ -1,8 +1,17 @@
-// Mail. With the "log" transport a message is written to the application log and nothing is delivered.
-// Guide: https://github.com/km-arc/Naravel/blob/main/docs/en/mail.md
+// Mail. Guide: https://github.com/km-arc/Naravel/blob/main/docs/en/mail.md
 {
   "Mail": {
+//#if (mail == "smtp")
+    "Default": "smtp",
+    "From": "hello@example.com",
+    // The host is a placeholder. The user name and the password belong in the environment or in user secrets, not here.
+    "Mailers": {
+      "smtp": { "Driver": "smtp", "Host": "smtp.example.com", "Port": 587, "Security": "StartTls" }
+    }
+//#else
+    // The "log" transport writes a message to the application log and delivers nothing.
     "Default": "log",
     "From": "hello@example.com"
+//#endif
   }
 }

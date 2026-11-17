@@ -4,7 +4,7 @@
   "classifications": [ "Web", "API", "Naravel" ],
   "identity": "Naravel.Templates.App",
   "name": "Naravel application",
-  "description": "A Naravel web application: routing, events, queue, mail, cache and database configured with one file per module, a welcome page, a health check and a test project that uses the fakes. It needs no database server, no Redis and no broker.",
+  "description": "A Naravel web application: routing, events, queue, mail, cache and database configured with one file per module, a welcome page, a health check and a test project that uses the fakes. By default it needs no database server, no Redis and no broker; --database, --cache, --queue and --mail choose other drivers.",
   "shortName": "naravel",
   "tags": {
     "language": "C#",
@@ -39,8 +39,76 @@
       "valueSource": "name",
       "valueTransform": "identity",
       "replaces": "AppProjectName"
+    },
+    "database": {
+      "type": "parameter",
+      "datatype": "choice",
+      "defaultValue": "sqlite",
+      "description": "The database driver. The package, the registration lines and config/database.json follow the choice.",
+      "choices": [
+        { "choice": "sqlite", "description": "A SQLite file under storage/. Needs no server." },
+        { "choice": "postgres", "description": "PostgreSQL (Naravel.Database.Postgres). Needs a server." },
+        { "choice": "mysql", "description": "MySQL (Naravel.Database.MySql). Needs a server." },
+        { "choice": "sqlserver", "description": "SQL Server (Naravel.Database.SqlServer). Needs a server." },
+        { "choice": "none", "description": "No database: the Database packages, their registration and config/database.json are left out." }
+      ]
+    },
+    "cache": {
+      "type": "parameter",
+      "datatype": "choice",
+      "defaultValue": "memory",
+      "description": "The cache store.",
+      "choices": [
+        { "choice": "memory", "description": "In process. Needs no server." },
+        { "choice": "redis", "description": "Redis (Naravel.Cache.Redis). Needs a server." }
+      ]
+    },
+    "queue": {
+      "type": "parameter",
+      "datatype": "choice",
+      "defaultValue": "file",
+      "description": "The queue driver. The worker runs inside the application for every choice.",
+      "choices": [
+        { "choice": "file", "description": "Files under storage/queue. Needs no broker." },
+        { "choice": "memory", "description": "In process: jobs are lost when the application stops." },
+        { "choice": "redis", "description": "Redis (Naravel.Queue.Redis). Needs a server." },
+        { "choice": "rabbitmq", "description": "RabbitMQ (Naravel.Queue.RabbitMQ). Needs a broker." },
+        { "choice": "kafka", "description": "Kafka (Naravel.Queue.Kafka). Needs a broker." }
+      ]
+    },
+    "mail": {
+      "type": "parameter",
+      "datatype": "choice",
+      "defaultValue": "log",
+      "description": "The mail transport.",
+      "choices": [
+        { "choice": "log", "description": "Writes the message to the application log and delivers nothing." },
+        { "choice": "smtp", "description": "Sends through an SMTP server (Naravel.Mail.Smtp). The host in config/mail.json is a placeholder." }
+      ]
+    },
+    "no-tests": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "false",
+      "description": "Leave out the tests/ project."
+    },
+    "UsesStorage": {
+      "type": "computed",
+      "value": "(queue == \"file\" || database == \"sqlite\")"
+    },
+    "NeedsService": {
+      "type": "computed",
+      "value": "(database == \"postgres\" || database == \"mysql\" || database == \"sqlserver\" || cache == \"redis\" || queue == \"redis\" || queue == \"rabbitmq\" || queue == \"kafka\" || mail == \"smtp\")"
     }
   },
+  "sources": [
+    {
+      "modifiers": [
+        { "condition": "(no-tests)", "exclude": [ "tests/**" ] },
+        { "condition": "(database == \"none\")", "exclude": [ "config/database.json" ] }
+      ]
+    }
+  ],
   "primaryOutputs": [
     { "path": "NaravelApp.csproj" }
   ]

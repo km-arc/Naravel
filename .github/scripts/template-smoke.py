@@ -20,6 +20,10 @@ up when a user runs `dotnet new naravel`, after the pack is on nuget.org. This s
               Every project reference must point to a file that was generated, the name must appear as it was given where a user reads
               it, and the first of these applications is built and its tests are run, so a path or a namespace that the template
               engine rewrote cannot go unnoticed.
+9. matrix:    every value of every parameter of template.json once (--database, --cache, --queue, --mail, --no-tests), and a few
+              combinations, are generated, checked (the files the choices leave out, a placeholder that survived, a project reference, the
+              version) and built; the tests of each are run. None of them is started, because a server or a broker would be needed: only
+              the default application is. The log says so.
 
 Usage:
   template-smoke.py --local <directory-containing-nupkgs>   packages from `dotnet pack` (CI, before anything is pushed)
@@ -84,6 +88,13 @@ MUST_HAVE = [
 PUBLISH_MUST_HAVE = ["config/cache.json", "config/database.json", "config/logging.json", "config/mail.json", "config/queue.json",
                      "resources/views/welcome.html"]
 
+# Besides every value alone: combinations that put several drivers, a missing database and a missing tests project together.
+COMBINATIONS: list[dict[str, str]] = [
+    {"database": "postgres", "cache": "redis", "queue": "redis", "mail": "smtp"},
+    {"database": "none", "queue": "memory"},
+    {"database": "sqlserver", "queue": "rabbitmq", "no-tests": "true"},
+]
+
 
 def load_consumer_smoke():
     """The helpers of consumer-smoke.py (the nuget.config, the packed-version lookup and the process runner)."""
@@ -112,9 +123,17 @@ def generated_path(source_relative: str, name: str) -> str:
     return source_relative.replace(SOURCE_NAME, name)
 
 
-def expected_generated(sources: list[str], name: str) -> list[str]:
+def left_out(relative: str, choice: dict[str, str]) -> bool:
+    """Whether the choices leave a source file out of the generated application (written out here, like the ORACLE)."""
+    return ((choice.get("no-tests") == "true" and relative.startswith("tests/"))
+            or (choice.get("database") == "none" and relative == "config/database.json"))
+
+
+def expected_generated(sources: list[str], name: str, choice: dict[str, str] | None = None) -> list[str]:
     """What `dotnet new naravel -n <name>` must write: every source file but the template's own configuration, renamed."""
-    return [generated_path(relative, name) for relative in sources if not relative.startswith(".template.config/")]
+    choice = choice or {}
+    return [generated_path(relative, name) for relative in sources
+            if not relative.startswith(".template.config/") and not left_out(relative, choice)]
 
 
 def default_version(template_json_text: str) -> str | None:
@@ -181,13 +200,13 @@ def project_reference_problems(files: dict[str, str]) -> list[str]:
     return problems
 
 
-def given_name_problems(files: dict[str, str], name: str) -> list[str]:
+def given_name_problems(files: dict[str, str], name: str, with_tests: bool = True) -> list[str]:
     """Where a user reads the name, it is the name that was given: the README title, the test command and the welcome page title."""
     problems = []
     readme = files.get("README.md", "")
     if not readme.startswith(f"# {name}\n"):
         problems.append(f"README.md does not start with '# {name}'")
-    if f"dotnet test tests/{name}.Tests" not in readme:
+    if with_tests and f"dotnet test tests/{name}.Tests" not in readme:
         problems.append(f"README.md does not say 'dotnet test tests/{name}.Tests'")
     if f"<title>{name}</title>" not in files.get("resources/views/welcome.html", ""):
         problems.append(f"resources/views/welcome.html does not have <title>{name}</title>")
@@ -215,6 +234,62 @@ def apply_forms(template_json_text: str, name: str) -> str | None:
         return re.sub(pattern, form["replacement"], value)
 
     return transform(symbol["valueTransform"], name)
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# The matrix (PDR-025 D9 step 3): every value of every parameter once, and a few combinations
+# ---------------------------------------------------------------------------------------------------------------------------------
+
+def template_parameters(template_json_text: str) -> dict[str, tuple[str, list[str]]]:
+    """The choice and bool parameters of template.json as name -> (default, values), read from the file so that a value added to the
+    template is in the matrix without being listed a second time."""
+    found = {}
+    for name, symbol in json.loads(template_json_text).get("symbols", {}).items():
+        if symbol.get("type") != "parameter":
+            continue
+        if symbol.get("datatype") == "choice":
+            found[name] = (symbol["defaultValue"], [c["choice"] for c in symbol["choices"]])
+        elif symbol.get("datatype") == "bool":
+            found[name] = (symbol.get("defaultValue", "false"), ["false", "true"])
+    return found
+
+
+def matrix_entries(parameters: dict[str, tuple[str, list[str]]], combinations: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Each non-default value of each parameter on its own, then the combinations. An entry holds only what differs from the default."""
+    singles = [{name: value} for name, (default, values) in parameters.items() for value in values if value != default]
+    return singles + [dict(combination) for combination in combinations]
+
+
+def effective_choice(parameters: dict[str, tuple[str, list[str]]], entry: dict[str, str]) -> dict[str, str]:
+    return {name: entry.get(name, default) for name, (default, _) in parameters.items()}
+
+
+def entry_args(entry: dict[str, str]) -> list[str]:
+    """The arguments of `dotnet new naravel` for an entry; a bool parameter is a flag."""
+    return [argument for name, value in entry.items() for argument in ([f"--{name}"] if value == "true" else [f"--{name}", value])]
+
+
+def entry_tag(entry: dict[str, str]) -> str:
+    return " ".join(f"{name}={value}" for name, value in entry.items()) or "default"
+
+
+def check_entry(files: dict[str, str], name: str, choice: dict[str, str], sources: list[str], version: str) -> list[str]:
+    """Everything that can be checked on the files of a generated application before it is built."""
+    expected = expected_generated(sources, name, choice)
+    problems = [f"{path} was not generated" for path in expected if path not in files]
+    problems += [f"{path} was generated, but the choices leave it out" for path in sorted(files) if path not in expected]
+    problems += (leftover_placeholders(files, name) + project_reference_problems(files)
+                 + given_name_problems(files, name, choice.get("no-tests") != "true"))
+    versions = referenced_versions(files.get(f"{name}.csproj", ""))
+    if versions != {version}:
+        problems.append(f"{name}.csproj references Naravel packages at {sorted(versions)}, expected only {version}")
+    return problems
+
+
+def matrix_line(built: list[str]) -> str:
+    return (f"Matrix: {len(built)} combinations were generated, checked and built, and their tests were run "
+            f"(a project made with no-tests has none): {'; '.join(built)}. None of them was started: each would need its server or "
+            f"broker. Only the default application was started.")
 
 
 def summary_line(version: str) -> str:
@@ -391,6 +466,36 @@ def write_summary(version: str, failed: list[str], notes: list[str]) -> None:
         handle.write("\n".join(lines))
 
 
+def matrix_phase(runner, work: Path, template_json_text: str, sources: list[str], version: str) -> tuple[list[str], list[str]]:
+    """Generate, check, build and test every entry of the matrix; none is started. Returns (problems, the tags of the entries that
+    passed). Every entry is tried even when one fails, so a single run shows all of them."""
+    parameters = template_parameters(template_json_text)
+    problems: list[str] = []
+    built: list[str] = []
+    for index, entry in enumerate(matrix_entries(parameters, COMBINATIONS)):
+        tag, choice = entry_tag(entry), effective_choice(parameters, entry)
+        folder = work / "matrix" / str(index)
+        folder.mkdir(parents=True)
+        ok, output = runner.run(f"dotnet new naravel -n {APP_NAME} ({tag})", ["dotnet", "new", "naravel", "-n", APP_NAME, *entry_args(entry)],
+                                folder, 180, True)
+        project = folder / APP_NAME
+        if not ok or not project.is_dir():
+            problems.append(f"{tag}: dotnet new naravel did not generate a project")
+            annotate("matrix", output)
+            continue
+        found = check_entry(read_text_files(project), APP_NAME, choice, sources, version)
+        command = (["test", f"tests/{APP_NAME}.Tests/{APP_NAME}.Tests.csproj", "-c", "Release"] if choice.get("no-tests") != "true"
+                   else ["build", f"{APP_NAME}.csproj", "-c", "Release"])
+        built_ok, output = runner.dotnet(f"{command[0]} the application generated with {tag}", command, project)
+        if not built_ok:
+            found.append(f"it does not {command[0]}")
+            annotate(f"matrix ({tag})", output)
+        problems += [f"{tag}: {problem}" for problem in found]
+        if not found:
+            built.append(tag)
+    return problems, built
+
+
 def smoke(local: Path, work: Path, extra_args: list[str]) -> tuple[list[str], list[str]]:
     """Return (failed phases, notes). Every phase prints its own output; a failed phase stops the phases that depend on it."""
     consumer = load_consumer_smoke()
@@ -519,6 +624,12 @@ def smoke(local: Path, work: Path, extra_args: list[str]) -> tuple[list[str], li
                     annotate("names", output)
         if not phase_failed("names", problems):
             notes.append("Project names generated: " + ", ".join(f"{name} (namespace {expected})" for name, expected, _ in NAME_CASES))
+
+        # 9. The matrix: every value of every parameter once, and the combinations (see matrix_phase).
+        problems, built = matrix_phase(runner, work, json_text, sources, version)
+        if not phase_failed("matrix", problems):
+            notes.append(matrix_line(built))
+            print(matrix_line(built), flush=True)
         if not failed:
             print(summary_line(version), flush=True)
     finally:
@@ -550,6 +661,7 @@ def self_test() -> int:
     expect("no generated path keeps the source name", not any(SOURCE_NAME in p for p in renamed))
 
     text = (TEMPLATE_DIRECTORY / ".template.config" / "template.json").read_text(encoding="utf-8")
+    parameters = template_parameters(text)
     shipped = default_version(text)
     expect("template.json declares the NaravelVersion default", bool(shipped) and re.fullmatch(r"\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?", shipped))
     expect("a template.json without the symbol is reported", default_version('{"symbols": {}}') is None)
@@ -643,6 +755,34 @@ def self_test() -> int:
     for project in (f"{SOURCE_NAME}.csproj", f"tests/{SOURCE_NAME}.Tests/{SOURCE_NAME}.Tests.csproj"):
         expect(f"{project} sets RootNamespace from the token",
                f"<RootNamespace>{NAMESPACE_TOKEN}" in (TEMPLATE_DIRECTORY / project).read_text(encoding="utf-8"))
+
+
+    # The matrix: its entries are read from template.json, so a value added to the template is in the matrix without a second list.
+    expect("template.json has the four choices and no-tests", set(parameters) == {"database", "cache", "queue", "mail", "no-tests"})
+    for parameter, (default, values) in parameters.items():
+        expect(f"the default of {parameter} is one of its values", default in values)
+    entries = matrix_entries(parameters, COMBINATIONS)
+    expect("every non-default value is an entry on its own",
+           all({name: value} in entries for name, (default, values) in parameters.items() for value in values if value != default))
+    expect("the default alone is not an entry, and there are 11 single values", {} not in entries and len(entries) == 11 + len(COMBINATIONS))
+    expect("a value added to the template joins the matrix without being listed again",
+           {"queue": "sqs"} in matrix_entries({"queue": ("file", ["file", "sqs"])}, []))
+    expect("every combination uses parameters and values that exist",
+           all(name in parameters and value in parameters[name][1] for combination in COMBINATIONS for name, value in combination.items()))
+    expect("a choice is passed with its value and a bool as a flag",
+           entry_args({"database": "postgres", "no-tests": "true"}) == ["--database", "postgres", "--no-tests"] and entry_tag({}) == "default")
+    expect("the choices of an entry are the defaults with the entry on top",
+           effective_choice(parameters, {"queue": "kafka"}) == {"database": "sqlite", "cache": "memory", "queue": "kafka", "mail": "log", "no-tests": "false"})
+    expect("a project made with no-tests has no tests project, one made with database none has no database config",
+           not any(p.startswith("tests/") for p in expected_generated(sources, "Blog", {"no-tests": "true"}))
+           and "config/database.json" not in expected_generated(sources, "Blog", {"database": "none"})
+           and "tests/Blog.Tests/Blog.Tests.csproj" in expected_generated(sources, "Blog") and "config/database.json" in expected_generated(sources, "Blog"))
+    expect("a template without a tests project and without a README test command is accepted",
+           given_name_problems({"README.md": "# Blog\n", "resources/views/welcome.html": "<title>Blog</title>"}, "Blog", with_tests=False) == [])
+    expect("a surviving placeholder, a missing file and a wrong version are found in a generated entry",
+           len(check_entry({"Blog.csproj": '<PackageReference Include="Naravel.Mail" Version="NARAVEL_VERSION" />'}, "Blog", {}, ["NaravelApp.csproj", "Program.cs"], "0.2.0")) >= 3)
+    expect("the matrix line names the count, says none was started and that only the default was",
+           all(part in matrix_line(["a", "b"]) for part in ("2 combinations", "a; b", "None of them was started", "Only the default application was started")))
 
     good_nuspec = '<package><metadata><packageTypes><packageType name="Template" /></packageTypes></metadata></package>'
     packed = [f"content/naravel/{s}" for s in sources] + ["Naravel.Templates.nuspec"]
