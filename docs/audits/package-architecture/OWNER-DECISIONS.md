@@ -40,7 +40,7 @@ This register separates **architectural recommendations** from **owner-approved 
 
 **Architect recommendation:** A, with no implicit cluster-wide behavior. If Memcached cannot safely invalidate one namespace, ordinary flush should fail clearly. A destructive admin operation must be separate and explicitly named, permissioned/documented, and tested.
 
-**Status:** WAITING FOR OWNER.
+**Status:** DECIDED on 2026-11-16: option A, in the design that the owner approved in the conversation: an optional interface `IPrefixFlushableCacheStore.FlushPrefixAsync(keyPrefix, ct)` (deletion by prefix, not an epoch counter), a scope flush that removes only that scope and the scopes nested under it, `NotSupportedException` for a store without the capability, a Redis flush that throws when a primary is not connected and never removes the keys of locks, and the three behaviour changes listed in the `Fixed` entry of `CHANGELOG.md`. Still open under this decision: `MemcachedCacheStore.FlushAsync` called directly still clears the whole cluster (to be made to throw in a later change), and a separately named administrative cluster flush exists only if the owner asks for one.
 
 ## AD-004 — Redis connection initialization boundary
 
