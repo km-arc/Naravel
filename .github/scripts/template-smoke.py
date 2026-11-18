@@ -21,9 +21,9 @@ up when a user runs `dotnet new naravel`, after the pack is on nuget.org. This s
               it, and the first of these applications is built and its tests are run, so a path or a namespace that the template
               engine rewrote cannot go unnoticed.
 9. matrix:    every value of every parameter of template.json once (--database, --cache, --queue, --mail, --no-tests), and a few
-              combinations, are generated, checked (the files the choices leave out, a placeholder that survived, a project reference, the
-              version) and built; the tests of each are run. None of them is started, because a server or a broker would be needed: only
-              the default application is. The log says so.
+              combinations, are generated, checked for a half-wired result (a package without its call, a call without its package,
+              a config that names a store that is not there) and built; the tests of each are run. None of them is started, because a
+              server or a broker would be needed: only the default application is. The log says so.
 
 Usage:
   template-smoke.py --local <directory-containing-nupkgs>   packages from `dotnet pack` (CI, before anything is pushed)
@@ -37,6 +37,7 @@ directories, so nothing cached on the machine can hide a missing package or an i
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import importlib.util
 import json
 import os
@@ -88,6 +89,50 @@ MUST_HAVE = [
 PUBLISH_MUST_HAVE = ["config/cache.json", "config/database.json", "config/logging.json", "config/mail.json", "config/queue.json",
                      "resources/views/welcome.html"]
 
+# What each value of each parameter must write into a generated application: (package, registration call, using directive, the "Driver"
+# written into config/). Written out here and not derived from template.json, so the template's own conditions are checked against an
+# independent answer. None means the module has it built in. The Postgres driver is named "pgsql" in the source of Naravel.Database.Postgres.
+ORACLE: dict[str, dict[str, tuple[str | None, str | None, str | None, str | None]]] = {
+    "database": {
+        "sqlite": ("Naravel.Database.Sqlite", "AddNaravelSqliteDatabase", None, "sqlite"),
+        "postgres": ("Naravel.Database.Postgres", "AddNaravelPostgresDatabase", None, "pgsql"),
+        "mysql": ("Naravel.Database.MySql", "AddNaravelMySqlDatabase", None, "mysql"),
+        "sqlserver": ("Naravel.Database.SqlServer", "AddNaravelSqlServerDatabase", None, "sqlserver"),
+        "none": (None, None, None, None),
+    },
+    "cache": {
+        "memory": (None, None, None, "memory"),
+        "redis": ("Naravel.Cache.Redis", "AddNaravelRedisCache", "Naravel.Cache.Redis", "redis"),
+    },
+    "queue": {
+        "file": ("Naravel.Queue.File", "AddFileDriver", "Naravel.Queue.File", "file"),
+        "memory": ("Naravel.Queue.Memory", "AddMemoryDriver", "Naravel.Queue.Memory", "memory"),
+        "redis": ("Naravel.Queue.Redis", "AddRedisDriver", "Naravel.Queue.Redis", "redis"),
+        "rabbitmq": ("Naravel.Queue.RabbitMQ", "AddRabbitMqDriver", "Naravel.Queue.RabbitMQ", "rabbitmq"),
+        "kafka": ("Naravel.Queue.Kafka", "AddKafkaDriver", "Naravel.Queue.Kafka", "kafka"),
+    },
+    "mail": {
+        "log": (None, None, None, "log"),
+        "smtp": ("Naravel.Mail.Smtp", "AddNaravelMailSmtp", None, "smtp"),
+    },
+}
+BASE_PACKAGES = {"Naravel.Routing", "Naravel.Cache", "Naravel.Queue", "Naravel.Events", "Naravel.Mail"}
+# The key a driver cannot work without, in the store the template writes for it.
+REQUIRED_KEY = {("database", "sqlite"): "Path", ("database", "postgres"): "ConnectionString", ("database", "mysql"): "ConnectionString",
+                ("database", "sqlserver"): "ConnectionString", ("cache", "redis"): "ConnectionString", ("queue", "file"): "Path",
+                ("queue", "redis"): "ConnectionString", ("queue", "rabbitmq"): "HostName", ("queue", "kafka"): "BootstrapServers",
+                ("mail", "smtp"): "Host"}
+# The environment variable the README names for a service the application needs: the path of that key in config/, with "__" for ":".
+SERVICE_VARIABLES = {("database", "postgres"): "Database__Connections__main__ConnectionString",
+                     ("database", "mysql"): "Database__Connections__main__ConnectionString",
+                     ("database", "sqlserver"): "Database__Connections__main__ConnectionString",
+                     ("cache", "redis"): "Cache__Stores__redis__ConnectionString",
+                     ("queue", "redis"): "NaravelQueue__Stores__redis__ConnectionString",
+                     ("queue", "rabbitmq"): "NaravelQueue__Stores__rabbitmq__HostName",
+                     ("queue", "kafka"): "NaravelQueue__Stores__kafka__BootstrapServers",
+                     ("mail", "smtp"): "Mail__Mailers__smtp__Host"}
+STORE_SECTIONS = {"database": ("config/database.json", "Database", "Connections"), "cache": ("config/cache.json", "Cache", "Stores"),
+                  "queue": ("config/queue.json", "NaravelQueue", "Stores")}
 # Besides every value alone: combinations that put several drivers, a missing database and a missing tests project together.
 COMBINATIONS: list[dict[str, str]] = [
     {"database": "postgres", "cache": "redis", "queue": "redis", "mail": "smtp"},
@@ -273,13 +318,170 @@ def entry_tag(entry: dict[str, str]) -> str:
     return " ".join(f"{name}={value}" for name, value in entry.items()) or "default"
 
 
+def _config_documents(files: dict[str, str], problems: list[str]) -> dict[str, dict]:
+    """Every config/*.json as parsed JSON; the files carry whole-line // comments, which the configuration system of ASP.NET Core accepts."""
+    documents = {}
+    for relative, text in sorted(files.items()):
+        if relative.startswith("config/") and relative.endswith(".json"):
+            try:
+                documents[relative] = json.loads(re.sub(r"(?m)^\s*//.*$", "", text))
+            except ValueError as error:
+                problems.append(f"{relative} is not valid JSON once the comment lines are removed: {error}")
+    return documents
+
+
+def _has_path(document: dict, parts: list[str]) -> bool:
+    for part in parts:
+        if not isinstance(document, dict) or part not in document:
+            return False
+        document = document[part]
+    return True
+
+
+def wiring_problems(files: dict[str, str], name: str, choice: dict[str, str]) -> list[str]:
+    """What is half-wired in an application generated with these choices (PDR-025 D4: the generator never emits a half-wired combination).
+
+    Every value of a parameter changes four things together: the package, the registration call (and its using), the active store in
+    config/, and what the README tells the user to set. This compares all four with the ORACLE, and finds the opposite as well: a package,
+    a call or a store that belongs to a value that was not chosen."""
+    problems: list[str] = []
+    chosen = {parameter: ORACLE[parameter][choice[parameter]] for parameter in ORACLE}
+    with_tests = choice.get("no-tests") != "true"
+    uses_storage = choice["queue"] == "file" or choice["database"] == "sqlite"
+    needs_service = any(choice[parameter] == value for parameter, value in SERVICE_VARIABLES)
+
+    csproj = files.get(f"{name}.csproj", "")
+    try:
+        ET.fromstring(csproj)
+    except ET.ParseError as error:
+        problems.append(f"{name}.csproj is not well-formed XML: {error}")
+    packages = set(re.findall(r'<PackageReference\s+Include="(Naravel\.[^"]+)"', csproj))
+    expected = BASE_PACKAGES | ({"Naravel.Database"} if choice["database"] != "none" else set()) | {c[0] for c in chosen.values() if c[0]}
+    if packages != expected:
+        problems.append(f"{name}.csproj references {sorted(packages)}, expected {sorted(expected)}")
+
+    program = files.get("Program.cs", "")
+    for kind, index, present in (("call", 1, lambda value: re.search(rf"\.{re.escape(value)}\(", program)),
+                                 ("using", 2, lambda value: f"using {value};" in program)):
+        every = {entry[index] for values in ORACLE.values() for entry in values.values() if entry[index]}
+        wanted = {entry[index] for entry in chosen.values() if entry[index]}
+        for value in sorted(every):
+            if bool(present(value)) != (value in wanted):
+                problems.append(f"Program.cs {'lacks' if value in wanted else 'has'} the {kind} {value}, "
+                                f"which the choices {'need' if value in wanted else 'do not use'}")
+    if bool(re.search(r"\.AddNaravelDatabase\(", program)) != (choice["database"] != "none"):
+        problems.append(f"Program.cs {'lacks' if choice['database'] != 'none' else 'has'} AddNaravelDatabase for database={choice['database']}")
+    if ('"storage"' in program) != uses_storage:
+        problems.append(f"Program.cs {'lacks' if uses_storage else 'has'} the creation of storage/ (queue={choice['queue']}, database={choice['database']})")
+
+    documents = _config_documents(files, problems)
+    for parameter, (path, section, stores) in STORE_SECTIONS.items():
+        if choice[parameter] == "none":
+            if path in files:
+                problems.append(f"{path} was generated for {parameter}=none")
+            continue
+        block = documents.get(path, {}).get(section, {})
+        active = block.get("Default")
+        store = block.get(stores, {}).get(active)
+        if store is None:
+            problems.append(f"{path}: Default is {active!r}, which is not one of the {stores}")
+            continue
+        if store.get("Driver") != chosen[parameter][3]:
+            problems.append(f"{path}: the store {active!r} has Driver {store.get('Driver')!r}, expected {chosen[parameter][3]!r}")
+        if sorted(block[stores]) != [active]:
+            problems.append(f"{path}: {stores} holds {sorted(block[stores])}, expected only the active {active!r}")
+        required = REQUIRED_KEY.get((parameter, choice[parameter]))
+        if required and not str(store.get(required, "")).strip():
+            problems.append(f"{path}: the store {active!r} has no {required}")
+    mail = documents.get("config/mail.json", {}).get("Mail", {})
+    if choice["mail"] == "log":
+        if mail.get("Default") != "log" or "Mailers" in mail:
+            problems.append("config/mail.json: mail=log must have Default 'log' and no Mailers")
+    else:
+        mailer = mail.get("Mailers", {}).get("smtp", {})
+        if mail.get("Default") != "smtp" or mailer.get("Driver") != "smtp" or not str(mailer.get("Host", "")).strip():
+            problems.append("config/mail.json: mail=smtp must have Default 'smtp' and a mailer 'smtp' with Driver 'smtp' and a Host")
+    for relative, text in sorted(files.items()):
+        if relative.startswith("config/") and re.search(r'(?i)"(password|pwd|secret)"\s*:|(password|pwd)=', text):
+            problems.append(f"{relative}: a password is written into a file that is committed; it belongs in the environment or user secrets")
+
+    readme = files.get("README.md", "")
+    if ("## Services" in readme) != needs_service:
+        problems.append(f"README.md {'lacks' if needs_service else 'has'} the Services section")
+    wanted_variables = {SERVICE_VARIABLES[(p, choice[p])] for p in ORACLE if (p, choice[p]) in SERVICE_VARIABLES}
+    for variable in sorted(set(SERVICE_VARIABLES.values())):
+        if (variable in readme) != (variable in wanted_variables):
+            problems.append(f"README.md {'does not name' if variable in wanted_variables else 'names'} {variable} for these choices")
+        elif variable in wanted_variables and not any(_has_path(document, variable.split("__")) for document in documents.values()):
+            problems.append(f"README.md names {variable}, which is not a key of the generated config/")
+    for fragment, wanted, label in (("| `storage/` |", uses_storage, "the storage/ row"), ("| `tests/` |", with_tests, "the tests/ row"),
+                                    ("dotnet test", with_tests, "the test command")):
+        if (fragment in readme) != wanted:
+            problems.append(f"README.md {'lacks' if wanted else 'has'} {label}")
+
+    for relative, text in sorted(files.items()):
+        if re.search(r"(?m)^\s*(//|<!--)\s*#(if|elseif|else|endif)\b", text):
+            problems.append(f"{relative}: a conditional line of the template survived the generation")
+    return problems
+
+
+def _condition(expression: str, names: dict[str, object]) -> bool:
+    """A condition of the template engine for the subset the template uses: symbol names, == and != with a string, ! , && and ||.
+    The expressions come from this repository's own template folder, never from outside."""
+    python = re.sub(r"!(?!=)", " not ", expression.replace("||", " or ").replace("&&", " and ")).replace("-", "_")
+    try:
+        return bool(eval(python, {"__builtins__": {}}, names))  # noqa: S307 (the repository's own template, evaluated with no builtins)
+    except (SyntaxError, NameError, TypeError) as error:
+        raise ValueError(f"the condition {expression!r} of the template cannot be evaluated ({error}): a marker must be a whole line "
+                         f"and name only the symbols of template.json") from error
+
+
+def template_symbols(template_json_text: str, choice: dict[str, str]) -> dict[str, object]:
+    """The values the engine gives the symbols of template.json for a choice: parameters (a bool as a bool) and computed symbols."""
+    names: dict[str, object] = {name.replace("-", "_"): (value == "true" if value in ("true", "false") else value) for name, value in choice.items()}
+    for name, symbol in json.loads(template_json_text)["symbols"].items():
+        if symbol.get("type") == "computed":
+            names[name] = _condition(symbol["value"], names)
+    return names
+
+
+def render_conditionals(text: str, names: dict[str, object]) -> str:
+    """Resolve the `//#if (...)` and `<!--#if (...) -->` lines of a file the way the template engine does: a conditional marker is a whole
+    line, the lines of a branch that is not taken are dropped, and so are the marker lines. (An inline marker is not supported by this
+    function, and is not reliable in the engine either: the template does not use one.)"""
+    marker = re.compile(r"^\s*(?://|<!--)\s*#(if|elseif|else|endif)\b\s*(.*?)\s*(?:-->)?\s*$")
+    out: list[str] = []
+    stack: list[list[bool]] = []  # per open #if: [the branch taken so far, the current branch is active]
+    for line in text.splitlines(keepends=True):
+        found = marker.match(line)
+        if not found:
+            if all(active for _, active in stack):
+                out.append(line)
+            continue
+        kind, expression = found.groups()
+        outer = all(active for _, active in stack)
+        if kind == "if":
+            taken = outer and _condition(expression, names)
+            stack.append([taken, taken])
+        elif kind == "elseif":
+            taken, _ = stack[-1]
+            now = all(active for _, active in stack[:-1]) and not taken and _condition(expression, names)
+            stack[-1] = [taken or now, now]
+        elif kind == "else":
+            taken, _ = stack[-1]
+            stack[-1] = [True, all(active for _, active in stack[:-1]) and not taken]
+        else:
+            stack.pop()
+    return "".join(out)
+
+
 def check_entry(files: dict[str, str], name: str, choice: dict[str, str], sources: list[str], version: str) -> list[str]:
     """Everything that can be checked on the files of a generated application before it is built."""
     expected = expected_generated(sources, name, choice)
     problems = [f"{path} was not generated" for path in expected if path not in files]
     problems += [f"{path} was generated, but the choices leave it out" for path in sorted(files) if path not in expected]
     problems += (leftover_placeholders(files, name) + project_reference_problems(files)
-                 + given_name_problems(files, name, choice.get("no-tests") != "true"))
+                 + given_name_problems(files, name, choice.get("no-tests") != "true") + wiring_problems(files, name, choice))
     versions = referenced_versions(files.get(f"{name}.csproj", ""))
     if versions != {version}:
         problems.append(f"{name}.csproj references Naravel packages at {sorted(versions)}, expected only {version}")
@@ -287,7 +489,7 @@ def check_entry(files: dict[str, str], name: str, choice: dict[str, str], source
 
 
 def matrix_line(built: list[str]) -> str:
-    return (f"Matrix: {len(built)} combinations were generated, checked and built, and their tests were run "
+    return (f"Matrix: {len(built)} combinations were generated, checked for a half-wired result and built, and their tests were run "
             f"(a project made with no-tests has none): {'; '.join(built)}. None of them was started: each would need its server or "
             f"broker. Only the default application was started.")
 
@@ -699,18 +901,24 @@ def self_test() -> int:
     symbol = json.loads(json_text_for_forms)["symbols"]["AppRootNamespace"]
     expect("the derived symbol replaces the token the C# files use", symbol["replaces"] == NAMESPACE_TOKEN)
 
-    def generate(name: str, namespace: str) -> dict[str, str]:
+    def generate(name: str, namespace: str, choice: dict[str, str] | None = None) -> dict[str, str]:
         """The replacements of the engine, applied to the template folder as the real engine was seen to apply them: the source name
-        becomes the name in a file name but its safe form inside a file; each derived symbol replaces its own token by its value."""
+        becomes the name in a file name but its safe form inside a file; each derived symbol replaces its own token by its value; the
+        conditional lines are resolved for the choice and the sources.modifiers of template.json leave files out."""
+        names = template_symbols(text, effective_choice(parameters, choice or {}))
+        excluded = [pattern for modifier in json.loads(text)["sources"][0]["modifiers"] if _condition(modifier["condition"], names)
+                    for pattern in modifier["exclude"]]
         out = {}
         for relative in sources:
-            if relative.startswith(".template.config/"):
+            if relative.startswith(".template.config/") or any(fnmatch.fnmatch(relative, pattern) for pattern in excluded):
                 continue
             try:
-                text = (TEMPLATE_DIRECTORY / relative).read_text(encoding="utf-8")
+                content = (TEMPLATE_DIRECTORY / relative).read_text(encoding="utf-8")
             except UnicodeDecodeError:
                 continue
-            out[generated_path(relative, name)] = (text.replace(SOURCE_NAME, namespace).replace(NAMESPACE_TOKEN, namespace)
+            if relative.endswith((".cs", ".csproj", ".json", ".md")):  # the engine does not resolve them in other files, html among them
+                content = render_conditionals(content, names)
+            out[generated_path(relative, name)] = (content.replace(SOURCE_NAME, namespace).replace(NAMESPACE_TOKEN, namespace)
                                                    .replace(PROJECT_NAME_TOKEN, name).replace(VERSION_PLACEHOLDER, "0.2.0"))
         return out
 
@@ -757,10 +965,12 @@ def self_test() -> int:
                f"<RootNamespace>{NAMESPACE_TOKEN}" in (TEMPLATE_DIRECTORY / project).read_text(encoding="utf-8"))
 
 
-    # The matrix: its entries are read from template.json, so a value added to the template is in the matrix without a second list.
-    expect("template.json has the four choices and no-tests", set(parameters) == {"database", "cache", "queue", "mail", "no-tests"})
-    for parameter, (default, values) in parameters.items():
-        expect(f"the default of {parameter} is one of its values", default in values)
+    # The matrix. The parameters are read from template.json and the oracle is written out here: a value that one has and the other
+    # lacks fails here, and not as a surprise in CI.
+    expect("template.json has the four choices and no-tests", set(parameters) == set(ORACLE) | {"no-tests"})
+    for parameter, values in ORACLE.items():
+        expect(f"the oracle knows every {parameter} value of template.json and no other", set(values) == set(parameters[parameter][1]))
+        expect(f"the default of {parameter} is its first value", parameters[parameter][0] == parameters[parameter][1][0])
     entries = matrix_entries(parameters, COMBINATIONS)
     expect("every non-default value is an entry on its own",
            all({name: value} in entries for name, (default, values) in parameters.items() for value in values if value != default))
@@ -771,16 +981,56 @@ def self_test() -> int:
            all(name in parameters and value in parameters[name][1] for combination in COMBINATIONS for name, value in combination.items()))
     expect("a choice is passed with its value and a bool as a flag",
            entry_args({"database": "postgres", "no-tests": "true"}) == ["--database", "postgres", "--no-tests"] and entry_tag({}) == "default")
-    expect("the choices of an entry are the defaults with the entry on top",
-           effective_choice(parameters, {"queue": "kafka"}) == {"database": "sqlite", "cache": "memory", "queue": "kafka", "mail": "log", "no-tests": "false"})
-    expect("a project made with no-tests has no tests project, one made with database none has no database config",
-           not any(p.startswith("tests/") for p in expected_generated(sources, "Blog", {"no-tests": "true"}))
-           and "config/database.json" not in expected_generated(sources, "Blog", {"database": "none"})
-           and "tests/Blog.Tests/Blog.Tests.csproj" in expected_generated(sources, "Blog") and "config/database.json" in expected_generated(sources, "Blog"))
+    sample = ('//#if (queue == "redis")\nR\n//#elseif (queue == "kafka")\nK\n//#else\nF\n//#endif\n'
+              '<!--#if (!no-tests) -->\nT\n<!--#endif -->\n')
+    for choice, rendered in (({"queue": "kafka"}, "K\nT\n"), ({"queue": "redis", "no-tests": "true"}, "R\n"), ({}, "F\nT\n")):
+        expect(f"the conditional lines resolve for {choice}", render_conditionals(sample, template_symbols(text, effective_choice(parameters, choice))) == rendered)
+    nested = '<!--#if (NeedsService) -->\nA\n<!--#if (queue == "redis") -->\nB\n<!--#endif -->\n<!--#endif -->\n'
+    for choice, rendered in (({}, ""), ({"queue": "redis"}, "A\nB\n"), ({"database": "postgres"}, "A\n")):
+        expect(f"nested conditional lines resolve for {choice}",
+               render_conditionals(nested, template_symbols(text, effective_choice(parameters, choice))) == rendered)
+    for entry in [{}] + entries:
+        choice = effective_choice(parameters, entry)
+        found = check_entry(generate("Blog", "Blog", choice), "Blog", choice, sources, "0.2.0")
+        expect(f"the template rendered for {entry_tag(entry)} has no problems ({found[:1]})", found == [])
     expect("a template without a tests project and without a README test command is accepted",
            given_name_problems({"README.md": "# Blog\n", "resources/views/welcome.html": "<title>Blog</title>"}, "Blog", with_tests=False) == [])
-    expect("a surviving placeholder, a missing file and a wrong version are found in a generated entry",
-           len(check_entry({"Blog.csproj": '<PackageReference Include="Naravel.Mail" Version="NARAVEL_VERSION" />'}, "Blog", {}, ["NaravelApp.csproj", "Program.cs"], "0.2.0")) >= 3)
+
+    def broken(entry: dict[str, str], path: str, old: str, new: str) -> list[str]:
+        """The problems of the rendered template after one edit: each edit is a half-wired result that must be found."""
+        choice = effective_choice(parameters, entry)
+        files = dict(generate("Blog", "Blog", choice))
+        if old not in files.get(path, ""):
+            return [f"the mutation target {old!r} is not in {path}"]
+        files[path] = files[path].replace(old, new)
+        return check_entry(files, "Blog", choice, sources, "0.2.0")
+
+    mutations = [
+        ("a package that does not match the queue", {"queue": "redis"}, "Blog.csproj", "Naravel.Queue.Redis", "Naravel.Queue.File", "references"),
+        ("a call that does not match the queue", {"queue": "redis"}, "Program.cs", ".AddRedisDriver(", ".AddFileDriver(", "lacks the call AddRedisDriver"),
+        ("a using that does not match the queue", {"queue": "redis"}, "Program.cs", "using Naravel.Queue.Redis;", "using Naravel.Queue.File;",
+         "lacks the using Naravel.Queue.Redis"),
+        ("the driver postgres written instead of pgsql", {"database": "postgres"}, "config/database.json", '"pgsql"', '"postgres"', "expected 'pgsql'"),
+        ("a default that names no store", {"queue": "kafka"}, "config/queue.json", '"Default": "kafka"', '"Default": "default"', "Default is 'default'"),
+        ("a second store beside the active one", {"cache": "redis"}, "config/cache.json", '"Stores": {', '"Stores": { "memory": { "Driver": "memory" },',
+         "expected only the active"),
+        ("a password in a committed file", {"database": "postgres"}, "config/database.json", "Username=app", "Username=app;Password=x", "a password is written"),
+        ("a conditional line that survived", {}, "Program.cs", "using Naravel.Events;", "//#if (x)\nusing Naravel.Events;", "conditional line"),
+        ("a README without the Services section", {"cache": "redis"}, "README.md", "## Services", "## Service", "lacks the Services section"),
+        ("a README that names a variable that is not a key", {"mail": "smtp"}, "README.md", "Mail__Mailers__smtp__Host", "Mail__Mailers__smtp__Server",
+         "does not name Mail__Mailers__smtp__Host"),
+        ("a missing storage/ creation", {}, "Program.cs", '"storage"', '"store"', "creation of storage/"),
+        ("no registration of the database", {"database": "mysql"}, "Program.cs", ".AddNaravelMySqlDatabase(", ".AddNaravelDatabase(",
+         "lacks the call AddNaravelMySqlDatabase"),
+    ]
+    for label, entry, path, old, new, fragment in mutations:
+        expect(f"{label} is found", any(fragment in problem for problem in broken(entry, path, old, new)))
+    with_tests_files = dict(generate("Blog", "Blog", effective_choice(parameters, {"no-tests": "true"})))
+    with_tests_files["tests/Blog.Tests/X.cs"] = ""
+    expect("a tests project that no-tests should have left out is found",
+           any("the choices leave it out" in problem for problem in check_entry(with_tests_files, "Blog", effective_choice(parameters, {"no-tests": "true"}), sources, "0.2.0")))
+    expect("a version that is not the packed one is found",
+           any("expected only 9.9.9" in problem for problem in check_entry(generate("Blog", "Blog"), "Blog", effective_choice(parameters, {}), sources, "9.9.9")))
     expect("the matrix line names the count, says none was started and that only the default was",
            all(part in matrix_line(["a", "b"]) for part in ("2 combinations", "a; b", "None of them was started", "Only the default application was started")))
 
