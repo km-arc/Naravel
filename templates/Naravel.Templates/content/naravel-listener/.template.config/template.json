@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Naravel",
+  "classifications": [
+    "Naravel",
+    "Events"
+  ],
+  "identity": "Naravel.Templates.Item.Listener",
+  "name": "Naravel listener",
+  "description": "An event listener: a class that handles one event. Meant for app/Listeners of a Naravel application.",
+  "shortName": "naravel-listener",
+  "tags": {
+    "language": "C#",
+    "type": "item"
+  },
+  "sourceName": "NaravelItem",
+  "symbols": {
+    "namespace": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "",
+      "replaces": "ItemNamespace",
+      "description": "The namespace of the file. By default it is the root namespace of the project that holds the output folder, followed by .App.Listeners. That needs the project to be restored (dotnet build or dotnet run once) and the output folder to be an existing folder of the project or a new folder directly inside one; otherwise pass the namespace."
+    },
+    "ProjectNamespace": {
+      "type": "bind",
+      "binding": "msbuild:RootNamespace",
+      "defaultValue": "",
+      "replaces": "ProjectRootNamespace"
+    },
+    "event": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "UserRegistered",
+      "replaces": "ItemEvent",
+      "description": "The event the listener handles, as its type name is written in C#. The default is UserRegistered, the example event of the application. A name without a namespace is looked up in the events folder of the project (.App.Events); with --namespace and a project that is not restored, give the full name."
+    }
+  }
+}

@@ -34,7 +34,17 @@ cd Blog
 dotnet run
 ```
 
-`dotnet run` prints the URL it listens on. Add `--database postgres --cache redis --queue redis` to `dotnet new naravel` to choose other drivers, and `dotnet new naravel-job -n SendWelcome -o app/Jobs` to add a job class.
+`dotnet run` prints the URL it listens on. Add `--database postgres --cache redis --queue redis` to `dotnet new naravel` to choose other drivers.
+
+## Add a class to the application
+
+From the application folder, once the project has been restored (`dotnet build` or `dotnet run` does that):
+
+```sh
+dotnet new naravel-job -n SendWelcome -o app/Jobs
+```
+
+This writes `app/Jobs/SendWelcome.cs` in the root namespace of the project followed by `.App.Jobs` (`Blog.App.Jobs`). The other templates are `naravel-event` (`app/Events`, `.App.Events`), `naravel-listener` (`app/Listeners`, `.App.Listeners`; it handles `UserRegistered` unless you pass `--event <EventType>`), `naravel-mailable` (`app/Mail`, `.App.Mail`) and `naravel-controller` (`app/Http/Controllers`, `.App.Http.Controllers`). The namespace does not depend on `-o`, which has to be an existing folder of the project or a new folder directly inside one. Pass `--namespace <Namespace>` to choose it yourself; if the project is not restored and no namespace is given, the file holds an `#error` line that says what to do.
 
 ## Related packages
 
