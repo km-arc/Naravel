@@ -15,7 +15,8 @@ up when a user runs `dotnet new naravel`, after the pack is on nuget.org. This s
 5. test:      `dotnet test` of the generated tests project (the fakes, and the environment-over-files rule of the configuration).
 6. publish:   `dotnet publish`; the output holds config/*.json and resources/views/welcome.html.
 7. run:       the published application is started from its own folder; /up answers 200, / answers the welcome page, and
-              POST /register answers 202 (the event, the listener, the queue and the mail wiring is built and resolves).
+              POST /register answers 202 (the event, the listener, the queue and the mail wiring is built and resolves). Then the
+              application is started the way the docs say, with `dotnet run` from its folder (dev run), and the same is asked of it.
 8. names:     the template is generated again with names that are not valid C# namespaces as they are (my-blog, 1st-blog, Acme.Blog).
               Every project reference must point to a file that was generated, the name must appear as it was given where a user reads
               it, and the first of these applications is built and its tests are run, so a path or a namespace that the template
@@ -30,6 +31,7 @@ up when a user runs `dotnet new naravel`, after the pack is on nuget.org. This s
 
 Usage:
   template-smoke.py --local <directory-containing-nupkgs>   packages from `dotnet pack` (CI, before anything is pushed)
+  template-smoke.py --nuget <version>                       the published pack on nuget.org (after a release): install, generate, build
   template-smoke.py --self-test                             the script's own checks (no dotnet needed)
 
 Naravel.* is mapped to that directory only and every other package comes from nuget.org, so a Naravel package already published
@@ -40,13 +42,17 @@ directories, so nothing cached on the machine can hide a missing package or an i
 from __future__ import annotations
 
 import argparse
+import contextlib
 import fnmatch
 import importlib.util
+import io
 import json
 import os
 import posixpath
 import re
+import shlex
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -64,6 +70,9 @@ TEMPLATE_DIRECTORY = ROOT / "templates" / "Naravel.Templates" / "content" / "nar
 SOURCE_NAME = "NaravelApp"  # sourceName in template.json: replaced by the name the user passes with -n
 VERSION_PLACEHOLDER = "NARAVEL_VERSION"
 APP_NAME = "Blog"
+# The docs start the application with `dotnet run`. The smoke runs it from the application folder with -c Release --no-build: the
+# application was just built in Release, and a plain `dotnet run` would build it again in Debug. Everything else is what a user does.
+DEV_RUN = ["dotnet", "run", "-c", "Release", "--no-build"]
 NAMESPACE_TOKEN = "AppRootNamespace"  # the derived symbol of template.json: the name given with -n, made safe for a C# namespace
 PROJECT_NAME_TOKEN = "AppProjectName"  # the derived symbol of template.json: the name given with -n, as it was given (paths, display)
 # (the name given with -n, the namespace the generated C# must have, whether that application is also built and its tests run). The
@@ -588,6 +597,112 @@ def items_line() -> str:
             f"and the application was built with them.")
 
 
+# The pages that name the starter's commands. R34.T06: the docs name no command that this script did not run.
+DOC_PAGES = ["README.md", "docs/en/getting-started.md", "docs/nuget/Naravel.Templates.md"]
+
+
+def doc_commands(markdown: str) -> list[list[str]]:
+    """The commands of the starter that a page names, each as its words: every `dotnet new install`, every `dotnet new naravel...` and a
+    `dotnet run` without --project, in fenced blocks and in inline code. Other commands (`dotnet add package`, `dotnet new web`, `dotnet run
+    --project samples/...`) belong to other parts of the docs and are not looked at."""
+    spans: list[str] = []
+    in_fence = False
+    for line in markdown.splitlines():
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+        elif in_fence:
+            spans.append(line)
+        else:
+            spans += re.findall(r"`([^`\n]+)`", line)
+    commands = []
+    for span in spans:
+        for part in span.split("#")[0].split("&&"):  # a comment after #, and `a && b` is two commands
+            try:
+                words = shlex.split(part)
+            except ValueError:
+                continue
+            if words[:3] == ["dotnet", "new", "install"] or (words[:2] == ["dotnet", "new"] and len(words) > 2 and words[2].startswith("naravel")) \
+                    or (words[:2] == ["dotnet", "run"] and "--project" not in words):
+                commands.append(words)
+    return commands
+
+
+def doc_command_problems(words: list[str], parameters: dict[str, tuple[str, list[str]]],
+                         combinations: list[dict[str, str]] = COMBINATIONS, runs: list = ITEM_RUNS) -> list[str]:
+    """Why the smoke did not run this command, or [] when it did. `dotnet run` and the item templates must match what the smoke runs
+    (a name given with -n or a namespace or an event may be any); the options of `dotnet new naravel` must be real parameters with real
+    values, and what differs from the defaults must be inside one run of the matrix or its combinations."""
+    text = " ".join(words)
+    if words[:3] == ["dotnet", "new", "install"]:
+        identity = words[3].split("::")[0] if len(words) > 3 else ""
+        return [] if identity == TEMPLATE_PACKAGE else [f"`{text}`: the smoke installs {TEMPLATE_PACKAGE}, not {identity or 'nothing'}"]
+    if words[:2] == ["dotnet", "run"]:
+        extra = [word for word in words[2:] if word not in DEV_RUN]
+        return [] if not extra else [f"`{text}`: the smoke runs `{' '.join(DEV_RUN)}`, which does not have {' '.join(extra)}"]
+    short = words[2]
+    flags = {name for name, (_, values) in parameters.items() if values == ["false", "true"]}
+    options: dict[str, str] = {}
+    index = 3
+    while index < len(words):
+        name = words[index]
+        if not name.startswith("-"):
+            return [f"`{text}`: {name!r} is not an option"]
+        if name.lstrip("-") in flags:
+            options[name], index = "true", index + 1
+        else:
+            options[name], index = (words[index + 1] if index + 1 < len(words) else ""), index + 2
+    if short == "naravel":
+        chosen: dict[str, str] = {}
+        for name, value in options.items():
+            key = name.lstrip("-")
+            if name == "-n":
+                continue
+            if key not in parameters:
+                return [f"`{text}`: {name} is not a parameter of the template"]
+            default, values = parameters[key]
+            if value not in values:
+                return [f"`{text}`: {name} {value} is not one of {', '.join(values)}"]
+            if value != default:
+                chosen[key] = value
+        if chosen and not any(all(entry.get(key) == value for key, value in chosen.items()) for entry in matrix_entries(parameters, combinations)):
+            return ["`%s`: no run of the smoke has %s together" % (text, ", ".join("%s=%s" % pair for pair in chosen.items()))]
+        return []
+    candidates = [run for run in runs if run[0] == short]
+    if not candidates:
+        return [f"`{text}`: the smoke does not run {short}"]
+
+    def covered(run: tuple, name: str, value: str) -> bool:
+        return name == "-n" or (value == run[2] if name == "-o" else name in run[3])
+
+    if not any(all(covered(run, name, value) for name, value in options.items()) for run in candidates):
+        runs_text = "; ".join(" ".join(["-o", run[2], *run[3]]) for run in candidates)
+        return [f"`{text}`: no run of the smoke has these options (the runs have {runs_text})"]
+    return []
+
+
+def docs_problems(root: Path, parameters: dict[str, tuple[str, list[str]]]) -> list[str]:
+    """Every starter command of every page that the smoke did not run, a page that names none, and a getting-started table that does not
+    list every option and value of template.json."""
+    problems = []
+    for page in DOC_PAGES:
+        text = (root / page).read_text(encoding="utf-8")
+        commands = doc_commands(text)
+        if not commands:
+            problems.append(f"{page}: names no command of the starter")
+        for words in commands:
+            problems += [f"{page}: {problem}" for problem in doc_command_problems(words, parameters)]
+    text = (root / "docs/en/getting-started.md").read_text(encoding="utf-8")
+    section = text.split("## Create an app", 1)[-1].split("\n## ", 1)[0]
+    rows = {match.group(1): match.group(2) for match in re.finditer(r"^\| `--([\w-]+)` \| (.*?) \|", section, re.MULTILINE)}  # option -> its values cell
+    for name, (_, values) in parameters.items():
+        if name not in rows:
+            problems.append(f"docs/en/getting-started.md: the Create an app table does not list --{name}")
+            continue
+        problems += [f"docs/en/getting-started.md: the values of --{name} in the Create an app table do not include {value}"
+                     for value in values if values != ["false", "true"] and f"`{value}`" not in rows[name]]
+    return problems
+
+
 def nupkg_problems(names: list[str], nuspec_text: str, sources: list[str], item_sources: dict[str, list[str]] | None = None) -> list[str]:
     """What is wrong with the packed template: its package type, or a source file that is not packed (or a bin/obj file that is).
     item_sources maps the folder of each item template (content/<folder>/) to its files."""
@@ -707,14 +822,36 @@ def read_text_files(directory: Path) -> dict[str, str]:
     return files
 
 
-def start_and_probe(publish: Path, name: str, env: dict[str, str], log_path: Path) -> list[str]:
-    """Start the published application from its own folder and return what did not hold (empty when everything did)."""
+def stop_process(process: subprocess.Popen) -> None:
+    """Stop the process and everything it started: `dotnet run` starts the application as a child, so the whole group is signalled."""
+    leads_group = hasattr(os, "killpg")
+    for sig, wait in ((signal.SIGTERM, 20), (signal.SIGKILL, None)):
+        try:
+            if leads_group:
+                os.killpg(process.pid, sig)  # the process leads its own group (start_new_session in start_and_probe)
+            elif sig == signal.SIGTERM:
+                process.terminate()
+            else:
+                process.kill()
+        except (ProcessLookupError, PermissionError):
+            pass
+        try:
+            process.wait(timeout=wait)
+            return
+        except subprocess.TimeoutExpired:
+            continue
+
+
+def start_and_probe(folder: Path, name: str, env: dict[str, str], log_path: Path, command: list[str] | None = None) -> list[str]:
+    """Start the application from `folder` (the publish output, or the application folder for `dotnet run`) and return what did not
+    hold (empty when everything did). The command is `dotnet <name>.dll` unless it is given."""
     problems: list[str] = []
     port = free_port()
     base = f"http://127.0.0.1:{port}"
     run_env = dict(env, ASPNETCORE_URLS=base)
     with open(log_path, "w", encoding="utf-8") as log:
-        process = subprocess.Popen(["dotnet", f"{name}.dll"], cwd=publish, env=run_env, stdout=log, stderr=subprocess.STDOUT)
+        process = subprocess.Popen(command or ["dotnet", f"{name}.dll"], cwd=folder, env=run_env, stdout=log, stderr=subprocess.STDOUT,
+                                   start_new_session=True)
         try:
             deadline = time.monotonic() + START_TIMEOUT
             up = None
@@ -739,21 +876,16 @@ def start_and_probe(publish: Path, name: str, env: dict[str, str], log_path: Pat
                 if status != 202:
                     problems.append(f"POST /register answered {status}, expected 202: {body[:300]}")
         finally:
-            process.terminate()
-            try:
-                process.wait(timeout=20)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
+            stop_process(process)
     return problems
 
 
-def write_summary(version: str, failed: list[str], notes: list[str]) -> None:
+def write_summary(version: str, failed: list[str], notes: list[str], started: bool = True) -> None:
     path = os.environ.get("GITHUB_STEP_SUMMARY")
     if not path:
         return
     lines = ["### Template smoke", f"- Template pack: `{TEMPLATE_PACKAGE}` `{version}`",
-             "- Combination started: default (cache memory, mail log, queue file, database sqlite)",
+             *(["- Combination started: default (cache memory, mail log, queue file, database sqlite)"] if started else []),
              f"- Result: {'passed' if not failed else 'FAILED in: ' + ', '.join(failed)}", *[f"- {note}" for note in notes], ""]
     for phase, excerpt in EXCERPTS:
         if excerpt:
@@ -817,6 +949,62 @@ def item_phase(runner, app: Path, name: str) -> list[str]:
     return problems
 
 
+def report_problems(name: str, problems: list[str], failed: list[str]) -> bool:
+    """Print what a phase found; True when it found something (and then the phase is added to `failed`)."""
+    if not problems:
+        print(f"ok: {name}", flush=True)
+        return False
+    for problem in problems:
+        print(f"ERROR: {name}: {problem}", file=sys.stderr, flush=True)
+        if os.environ.get("GITHUB_ACTIONS"):
+            print(f"::error title=template-smoke ({name})::{problem[:900]}")
+    failed.append(name)
+    return True
+
+
+def published_smoke(runner, work: Path, version: str) -> tuple[list[str], list[str]]:
+    """The pack as it is on nuget.org, after a release: install `Naravel.Templates::<version>`, generate the default application, check
+    that it pins that version and has no placeholder, and build it. Nothing is read from the repository's template folder, because the
+    repository may have moved on since the release; the packages come from nuget.org only. Returns (failed phases, notes)."""
+    failed: list[str] = []
+    notes: list[str] = []
+    installed = False
+    package = f"{TEMPLATE_PACKAGE}::{version}"
+    try:
+        ok, output = runner.run(f"install {package}", ["dotnet", "new", "install", package], work, 300, True)
+        if not ok:
+            annotate("install", output)
+            return ["install"], notes
+        installed = True
+        ok, output = runner.run("dotnet new list naravel", ["dotnet", "new", "list", "naravel"], work, 120, True)
+        if not ok or "Naravel application" not in output or not re.search(r"\bnaravel\b", output):
+            annotate("install", output)
+            return ["install"], notes
+        ok, output = runner.run(f"dotnet new naravel -n {APP_NAME}", ["dotnet", "new", "naravel", "-n", APP_NAME], work, 180, True)
+        app = work / APP_NAME
+        if not ok or not app.is_dir():
+            annotate("generate", output)
+            return ["generate"], notes
+        generated = read_text_files(app)
+        problems = [] if f"{APP_NAME}.csproj" in generated else [f"{APP_NAME}.csproj was not generated"]
+        problems += leftover_placeholders(generated, APP_NAME) + project_reference_problems(generated) + given_name_problems(generated, APP_NAME)
+        versions = referenced_versions(generated.get(f"{APP_NAME}.csproj", ""))
+        if versions != {version}:
+            problems.append(f"{APP_NAME}.csproj references Naravel packages at {sorted(versions)}, expected only {version}")
+        if report_problems("generate", problems, failed):
+            return failed, notes
+        ok, output = runner.dotnet("build the application", ["build", f"{APP_NAME}.csproj", "-c", "Release"], app)
+        if not ok:
+            annotate("build", output)
+            return ["build"], notes
+        print("ok: build", flush=True)
+        notes.append(f"Published pack {version}: installed from nuget.org, {APP_NAME} generated with every Naravel package at {version}, and built.")
+    finally:
+        if installed:
+            runner.run(f"dotnet new uninstall {TEMPLATE_PACKAGE}", ["dotnet", "new", "uninstall", TEMPLATE_PACKAGE], work, 120)
+    return failed, notes
+
+
 def smoke(local: Path, work: Path, extra_args: list[str]) -> tuple[list[str], list[str]]:
     """Return (failed phases, notes). Every phase prints its own output; a failed phase stops the phases that depend on it."""
     consumer = load_consumer_smoke()
@@ -829,15 +1017,7 @@ def smoke(local: Path, work: Path, extra_args: list[str]) -> tuple[list[str], li
     sources = template_files(TEMPLATE_DIRECTORY)
 
     def phase_failed(name: str, problems: list[str]) -> bool:
-        if not problems:
-            print(f"ok: {name}", flush=True)
-            return False
-        for problem in problems:
-            print(f"ERROR: {name}: {problem}", file=sys.stderr, flush=True)
-            if os.environ.get("GITHUB_ACTIONS"):
-                print(f"::error title=template-smoke ({name})::{problem[:900]}")
-        failed.append(name)
-        return True
+        return report_problems(name, problems, failed)
 
     # 1. The packed template.
     with zipfile.ZipFile(nupkg) as package:
@@ -921,6 +1101,14 @@ def smoke(local: Path, work: Path, extra_args: list[str]) -> tuple[list[str], li
             annotate("run", tail)
         if phase_failed("run", problems):
             return failed, notes
+
+        # 7b. The same application, started the way the docs say: `dotnet run` in its folder.
+        problems = start_and_probe(app, APP_NAME, runner.env, work / "dev-run.log", DEV_RUN)
+        if problems:
+            tail = (work / "dev-run.log").read_text(encoding="utf-8", errors="replace")[-4000:]
+            print("--- dotnet run output (last 4000 characters) ---\n" + tail, flush=True)
+            annotate("dev run", tail)
+        phase_failed("dev run", problems)  # a failure here is reported, and the other phases still run
 
         # Names that are not valid C# namespaces as they are (a hyphen, a leading digit): file names, paths and what a user reads keep
         # the name, the namespace is made safe. The first case is also built and its tests are run.
@@ -1276,6 +1464,144 @@ def self_test() -> int:
            [item.get("Include") for item in content_items] == ["content\\**\\*"])
     expect("the items line names the count and every template", all(part in items_line() for part in (f"{len(ITEM_RUNS)} files", *folders)))
 
+    # R34.T06: the docs name no command that the smoke did not run.
+    parameters = template_parameters((TEMPLATE_DIRECTORY / ".template.config" / "template.json").read_text(encoding="utf-8"))
+    found = docs_problems(ROOT, parameters)
+    expect("every starter command of the docs is one that the smoke runs" + (": " + "; ".join(found) if found else ""), not found)
+    for page in DOC_PAGES:
+        expect(f"{page}: the parser finds starter commands in it", bool(doc_commands((ROOT / page).read_text(encoding="utf-8"))))
+    sample = ("```sh\ndotnet new web -n Hello && cd Hello   # not the starter\ndotnet new install Naravel.Templates && dotnet new naravel -n Blog # a comment\n```\n\n"
+              "Then `dotnet run`, not `dotnet run --project samples/X.csproj`, and not `--database postgres`.\n")
+    expect("the parser takes the starter's commands from blocks and inline code, and leaves the others",
+           doc_commands(sample) == [["dotnet", "new", "install", "Naravel.Templates"], ["dotnet", "new", "naravel", "-n", "Blog"], ["dotnet", "run"]])
+    for command in ("dotnet new install Naravel.Templates", "dotnet new install Naravel.Templates::0.3.0", "dotnet new naravel -n Blog",
+                    "dotnet new naravel -n Blog --database sqlite", "dotnet new naravel -n Blog --database postgres --cache redis --queue redis",
+                    "dotnet new naravel -n Shop --no-tests --database sqlserver --queue rabbitmq", "dotnet new naravel-job -n SendWelcome -o app/Jobs",
+                    "dotnet new naravel-job -n X -o app/Jobs --namespace Acme.X", "dotnet new naravel-listener -n X -o app/Listeners --event OrderShipped",
+                    "dotnet run", "dotnet run -c Release"):
+        expect(f"the smoke runs: {command}", doc_command_problems(shlex.split(command), parameters) == [])
+    for command, why in {"dotnet new install ./Naravel/templates/Naravel.Templates/content/naravel": "a path, not the package the smoke installs",
+                         "dotnet new naravel -n Blog --database oracle": "a value that is not there",
+                         "dotnet new naravel -n Blog --cashe redis": "a parameter that is not there",
+                         "dotnet new naravel -n Blog --database postgres --queue memory": "a combination no run has",
+                         "dotnet new naravel -n Blog -o out": "an option the smoke does not pass",
+                         "dotnet new naravel-widget -n X": "a template the smoke does not run",
+                         "dotnet new naravel-job -n X -o app/Nowhere": "a folder no run has",
+                         "dotnet new naravel-job -n X -o app/Jobs --event Y": "an option no run of that template has",
+                         "dotnet run --launch-profile Dev": "a flag the smoke does not pass"}.items():
+        expect(f"the smoke does not run ({why}): {command}", len(doc_command_problems(shlex.split(command), parameters)) == 1)
+
+    def docs_with(change) -> list[str]:  # the three pages and the table of the real docs, with one change, in a temporary root
+        with tempfile.TemporaryDirectory() as folder:
+            for page in DOC_PAGES:
+                (Path(folder) / page).parent.mkdir(parents=True, exist_ok=True)
+                (Path(folder) / page).write_text(change(page, (ROOT / page).read_text(encoding="utf-8")), encoding="utf-8")
+            return docs_problems(Path(folder), parameters)
+
+    expect("docs that are the real docs have no problem", docs_with(lambda page, text: text) == [])
+    expect("a value that the table of getting-started leaves out is found",
+           any("rabbitmq" in problem for problem in docs_with(lambda page, text: text.replace("`rabbitmq`", "") if page.endswith("getting-started.md") else text)))
+    expect("a command that the smoke does not run is found in a page",
+           any("README.md" in problem and "together" in problem for problem in
+               docs_with(lambda page, text: text.replace("dotnet new naravel -n Blog\n", "dotnet new naravel -n Blog --database postgres --queue memory\n") if page == "README.md" else text)))
+    expect("a page without a starter command is found",
+           any("names no command" in problem for problem in docs_with(lambda page, text: text.replace("dotnet", "dotnet-x") if page == "README.md" else text)))
+
+    # The published pack (--nuget): what published_smoke asks of the machine, with a runner that does not run anything.
+    class FakeRunner:
+        def __init__(self, version: str, fail: str | None = None, pinned: str | None = None) -> None:
+            self.version, self.fail, self.pinned, self.commands = version, fail, pinned or version, []
+
+        def run(self, title, command, cwd, timeout, show_output=False):
+            self.commands.append(command)
+            if command[:3] == ["dotnet", "new", "install"]:
+                return self.fail != "install", "error: no such package" if self.fail == "install" else "installed"
+            if command[:3] == ["dotnet", "new", "list"]:
+                return True, "Naravel application   naravel   [C#]   Naravel/Web"
+            if command[:3] == ["dotnet", "new", "naravel"]:
+                if self.fail == "generate":
+                    return False, "error: the template engine failed"
+                app = cwd / APP_NAME
+                (app / "resources" / "views").mkdir(parents=True)
+                (app / f"{APP_NAME}.csproj").write_text(f'<Project><ItemGroup><PackageReference Include="Naravel.Routing" Version="{self.pinned}" /></ItemGroup></Project>', encoding="utf-8")
+                (app / "README.md").write_text(f"# {APP_NAME}\n\ndotnet test tests/{APP_NAME}.Tests\n", encoding="utf-8")
+                (app / "resources" / "views" / "welcome.html").write_text(f"<title>{APP_NAME}</title>", encoding="utf-8")
+            return True, ""
+
+        def dotnet(self, title, args, cwd, timeout=0, show_output=False):
+            self.commands.append(["dotnet", *args])
+            return self.fail != "build", "error CS0246: missing" if self.fail == "build" else ""
+
+    def published(fail: str | None = None, pinned: str | None = None) -> tuple[list[str], list[str], list[list[str]]]:
+        saved = os.environ.pop("GITHUB_ACTIONS", None)  # the fake failures must not become annotations on a real run
+        try:
+            with tempfile.TemporaryDirectory() as folder, contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                runner = FakeRunner("0.3.0", fail, pinned)
+                failed, notes = published_smoke(runner, Path(folder), "0.3.0")
+        finally:
+            if saved is not None:
+                os.environ["GITHUB_ACTIONS"] = saved
+            EXCERPTS.clear()
+        return failed, notes, runner.commands
+
+    failed, notes, commands = published()
+    expect("a published pack that installs, generates at its version and builds passes, and is uninstalled again",
+           failed == [] and ["dotnet", "new", "install", f"{TEMPLATE_PACKAGE}::0.3.0"] in commands and ["dotnet", "build", f"{APP_NAME}.csproj", "-c", "Release"] in commands
+           and commands[-1][:3] == ["dotnet", "new", "uninstall"] and any("0.3.0" in note for note in notes))
+    failed, _, commands = published(fail="install")
+    expect("a pack that cannot be installed stops there, and there is nothing to uninstall",
+           failed == ["install"] and not any(command[:3] == ["dotnet", "new", "naravel"] for command in commands) and not any(command[:3] == ["dotnet", "new", "uninstall"] for command in commands))
+    failed, _, commands = published(fail="generate")
+    expect("a template that does not generate is a generate failure and the pack is uninstalled",
+           failed == ["generate"] and commands[-1][:3] == ["dotnet", "new", "uninstall"])
+    failed, _, commands = published(pinned="0.2.0")
+    expect("an application that pins another version than the pack is found before anything is built",
+           failed == ["generate"] and not any(command[:2] == ["dotnet", "build"] for command in commands))
+    failed, _, commands = published(fail="build")
+    expect("an application that does not build is a build failure and the pack is uninstalled",
+           failed == ["build"] and commands[-1][:3] == ["dotnet", "new", "uninstall"])
+
+    # start_and_probe, with a small server in place of the application: it must find what is wrong, and stop what it started,
+    # including a child that a launcher such as `dotnet run` started.
+    server = (
+        "import http.server, os, sys, urllib.parse\n"
+        "port = urllib.parse.urlparse(os.environ['ASPNETCORE_URLS']).port\n"
+        "if len(sys.argv) > 2: open(sys.argv[2], 'w').write(str(os.getpid()))\n"
+        "class H(http.server.BaseHTTPRequestHandler):\n"
+        "    def log_message(self, *a): pass\n"
+        "    def reply(self, code, body, kind='text/plain'):\n"
+        "        data = body.encode(); self.send_response(code); self.send_header('Content-Type', kind)\n"
+        "        self.send_header('Content-Length', str(len(data))); self.end_headers(); self.wfile.write(data)\n"
+        "    def do_GET(self):\n"
+        "        self.reply(500 if (self.path == '/up' and sys.argv[1] == 'down') else 200, '<title>Blog</title>', 'text/html')\n"
+        "    def do_POST(self):\n"
+        "        self.reply(202, '')\n"
+        "http.server.HTTPServer(('127.0.0.1', port), H).serve_forever()\n")
+
+    def probe(command: list[str]) -> list[str]:
+        with tempfile.TemporaryDirectory() as folder:
+            return start_and_probe(Path(folder), APP_NAME, os.environ.copy(), Path(folder) / "app.log", command)
+
+    expect("an application that answers /up, / and /register is accepted", probe([sys.executable, "-c", server, "up"]) == [])
+    expect("an application whose /up answers 500 is found", any("/up answered 500" in problem for problem in probe([sys.executable, "-c", server, "down"])))
+    expect("an application that exits before it answers is found",
+           any("exited with code 3" in problem for problem in probe([sys.executable, "-c", "import sys; sys.exit(3)"])))
+    with tempfile.TemporaryDirectory() as folder:
+        pid_file = Path(folder) / "child.pid"
+        launcher = f"import subprocess, sys; subprocess.run([sys.executable, '-c', {server!r}, 'up', {str(pid_file)!r}])"
+        launched = start_and_probe(Path(folder), APP_NAME, os.environ.copy(), Path(folder) / "app.log", [sys.executable, "-c", launcher])
+        time.sleep(0.5)
+        child = int(pid_file.read_text()) if pid_file.is_file() else 0
+        try:  # a stopped process that nothing has collected yet (a zombie, as an orphan can be in a container) is not alive
+            child_alive = Path(f"/proc/{child}/stat").read_text().rsplit(")", 1)[1].split()[0] not in ("Z", "X")
+        except OSError:
+            try:
+                os.kill(child, 0)
+                child_alive = not Path("/proc/self").exists()  # no /proc: the process answers, so it is alive; with /proc it was already gone
+            except OSError:
+                child_alive = False
+        expect("the child that a launcher started is answered by the probes and is stopped with it", launched == [] and child > 0 and not child_alive)
+
     line = summary_line("0.2.0")
     expect("the result line names the version and the combination",
            "0.2.0" in line and "cache memory, mail log, queue file, database sqlite" in line and "Only the default" in line)
@@ -1342,10 +1668,32 @@ def http_selftest() -> bool:
         server.shutdown()
 
 
+def published_main(version: str, extra_args: list[str]) -> int:
+    if not re.fullmatch(r"\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?", version):
+        print(f"ERROR: {version!r} is not a version such as 0.3.0", file=sys.stderr)
+        return 1
+    consumer = load_consumer_smoke()
+    work = Path(tempfile.mkdtemp(prefix="naravel-template-"))
+    try:
+        print(f"template smoke: {TEMPLATE_PACKAGE} {version} from nuget.org; working directory {work}", flush=True)
+        runner = consumer.Runner(work, extra_args)
+        runner.env["DOTNET_CLI_HOME"] = str(work / "cli-home")
+        (work / "nuget.config").write_text(consumer.nuget_config(None), encoding="utf-8")
+        failed, notes = published_smoke(runner, work, version)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    write_summary(version, failed, notes, started=False)
+    if failed:
+        print(f"ERROR: template smoke of the published pack failed in: {', '.join(failed)}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--local", type=Path, metavar="DIR", help="directory with the .nupkg files from dotnet pack")
+    source.add_argument("--nuget", metavar="VERSION", help="verify the pack published on nuget.org at this version: install, generate, build")
     source.add_argument("--self-test", action="store_true", help="run the script's own checks (no dotnet needed)")
     parser.add_argument("--keep", action="store_true", help="keep the working directory and print its path")
     parser.add_argument("--dotnet-arg", action="append", default=[], help="an extra argument for every dotnet restore/build/test/publish call")
@@ -1353,6 +1701,9 @@ def main() -> int:
 
     if args.self_test:
         return self_test()
+
+    if args.nuget:
+        return published_main(args.nuget, args.dotnet_arg)
 
     args.local = absolute_directory(args.local)
     if not args.local.is_dir():
