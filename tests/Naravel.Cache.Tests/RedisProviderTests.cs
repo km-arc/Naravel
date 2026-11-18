@@ -83,6 +83,21 @@ public sealed class RedisProviderTests
     }
 
     [Fact]
+    public async Task Redis_prefix_flush_scans_the_escaped_prefix_inside_the_store_prefix_and_deletes_only_what_matches()
+    {
+        var (store, server, database) = FlushFixture();
+        using var _ = store;
+        server.ExpectedPattern = "app\\[one\\]:tenant\\*:*";
+        server.MatchPrefix = "app[one]:tenant*:";
+        server.Keys = ["app[one]:tenant*:a", "app[one]:tenant*:b", "app[one]:tenantX:c", "app[one]:other"];
+
+        await store.FlushPrefixAsync("tenant*:");
+
+        server.LastPattern.Should().Be("app\\[one\\]:tenant\\*:*");
+        database.DeletedKeys.Should().Equal("app[one]:tenant*:a", "app[one]:tenant*:b");
+    }
+
+    [Fact]
     public async Task Redis_flush_never_deletes_the_keys_of_a_lock_that_shares_the_store_prefix()
     {
         var (store, server, database) = FlushFixture();
@@ -92,6 +107,14 @@ public sealed class RedisProviderTests
         await store.FlushAsync();
 
         database.DeletedKeys.Should().Equal("app[one]:owned");
+
+        database.DeletedKeys.Clear();
+        server.ExpectedPattern = "app\\[one\\]:lock:*";
+        server.MatchPrefix = "app[one]:lock:";
+
+        await store.FlushPrefixAsync("lock:");
+
+        database.DeletedKeys.Should().BeEmpty();
     }
 
     [Fact]
@@ -113,15 +136,17 @@ public sealed class RedisProviderTests
         database.DeletedKeys.Should().BeEmpty();
     }
 
-    [Fact]
-    public async Task Redis_flush_fails_without_removing_anything_when_a_primary_is_not_connected()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Redis_flush_fails_without_removing_anything_when_a_primary_is_not_connected(bool prefixFlush)
     {
         var (store, server, database) = FlushFixture();
         using var _ = store;
         server.Connected = false;
         server.Keys = ["app[one]:owned"];
 
-        Func<Task> flush = async () => await store.FlushAsync();
+        Func<Task> flush = async () => { if (prefixFlush) await store.FlushPrefixAsync("owned"); else await store.FlushAsync(); };
 
         var error = (await flush.Should().ThrowExactlyAsync<InvalidOperationException>()).Which;
         error.Message.Should().Contain("not connected").And.Contain("Nothing was removed");
@@ -154,6 +179,22 @@ public sealed class RedisProviderTests
         await store.FlushAsync();
 
         database.DeletedKeys.Should().BeEquivalentTo(server.Keys);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    public async Task Redis_prefix_flush_rejects_an_empty_prefix_before_it_scans(string prefix)
+    {
+        var (store, server, database) = FlushFixture();
+        using var _ = store;
+        server.Keys = ["app[one]:owned"];
+
+        Func<Task> flush = async () => await store.FlushPrefixAsync(prefix);
+
+        await flush.Should().ThrowAsync<ArgumentException>();
+        server.LastPattern.Should().BeNull();
+        database.DeletedKeys.Should().BeEmpty();
     }
 
     public class RedisDatabaseProxy : DispatchProxy
@@ -200,6 +241,10 @@ public sealed class RedisProviderTests
         public bool Connected { get; set; } = true;
         public bool Replica { get; set; }
 
+        // The pattern the store must send, and the key prefix that the real server would match it to.
+        public string ExpectedPattern { get; set; } = "app\\[one\\]:*";
+        public string MatchPrefix { get; set; } = "app[one]:";
+
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
             if (targetMethod?.Name == "get_IsConnected") return Connected;
@@ -207,12 +252,12 @@ public sealed class RedisProviderTests
             if (targetMethod?.Name == nameof(IServer.KeysAsync))
             {
                 LastPattern = args?[1]?.ToString();
-                if (LastPattern != "app\\[one\\]:*")
+                if (LastPattern != ExpectedPattern)
                 {
                     throw new InvalidOperationException($"Unexpected Redis scan pattern: {LastPattern}");
                 }
 
-                return EnumerateKeys(Keys.Where(key => key.StartsWith("app[one]:", StringComparison.Ordinal)));
+                return EnumerateKeys(Keys.Where(key => key.StartsWith(MatchPrefix, StringComparison.Ordinal)));
             }
 
             throw new NotSupportedException($"Unexpected Redis server call: {targetMethod?.Name}");

@@ -6,7 +6,7 @@ namespace Naravel.Cache.Stores;
 
 /// <summary>Single-process cache store backed by <see cref="IMemoryCache"/>.</summary>
 /// <remarks><b>Laravel equivalent:</b> the array cache driver; entries are shared only within this process.</remarks>
-public sealed class MemoryCacheStore : ICacheStore
+public sealed class MemoryCacheStore : ICacheStore, IPrefixFlushableCacheStore
 {
     private readonly IMemoryCache _cache;
     private readonly string _prefix;
@@ -136,14 +136,32 @@ public sealed class MemoryCacheStore : ICacheStore
     public Task FlushAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        RemoveTrackedKeys(static _ => true);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Removes every entry of this store whose key starts with <paramref name="keyPrefix"/>.</summary>
+    /// <param name="keyPrefix">The key prefix, relative to the store; matched literally.</param>
+    /// <param name="cancellationToken">Cancels the call before any entry is removed.</param>
+    /// <exception cref="ArgumentException"><paramref name="keyPrefix"/> is <see langword="null"/>, empty or white space.</exception>
+    public Task FlushPrefixAsync(string keyPrefix, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(keyPrefix);
+        var fullPrefix = _prefix + keyPrefix;
+        RemoveTrackedKeys(key => key.StartsWith(fullPrefix, StringComparison.Ordinal));
+        return Task.CompletedTask;
+    }
+
+    private void RemoveTrackedKeys(Func<string, bool> matches)
+    {
         foreach (var key in _trackedKeys.Keys)
         {
+            if (!matches(key)) continue;
             _cache.Remove(key);
             _trackedKeys.TryRemove(key, out _);
             _incrementExpirations.TryRemove(key, out _);
         }
-
-        return Task.CompletedTask;
     }
 
     private static object[] CreateGates()
