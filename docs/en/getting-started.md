@@ -1,6 +1,39 @@
 # Getting started
 
-Which package to install, which call registers it, and how to run the sample app. The short version is in the [README](../../README.md); every module has its own guide next to this page.
+How to create an application, which package to install, which call registers it, and how to run the sample app. The short version is in the [README](../../README.md); every module has its own guide next to this page.
+
+## Create an app
+
+`Naravel.Templates` is a `dotnet new` template pack that creates a whole application: `app/`, `config/` (one JSON file per module), `routes/`, `resources/` and a `tests/` project that runs on the fakes. It is not on nuget.org yet: these commands work from the release that publishes it.
+
+```sh
+dotnet new install Naravel.Templates
+dotnet new naravel -n Blog
+cd Blog
+dotnet run
+```
+
+`dotnet run` prints the address the application listens on. Open it for the welcome page, and `/up` for the health check. With no option the application needs no server: the cache is in memory, mail goes to the log, the queue is a folder under `storage/` and the database is a SQLite file under `storage/`. Options choose other drivers when you create it:
+
+| Option | Values (the default is first) | What it adds |
+|---|---|---|
+| `--database` | `sqlite`, `postgres`, `mysql`, `sqlserver`, `none` | `Naravel.Database` and the provider package of the value (`Naravel.Database.Sqlite`, `.Postgres`, `.MySql`, `.SqlServer`); `none` adds neither and leaves out `config/database.json` |
+| `--cache` | `memory`, `redis` | `redis` adds `Naravel.Cache.Redis` |
+| `--queue` | `file`, `memory`, `redis`, `rabbitmq`, `kafka` | the matching `Naravel.Queue.*` provider package |
+| `--mail` | `log`, `smtp` | `smtp` adds `Naravel.Mail.Smtp` |
+| `--no-tests` | a flag | leaves out the `tests/` project |
+
+For example, `dotnet new naravel -n Blog --database postgres --cache redis --queue redis` creates an application that expects a PostgreSQL server and a Redis server. The README of the generated application names each service and the environment variable that points to it.
+
+The starter holds the default set of modules: Routing, Cache, Queue, Events, Mail and Database. Notifications, Encryption, Scheduling, Broadcasting and Filesystem are not in it; add them with the registration table below.
+
+Item templates add one class to the application, from its folder and after one `dotnet build`:
+
+```sh
+dotnet new naravel-job -n SendWelcome -o app/Jobs
+```
+
+`naravel-event`, `naravel-listener`, `naravel-mailable` and `naravel-controller` work the same way; the [package page](../nuget/Naravel.Templates.md#add-a-class-to-the-application) lists their folders and namespaces.
 
 ## Install
 
