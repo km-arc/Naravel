@@ -35,7 +35,8 @@
 
 - Revalidation baseline: `main` at `44e957ca3db6d9f15665fc8fa070f70522c163c9`, after PR #243 reverted PR #241.
 - Revalidation method: targeted source-level reinspection of the previously cited implementation paths against the current `main`; the earlier package-specific source baselines remain recorded above.
-- Outcome: MCD-001 through MCD-010 remain supported by the cited source/dependency paths and remain OPEN. MCD-011 is added below for explicit zero-TTL handling.
+- Follow-up of 2026-11-18: MCD-006 (AV-001) was fixed after this revalidation by PR #305 and is VERIFIED CLOSED. The sections below keep the review as it was written, and the one that the fix changed says so.
+- Outcome (as written on 2026-11-08): MCD-001 through MCD-010 remain supported by the cited source/dependency paths and remain OPEN. MCD-011 is added below for explicit zero-TTL handling.
 - Verification NOT RUN in this pass: .NET restore/build/test, live provider integration, concurrency stress reproduction, mutation testing, and independent reviewer assessment. Source-level confirmation is not presented as runtime reproduction.
 - No runtime code, tests, dependencies, public API, or roadmap stage was changed by this revalidation.
 
@@ -109,7 +110,8 @@
 
 ### [P1] MCD-006 — Store-level FlushAsync clears the entire shared Memcached cluster
 
-- Remediation state: OPEN, narrowed on 2026-11-17 by PR #299 (merge `0ae187f`): `ScopedCacheStore.FlushAsync` now throws `NotSupportedException` when the store it wraps has no prefix-flush capability, and `MemcachedCacheStore` has none, so a scope or a store obtained through `CacheManager` no longer reaches `FlushAllAsync`. `ScopedFlushMemcachedServerTests` shows against a real Memcached server in the provider job that both calls refuse and that no key is removed. Still open: `MemcachedCacheStore.FlushAsync` called directly on the raw driver still calls `FlushAllAsync`. The owner has not decided between making it throw and a separately named administrative operation, and the Memcached epoch question is undecided. The evidence below describes the baseline.
+- Remediation state: VERIFIED CLOSED — fixed on 2026-11-18 by PR #305 (merge `f1efc6f`) with option A of AD-003; CI [run 44296601517](https://github.com/km-arc/Naravel/actions/runs/44296601517) on the PR branch (head `08dee6a`) is green on Windows, macOS and Ubuntu and in the provider job, and CI [run 44298367304](https://github.com/km-arc/Naravel/actions/runs/44298367304) on `main` at the merge (`f1efc6f`) is green too. A scope or a store obtained through `CacheManager` was already refused on 2026-11-17 by PR #299.
+- Resolution: `MemcachedCacheStore.FlushAsync` in `src/Naravel.Cache.Memcached/MemcachedCacheStore.cs` no longer calls `FlushAllAsync`. It throws `NotSupportedException`, naming the store and pointing to `Tags(...).FlushAsync()`, and removes nothing, so no flush of any Memcached store clears the shared cluster. `MemcachedProviderTests.Flush_is_refused_and_never_asks_the_cluster_to_flush_all` (a counting stand-in client) and `ScopedFlushMemcachedServerTests.The_raw_store_flush_is_refused_and_no_key_of_the_cluster_is_removed` (a real Memcached server in the provider job, two stores with different prefixes) are the regression tests. `PublicAPI` files are unchanged; the `ICacheStore.FlushAsync` documentation names the exception; the behaviour change of a released 0.x package is in the `Fixed` entry of `CHANGELOG.md`. A separately named administrative flush is not provided and the Memcached epoch question is undecided. The independent review NOT RUN. The evidence below describes the baseline.
 - Architecture disposition: VETO AV-001 — ordinary store/scope invalidation must never become a cluster-wide destructive operation.
 - Evidence status: CONFIRMED BY SOURCE AND APPROVED-PDR TRACE.
 - Evidence: src/Naravel.Cache.Memcached/MemcachedCacheStore.cs:126-130 directly calls _client.FlushAllAsync(). The pinned Enyim v3.5.2 implementation loops over every working node in its client pool when it executes FlushAllAsync (MemcachedClient.cs, FlushAllAsync); this is a pool-wide flush, not a prefix delete. All configured Naravel Memcached stores currently receive the same IMemcachedClient from one registration.
@@ -214,11 +216,11 @@
 ## Risk summary and next action
 
 - P0: none established.
-- P1: MCD-006 and MCD-007 (Architecture Vetoes AV-001 and AV-002).
+- P1: MCD-006 (AV-001), VERIFIED CLOSED by PR #305; MCD-007 (AV-002), OPEN.
 - P2: MCD-001, MCD-002, MCD-003, MCD-004, MCD-008, MCD-009 and MCD-010 (AV-004, AV-005 and AV-008).
 - P3: MCD-005.
 - OBS: no separate observation added; the Memcached decrement-underflow difference is recorded as an owner decision within MCD-003.
-- Recommended next task: treat MCD-006 and MCD-007 as release-blocking architecture remediation; then resolve MCD-008 through MCD-010 alongside MCD-001 through MCD-005. No runtime code, tests or dependencies were changed by this audit.
+- Recommended next task: MCD-006 is done; treat MCD-007 as release-blocking architecture remediation; then resolve MCD-008 through MCD-010 alongside MCD-001 through MCD-005. No runtime code, tests or dependencies were changed by this audit.
 
 
 Owner decisions still pending for the Cache family are tracked in [OWNER-DECISIONS.md](../OWNER-DECISIONS.md); MCD-011 is not a veto and must not be treated as approved behavior.
@@ -280,7 +282,7 @@ The Memcached findings below are based on the adapter source and, where stated, 
 - **Why that proves the risk:** The operation is pool-wide and does not filter by the Naravel store prefix.
 - **What is not yet proven here:** The dependency source confirms the operation's scope; a live multi-store flush test was not run.
 - **Safe outcome and proof:** Ordinary `ICacheStore.FlushAsync` must never clear data owned by another store or scope. Add a targeted invalidation method, or fail clearly if the provider cannot offer safe scoped cleanup. Keep any full-cluster flush as a separately named administrative action. Test two stores, two scopes and base-store values.
-- **What changed afterwards:** On 2026-11-17 PR #299 stopped a tenant or user view, and a store obtained through `CacheManager`, from clearing the cluster: on Memcached their flush now throws `NotSupportedException`. Calling flush on the raw Memcached driver still clears every key on every node, so this finding stays open until the owner decides what that call should do.
+- **What changed afterwards:** On 2026-11-17 PR #299 stopped a tenant or user view, and a store obtained through `CacheManager`, from clearing the cluster: on Memcached their flush now throws `NotSupportedException`. On 2026-11-18 PR #305 made the same call on the raw Memcached driver throw as well, so nothing in this package clears the cluster any more. This finding is closed.
 
 ### MCD-007 — An expired lock owner can delete a newer owner's lock
 
