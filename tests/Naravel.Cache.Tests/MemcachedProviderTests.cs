@@ -65,6 +65,19 @@ public sealed class MemcachedProviderTests
     }
 
     [Fact]
+    public async Task Flush_is_refused_and_never_asks_the_cluster_to_flush_all()
+    {
+        var client = DispatchProxy.Create<IMemcachedClient, MemcachedClientProxy>();
+        var proxy = (MemcachedClientProxy)(object)client;
+        var store = new MemcachedCacheStore("sessions", client, "app");
+
+        Func<Task> flush = async () => await store.FlushAsync();
+
+        (await flush.Should().ThrowExactlyAsync<NotSupportedException>()).Which.Message.Should().Contain("'sessions'").And.Contain("Tags(...).FlushAsync()");
+        proxy.FlushAllCalls.Should().Be(0);
+    }
+
+    [Fact]
     public async Task Memcached_lock_checks_token_before_removing_key()
     {
         var client = DispatchProxy.Create<IMemcachedClient, CacheProviderDispatchProxy>();
@@ -87,6 +100,7 @@ public sealed class MemcachedProviderTests
         public TimeSpan? LastAddExpiration { get; private set; }
         public bool AddResult { get; set; } = true;
         public TimeSpan? LastIncrementExpiration { get; private set; }
+        public int FlushAllCalls { get; private set; }
 
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
@@ -121,7 +135,11 @@ public sealed class MemcachedProviderTests
             }
             if (targetMethod?.Name == "GetValueAsync") return Task.FromResult(ReadValue);
             if (targetMethod?.Name == "RemoveAsync") return Task.FromResult(true);
-            if (targetMethod?.Name == "FlushAllAsync") return Task.CompletedTask;
+            if (targetMethod?.Name == "FlushAllAsync")
+            {
+                FlushAllCalls++;
+                return Task.CompletedTask;
+            }
             throw new NotSupportedException($"Unexpected Memcached call: {targetMethod?.Name}");
         }
 

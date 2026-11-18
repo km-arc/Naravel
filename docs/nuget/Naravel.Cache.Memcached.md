@@ -31,7 +31,7 @@ builder.Services.AddNaravelCache(builder.Configuration).AddNaravelMemcachedCache
 { "Cache": { "Default": "memcached", "Stores": { "memcached": { "Driver": "memcached", "Servers": { "primary": { "Address": "localhost", "Port": "11211" } } } } } }
 ```
 
-Inject `ICacheStore` as usual; it now reads and writes Memcached. Memcached cannot delete by prefix, so `FlushAsync` on a scope or on `Store()` throws `NotSupportedException` instead of clearing the cluster; invalidate a subset with tags. `MemcachedCacheStore.FlushAsync` called on the raw driver still clears the whole cluster. Lock release has a small read/delete race: use Redis for critical sections.
+Inject `ICacheStore` as usual; it now reads and writes Memcached. Memcached cannot delete by prefix, so `FlushAsync` on a scope or on `Store()` throws `NotSupportedException` instead of clearing the cluster; invalidate a subset with tags. `MemcachedCacheStore.FlushAsync` called on the raw driver throws as well; nothing in this package clears the cluster. Lock release has a small read/delete race: use Redis for critical sections.
 
 ## Related packages
 
