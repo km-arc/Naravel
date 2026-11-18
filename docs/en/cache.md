@@ -82,7 +82,7 @@ Register the core package before backend providers. Add only providers used by t
 
 Use environment variables or a secret provider for credentials. Store names are case-insensitive. `Default` defaults to `memory`; `AppPrefix` defaults to `app`. A provider registers the configured store names at startup. Changes to values in an existing store are reloaded by Foundation; adding a new store after startup requires registering/restarting the host.
 
-The `Prefix` is applied to raw keys before they reach the backend. Redis flush is restricted to that prefix. Memcached has no prefix-scoped delete operation; see limitations below.
+The `Prefix` is applied to raw keys before they reach the backend. Redis flush is restricted to that prefix and leaves the keys of locks (`<Prefix>:lock:<name>`) alone. Memcached has no prefix-scoped delete operation; see limitations below.
 
 Named Memory stores use their store name as the default prefix when `Prefix` is omitted, so they remain isolated despite sharing the process memory cache. For connection-pool efficiency, all configured Memcached stores use one client and must declare the same server list. Changing that server list requires a host restart; other store settings continue to follow Foundation's reload behavior.
 
@@ -129,7 +129,7 @@ Every operation, and what it returns:
 | `RememberForeverAsync<T>(key, factory, ct)` | `T` | The same, with no expiry. |
 | `IncrementAsync(key, by, ct)` and `IncrementAsync(key, by, ttl, ct)` | `long` | Adds `by` to a counter and returns the new value. The `ttl` overload sets the expiry only when it creates the key. |
 | `DecrementAsync(key, by, ct)` | `long` | Subtracts `by` and returns the new value. |
-| `FlushAsync(ct)` | `Task` | Clears the store. The scope depends on the provider; see [limitations](#provider-behavior-and-limitations). |
+| `FlushAsync(ct)` | `Task` | Removes the keys of this view: everything under the application prefix on `Store()`, and only that scope and the scopes nested under it on `ForUser(...)` and `Scope(...)`. See [Flushing a scope](#flushing-a-scope) and [limitations](#provider-behavior-and-limitations). |
 
 `PullAsync`, `RememberAsync` and `RememberForeverAsync` are extension methods in the `Naravel.Cache` namespace, so add `using Naravel.Cache;` next to `using Naravel.Cache.Abstractions;`. `RememberAsync` takes a factory with or without a `CancellationToken`: `() => ...` or `ct => ...`.
 
@@ -211,6 +211,14 @@ await tenantCache.Tags("orders").FlushAsync(cancellationToken);
 ```
 
 Tagging uses version counters stored in the underlying cache. Flushing a tag increments its version, making previous values unreachable without scanning keys. Old values may remain allocated until their TTL expires or the backend evicts them. `CacheManager.FlushTagAsync(tag, storeName)` flushes the tag in the application scope.
+
+### Flushing a scope
+
+`FlushAsync` on a scoped view removes the keys of that scope and nothing else: `cacheManager.ForUser(7).FlushAsync()` leaves every other user, every tenant and every key outside the scope alone. A scope also covers the scopes nested under it (flushing `Scope("tenant:a")` also removes `Scope("tenant:a:sub")`), and it does not reach a sibling whose name only starts with the same characters (user `1` does not reach user `10`). `Store().FlushAsync()` removes everything under the application prefix, which includes every user and tenant scope; a key that was written through the raw driver outside that prefix survives. `FlushPrefixAsync(keyPrefix)` on a scoped view removes only the keys of that scope that start with the prefix, matched literally.
+
+This needs a store that implements `IPrefixFlushableCacheStore`: Memory, Redis and `CacheFake` do. Memcached cannot delete by prefix, so `FlushAsync` through the manager throws `NotSupportedException` instead of clearing the whole cluster; invalidate with tags there. A store that you write opts in by implementing the interface, and a type that wraps a store has to forward it. An empty prefix is rejected with `ArgumentException`, because it would match every key.
+
+The call is complete-or-fail but not atomic. If it throws, some keys may already be gone and calling it again is safe, and a key written while it runs may survive. On Redis it scans every primary, so its cost grows with the number of keys in the database, and it throws `InvalidOperationException`, without removing anything, when a primary is not connected. Use tags for invalidation on a hot path. `tests/Naravel.Cache.Tests/ScopedFlushTests.cs` runs these cases, against real Redis and Memcached servers in CI.
 
 ## Locks
 
@@ -361,9 +369,9 @@ Foundation's own errors (no default store, a disposed manager) are listed in the
 
 | Provider | Value handling | Lock behavior | Flush behavior |
 |---|---|---|---|
-| Memory | Typed in-process values | Process-local token locks | Removes keys tracked by that store instance |
-| Redis | JSON via `System.Text.Json` | Distributed; token release is atomic | Scans/deletes only keys under the configured prefix |
-| Memcached | Typed values via the configured Enyim transcoder; `ttl: null` means no expiry | Distributed acquisition; release is not fully atomic | **Flushes the entire shared Memcached cluster**, not only this store prefix |
+| Memory | Typed in-process values | Process-local token locks | Removes keys tracked by that store instance, or only those under a prefix |
+| Redis | JSON via `System.Text.Json` | Distributed; token release is atomic | Scans and deletes only keys under the configured prefix, or under the scope's prefix; never the keys of locks; throws when a primary is not connected |
+| Memcached | Typed values via the configured Enyim transcoder; `ttl: null` means no expiry | Distributed acquisition; release is not fully atomic | A scope or `Store()` flush through `CacheManager` throws `NotSupportedException`. `MemcachedCacheStore.FlushAsync` called on the raw driver still **flushes the entire shared Memcached cluster**, so do not call it |
 
 Use tag invalidation instead of `FlushAsync` when using Memcached or when only a subset of keys should be invalidated. The existing Memcached increment/decrement operations still require existing numeric values; the TTL increment overload uses atomic add for first creation. The current Enyim client exposes counter commands synchronously; the provider schedules them on the thread pool, and cancellation cannot interrupt a command after it starts.
 

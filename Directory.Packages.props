@@ -36,7 +36,7 @@
          MySqlConnector 2.6.2 (MIT, net10.0 asset, no known vulnerabilities); Npgsql 10.0.3 (PostgreSQL license, net10.0 asset, no known vulnerabilities);
          Microsoft.Data.SqlClient 7.1.1 (MIT, net8.0/net9.0 assets are used on net10.0; it asks for System.Security.Cryptography.Pkcs 9.0.18 on net9.0, so
          Naravel.Database.SqlServer references the patched Pkcs 10.0.13 pinned above, as Naravel.Mail.Smtp does). -->
-    <PackageVersion Include="MySqlConnector" Version="2.6.2" />
+    <PackageVersion Include="MySqlConnector" Version="3.0.0" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.1.2" />
     <PackageVersion Include="StackExchange.Redis" Version="3.4.35" />

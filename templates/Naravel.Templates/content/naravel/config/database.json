@@ -3,10 +3,30 @@
   "Database": {
     "Default": "main",
     "Connections": {
+//#if (database == "sqlite")
       "main": {
         "Driver": "sqlite",
         "Path": "storage/database.sqlite"
       }
+//#elseif (database == "postgres")
+      // The host, the database and the user are placeholders. The password belongs in the environment or in user secrets, not here.
+      "main": {
+        "Driver": "pgsql",
+        "ConnectionString": "Host=localhost;Port=5432;Database=app;Username=app"
+      }
+//#elseif (database == "mysql")
+      // The server, the database and the user are placeholders. The password belongs in the environment or in user secrets, not here.
+      "main": {
+        "Driver": "mysql",
+        "ConnectionString": "Server=localhost;Port=3306;Database=app;User ID=app"
+      }
+//#else
+      // The server, the database and the user are placeholders. The password belongs in the environment or in user secrets, not here.
+      "main": {
+        "Driver": "sqlserver",
+        "ConnectionString": "Server=localhost,1433;Database=app;User Id=app"
+      }
+//#endif
     }
   }
 }

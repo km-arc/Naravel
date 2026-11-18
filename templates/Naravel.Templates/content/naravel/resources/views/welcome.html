@@ -80,7 +80,7 @@ public sealed class RequireRole : IRouteMiddleware
   </table>
 
   <h2>The example flow that is already here</h2>
-  <p><code>POST /register</code> with <code>{"email":"ada@example.com","name":"Ada"}</code> dispatches an event, a listener queues a job, and the queue worker sends a welcome mail (the <code>log</code> mail transport writes it to the log).</p>
+  <p><code>POST /register</code> with <code>{"email":"ada@example.com","name":"Ada"}</code> dispatches an event, a listener queues a job, and the queue worker sends a welcome mail through the transport set in <code>config/mail.json</code> (<code>log</code> by default, which writes it to the log).</p>
 
   <p class="lead">More: <a href="https://github.com/km-arc/Naravel/blob/main/docs/en/routing.md">Routing and middleware</a> · <a href="https://github.com/km-arc/Naravel/blob/main/docs/en/getting-started.md">Getting started</a></p>
 

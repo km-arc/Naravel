@@ -1,10 +1,18 @@
 // Cache stores. Guide: https://github.com/km-arc/Naravel/blob/main/docs/en/cache.md
 {
   "Cache": {
+//#if (cache == "redis")
+    "Default": "redis",
+//#else
     "Default": "memory",
+//#endif
     "AppPrefix": "AppRootNamespace",
     "Stores": {
+//#if (cache == "redis")
+      "redis": { "Driver": "redis", "ConnectionString": "localhost:6379" }
+//#else
       "memory": { "Driver": "memory" }
+//#endif
     }
   }
 }
