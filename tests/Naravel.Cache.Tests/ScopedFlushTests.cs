@@ -1,3 +1,4 @@
+using Enyim.Caching;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -247,9 +248,37 @@ public sealed class ScopedFlushRedisServerTests
     }
 }
 
-// A scope flush on Memcached is refused instead of clearing the shared cluster (CI "Provider integration tests" job; skipped unless NARAVEL_TEST_MEMCACHED is set).
+// A flush on Memcached is refused instead of clearing the shared cluster (CI "Provider integration tests" job; skipped unless NARAVEL_TEST_MEMCACHED is set).
 public sealed class ScopedFlushMemcachedServerTests
 {
+    // MCD-006: the raw driver, which has no scope around it, used to call flush_all.
+    [ServiceFact("NARAVEL_TEST_MEMCACHED")]
+    public async Task The_raw_store_flush_is_refused_and_no_key_of_the_cluster_is_removed()
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Cache:Default"] = "memcached",
+            ["Cache:AppPrefix"] = "naravel-test:" + Guid.NewGuid().ToString("N"),
+            ["Cache:Stores:memcached:Driver"] = "memcached",
+            ["Cache:Stores:memcached:Servers"] = Environment.GetEnvironmentVariable("NARAVEL_TEST_MEMCACHED")!,
+        }).Build();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddNaravelCache(configuration).AddNaravelMemcachedCache(configuration);
+        await using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<IMemcachedClient>();
+        var raw = new MemcachedCacheStore("raw", client, "naravel-test:" + Guid.NewGuid().ToString("N"));
+        var neighbour = new MemcachedCacheStore("neighbour", client, "naravel-test:" + Guid.NewGuid().ToString("N"));
+        await raw.SetAsync("k", "v", TimeSpan.FromMinutes(1));
+        await neighbour.SetAsync("k", "v", TimeSpan.FromMinutes(1));
+
+        Func<Task> flush = async () => await raw.FlushAsync();
+
+        await flush.Should().ThrowExactlyAsync<NotSupportedException>();
+        (await raw.ExistsAsync("k")).Should().BeTrue();
+        (await neighbour.ExistsAsync("k")).Should().BeTrue();
+    }
+
     [ServiceFact("NARAVEL_TEST_MEMCACHED")]
     public async Task A_scope_flush_is_refused_and_no_key_of_the_cluster_is_removed()
     {

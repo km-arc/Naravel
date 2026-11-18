@@ -5,7 +5,7 @@ using Naravel.Cache.Abstractions;
 namespace Naravel.Cache.Memcached;
 
 /// <summary>Memcached cache store using the configured Enyim transcoder and store key prefix.</summary>
-/// <remarks><b>Laravel equivalent:</b> the Memcached cache store. Flush clears the entire configured Memcached cluster.</remarks>
+/// <remarks><b>Laravel equivalent:</b> the Memcached cache store. <b>Different on purpose:</b> Laravel's <c>Cache::flush()</c> on Memcached clears the whole cluster; <see cref="FlushAsync"/> throws <see cref="NotSupportedException"/> instead, because Memcached has no way to remove only the keys of one store.</remarks>
 public sealed class MemcachedCacheStore : ICacheStore
 {
     private readonly IMemcachedClient _client;
@@ -122,12 +122,13 @@ public sealed class MemcachedCacheStore : ICacheStore
         return await Task.Run(() => (long)_client.Decrement(fullKey, 0UL, (ulong)by), cancellationToken).ConfigureAwait(false);
     }
 
-    /// <inheritdoc />
-    public Task FlushAsync(CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return _client.FlushAllAsync();
-    }
+    /// <summary>Always throws: Memcached cannot remove only the keys of this store.</summary>
+    /// <param name="cancellationToken">Not used.</param>
+    /// <exception cref="NotSupportedException">Always. The only flush Memcached has, <c>flush_all</c>, removes every key on every node of the cluster, including the keys of other stores and of other applications that share it. Invalidate a group of keys with <c>Tags(...).FlushAsync()</c> instead.</exception>
+    public Task FlushAsync(CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException(
+            $"The Memcached store '{Name}' cannot be flushed: Memcached cannot remove only the keys of one store, and its only flush, flush_all, " +
+            "clears every key on every node of the cluster, including other applications. Invalidate a group of keys with Tags(...).FlushAsync().");
 
     // memcached INCR/DECR only work on values stored as decimal ASCII text. Enyim serializes numbers
     // (for example a boxed long) as typed binary, which the server rejects as non-numeric, so every

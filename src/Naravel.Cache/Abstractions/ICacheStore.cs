@@ -29,5 +29,6 @@ public interface ICacheStore
     Task<long> DecrementAsync(string key, long by, CancellationToken cancellationToken = default);
 
     /// <summary>Flushes this store's configured namespace. Provider limitations may apply.</summary>
+    /// <exception cref="NotSupportedException">The store cannot flush only its own namespace and refuses to clear more than that; the Memcached store does.</exception>
     Task FlushAsync(CancellationToken cancellationToken = default);
 }
