@@ -109,7 +109,7 @@
 
 ### [P1] MCD-006 — Store-level FlushAsync clears the entire shared Memcached cluster
 
-- Remediation state: OPEN.
+- Remediation state: OPEN, narrowed on 2026-11-17 by PR #299 (merge `0ae187f`): `ScopedCacheStore.FlushAsync` now throws `NotSupportedException` when the store it wraps has no prefix-flush capability, and `MemcachedCacheStore` has none, so a scope or a store obtained through `CacheManager` no longer reaches `FlushAllAsync`. `ScopedFlushMemcachedServerTests` shows against a real Memcached server in the provider job that both calls refuse and that no key is removed. Still open: `MemcachedCacheStore.FlushAsync` called directly on the raw driver still calls `FlushAllAsync`. The owner has not decided between making it throw and a separately named administrative operation, and the Memcached epoch question is undecided. The evidence below describes the baseline.
 - Architecture disposition: VETO AV-001 — ordinary store/scope invalidation must never become a cluster-wide destructive operation.
 - Evidence status: CONFIRMED BY SOURCE AND APPROVED-PDR TRACE.
 - Evidence: src/Naravel.Cache.Memcached/MemcachedCacheStore.cs:126-130 directly calls _client.FlushAllAsync(). The pinned Enyim v3.5.2 implementation loops over every working node in its client pool when it executes FlushAllAsync (MemcachedClient.cs, FlushAllAsync); this is a pool-wide flush, not a prefix delete. All configured Naravel Memcached stores currently receive the same IMemcachedClient from one registration.
@@ -280,6 +280,7 @@ The Memcached findings below are based on the adapter source and, where stated, 
 - **Why that proves the risk:** The operation is pool-wide and does not filter by the Naravel store prefix.
 - **What is not yet proven here:** The dependency source confirms the operation's scope; a live multi-store flush test was not run.
 - **Safe outcome and proof:** Ordinary `ICacheStore.FlushAsync` must never clear data owned by another store or scope. Add a targeted invalidation method, or fail clearly if the provider cannot offer safe scoped cleanup. Keep any full-cluster flush as a separately named administrative action. Test two stores, two scopes and base-store values.
+- **What changed afterwards:** On 2026-11-17 PR #299 stopped a tenant or user view, and a store obtained through `CacheManager`, from clearing the cluster: on Memcached their flush now throws `NotSupportedException`. Calling flush on the raw Memcached driver still clears every key on every node, so this finding stays open until the owner decides what that call should do.
 
 ### MCD-007 — An expired lock owner can delete a newer owner's lock
 

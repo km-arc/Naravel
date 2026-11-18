@@ -1,3 +1,4 @@
+using MailKit;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
@@ -50,6 +51,8 @@ public sealed class SmtpMailTransport : IMailTransport
             await client.AuthenticateAsync(_options.Username, _options.Password ?? string.Empty, cancellationToken).ConfigureAwait(false);
         }
 
+        // MailKit 5 moved the MimeMessage overload of SendAsync to an extension method in the MailKit namespace (using MailKit above);
+        // it returns a SendResult, which this transport does not need, because a rejected recipient throws.
         await client.SendAsync(mime, cancellationToken).ConfigureAwait(false);
         await client.DisconnectAsync(true, cancellationToken).ConfigureAwait(false);
     }
