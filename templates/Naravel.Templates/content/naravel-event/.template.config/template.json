@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Naravel",
+  "classifications": [
+    "Naravel",
+    "Events"
+  ],
+  "identity": "Naravel.Templates.Item.Event",
+  "name": "Naravel event",
+  "description": "An application event: a plain record. Meant for app/Events of a Naravel application.",
+  "shortName": "naravel-event",
+  "tags": {
+    "language": "C#",
+    "type": "item"
+  },
+  "sourceName": "NaravelItem",
+  "symbols": {
+    "namespace": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "",
+      "replaces": "ItemNamespace",
+      "description": "The namespace of the file. By default it is the root namespace of the project that holds the output folder, followed by .App.Events. That needs the project to be restored (dotnet build or dotnet run once) and the output folder to be an existing folder of the project or a new folder directly inside one; otherwise pass the namespace."
+    },
+    "ProjectNamespace": {
+      "type": "bind",
+      "binding": "msbuild:RootNamespace",
+      "defaultValue": "",
+      "replaces": "ProjectRootNamespace"
+    }
+  }
+}

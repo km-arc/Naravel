@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Naravel",
+  "classifications": [
+    "Naravel",
+    "Queue"
+  ],
+  "identity": "Naravel.Templates.Item.Job",
+  "name": "Naravel job",
+  "description": "A queued job: a Job subclass with its handler. Meant for app/Jobs of a Naravel application.",
+  "shortName": "naravel-job",
+  "tags": {
+    "language": "C#",
+    "type": "item"
+  },
+  "sourceName": "NaravelItem",
+  "symbols": {
+    "namespace": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "",
+      "replaces": "ItemNamespace",
+      "description": "The namespace of the file. By default it is the root namespace of the project that holds the output folder, followed by .App.Jobs. That needs the project to be restored (dotnet build or dotnet run once) and the output folder to be an existing folder of the project or a new folder directly inside one; otherwise pass the namespace."
+    },
+    "ProjectNamespace": {
+      "type": "bind",
+      "binding": "msbuild:RootNamespace",
+      "defaultValue": "",
+      "replaces": "ProjectRootNamespace"
+    }
+  }
+}

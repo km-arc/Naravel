@@ -24,6 +24,9 @@ up when a user runs `dotnet new naravel`, after the pack is on nuget.org. This s
               combinations, are generated, checked for a half-wired result (a package without its call, a call without its package,
               a config that names a store that is not there) and built; the tests of each are run. None of them is started, because a
               server or a broker would be needed: only the default application is. The log says so.
+10. items:    the item templates (naravel-job, -event, -listener, -mailable, -controller) are generated into the default application, in
+              the folders the template names. Each file has the namespace of the project (or the one given with --namespace), no
+              placeholder, conditional marker or #error is left, and the application is built with them.
 
 Usage:
   template-smoke.py --local <directory-containing-nupkgs>   packages from `dotnet pack` (CI, before anything is pushed)
@@ -140,6 +143,23 @@ COMBINATIONS: list[dict[str, str]] = [
     {"database": "sqlserver", "queue": "rabbitmq", "no-tests": "true"},
 ]
 
+# The item templates: what `dotnet new <short name> -n <class> -o <folder> <arguments>` is run with in the default application, the
+# namespace the file must have ({app} is the root namespace of the application) and a line that must be in it. The folder of each
+# template under templates/Naravel.Templates/content/ is named after its short name. Written out here and not computed, so the
+# templates are checked against an independent answer.
+ITEM_RUNS: list[tuple[str, str, str, list[str], str, str]] = [
+    ("naravel-job", "SendReceipt", "app/Jobs", [], "{app}.App.Jobs", "class SendReceipt : Job"),
+    ("naravel-event", "OrderShipped", "app/Events", [], "{app}.App.Events", "record OrderShipped()"),
+    ("naravel-listener", "RecordUser", "app/Listeners", [], "{app}.App.Listeners", "IEventListener<UserRegistered>"),
+    ("naravel-listener", "NotifyWarehouse", "app/Listeners", ["--event", "OrderShipped"], "{app}.App.Listeners", "IEventListener<OrderShipped>"),
+    ("naravel-mailable", "ReceiptMail", "app/Mail", [], "{app}.App.Mail", "class ReceiptMail : Mailable"),
+    ("naravel-controller", "OrdersController", "app/Http/Controllers", [], "{app}.App.Http.Controllers", "class OrdersController : ControllerBase"),
+    ("naravel-job", "ExportBilling", "app/Jobs", ["--namespace", "Acme.Billing"], "Acme.Billing", "class ExportBilling : Job"),
+]
+ITEM_SOURCE_NAME = "NaravelItem"  # sourceName of every item template: its file is NaravelItem.cs and the class is named after the -n
+ITEM_TOKENS = ("ItemNamespace", "ProjectRootNamespace", ITEM_SOURCE_NAME, "ItemEvent")  # replaced by the engine; none may survive
+CONTENT_DIRECTORY = TEMPLATE_DIRECTORY.parent
+
 
 def load_consumer_smoke():
     """The helpers of consumer-smoke.py (the nuget.config, the packed-version lookup and the process runner)."""
@@ -162,6 +182,12 @@ def template_files(directory: Path) -> list[str]:
         if path.is_file() and not re.search(r"(^|/)(bin|obj)/", relative):
             found.append(relative)
     return found
+
+
+def item_template_files() -> dict[str, list[str]]:
+    """The folder of every item template under content/ (every folder but the application's) and the files in it."""
+    return {folder.name: template_files(folder) for folder in sorted(CONTENT_DIRECTORY.iterdir())
+            if folder.is_dir() and folder != TEMPLATE_DIRECTORY}
 
 
 def generated_path(source_relative: str, name: str) -> str:
@@ -501,9 +527,77 @@ def summary_line(version: str) -> str:
             f"{', '.join(name + (' (built)' if built else '') for name, _, built in NAME_CASES)}.")
 
 
-def nupkg_problems(names: list[str], nuspec_text: str, sources: list[str]) -> list[str]:
-    """What is wrong with the packed template: its package type, or a source file that is not packed (or a bin/obj file that is)."""
+def item_problems(text: str, relative: str, class_name: str, namespace: str, must_contain: str) -> list[str]:
+    """What is wrong with a generated item file: the #error of an unknown namespace, a conditional marker or a placeholder that
+    survived, a namespace other than the expected one, no type of the given name, or the line that proves the arguments were used."""
     problems = []
+    if re.search(r"^\s*#error\b", text, re.MULTILINE):
+        problems.append(f"{relative}: the namespace was not found and the file holds the #error that says so (the project was not restored, "
+                        f"or the output folder is outside it)")
+    elif not re.search(rf"^namespace {re.escape(namespace)};[ \t]*$", text, re.MULTILINE):
+        problems.append(f"{relative}: the namespace is not {namespace}")
+    problems += [f"{relative}: still contains {token}" for token in ITEM_TOKENS if token in text]
+    if re.search(r"^\s*//#(if|elseif|else|endif)\b", text, re.MULTILINE):
+        problems.append(f"{relative}: a conditional marker of the template was not processed")
+    if not re.search(rf"\b(class|record) {re.escape(class_name)}\b", text):
+        problems.append(f"{relative}: no type named {class_name}")
+    if must_contain not in text:
+        problems.append(f"{relative}: does not contain {must_contain!r}")
+    return problems
+
+
+def render_item(text: str, class_name: str, namespace: str = "", project_namespace: str = "", event: str = "UserRegistered") -> str:
+    """The replacements of the engine for an item template, as the real engine was seen to apply them: only `//#if (<symbol> != "")`,
+    `//#elseif`, `//#else` and `//#endif` on their own lines, then each symbol replaces its token. Used by the self-test, which has no
+    dotnet; the real engine is the proof in the run. Anything else in a condition raises, so a new kind of condition cannot pass unseen."""
+    symbols = {"namespace": namespace, "ProjectNamespace": project_namespace}
+    out: list[str] = []
+    stack: list[tuple[bool, bool]] = []  # (the enclosing block is live, a branch of this block was already taken)
+
+    def live() -> bool:
+        return all(parent for parent, _ in stack)
+
+    for line in text.splitlines():
+        marker = re.match(r'^\s*//#(if|elseif|else|endif)\b\s*(?:\((\w+) != ""\))?\s*$', line)
+        if line.lstrip().startswith("//#") and not marker:
+            raise ValueError(f"an item template holds a conditional that render_item does not know: {line.strip()}")
+        if not marker:
+            if live():
+                out.append(line)
+            continue
+        kind, symbol = marker.group(1), marker.group(2)
+        if kind == "if":
+            taken = bool(symbols[symbol])
+            stack.append((taken, taken))
+        elif kind == "elseif":
+            _, was = stack.pop()
+            taken = not was and bool(symbols[symbol])
+            stack.append((taken, was or taken))
+        elif kind == "else":
+            _, was = stack.pop()
+            stack.append((not was, True))
+        else:
+            stack.pop()
+    return (("\n".join(out) + "\n").replace("ItemNamespace", namespace).replace("ProjectRootNamespace", project_namespace)
+            .replace("ItemEvent", event).replace(ITEM_SOURCE_NAME, class_name))
+
+
+def items_line() -> str:
+    return (f"Items: {len(ITEM_RUNS)} files were generated into the default application with the item templates "
+            f"({', '.join(sorted({run[0] for run in ITEM_RUNS}))}), each in the namespace of the project or the one given with --namespace, "
+            f"and the application was built with them.")
+
+
+def nupkg_problems(names: list[str], nuspec_text: str, sources: list[str], item_sources: dict[str, list[str]] | None = None) -> list[str]:
+    """What is wrong with the packed template: its package type, or a source file that is not packed (or a bin/obj file that is).
+    item_sources maps the folder of each item template (content/<folder>/) to its files."""
+    problems = []
+    present = set(names)
+    for folder, files in sorted((item_sources or {}).items()):
+        gone = [relative for relative in files if f"content/{folder}/{relative}" not in present]
+        if gone:
+            problems.append(f"{len(gone)} of {len(files)} files of the item template {folder} are not in the package under content/{folder}/, "
+                            f"for example content/{folder}/{gone[0]}")
     if not re.search(r'<packageType\s+name="Template"', nuspec_text):
         problems.append('the nuspec does not have <packageType name="Template" />')
     packed = {name for name in names if name.startswith("content/naravel/")}
@@ -518,7 +612,7 @@ def nupkg_problems(names: list[str], nuspec_text: str, sources: list[str]) -> li
     if repeated:
         problems.append(f"{len(repeated)} entries repeat the template folder, for example {repeated[0]}: NuGet already appends the folder of "
                         f"each file to PackagePath, so PackagePath in Naravel.Templates.csproj must be content\\ and nothing more")
-    stray = sorted(name for name in packed if re.search(r"/(bin|obj)/", name))
+    stray = sorted(name for name in names if name.startswith("content/") and re.search(r"/(bin|obj)/", name))
     problems.extend(f"{name} is a build output and must not be packed" for name in stray)
     return problems
 
@@ -698,6 +792,31 @@ def matrix_phase(runner, work: Path, template_json_text: str, sources: list[str]
     return problems, built
 
 
+def item_phase(runner, app: Path, name: str) -> list[str]:
+    """Generate every ITEM_RUNS entry into the default application (already restored by the build) the way the docs say: from the
+    project folder, with -o set to a folder of the application. Then build the application with the new files. Every run is tried
+    even when one fails, so a single run shows all of them."""
+    problems: list[str] = []
+    for short, class_name, folder, arguments, namespace, must_contain in ITEM_RUNS:
+        relative = f"{folder}/{class_name}.cs"
+        ok, output = runner.run(f"dotnet new {short} -n {class_name} -o {folder} {' '.join(arguments)}".rstrip(),
+                                ["dotnet", "new", short, "-n", class_name, "-o", folder, *arguments], app, 120, True)
+        path = app / relative
+        if not ok or not path.is_file():
+            problems.append(f"{short}: dotnet new {short} did not generate {relative}")
+            annotate("items", output)
+            continue
+        problems += [f"{short}: {problem}" for problem in
+                     item_problems(path.read_text(encoding="utf-8", errors="replace"), relative, class_name,
+                                   namespace.format(app=name), must_contain)]
+    if not problems:
+        built, output = runner.dotnet("build the application with the generated item files", ["build", f"{name}.csproj", "-c", "Release"], app)
+        if not built:
+            problems.append("the application does not build with the generated item files")
+            annotate("items", output)
+    return problems
+
+
 def smoke(local: Path, work: Path, extra_args: list[str]) -> tuple[list[str], list[str]]:
     """Return (failed phases, notes). Every phase prints its own output; a failed phase stops the phases that depend on it."""
     consumer = load_consumer_smoke()
@@ -724,7 +843,7 @@ def smoke(local: Path, work: Path, extra_args: list[str]) -> tuple[list[str], li
     with zipfile.ZipFile(nupkg) as package:
         entries = package.namelist()
         nuspec = next((package.read(n).decode("utf-8", "replace") for n in entries if n.endswith(".nuspec")), "")
-        problems = nupkg_problems(entries, nuspec, sources)
+        problems = nupkg_problems(entries, nuspec, sources, item_template_files())
     json_text = (TEMPLATE_DIRECTORY / ".template.config" / "template.json").read_text(encoding="utf-8")
     if default_version(json_text) != version:
         problems.append(f"template.json: NaravelVersion defaults to {default_version(json_text)!r}, the packed version is {version!r}")
@@ -832,6 +951,11 @@ def smoke(local: Path, work: Path, extra_args: list[str]) -> tuple[list[str], li
         if not phase_failed("matrix", problems):
             notes.append(matrix_line(built))
             print(matrix_line(built), flush=True)
+
+        # 10. The item templates, in the default application (see item_phase).
+        if not phase_failed("items", item_phase(runner, app, APP_NAME)):
+            notes.append(items_line())
+            print(items_line(), flush=True)
         if not failed:
             print(summary_line(version), flush=True)
     finally:
@@ -1078,6 +1202,79 @@ def self_test() -> int:
     expect("a missing named test is reported", any("did not run" in p for p in trx_problems(trx(6, 0, "Passed", "Blog.Tests.Other.Test"), required)))
     expect("a named test that did not pass is reported", any("did not pass" in p for p in trx_problems(trx(6, 0, "NotExecuted"), required)))
     expect("an unreadable result file is reported", len(trx_problems("not xml", required)) == 1)
+
+    # The item templates (R34.T05): the folders under content/, their template.json, what the engine makes of them (rehearsed by
+    # render_item; the real engine is the proof in the run) and the package that holds them.
+    item_files = item_template_files()
+    folders = sorted(item_files)
+    expect("the item templates are the folders of content/ but the application's, and the table of runs names exactly those",
+           folders == sorted({run[0] for run in ITEM_RUNS}) and len(folders) == 5)
+    identities = set()
+    for folder in folders:
+        directory = CONTENT_DIRECTORY / folder
+        document = json.loads((directory / ".template.config" / "template.json").read_text(encoding="utf-8"))
+        symbols = document.get("symbols", {})
+        identities.add(document.get("identity"))
+        expect(f"{folder}: the short name is the folder, the type is item and the source name is {ITEM_SOURCE_NAME}",
+               document.get("shortName") == folder and document.get("tags", {}).get("type") == "item" and document.get("sourceName") == ITEM_SOURCE_NAME)
+        expect(f"{folder}: the namespace parameter is empty by default and replaces ItemNamespace",
+               symbols.get("namespace", {}).get("type") == "parameter" and symbols["namespace"].get("defaultValue") == ""
+               and symbols["namespace"].get("replaces") == "ItemNamespace")
+        expect(f"{folder}: the root namespace of the project is bound from the msbuild property RootNamespace",
+               symbols.get("ProjectNamespace", {}).get("type") == "bind" and symbols["ProjectNamespace"].get("binding") == "msbuild:RootNamespace"
+               and symbols["ProjectNamespace"].get("defaultValue") == "" and symbols["ProjectNamespace"].get("replaces") == "ProjectRootNamespace")
+        expect(f"{folder}: holds template.json and {ITEM_SOURCE_NAME}.cs and nothing else",
+               item_files[folder] == [".template.config/template.json", f"{ITEM_SOURCE_NAME}.cs"])
+        item_text = (directory / f"{ITEM_SOURCE_NAME}.cs").read_text(encoding="utf-8")
+        for short, class_name, run_folder, arguments, namespace, must_contain in (run for run in ITEM_RUNS if run[0] == folder):
+            options = dict(zip(arguments[::2], arguments[1::2]))
+            label = f"{short} {class_name}"
+            given, event = options.get("--namespace", ""), options.get("--event", "UserRegistered")
+            try:
+                rendered = render_item(item_text, class_name, given, "Blog", event)
+            except ValueError as error:  # a conditional the rehearsal does not know: a failure of its own, not a traceback
+                expect(f"{label}: {error}", False)
+                continue
+            expect(f"{label}: the file the engine makes from the template has no problem",
+                   item_problems(rendered, f"{run_folder}/{class_name}.cs", class_name, namespace.format(app="Blog"), must_contain) == [])
+            if not given:
+                unknown = render_item(item_text, class_name, "", "", event)
+                expect(f"{label}: a project that is not restored gives the #error and not a file without a namespace",
+                       any("#error" in problem for problem in item_problems(unknown, "x.cs", class_name, namespace.format(app="Blog"), must_contain)))
+                expect(f"{label}: a namespace that does not follow the table is found",
+                       any("namespace is not" in problem for problem in item_problems(rendered.replace(".App.", ".Apps."), "x.cs", class_name,
+                                                                                      namespace.format(app="Blog"), must_contain)))
+    expect("every item template has an identity of its own", len(identities) == len(folders) and None not in identities)
+    job_text = (CONTENT_DIRECTORY / "naravel-job" / "NaravelItem.cs").read_text(encoding="utf-8")
+    expect("a --namespace wins over the project namespace, and is all a project that is not restored needs",
+           all("namespace Acme.Billing;" in render_item(job_text, "X", "Acme.Billing", project) for project in ("Blog", "")))
+    sample = render_item(job_text, "SendReceipt", "", "Blog")
+    mutations = {
+        "a surviving token": sample + "ItemNamespace",
+        "a conditional marker that was not processed": '//#if (namespace != "")\n' + sample,
+        "a missing type": sample.replace("SendReceipt", "Other"),
+        "a missing line the arguments must produce": sample.replace(" : Job", ""),
+    }
+    for what, mutated in mutations.items():
+        expect(f"item_problems finds {what}", bool(item_problems(mutated, "x.cs", "SendReceipt", "Blog.App.Jobs", "class SendReceipt : Job")))
+    expect("item_problems accepts the file the engine makes", item_problems(sample, "x.cs", "SendReceipt", "Blog.App.Jobs", "class SendReceipt : Job") == [])
+    try:
+        render_item('//#if (other == "x")\n', "X")
+        unknown_condition = False
+    except ValueError:
+        unknown_condition = True
+    expect("a condition the rehearsal does not know is refused and not guessed", unknown_condition)
+
+    with_items = [f"content/naravel/{s}" for s in sources] + [f"content/{f}/{r}" for f, files in item_files.items() for r in files] + ["x.nuspec"]
+    expect("a package with the application and every item template has no problems", nupkg_problems(with_items, good_nuspec, sources, item_files) == [])
+    expect("an item template that is not in the package is reported with its folder",
+           any("naravel-job" in p for p in nupkg_problems([n for n in with_items if "/naravel-job/" not in n], good_nuspec, sources, item_files)))
+    expect("a build output in an item folder is reported",
+           len(nupkg_problems(with_items + ["content/naravel-job/obj/x.dll"], good_nuspec, sources, item_files)) == 1)
+    expect("without item_sources the item folders are not looked at", nupkg_problems(with_items[:len(sources)] + ["x.nuspec"], good_nuspec, sources) == [])
+    expect("the pack project packs everything below content/, so the item folders need no rule of their own",
+           [item.get("Include") for item in content_items] == ["content\\**\\*"])
+    expect("the items line names the count and every template", all(part in items_line() for part in (f"{len(ITEM_RUNS)} files", *folders)))
 
     line = summary_line("0.2.0")
     expect("the result line names the version and the combination",

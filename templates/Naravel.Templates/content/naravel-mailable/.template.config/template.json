@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Naravel",
+  "classifications": [
+    "Naravel",
+    "Mail"
+  ],
+  "identity": "Naravel.Templates.Item.Mailable",
+  "name": "Naravel mailable",
+  "description": "A mailable: a mail message as a class. Meant for app/Mail of a Naravel application.",
+  "shortName": "naravel-mailable",
+  "tags": {
+    "language": "C#",
+    "type": "item"
+  },
+  "sourceName": "NaravelItem",
+  "symbols": {
+    "namespace": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "",
+      "replaces": "ItemNamespace",
+      "description": "The namespace of the file. By default it is the root namespace of the project that holds the output folder, followed by .App.Mail. That needs the project to be restored (dotnet build or dotnet run once) and the output folder to be an existing folder of the project or a new folder directly inside one; otherwise pass the namespace."
+    },
+    "ProjectNamespace": {
+      "type": "bind",
+      "binding": "msbuild:RootNamespace",
+      "defaultValue": "",
+      "replaces": "ProjectRootNamespace"
+    }
+  }
+}
