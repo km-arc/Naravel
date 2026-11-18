@@ -212,6 +212,8 @@ await tenantCache.Tags("orders").FlushAsync(cancellationToken);
 
 Tagging uses version counters stored in the underlying cache. Flushing a tag increments its version, making previous values unreachable without scanning keys. Old values may remain allocated until their TTL expires or the backend evicts them. `CacheManager.FlushTagAsync(tag, storeName)` flushes the tag in the application scope.
 
+A key is joined to the prefix of its scope with a colon and nothing else, the way Laravel joins a cache prefix and a key. `cacheManager.Store().SetAsync("user:7:profile", ...)` and `cacheManager.ForUser(7).SetAsync("profile", ...)` therefore write the same entry. A view only writes keys that start with its own prefix, so it never reaches a sibling scope (`ForUser(7)` cannot reach `ForUser(70)`) or a key outside its prefix; the overlap is between a view and the scopes nested under it. Keep the keys of an outer view free of the names of the scopes nested under it.
+
 ### Flushing a scope
 
 `FlushAsync` on a scoped view removes the keys of that scope and nothing else: `cacheManager.ForUser(7).FlushAsync()` leaves every other user, every tenant and every key outside the scope alone. A scope also covers the scopes nested under it (flushing `Scope("tenant:a")` also removes `Scope("tenant:a:sub")`), and it does not reach a sibling whose name only starts with the same characters (user `1` does not reach user `10`). `Store().FlushAsync()` removes everything under the application prefix, which includes every user and tenant scope; a key that was written through the raw driver outside that prefix survives. `FlushPrefixAsync(keyPrefix)` on a scoped view removes only the keys of that scope that start with the prefix, matched literally.

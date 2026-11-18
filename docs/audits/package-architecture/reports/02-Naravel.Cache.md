@@ -34,7 +34,7 @@
 
 - Revalidation baseline: `main` at `44e957ca3db6d9f15665fc8fa070f70522c163c9`, after PR #243 reverted PR #241.
 - Revalidation method: targeted source-level reinspection of the previously cited implementation paths against the current `main`; the earlier package-specific source baselines remain recorded above.
-- Follow-up of 2026-11-17: CCH-001 (AV-001) was fixed after this revalidation by PR #299 and is VERIFIED CLOSED; CCH-009 was found while fixing it. The sections below keep the review as it was written, and each one that the fix changed says so.
+- Follow-up of 2026-11-17: CCH-001 (AV-001) was fixed after this revalidation by PR #299 and is VERIFIED CLOSED; CCH-009 was found while fixing it and was accepted by the owner on 2026-11-18 (D-95 (2026-11-18)). The sections below keep the review as it was written, and each one that the fix changed says so.
 - Outcome (as written on 2026-11-08): CCH-001 through CCH-008 remain OPEN. CCH-007 is expanded below to cover the caller-controlled limiter metric tag and its unbounded-cardinality risk.
 - Verification NOT RUN in this pass: .NET restore/build/test, live provider integration, concurrency stress reproduction, mutation testing, and independent reviewer assessment. Source-level confirmation is not presented as runtime reproduction.
 - No runtime code, tests, dependencies, public API, or roadmap stage was changed by this revalidation.
@@ -44,7 +44,7 @@
 ### [P1] CCH-001 — ScopedCacheStore.FlushAsync escapes the scope
 
 - Remediation state: VERIFIED CLOSED — fixed on 2026-11-17 by PR #299 (merge `0ae187f`) with option A of AD-003; CI [run 44049283760](https://github.com/km-arc/Naravel/actions/runs/44049283760) on the PR branch (head `3be0bba`) is green on Windows, macOS and Ubuntu and in the provider job, and CI [run 44053102520](https://github.com/km-arc/Naravel/actions/runs/44053102520) on `main` at the merge is green too.
-- Resolution: the optional interface `IPrefixFlushableCacheStore` (`src/Naravel.Cache/Abstractions/IPrefixFlushableCacheStore.cs`) lets a store remove the keys under a prefix. `ScopedCacheStore.FlushAsync` removes only its own prefix, and the scopes nested under it, and throws `NotSupportedException` when the store it wraps has no such capability. `MemoryCacheStore`, `RedisCacheStore`, `CacheFake` and `ScopedCacheStore` implement the interface; `MemcachedCacheStore` does not, so a scope over Memcached refuses to flush. An empty or white-space prefix throws `ArgumentException`. `tests/Naravel.Cache.Tests/ScopedFlushTests.cs` is the regression test (Memory and the fake, `CacheManager`, a real Redis server and a real Memcached server in the provider job). `PublicAPI.Unshipped.txt` lists the new members. The independent review and mutation testing NOT RUN. The raw `MemcachedCacheStore.FlushAsync` is MCD-006 and is still open. The evidence below describes the baseline.
+- Resolution: the optional interface `IPrefixFlushableCacheStore` (`src/Naravel.Cache/Abstractions/IPrefixFlushableCacheStore.cs`) lets a store remove the keys under a prefix. `ScopedCacheStore.FlushAsync` removes only its own prefix, and the scopes nested under it, and throws `NotSupportedException` when the store it wraps has no such capability. `MemoryCacheStore`, `RedisCacheStore`, `CacheFake` and `ScopedCacheStore` implement the interface; `MemcachedCacheStore` does not, so a scope over Memcached refuses to flush. An empty or white-space prefix throws `ArgumentException`. `tests/Naravel.Cache.Tests/ScopedFlushTests.cs` is the regression test (Memory and the fake, `CacheManager`, a real Redis server and a real Memcached server in the provider job). `PublicAPI.Unshipped.txt` lists the new members. The independent review and mutation testing NOT RUN. The raw `MemcachedCacheStore.FlushAsync` is MCD-006 and was fixed on 2026-11-18 by PR #305. The evidence below describes the baseline.
 - Evidence status: CONFIRMED BY SOURCE; runtime regression test NOT RUN.
 - Evidence: `src/Naravel.Cache/Scoping/ScopedCacheStore.cs:24-27` prefixes individual keys, but `:59` delegates `FlushAsync` directly to `_inner.FlushAsync`. Scopes are created by `CacheManager.ForUser` (`CacheManager.cs:23-27`) and `CacheManager.Scope` (`:30-33`).
 - Affected contract: `ICacheStore.FlushAsync` when called on a scoped view.
@@ -141,15 +141,15 @@
 
 ### [P3] CCH-009 — A key that contains the colon can reach an entry of a nested scope
 
-- Remediation state: OPEN.
+- Remediation state: ACCEPTED RISK — owner decision D-95 (2026-11-18): keep the behaviour, which is how Laravel joins a cache prefix and a key, and say so in the cache guide. `ScopedCacheStoreTests.A_key_with_the_scope_separator_names_the_same_entry_as_a_nested_scope_but_never_a_sibling` pins it, so that a change is made on purpose. Rejected: escaping the separator in the key (every stored key changes, and another application that reads the same cache, such as a Laravel one, stops finding them) and rejecting a key that contains the colon inside a scope (it breaks the common `users:1` style of key). A view only writes keys that start with its own prefix, so it never reaches a sibling scope; the overlap is between a view and the scopes nested under it.
 - Architecture disposition: residual of veto AV-001, found while fixing CCH-001; it is a key-identity gap and it does not widen a flush.
 - Evidence status: CONFIRMED BY SOURCE; a regression test was NOT written.
 - Evidence: `ScopedCacheStore` in `src/Naravel.Cache/Scoping/ScopedCacheStore.cs` stores a key as `prefix.TrimEnd(':') + ":" + key` and only rejects a key that is null or white space. The key `b:c` in scope `a` and the key `c` in scope `a:b` therefore become the same physical key `a:b:c`.
 - Affected contract: key isolation between a scope and a scope nested under it, on every store.
 - User impact: a caller that builds a key from outside input can read, overwrite or remove an entry of a nested scope, and a prefix flush of the outer scope also removes it (which is documented). Sibling scopes such as `user:1` and `user:2` stay apart, because the prefix of one never begins with the prefix of the other.
 - Why existing tests do not catch it: `ScopedCacheStoreTests` and `ScopedFlushTests` never write a key that contains a colon; the nested-scope tests check that a flush of the outer scope reaches the inner one, not that two keys stay apart.
-- Required correction: owner decision. Either reject a key that contains the colon inside a scope (a behaviour change for any caller that uses `a:b` style keys today), or escape the separator in the key, which changes every stored key and needs a migration note, or record it as ACCEPTED RISK because the scope names are chosen by the application.
-- Regression tests required: the two keys above either stay apart or the first is rejected, on Memory, Fake, Redis and Memcached.
+- Options that were put to the owner: either reject a key that contains the colon inside a scope (a behaviour change for any caller that uses `a:b` style keys today), or escape the separator in the key, which changes every stored key and needs a migration note, or record it as ACCEPTED RISK because the scope names are chosen by the application.
+- Regression test: the Memory-store test named above shows the pair `outer` key `user:7:profile` and `app:user:7` key `profile`, and that the sibling `app:user:70` stays apart.
 - Public API / PDR / release impact: depends on the option; the escape option changes stored keys of a released 0.x package.
 
 ## Test assessment
@@ -177,7 +177,7 @@
 - P0: none established.
 - P1: CCH-001 (AV-001), VERIFIED CLOSED by PR #299; CCH-004 (AV-002), OPEN.
 - P2: CCH-002, CCH-003, CCH-007 and CCH-008 (AV-003 and AV-007).
-- P3: CCH-005, CCH-009 (residual of AV-001), both OPEN.
+- P3: CCH-005, OPEN; CCH-009 (found while fixing AV-001), ACCEPTED RISK by owner decision D-95 (2026-11-18).
 - DOC: CCH-006.
 - OBS: none.
 - Recommended next task: scope-safe flush is done (CCH-001); treat lease/fencing correctness as a release blocker and decide CCH-009. Bound tag metadata growth and add provider-neutral Cache/Lock telemetry before declaring the module production-ready. No runtime remediation was made in the audit branch itself; CCH-001 was fixed afterwards by PR #299.
@@ -194,7 +194,7 @@ The findings below describe risks in cache scope handling, key naming, time, loc
 - **Why that proves the risk:** Individual keys receive a scope prefix, but flush does not use that prefix; it delegates directly to the whole store.
 - **What is not yet proven here:** The code path is confirmed by inspection. A two-tenant runtime regression was not run. The exact blast radius depends on the backing provider.
 - **Safe outcome and proof:** Flushing a scoped view must never remove another scope's or the base store's entries. Test two scopes plus the base store; flush one scope and prove the other values remain. For providers that cannot safely flush one scope, the operation must fail clearly or be separately named as a whole-store action. Owner/PDR approval is required before changing this public behavior.
-- **What changed afterwards:** On 2026-11-17 PR #299 gave a scoped view a real flush: it removes the keys that start with the scope's prefix, and the scopes nested under it, and no other key. On a store that cannot remove keys by prefix, which includes Memcached, the flush now throws `NotSupportedException` instead of clearing more. The new `ScopedFlushTests` cover Memory, the fake, `CacheManager`, a real Redis server and a real Memcached server, and CI is green on Windows, macOS and Ubuntu and in the provider job. This finding is closed; the raw Memcached store flush (MCD-006) and the colon case (CCH-009) are the parts it does not cover.
+- **What changed afterwards:** On 2026-11-17 PR #299 gave a scoped view a real flush: it removes the keys that start with the scope's prefix, and the scopes nested under it, and no other key. On a store that cannot remove keys by prefix, which includes Memcached, the flush now throws `NotSupportedException` instead of clearing more. The new `ScopedFlushTests` cover Memory, the fake, `CacheManager`, a real Redis server and a real Memcached server, and CI is green on Windows, macOS and Ubuntu and in the provider job. This finding is closed; the raw Memcached store flush was fixed later by PR #305 (MCD-006), and the colon case (CCH-009) is accepted by the owner.
 
 ### CCH-002 — Different tag groups can produce the same cache key
 
@@ -265,8 +265,8 @@ The findings below describe risks in cache scope handling, key naming, time, loc
 - **A realistic example:** The key `b:c` in scope `a` and the key `c` in scope `a:b` are both stored as `a:b:c`, so one can overwrite the other.
 - **What we checked:** `ScopedCacheStore` in `src/Naravel.Cache/Scoping/ScopedCacheStore.cs`: the prefix is joined to the key with no escaping and the key check only rejects null and white space.
 - **Why that proves the gap:** Two different pairs of scope and key reach one stored key. Two sibling scopes cannot collide this way, because neither prefix begins with the other.
-- **What is not yet proven here:** This is a source reading; no test was run.
-- **Safe outcome and proof:** Decide whether to reject such keys, escape them or accept the limit, then add the pair above as a regression test on every store.
+- **What is proven:** A test on the Memory store shows the pair above and that a sibling scope stays apart; the finding is a property of the key join, which every store shares.
+- **Safe outcome and proof:** The owner accepted the limit on 2026-11-18. The cache guide says that a key is joined to its scope with a colon and nothing else, and to keep the keys of an outer view free of the names of the scopes nested under it.
 
 ### Overall plain-language status
 
