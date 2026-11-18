@@ -35,7 +35,8 @@
 
 - Revalidation baseline: `main` at `44e957ca3db6d9f15665fc8fa070f70522c163c9`, after PR #243 reverted PR #241.
 - Revalidation method: targeted source-level reinspection of the previously cited implementation paths against the current `main`; the earlier package-specific source baselines remain recorded above.
-- Outcome: CRD-001 through CRD-003 remain supported by the cited source paths and remain OPEN; no runtime reproduction is claimed.
+- Follow-up of 2026-11-17: CRD-002 (AV-001) was fixed after this revalidation by PR #298 and is VERIFIED CLOSED. The sections below keep the review as it was written, and the one that the fix changed says so.
+- Outcome (as written on 2026-11-08): CRD-001 through CRD-003 remain supported by the cited source paths and remain OPEN; no runtime reproduction is claimed.
 - Verification NOT RUN in this pass: .NET restore/build/test, live provider integration, concurrency stress reproduction, mutation testing, and independent reviewer assessment. Source-level confirmation is not presented as runtime reproduction.
 - No runtime code, tests, dependencies, public API, or roadmap stage was changed by this revalidation.
 
@@ -56,7 +57,8 @@
 
 ### [P2] CRD-002 — Redis FlushAsync skips disconnected endpoints and may report success without flushing
 
-- Remediation state: OPEN.
+- Remediation state: VERIFIED CLOSED — fixed on 2026-11-17 by PR #298 (merge `e196546`); CI [run 44047290839](https://github.com/km-arc/Naravel/actions/runs/44047290839) on the PR branch (head `82f8100`) is green on Windows, macOS and Ubuntu and in the provider job, and CI [run 44048059368](https://github.com/km-arc/Naravel/actions/runs/44048059368) on `main` at the merge is green too.
+- Resolution: `RedisCacheStore.DeleteMatchingAsync` in `src/Naravel.Cache.Redis/RedisCacheStore.cs` first looks at every endpoint, skips replicas, and throws `InvalidOperationException` when a primary is not connected, before it deletes anything. It then scans with the escaped pattern, skips the keys under `<Prefix>:lock:` (the constant is `RedisLock.KeyNamespace`, used by both classes) and deletes in batches of single-key deletes, which is safe on a Redis Cluster. The lock-key part was not an audit finding: it was found while designing this fix and is D-92 in `roadmap/AUDIT.md`. `RedisProviderTests` (a stand-in server: lock keys, a primary that is down, a replica, more than one batch) and `RedisFlushServerTests` (a real Redis server in the provider job) are the regression tests. A flush against a real Redis Cluster with one primary down was NOT RUN. The independent review and mutation testing NOT RUN. The evidence below describes the baseline.
 - Architecture disposition: AV-001 requires flush to be namespace-safe and complete-or-fail; never report success after silently skipping required primaries.
 - Evidence status: CONFIRMED BY CONTROL-FLOW ANALYSIS; disconnected-endpoint reproduction NOT RUN.
 - Evidence: `src/Naravel.Cache.Redis/RedisCacheStore.cs:152-165`, especially line 158: `if (!server.IsConnected || server.IsReplica) continue;`. After skipping all endpoints, the method returns normally. The flush test proxy in `tests/Naravel.Cache.Tests/RedisProviderTests.cs:21-38` only models a connected primary.
@@ -103,11 +105,11 @@
 
 - P0: none established.
 - P1: none established from this pass.
-- P2: CRD-001, CRD-002, CRD-003.
+- P2: CRD-001, CRD-002 (AV-001), VERIFIED CLOSED by PR #298; CRD-003. CRD-001 and CRD-003 are OPEN.
 - P3: none established.
 - OBS: none added.
 - DOC: cancellation documentation should be precise about the difference between cancelling the caller's wait and cancelling an already-issued Redis command.
-- Recommended next task: owner review of CRD-001 through CRD-003. Prioritize fail-fast Database validation and flush completeness; agree cancellation semantics before changing all provider awaits. No code has been changed by this audit.
+- Recommended next task: owner review of CRD-001 through CRD-003. Flush completeness is done (CRD-002); prioritize fail-fast Database validation; agree cancellation semantics before changing all provider awaits. No code was changed by the audit itself; CRD-002 was fixed afterwards by PR #298.
 
 ## Plain-language explanation
 
@@ -128,6 +130,7 @@
 - **Why that proves the risk:** The method has a successful return path even when it scans no connected primary.
 - **What is not yet proven here:** The audit traced the control flow; it did not disconnect a live Redis endpoint during a flush.
 - **Safe outcome and proof:** A flush must either confirm that every required primary was handled or return a visible failure. Test all-disconnected, replica-only and partially disconnected cases, and keep the existing prefix-safety test.
+- **What changed afterwards:** On 2026-11-17 PR #298 made the flush look at every server first and fail with an error when a primary is not connected, so it can no longer report success after skipping every server. The same change stops a flush from removing the keys of locks that are held. CI is green on Windows, macOS and Ubuntu and in the provider job; a Redis Cluster with one primary down was not tried. This finding is closed.
 
 ### CRD-003 — Cancelling a request does not stop waiting for an already-started Redis operation
 

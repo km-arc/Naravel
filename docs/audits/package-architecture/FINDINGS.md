@@ -17,11 +17,11 @@ A prior PDR approval is not a waiver from this architecture review. Items in the
 
 ## Architecture vetoes
 
-The following are vetoed as target architecture. AV-001 and AV-002 are P1 release blockers (AV-011 was one and was fixed on 2026-11-15, apart from the residual FILE-007); AV-003 through AV-005, AV-007 through AV-010 and AV-012 through AV-019 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable. AV-006 was superseded by an owner decision on 2026-11-10 (D-84).
+The following are vetoed as target architecture. AV-002 is a P1 release blocker (AV-011 was one and was fixed on 2026-11-15, apart from the residual FILE-007, and AV-001 was one and was fixed on 2026-11-17, apart from the raw Memcached store flush MCD-006); AV-003 through AV-005, AV-007 through AV-010 and AV-012 through AV-019 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable. AV-006 was superseded by an owner decision on 2026-11-10 (D-84).
 
 | Veto ID | Severity | Required architectural outcome | Related findings |
 |---|---:|---|---|
-| AV-001 | P1 | Store/scope flush must remain within its namespace and report partial/unavailable invalidation as failure; no generic cache flush may call cluster-wide Memcached FlushAll. | CCH-001, CRD-002, MCD-006 |
+| AV-001 | P1 | FIXED 2026-11-17 (PR #298 and PR #299, owner decision AD-003 option A) except the raw Memcached store flush (MCD-006) and the Memcached epoch question. Original outcome: Store/scope flush must remain within its namespace and report partial/unavailable invalidation as failure; no generic cache flush may call cluster-wide Memcached FlushAll. | CCH-001, CRD-002, MCD-006, CCH-009 |
 | AV-002 | P1 | Distributed locks and CacheRateLimiter must preserve mutual exclusion across lease expiry and stale-owner release; use atomic ownership/fencing or do not expose the backend as a correctness-grade lock. | CCH-004, MCD-007 |
 | AV-003 | P2 | Tag metadata must have a safe bounded lifecycle; it must not grow forever or be expired in a way that resurrects old values. | CCH-008 |
 | AV-004 | P2 | No synchronous network I/O on request-path threads; Redis connection opening and Memcached counter operations must be genuinely asynchronous. | RED-002, MCD-009 |
@@ -51,7 +51,7 @@ Veto status is separate from finding lifecycle status. Related findings remain O
 | FND-002 | Naravel.Foundation | P2 | Narrow sync Driver race remains while an in-flight async creation is being replaced by a sync factory (D-83) | ACCEPTED RISK — owner decision D-83 (2026-11-09) | [Report](reports/01-Naravel.Foundation.md) |
 | FND-003 | Naravel.Foundation | P2 | Throwing lifetime callback can abort manager cleanup | VERIFIED CLOSED — PR #244 fix; full CI run #42478727741 on PR #246 | [Report](reports/01-Naravel.Foundation.md) |
 | FND-004 | Naravel.Foundation | P2 | Late-created driver disposal errors are swallowed without diagnostics (AV-006) | ACCEPTED RISK — owner decision D-84 (2026-11-10) | [Report](reports/01-Naravel.Foundation.md) |
-| CCH-001 | Naravel.Cache | P1 | Scoped flush clears the backing store beyond the scope (AV-001) | OPEN | [Report](reports/02-Naravel.Cache.md) |
+| CCH-001 | Naravel.Cache | P1 | Scoped flush clears the backing store beyond the scope (AV-001) | VERIFIED CLOSED — PR #299 fix (merge `0ae187f`); full CI [run 44049283760](https://github.com/km-arc/Naravel/actions/runs/44049283760) on PR #299 and [run 44053102520](https://github.com/km-arc/Naravel/actions/runs/44053102520) on `main`; the raw Memcached store flush stays open as MCD-006 and the colon aliasing as CCH-009 | [Report](reports/02-Naravel.Cache.md) |
 | CCH-002 | Naravel.Cache | P2 | Distinct tag sets can generate the same cache key | OPEN | [Report](reports/02-Naravel.Cache.md) |
 | CCH-003 | Naravel.Cache | P2 | Production expiry/lock/rate-limit paths bypass TimeProvider | OPEN | [Report](reports/02-Naravel.Cache.md) |
 | CCH-004 | Naravel.Cache | P1 | Fixed 30-second rate-limit lock lease can expire mid-operation (AV-002) | OPEN | [Report](reports/02-Naravel.Cache.md) |
@@ -59,11 +59,12 @@ Veto status is separate from finding lifecycle status. Related findings remain O
 | CCH-006 | Naravel.Cache | DOC | Cache guide quickstart uses DateTime.UtcNow | OPEN | [Report](reports/02-Naravel.Cache.md) |
 | CCH-007 | Naravel.Cache | P2 | Cache/Lock telemetry gap and unbounded caller-controlled limiter metric tags (AV-007) | OPEN | [Report](reports/02-Naravel.Cache.md) |
 | CCH-008 | Naravel.Cache | P2 | Per-tag version metadata has no safe bounded lifecycle (AV-003) | OPEN | [Report](reports/02-Naravel.Cache.md) |
+| CCH-009 | Naravel.Cache | P3 | Residual of AV-001: a key that contains the colon can reach an entry of a scope nested under the one it was written through (key `b:c` in scope `a`, key `c` in scope `a:b`) | OPEN | [Report](reports/02-Naravel.Cache.md) |
 | RED-001 | Naravel.Redis | P2 | FromConnectionString can collide with a configured implicit-prefixed name | OPEN | [Report](reports/03-Naravel.Redis.md) |
 | RED-002 | Naravel.Redis | P2 | Synchronous first connection blocks the first caller (AV-004) | OPEN | [Report](reports/03-Naravel.Redis.md) |
 | RED-003 | Naravel.Redis | OBS | The raw connection string is retained by a long-lived factory closure | OPEN — OWNER DECISION | [Report](reports/03-Naravel.Redis.md) |
 | CRD-001 | Naravel.Cache.Redis | P2 | Invalid Database configuration silently falls back to the connection default | OPEN | [Report](reports/04-Naravel.Cache.Redis.md) |
-| CRD-002 | Naravel.Cache.Redis | P2 | Redis FlushAsync skips disconnected endpoints and may report success without flushing | OPEN | [Report](reports/04-Naravel.Cache.Redis.md) |
+| CRD-002 | Naravel.Cache.Redis | P2 | Redis FlushAsync skips disconnected endpoints and may report success without flushing | VERIFIED CLOSED — PR #298 fix (merge `e196546`); full CI [run 44047290839](https://github.com/km-arc/Naravel/actions/runs/44047290839) on PR #298 and [run 44048059368](https://github.com/km-arc/Naravel/actions/runs/44048059368) on `main`; the same change stops the flush from removing lock keys | [Report](reports/04-Naravel.Cache.Redis.md) |
 | CRD-003 | Naravel.Cache.Redis | P2 | Cancellation tokens are checked only before Redis I/O, not while awaiting it | OPEN | [Report](reports/04-Naravel.Cache.Redis.md) |
 
 | MCD-001 | Naravel.Cache.Memcached | P2 | Generic value-type cache misses can be reported as hits | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
@@ -72,7 +73,7 @@ Veto status is separate from finding lifecycle status. Related findings remain O
 | MCD-004 | Naravel.Cache.Memcached | P2 | Cancellation after async I/O starts does not cancel the caller's wait | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
 | MCD-005 | Naravel.Cache.Memcached | P3 | Null nullable-integral values are stored as empty text and cannot be read | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
 
-| MCD-006 | Naravel.Cache.Memcached | P1 | Store-level FlushAsync clears the entire shared Memcached cluster (AV-001) | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
+| MCD-006 | Naravel.Cache.Memcached | P1 | Store-level FlushAsync clears the entire shared Memcached cluster (AV-001) | OPEN — narrowed by PR #299: a scope on Memcached now throws `NotSupportedException`; the raw store flush still calls `FlushAllAsync` | [Report](reports/05-Naravel.Cache.Memcached.md) |
 | MCD-007 | Naravel.Cache.Memcached | P1 | Memcached lock release can delete a different owner's lock (AV-002) | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
 | MCD-008 | Naravel.Cache.Memcached | P2 | All named Memcached stores are forced onto one server pool (AV-005) | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
 | MCD-009 | Naravel.Cache.Memcached | P2 | Synchronous counter I/O is queued onto the shared ThreadPool (AV-004) | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
