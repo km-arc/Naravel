@@ -103,10 +103,11 @@ servers), which is exactly what the driver-registration helper (`AddQueueDriver`
 **Queue names with the `file` driver.** The file driver uses the queue name as the folder name under its
 `Path`, so the name must be portable: ASCII letters, digits, `_` and `-`, and `.` only between two other
 characters (`emails`, `high-priority`, `mail.high`). Any other name (empty, `.`, `..`, a space, `:`, a path
-separator, a control character, a letter outside ASCII) throws an `ArgumentException` with `ParamName` `queue`
+separator, a control character, a letter outside ASCII, or a Windows device name such as `con`, `nul`, `aux`, `com1` or `lpt1`, in any letter case and also with an
+extension such as `nul.high`) throws an `ArgumentException` with `ParamName` `queue`
 before any folder is made; the driver never alters a name, so no name can leave the `Path` and no name is changed into another one.
-A file system that ignores letter case (Windows, and macOS by default) still treats `Emails` and `emails` as one
-folder.
+The device names are rejected on every host, so a name that works on Linux also works on Windows. A file system that ignores letter case (Windows, and macOS by default) still treats `Emails` and `emails` as one
+folder, so choose queue names that differ by more than letter case.
 
 ## The same job on Redis, with worker settings
 

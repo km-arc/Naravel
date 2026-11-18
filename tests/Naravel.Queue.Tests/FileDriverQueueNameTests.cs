@@ -50,6 +50,23 @@ public sealed class FileDriverQueueNameTests : IDisposable
     [InlineData(".hidden")]
     [InlineData("trailing.")]
     [InlineData("caf\u00e9")]
+    // Windows device names: rejected on every host, in any letter case, with or without an extension.
+    [InlineData("con")]
+    [InlineData("CON")]
+    [InlineData("Con")]
+    [InlineData("prn")]
+    [InlineData("aux")]
+    [InlineData("nul")]
+    [InlineData("NUL")]
+    [InlineData("com0")]
+    [InlineData("com1")]
+    [InlineData("COM9")]
+    [InlineData("lpt0")]
+    [InlineData("lpt1")]
+    [InlineData("LPT9")]
+    [InlineData("nul.high")]
+    [InlineData("con.txt")]
+    [InlineData("Aux.queue")]
     public async Task A_queue_name_outside_the_portable_set_is_rejected_by_every_operation_before_any_folder_is_made(string queue)
     {
         var driver = new FileQueueDriver(_basePath);
@@ -99,6 +116,17 @@ public sealed class FileDriverQueueNameTests : IDisposable
     [InlineData("v1.2.3")]
     [InlineData("Reports")]
     [InlineData("0")]
+    // Names that only look like a Windows device name: not reserved, so they keep working.
+    [InlineData("console")]
+    [InlineData("null")]
+    [InlineData("auxiliary")]
+    [InlineData("com")]
+    [InlineData("com10")]
+    [InlineData("com1x")]
+    [InlineData("lpt")]
+    [InlineData("mail.nul")]
+    [InlineData("con-1")]
+    [InlineData("nul_")]
     public async Task A_portable_queue_name_keeps_its_own_folder_name(string queue)
     {
         var driver = new FileQueueDriver(_basePath);
