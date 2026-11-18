@@ -1,1 +1,6 @@
 #nullable enable
+Naravel.Cache.Abstractions.IPrefixFlushableCacheStore
+Naravel.Cache.Abstractions.IPrefixFlushableCacheStore.FlushPrefixAsync(string! keyPrefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.Scoping.ScopedCacheStore.FlushPrefixAsync(string! keyPrefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.Stores.MemoryCacheStore.FlushPrefixAsync(string! keyPrefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.Testing.CacheFake.FlushPrefixAsync(string! keyPrefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!

@@ -1,6 +1,11 @@
 # AppProjectName
 
-A [Naravel](https://github.com/km-arc/Naravel) application. It runs with no database server, no Redis and no message broker.
+A [Naravel](https://github.com/km-arc/Naravel) application.
+<!--#if (NeedsService) -->
+It was generated with a driver that needs a running service. See "Services" below, and start them before `dotnet run`.
+<!--#else -->
+It runs with no database server, no Redis and no message broker.
+<!--#endif -->
 
 ## Run it
 
@@ -16,7 +21,45 @@ Try the example flow, with the address `dotnet run` printed:
 curl -i -X POST http://localhost:5000/register -H "Content-Type: application/json" -d '{"email":"ada@example.com","name":"Ada"}'
 ```
 
-The controller dispatches the `UserRegistered` event, a listener queues the `SendWelcomeEmail` job in `storage/queue`, the queue worker that runs inside the application takes it, and the `log` mail transport writes the welcome mail to the log.
+The controller dispatches the `UserRegistered` event, a listener queues the `SendWelcomeEmail` job, the queue worker that runs inside the application takes it, and the mail transport sends the welcome mail.
+<!--#if (queue == "file") -->
+The jobs are files under `storage/queue`.
+<!--#elseif (queue == "memory") -->
+The jobs live in this process, so the ones that are waiting are lost when the application stops.
+<!--#endif -->
+<!--#if (mail == "log") -->
+The `log` mail transport writes the welcome mail to the application log and delivers nothing.
+<!--#endif -->
+<!--#if (NeedsService) -->
+
+## Services
+
+The drivers you chose need these. The addresses in `config/` are placeholders: set the real ones in the environment, with `__` for each `:`, or in user secrets.
+
+| Module | Driver | Set |
+|---|---|---|
+<!--#if (database == "postgres") -->
+| Database | PostgreSQL | `Database__Connections__main__ConnectionString` |
+<!--#elseif (database == "mysql") -->
+| Database | MySQL | `Database__Connections__main__ConnectionString` |
+<!--#elseif (database == "sqlserver") -->
+| Database | SQL Server | `Database__Connections__main__ConnectionString` |
+<!--#endif -->
+<!--#if (cache == "redis") -->
+| Cache | Redis | `Cache__Stores__redis__ConnectionString` |
+<!--#endif -->
+<!--#if (queue == "redis") -->
+| Queue | Redis | `NaravelQueue__Stores__redis__ConnectionString` |
+<!--#elseif (queue == "rabbitmq") -->
+| Queue | RabbitMQ | `NaravelQueue__Stores__rabbitmq__HostName`, `__UserName`, `__Password` |
+<!--#elseif (queue == "kafka") -->
+| Queue | Kafka | `NaravelQueue__Stores__kafka__BootstrapServers` |
+<!--#endif -->
+<!--#if (mail == "smtp") -->
+| Mail | SMTP | `Mail__Mailers__smtp__Host`, `__Username`, `__Password` |
+<!--#endif -->
+<!--#endif -->
+<!--#if (!no-tests) -->
 
 ## Tests
 
@@ -25,6 +68,7 @@ dotnet test tests/AppProjectName.Tests
 ```
 
 The tests use the fakes that ship with the packages (`EventFake`, `QueueFake`, `MailFake`), so they need no queue and no mail server.
+<!--#endif -->
 
 ## Where things are
 
@@ -32,11 +76,19 @@ The tests use the fakes that ship with the packages (`EventFake`, `QueueFake`, `
 |---|---|
 | `app/` | Your code: controllers, events, listeners, jobs and mailables |
 | `bootstrap/` | How the application starts: how `config/` is read |
+<!--#if (database == "none") -->
+| `config/` | One JSON file per module: `cache`, `logging`, `mail`, `queue` |
+<!--#else -->
 | `config/` | One JSON file per module: `cache`, `database`, `logging`, `mail`, `queue` |
+<!--#endif -->
 | `routes/` | `WebRoutes.cs`: the routes of the application |
 | `resources/` | Files the application serves, such as `views/welcome.html` |
+<!--#if (UsesStorage) -->
 | `storage/` | Written while the application runs (the queue, the SQLite file). Created on the first run and ignored by git |
+<!--#endif -->
+<!--#if (!no-tests) -->
 | `tests/` | The test project |
+<!--#endif -->
 
 ## Configuration and secrets
 

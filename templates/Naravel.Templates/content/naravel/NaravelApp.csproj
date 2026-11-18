@@ -13,12 +13,38 @@
   <ItemGroup>
     <PackageReference Include="Naravel.Routing" Version="NARAVEL_VERSION" />
     <PackageReference Include="Naravel.Cache" Version="NARAVEL_VERSION" />
+<!--#if (cache == "redis") -->
+    <PackageReference Include="Naravel.Cache.Redis" Version="NARAVEL_VERSION" />
+<!--#endif -->
     <PackageReference Include="Naravel.Queue" Version="NARAVEL_VERSION" />
+<!--#if (queue == "file") -->
     <PackageReference Include="Naravel.Queue.File" Version="NARAVEL_VERSION" />
+<!--#elseif (queue == "memory") -->
+    <PackageReference Include="Naravel.Queue.Memory" Version="NARAVEL_VERSION" />
+<!--#elseif (queue == "redis") -->
+    <PackageReference Include="Naravel.Queue.Redis" Version="NARAVEL_VERSION" />
+<!--#elseif (queue == "rabbitmq") -->
+    <PackageReference Include="Naravel.Queue.RabbitMQ" Version="NARAVEL_VERSION" />
+<!--#else -->
+    <PackageReference Include="Naravel.Queue.Kafka" Version="NARAVEL_VERSION" />
+<!--#endif -->
     <PackageReference Include="Naravel.Events" Version="NARAVEL_VERSION" />
     <PackageReference Include="Naravel.Mail" Version="NARAVEL_VERSION" />
+<!--#if (mail == "smtp") -->
+    <PackageReference Include="Naravel.Mail.Smtp" Version="NARAVEL_VERSION" />
+<!--#endif -->
+<!--#if (database != "none") -->
     <PackageReference Include="Naravel.Database" Version="NARAVEL_VERSION" />
+<!--#endif -->
+<!--#if (database == "sqlite") -->
     <PackageReference Include="Naravel.Database.Sqlite" Version="NARAVEL_VERSION" />
+<!--#elseif (database == "postgres") -->
+    <PackageReference Include="Naravel.Database.Postgres" Version="NARAVEL_VERSION" />
+<!--#elseif (database == "mysql") -->
+    <PackageReference Include="Naravel.Database.MySql" Version="NARAVEL_VERSION" />
+<!--#elseif (database == "sqlserver") -->
+    <PackageReference Include="Naravel.Database.SqlServer" Version="NARAVEL_VERSION" />
+<!--#endif -->
   </ItemGroup>
 
   <!-- config/ and resources/ are read from the application folder at run time, so they are copied to the build and the publish output.

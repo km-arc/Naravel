@@ -634,8 +634,9 @@ jobs:
   # builds it, runs its tests, publishes it and starts it. It packs on its own (the same command as the publish job) so it runs next to
   # the fast job and not after it. ci-ok and publish wait for it: a template that does not work stops the merge and the release.
   template-smoke:
-    name: Template smoke (the default application)
+    name: Template smoke (the default application and the matrix)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -648,7 +649,7 @@ jobs:
       - name: Pack every packable project and the template pack
         run: dotnet pack Naravel.slnx -c Release -o ./nupkgs-template
 
-      - name: Install the template, generate the default application, build, test, publish and start it
+      - name: Install the template; start the default application; generate, build and test every parameter value and a few combinations
         run: python3 .github/scripts/template-smoke.py --local ./nupkgs-template
 
   # The one check branch protection needs. A database job skipped by the path filter counts as success; any failure,
