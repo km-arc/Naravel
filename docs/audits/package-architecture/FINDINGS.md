@@ -17,7 +17,7 @@ A prior PDR approval is not a waiver from this architecture review. Items in the
 
 ## Architecture vetoes
 
-The following are vetoed as target architecture. AV-002 is a P1 release blocker (AV-011 was one and was fixed on 2026-11-15, apart from the residual FILE-007, and AV-001 was one and was fixed on 2026-11-17 and 2026-11-18); AV-003 through AV-005, AV-007 through AV-010 and AV-012 through AV-019 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable. AV-006 was superseded by an owner decision on 2026-11-10 (D-84).
+The following are vetoed as target architecture. AV-002 is a P1 release blocker (AV-011 was one and was fixed on 2026-11-15 and 2026-11-19, and AV-001 was one and was fixed on 2026-11-17 and 2026-11-18); AV-003 through AV-005, AV-007 through AV-010 and AV-012 through AV-019 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable. AV-006 was superseded by an owner decision on 2026-11-10 (D-84).
 
 | Veto ID | Severity | Required architectural outcome | Related findings |
 |---|---:|---|---|
@@ -31,7 +31,7 @@ The following are vetoed as target architecture. AV-002 is a P1 release blocker 
 | AV-008 | P2 | Positive TTLs must not become infinite because a provider truncates sub-second durations to zero. | MCD-010 |
 | AV-009 | P2 | Batch dispatch must recover from partial publication; no planned member may become permanently pending and unreachable. | QUE-001, RQR-004 |
 | AV-010 | P2 | Process-local queue coordination state must have a bounded lifecycle without removing active gates. | MEM-001, FILE-002 |
-| AV-011 | P1 | FIXED 2026-11-15 (PR #293, owner decision AD-014 option A) except the residual FILE-007. Original outcome: File queue names must map injectively beneath the configured root; no traversal or logical queue aliasing. | FILE-001, FILE-007 |
+| AV-011 | P1 | FIXED 2026-11-15 and 2026-11-19 (PR #293 with owner decision AD-014 option A, and PR #308 for FILE-007); the letter-case limit is ACCEPTED RISK (D-96, 2026-11-18). Original outcome: File queue names must map injectively beneath the configured root; no traversal or logical queue aliasing. | FILE-001, FILE-007 |
 | AV-012 | P2 | Reclaim-capable queue drivers must reject zero/negative visibility timeouts; a live reservation must not be immediately reclaimable. | DBQ-001, FILE-004, RQR-001 |
 | AV-013 | P2 | Unique-job owner metadata must be bound to the lock lease; a stale owner must never overwrite or remove a newer lease's metadata. | QCO-001 |
 | AV-014 | P2 | JSON-path updates must encode JSON null as the JSON literal `null` on SQLite, MySQL and PostgreSQL; SQL Server keeps its explicit unsupported behaviour. | DBC-001 |
@@ -115,13 +115,13 @@ Owner decisions AD-009 through AD-013 are recorded in [OWNER-DECISIONS.md](OWNER
 
 | Finding | Package | Severity | Summary | State | Evidence |
 |---|---|---:|---|---|---|
-| FILE-001 | Naravel.Queue.File | P1 | Queue-name sanitization allows path traversal outside the base root and collisions between distinct queue names (AV-011) | VERIFIED CLOSED — PR #293 fix (merge `6052441`); full CI [run 43751562401](https://github.com/km-arc/Naravel/actions/runs/43751562401) on PR #293 and [run 43752294489](https://github.com/km-arc/Naravel/actions/runs/43752294489) on `main`; residual case FILE-007 | [Report](reports/08-Naravel.Queue.File.md) |
+| FILE-001 | Naravel.Queue.File | P1 | Queue-name sanitization allows path traversal outside the base root and collisions between distinct queue names (AV-011) | VERIFIED CLOSED — PR #293 fix (merge `6052441`); full CI [run 43751562401](https://github.com/km-arc/Naravel/actions/runs/43751562401) on PR #293 and [run 43752294489](https://github.com/km-arc/Naravel/actions/runs/43752294489) on `main`; the residual case FILE-007 is closed separately | [Report](reports/08-Naravel.Queue.File.md) |
 | FILE-002 | Naravel.Queue.File | P2 | Static per-queue SemaphoreSlim gate table has no bounded reclamation lifecycle (AV-010) | OPEN | [Report](reports/08-Naravel.Queue.File.md) |
 | FILE-003 | Naravel.Queue.File | P2 | Failed/cancelled temporary writes can leave orphan .tmp files | OPEN | [Report](reports/08-Naravel.Queue.File.md) |
 | FILE-004 | Naravel.Queue.File | P2 | Non-positive visibility timeout makes reservations immediately reclaimable | OPEN | [Report](reports/08-Naravel.Queue.File.md) |
 | FILE-005 | Naravel.Queue.File | P2 | Corrupt pending records are silently skipped; corrupt reserved records can stop queue polling | OPEN | [Report](reports/08-Naravel.Queue.File.md) |
 | FILE-006 | Naravel.Queue.File | P2 | SizeAsync ignores its CancellationToken | OPEN | [Report](reports/08-Naravel.Queue.File.md) |
-| FILE-007 | Naravel.Queue.File | P2 | Residual of AV-011: two accepted queue names that differ only by letter case share one folder on a case-insensitive file system, and Windows reserved device names are accepted | OPEN | [Report](reports/08-Naravel.Queue.File.md) |
+| FILE-007 | Naravel.Queue.File | P2 | Residual of AV-011: two accepted queue names that differ only by letter case share one folder on a case-insensitive file system, and Windows reserved device names are accepted | VERIFIED CLOSED for the reserved device names — PR #308 fix (merge `76e5433`); full CI [run 44376790342](https://github.com/km-arc/Naravel/actions/runs/44376790342) on PR #308 and [run 44503258037](https://github.com/km-arc/Naravel/actions/runs/44503258037) on `main`; the letter-case half is ACCEPTED RISK — owner decision D-96 (2026-11-18) | [Report](reports/08-Naravel.Queue.File.md) |
 
 Owner decision AD-014 is recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md) (option A, decided on 2026-11-15). No path mapping or on-disk migration was performed by this audit; PR #293 changed the driver after the audit, and no folder was moved.
 

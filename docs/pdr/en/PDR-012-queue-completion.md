@@ -114,7 +114,7 @@ The Memory driver's cancellation-token parameters must also be honored consisten
 
 See [report 08](../../audits/package-architecture/reports/08-Naravel.Queue.File.md). No runtime code or on-disk data was changed by the audit.
 
-**Disposition (2026-11-15):** [AD-014](../../audits/package-architecture/OWNER-DECISIONS.md) was decided as option A, and PR #293 fixed the path containment: a queue name is used unchanged or rejected, and the folder of every accepted name is unchanged. The residual case of letter case and reserved device names is FILE-007 in the same report.
+**Disposition (2026-11-15):** [AD-014](../../audits/package-architecture/OWNER-DECISIONS.md) was decided as option A, and PR #293 fixed the path containment: a queue name is used unchanged or rejected, and the folder of every accepted name is unchanged. The residual case of letter case and reserved device names is FILE-007 in the same report: PR #308 rejected the reserved device names on 2026-11-19, and the owner accepted the letter-case limit (D-96).
 
 
 ## Architecture review veto — Database queue contracts (2026-11-08)
