@@ -20,6 +20,9 @@ namespace Naravel.Queue.File;
 /// rejected with an <see cref="ArgumentException"/> before the file system is touched; a name is never altered, so no
 /// name turns into another name and no name can leave the configured Path (the names <c>.</c> and <c>..</c>,
 /// path separators, drive or stream markers such as ':' and control characters are all outside that set).
+/// The Windows device names (<c>con</c>, <c>prn</c>, <c>aux</c>, <c>nul</c>, <c>com0</c> to <c>com9</c>, <c>lpt0</c> to <c>lpt9</c>), in any letter case and
+/// with or without an extension such as <c>nul.high</c>, are rejected on every host, so a name that works on Linux also works on Windows.
+/// Two names that differ only by letter case still share one folder on a file system that ignores case; that is documented, not prevented.
 ///
 /// Reservation uses File.Move (pending -> reserved), which is effectively atomic on a single
 /// volume, so two workers racing for the same file will not both succeed.
@@ -97,7 +100,7 @@ public class FileQueueDriver : IQueueDriver
         ArgumentNullException.ThrowIfNull(queue);
         if (IsPortableQueueName(queue)) return queue;
         throw new ArgumentException(
-            $"Queue name '{queue}' is not valid for the file driver. Use ASCII letters, digits, '_' and '-', and '.' only between two other characters.",
+            $"Queue name '{queue}' is not valid for the file driver. Use ASCII letters, digits, '_' and '-', and '.' only between two other characters, and not a Windows device name such as con, nul, aux, com1 or lpt1.",
             nameof(queue));
     }
 
@@ -112,7 +115,22 @@ public class FileQueueDriver : IQueueDriver
             if (!isDot && !char.IsAsciiLetterOrDigit(c) && c != '_' && c != '-') return false;
             previousWasDot = isDot;
         }
-        return true;
+        return !IsWindowsDeviceName(name);
+    }
+
+    // Windows treats these as devices and not as folders, in any letter case and also when an extension follows ("nul.high" is "nul"), so a queue with such a
+    // name would work on Linux and macOS and fail or misbehave on Windows. The rule is the same on every host, so that what works in development works in
+    // production. Microsoft lists COM1-COM9 and LPT1-LPT9; COM0 and LPT0 are rejected as well because some Windows versions reserve them. The superscript
+    // digits that Windows also reserves are not ASCII and are already outside the grammar.
+    private static bool IsWindowsDeviceName(string name)
+    {
+        var dot = name.IndexOf('.');
+        var stem = dot < 0 ? name.AsSpan() : name.AsSpan(0, dot);
+        if (stem.Length == 3)
+            return stem.Equals("con", StringComparison.OrdinalIgnoreCase) || stem.Equals("prn", StringComparison.OrdinalIgnoreCase)
+                || stem.Equals("aux", StringComparison.OrdinalIgnoreCase) || stem.Equals("nul", StringComparison.OrdinalIgnoreCase);
+        return stem.Length == 4 && char.IsAsciiDigit(stem[3])
+            && (stem[..3].Equals("com", StringComparison.OrdinalIgnoreCase) || stem[..3].Equals("lpt", StringComparison.OrdinalIgnoreCase));
     }
 
     // Sort key packs priority (descending) and availability time (ascending) into the filename so a
