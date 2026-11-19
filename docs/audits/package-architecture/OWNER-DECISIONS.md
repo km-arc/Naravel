@@ -166,7 +166,7 @@ This register separates **architectural recommendations** from **owner-approved 
 
 **Architect recommendation:** A as the least disruptive safe correction if the owner accepts a portable queue-name grammar; keep existing safe folder names unchanged and reject unsafe names. If arbitrary Unicode/special queue names are a required public feature, choose B and provide a tested migration path. Do not silently sanitize and collapse names.
 
-**Status:** DECIDED on 2026-11-15: option A, the architect recommendation. The owner merged PR #293 (merge `6052441`), whose description said that it implemented option A and that it was not an owner decision until confirmed. `docs/en/queue.md` states the grammar; a queue folder whose name is inside it keeps its name, nothing was migrated, and a name outside it must be renamed by the user (the `Fixed` entry of `CHANGELOG.md` says how). The residual case of letter case and reserved device names is FILE-007 and is not part of this decision.
+**Status:** DECIDED on 2026-11-15: option A, the architect recommendation. The owner merged PR #293 (merge `6052441`), whose description said that it implemented option A and that it was not an owner decision until confirmed. `docs/en/queue.md` states the grammar; a queue folder whose name is inside it keeps its name, nothing was migrated, and a name outside it must be renamed by the user (the `Fixed` entry of `CHANGELOG.md` says how). The residual case of letter case and reserved device names, FILE-007, is not part of this decision; PR #308 (merge `76e5433`, 2026-11-19) rejected the reserved device names, and the owner accepted the letter-case limit (D-96, 2026-11-18).
 
 
 ## AD-015 — Transactional DatabaseJobEnqueuer connection identity
