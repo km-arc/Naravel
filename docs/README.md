@@ -5,7 +5,7 @@ This index is the entry point for Naravel's maintained English documentation. Do
 ## Start here
 
 - [Repository README](../README.md) — project overview and quickstart.
-- [Getting started](en/getting-started.md) — packages, registration, and first use.
+- [Getting started](en/getting-started.md) — creating an app, packages, registration, and first use.
 - [Module overview](en/modules.md) — capabilities and package boundaries.
 - [Architecture](en/architecture.md) — internal design and dependency rules.
 - [Laravel parity](en/laravel-parity.md) — adopted, adapted, and declined Laravel concepts.

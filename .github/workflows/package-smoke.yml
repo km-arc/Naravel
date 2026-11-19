@@ -2,7 +2,9 @@ name: Package smoke (published version)
 
 # Manual and report-only: installs the packages published on nuget.org at the given version into a consumer outside the repository,
 # builds it, loads every Naravel assembly and runs the smoke program against them (.github/scripts/consumer-smoke.py). Run it after a
-# release to see what a user gets; the same script runs against the freshly packed files in ci.yml before anything is pushed.
+# release to see what a user gets; the same script runs against the freshly packed files in ci.yml before anything is pushed. With
+# `templates` it also installs the published Naravel.Templates pack, generates the default application from it and builds that
+# (.github/scripts/template-smoke.py --nuget); the full template smoke, with every option and the run, is in ci.yml.
 on:
   workflow_dispatch:
     inputs:
@@ -17,6 +19,13 @@ on:
         required: false
         default: ''
         type: string
+      templates:
+        description: >-
+          Also verify the Naravel.Templates pack at that version: install it, generate the default application and build it. Leave it off
+          for a version that was released before the pack existed.
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -50,3 +59,9 @@ jobs:
             fi
           done
           python3 .github/scripts/consumer-smoke.py --nuget "$VERSION" "${args[@]}"
+
+      - name: Template smoke (the published Naravel.Templates)
+        if: ${{ !cancelled() && inputs.templates }}
+        env:
+          VERSION: ${{ inputs.version }}
+        run: python3 .github/scripts/template-smoke.py --nuget "$VERSION"
