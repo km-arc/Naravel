@@ -47,9 +47,13 @@ public static class ServiceCollectionExtensions
     /// "Driver" is "database". You must separately register
     /// <c>services.AddDbContextFactory&lt;TContext&gt;(options => options.UseSqlServer/UseNpgsql/UseSqlite(...))</c>
     /// and add <c>modelBuilder.ConfigureQueueJobs();</c> to that context's OnModelCreating, then create a migration.
-    /// Reads each matching store's own "VisibilityTimeoutSeconds" (default 300). The connection string itself
+    /// Reads each matching store's own "VisibilityTimeoutSeconds" (default 300), which must be greater than zero. The connection string itself
     /// lives on your DbContext, not in this configuration.
     /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the store is first resolved (not when this method runs) if its "VisibilityTimeoutSeconds" is zero, negative or NaN: the message names
+    /// the store and the setting. A value that is not a number at all still throws <see cref="FormatException"/>, as before.
+    /// </exception>
     /// <remarks>
     /// Known limitation: every store using the "database" driver against the same <typeparamref name="TContext"/>
     /// shares the same underlying table with no store/connection column, so two "database" stores are only
@@ -60,8 +64,13 @@ public static class ServiceCollectionExtensions
         where TContext : DbContext
         => services.AddQueueDriver(configuration, "database", (sp, store) =>
         {
+            var configured = store.GetOrDefault("VisibilityTimeoutSeconds", "300");
+            var visibilitySeconds = double.Parse(configured);
+            if (!(visibilitySeconds > 0)) // written this way so that NaN is refused too
+                throw new InvalidOperationException(
+                    $"The Database queue store '{store.Key}' has VisibilityTimeoutSeconds '{configured}', which is not greater than zero. " +
+                    "Set it above the longest job; the default is 300.");
             var contextFactory = sp.GetRequiredService<IDbContextFactory<TContext>>();
-            var visibilitySeconds = double.Parse(store.GetOrDefault("VisibilityTimeoutSeconds", "300"));
             return new DatabaseQueueDriver<TContext>(contextFactory, TimeSpan.FromSeconds(visibilitySeconds));
         }, sectionName);
 }
