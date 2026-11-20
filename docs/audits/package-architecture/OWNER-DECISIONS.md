@@ -203,7 +203,7 @@ This register separates **architectural recommendations** from **owner-approved 
 
 **Architect recommendation:** require a strictly positive timeout for reclaim-capable drivers. Drivers that do not implement visibility reclaim should report `null`.
 
-**Status:** WAITING FOR OWNER.
+**Status:** WAITING FOR OWNER for the policy as a whole. Before this decision was recorded, the File driver was changed on 2026-11-20 by PR #311 in line with the architect recommendation (its constructor and its `AddFileDriver` registration refuse a timeout of zero or less), and the owner merged that PR; that is not recorded here as the decision for the Database and Redis drivers, which still accept such a value (DBQ-001, RQR-001).
 
 
 ## AD-018 — Redis Queue driver's native failed list

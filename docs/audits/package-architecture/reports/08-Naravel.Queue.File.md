@@ -69,7 +69,8 @@
 
 ### [P2] FILE-004 — Zero or negative visibility timeout makes reservations immediately reclaimable
 
-- Remediation state: OPEN.
+- Remediation state: VERIFIED CLOSED — fixed on 2026-11-20 by PR #311 (merge `191f32e`); CI [run 44728779249](https://github.com/km-arc/Naravel/actions/runs/44728779249) on the PR branch (head `026594b`) is green on Windows, macOS and Ubuntu, and CI [run 44729742023](https://github.com/km-arc/Naravel/actions/runs/44729742023) on `main` at the merge (`191f32e`) is green too.
+- Resolution: the `FileQueueDriver` constructor throws `ArgumentOutOfRangeException` (`ParamName` `visibilityTimeout`) for a timeout of zero or less before it creates the base directory, and keeps the five-minute default. The `AddFileDriver` registration throws `InvalidOperationException`, naming the store and `VisibilityTimeoutSeconds` and quoting the value, for zero, a negative number or NaN; because the Manager runs the factory lazily, this happens when the store is first resolved and not when `AddFileDriver` runs. A value that is not a number still throws `FormatException`. `FileDriverVisibilityTimeoutTests` covers zero and negative values, the smallest positive value, the default, and the registration for several values. `PublicAPI` files are unchanged; `docs/en/queue.md`, `docs/nuget/Naravel.Queue.File.md` and the `Fixed` entry of `CHANGELOG.md` record the behaviour change of a released 0.x package. Not done: a two-worker test (the nearest, `A_message_reserved_by_a_crashed_worker_is_reclaimed_after_the_visibility_timeout`, pops twice on one driver within a short timeout), the independent review and the mutation testing (all NOT RUN). The Database and Redis drivers have the same gap (DBQ-001, RQR-001, veto AV-012) and are not changed. The evidence below describes the baseline.
 - Evidence status: CONFIRMED BY SOURCE-LEVEL CONTROL-FLOW ANALYSIS; duplicate-delivery reproduction NOT RUN.
 - Evidence: the `FileQueueDriver` constructor at lines 24-27 assigns the caller-supplied `visibilityTimeout` (or the five-minute default) without validating it. `IsExpired` at lines 156-160 considers a reservation expired when `now - lastWrite >= _visibilityTimeout`. The DI registration at `src/Naravel.Queue.File/ServiceCollectionExtensions.cs:15-19` parses `VisibilityTimeoutSeconds` and passes the result directly to `TimeSpan.FromSeconds`.
 - Affected contract: crash recovery and the worker's no-concurrent-redelivery guarantee for File queues.
@@ -93,7 +94,8 @@
 
 ### [P2] FILE-006 — SizeAsync ignores its CancellationToken
 
-- Remediation state: OPEN.
+- Remediation state: VERIFIED CLOSED — fixed on 2026-11-20 by PR #311 (merge `191f32e`); CI [run 44728779249](https://github.com/km-arc/Naravel/actions/runs/44728779249) on the PR branch (head `026594b`) is green on Windows, macOS and Ubuntu, and CI [run 44729742023](https://github.com/km-arc/Naravel/actions/runs/44729742023) on `main` at the merge (`191f32e`) is green too.
+- Resolution: `SizeAsync` returns `Task.FromCanceled<long>` for a token that is already cancelled, before any folder is made or read, and checks the token after each file of the listing, so a very large folder stops early and no size is returned. The method stays non-`async`, so an invalid queue name still throws `ArgumentException` synchronously. The listing itself is synchronous and the operating system cannot interrupt one that has begun; the XML docs and `docs/en/queue.md` say so. `FileDriverSizeCancellationTests` covers the cancelled token (a cancelled task and no folder made) and the exact size for a live token. NOT RUN: any test of cancellation in the middle of a listing (it needs a very large folder and a second thread to be reproducible), the independent review and the mutation testing. The evidence below describes the baseline.
 - Evidence status: CONFIRMED BY SOURCE.
 - Evidence: `SizeAsync` at `src/Naravel.Queue.File/FileQueueDriver.cs:269-273` does not inspect or pass its `cancellationToken` to the synchronous `Directory.EnumerateFiles(...).Count()` operation. Every other File driver method either checks/waits with the token or passes it to asynchronous file I/O.
 - Affected contract: `IQueueDriver.SizeAsync` under request cancellation or host shutdown.
@@ -128,7 +130,7 @@
 
 - Reviewed: `tests/Naravel.Queue.Tests/DriverTests.cs`, shared `QueueDriverContractTests`, `FileDriverRecoveryTests`, worker queue docs and package README.
 - Regression coverage added since the review: `FileDriverQueueNameTests` covers dot segments, rooted and drive-qualified names, separators, empty and invalid-only names, control characters, `null`, accepted names and the `a/b` against `ab` collision on every operation that takes a queue name (FILE-001), and, since PR #308, the reserved device names and their look-alikes (FILE-007).
-- Missing regression coverage: names that differ only by letter case (FILE-007, accepted); static gate reclamation; temporary write cleanup; non-positive timeout validation; corrupt/null pending and reserved envelopes; pre-cancelled and mid-enumeration `SizeAsync`.
+- Missing regression coverage: names that differ only by letter case (FILE-007, accepted); static gate reclamation; temporary write cleanup; corrupt/null pending and reserved envelopes; mid-enumeration `SizeAsync` cancellation; a two-worker test of a live reservation. Added since the review by PR #311: `FileDriverVisibilityTimeoutTests` (FILE-004) and `FileDriverSizeCancellationTests` (a pre-cancelled `SizeAsync`, FILE-006).
 - Tests run for this review: NONE.
 - Build/CI: NOT RUN.
 - Windows/Linux path tests: for FILE-001, run in CI for PR #293 on Windows, macOS and Ubuntu (green); for the FILE-007 device names, run in CI for PR #308 on Windows, macOS and Ubuntu (green); for the FILE-007 letter case, NOT RUN (the limit is accepted).
@@ -140,8 +142,8 @@
 
 - P0: none established.
 - P1: FILE-001 (AV-011), VERIFIED CLOSED by PR #293.
-- P2: FILE-002 (AV-010), FILE-003, FILE-004, FILE-005 and FILE-006, OPEN; FILE-007 (residual of AV-011), VERIFIED CLOSED by PR #308 for the device names and ACCEPTED RISK (D-96) for letter case.
-- Recommended next task: queue-path containment is done (FILE-001); FILE-007 is done (device names rejected, letter case accepted); then address bounded gate lifetime, atomic-write cleanup, timeout validation and poison-file quarantine before accepting the File driver as safe for untrusted or multi-tenant queue names.
+- P2: FILE-002 (AV-010), FILE-003 and FILE-005, OPEN; FILE-004 (the File part of AV-012, which stays open for Database and Redis) and FILE-006, VERIFIED CLOSED by PR #311; FILE-007 (residual of AV-011), VERIFIED CLOSED by PR #308 for the device names and ACCEPTED RISK (D-96) for letter case.
+- Recommended next task: queue-path containment is done (FILE-001); FILE-007 (device names rejected, letter case accepted), FILE-004 (timeout validation) and FILE-006 (`SizeAsync` cancellation) are done; then address bounded gate lifetime, atomic-write cleanup and poison-file quarantine before accepting the File driver as safe for untrusted or multi-tenant queue names.
 
 ## Plain-language explanation
 
@@ -188,8 +190,8 @@
 - **A realistic example:** Worker A reserves a job with a zero timeout. Worker B polls immediately and sees A's reservation as expired, then runs the same job.
 - **What we checked:** The constructor in `src/Naravel.Queue.File/FileQueueDriver.cs`, around lines 24–27, accepts the value; `IsExpired` around lines 156–160 uses it; DI passes `VisibilityTimeoutSeconds` through without range validation.
 - **Why that proves the risk:** A non-positive time span makes the expiry condition true at or immediately after reservation.
-- **What is not yet proven here:** The source path is confirmed; no duplicate-delivery runtime reproduction was run.
-- **Safe outcome and proof:** Reject zero and negative values in both the public constructor and DI configuration. Test invalid values and prove two workers cannot take the same live reservation when a positive timeout is configured.
+- **What is proven, and what is not:** After the change of PR #311, a test run in CI shows that the constructor and the configuration refuse zero and negative values and that small positive values and the default still work. Still not proven here: no duplicate-delivery run with two real workers was done, before or after the change.
+- **Safe outcome and proof:** A zero or negative timeout is refused in both the public constructor and the DI configuration, and a positive one behaves as before. The Database and Redis drivers still need the same check.
 
 ### FILE-005 — A damaged queue file can be ignored forever or stop the queue from being read
 
@@ -206,5 +208,5 @@
 - **A realistic example:** A large queue folder is being counted when the application shuts down. The method continues counting even though the caller has cancelled.
 - **What we checked:** `SizeAsync` in `src/Naravel.Queue.File/FileQueueDriver.cs`, around lines 269–273, uses synchronous file enumeration without checking the token.
 - **Why that proves the gap:** There is no cancellation check before directory access and the enumeration itself is not made cooperative.
-- **What is not yet proven here:** No large-directory cancellation test was run.
-- **Safe outcome and proof:** A pre-cancelled call must stop before accessing the directory; long enumeration should check cancellation between bounded steps where possible. Test both pre-cancellation and cancellation during a large scan, and document any file-system operation that cannot be interrupted once started.
+- **What is proven, and what is not:** After the change of PR #311, a test run in CI shows that a call with a token that is already cancelled stops before it touches the directory, and that a live token still gets the exact size. Still not proven here: no cancellation during a large scan was tested.
+- **Safe outcome and proof:** A pre-cancelled call stops before accessing the directory, and a long listing checks the token after each file. A listing that has begun cannot be interrupted by the operating system, and the docs say so.
