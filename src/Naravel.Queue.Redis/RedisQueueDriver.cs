@@ -35,13 +35,20 @@ public class RedisQueueDriver : IQueueDriver, IDisposable
 
     /// <summary>Creates the driver.</summary>
     /// <param name="mux">The Redis connection.</param>
-    /// <param name="visibilityTimeout">How long a popped message stays reserved before it can be reclaimed.</param>
+    /// <param name="visibilityTimeout">How long a popped message stays reserved before it can be reclaimed. It must be greater than zero: with zero or a negative value
+    /// every reservation would count as expired at once, and a second worker could take a message while the first still runs it.</param>
     /// <param name="ownsConnection">
     /// <see langword="true"/> when <see cref="Dispose"/> should dispose <paramref name="mux"/>; <see langword="false"/> (the default, as before: the driver never closed the connection it was
     /// given) when the caller or <c>Naravel.Redis</c> owns it. The leak of a connection the driver opened itself is fixed because <c>AddRedisDriver</c> now borrows it from <c>Naravel.Redis</c>.
     /// </param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="visibilityTimeout"/> is zero or negative. No driver is created, so <paramref name="mux"/> is not
+    /// disposed even when <paramref name="ownsConnection"/> is <see langword="true"/>; the caller still owns it.</exception>
     public RedisQueueDriver(IConnectionMultiplexer mux, TimeSpan visibilityTimeout, bool ownsConnection = false)
     {
+        if (visibilityTimeout <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(
+                nameof(visibilityTimeout), visibilityTimeout, "The visibility timeout must be greater than zero.");
+
         _ownsConnection = ownsConnection;
         _mux = mux;
         _visibilityTimeout = visibilityTimeout;
@@ -262,18 +269,27 @@ public static class ServiceCollectionExtensions
 {
     /// <summary>
     /// Registers the "redis" driver for every configured store whose "Driver" is "redis". A store names a shared connection with "Connection" (a <c>Redis:Stores</c> name) or, as before,
-    /// carries its own "ConnectionString"; equal strings share one connection, which <c>Naravel.Redis</c> owns and disposes. Reads "VisibilityTimeoutSeconds" (default 300).
+    /// carries its own "ConnectionString"; equal strings share one connection, which <c>Naravel.Redis</c> owns and disposes. Reads "VisibilityTimeoutSeconds" (default 300), which must be greater than zero.
     /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the store is first resolved (not when this method runs) if its "VisibilityTimeoutSeconds" is zero, negative or NaN: the message names the store
+    /// and the setting, and no connection is opened for it. A value that is not a number at all still throws <see cref="FormatException"/>, as before.
+    /// </exception>
     public static IServiceCollection AddRedisDriver(this IServiceCollection services, IConfiguration configuration, string sectionName = "NaravelQueue")
     {
         services.AddNaravelRedis(configuration);
         return services.AddQueueDriver(configuration, "redis", (provider, store) =>
         {
+            var configured = store.GetOrDefault("VisibilityTimeoutSeconds", "300");
+            var visibilitySeconds = double.Parse(configured);
+            if (!(visibilitySeconds > 0)) // written this way so that NaN is refused too; checked before a connection is opened
+                throw new InvalidOperationException(
+                    $"The Redis queue store '{store.Key}' has VisibilityTimeoutSeconds '{configured}', which is not greater than zero. " +
+                    "Set it above the longest job; the default is 300.");
             var redis = provider.GetRequiredService<RedisManager>();
             var connection = store["Connection"] is { Length: > 0 } name
                 ? redis.Connection(name)
                 : redis.FromConnectionString(store.GetRequired("ConnectionString"));
-            var visibilitySeconds = double.Parse(store.GetOrDefault("VisibilityTimeoutSeconds", "300"));
             return new RedisQueueDriver(connection.Multiplexer, TimeSpan.FromSeconds(visibilitySeconds), ownsConnection: false);
         }, sectionName);
     }

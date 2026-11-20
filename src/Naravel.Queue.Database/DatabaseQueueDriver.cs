@@ -21,10 +21,19 @@ public class DatabaseQueueDriver<[DynamicallyAccessedMembers(DynamicallyAccessed
     public TimeSpan? VisibilityTimeout => _visibilityTimeout;
 
     /// <summary>Initializes the driver with a context factory and an optional visibility timeout (default five minutes).</summary>
+    /// <param name="contextFactory">Creates the context for each operation.</param>
+    /// <param name="visibilityTimeout">How long a popped job stays reserved before it can be reclaimed; five minutes when omitted. It must be greater than zero:
+    /// with zero or a negative value every reservation would count as stale at once, and a second worker could take a job while the first still runs it.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="visibilityTimeout"/> is zero or negative.</exception>
     public DatabaseQueueDriver(IDbContextFactory<TContext> contextFactory, TimeSpan? visibilityTimeout = null)
     {
+        var timeout = visibilityTimeout ?? TimeSpan.FromMinutes(5);
+        if (timeout <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(
+                nameof(visibilityTimeout), visibilityTimeout, "The visibility timeout must be greater than zero.");
+
         _contextFactory = contextFactory;
-        _visibilityTimeout = visibilityTimeout ?? TimeSpan.FromMinutes(5);
+        _visibilityTimeout = timeout;
     }
 
     /// <inheritdoc />

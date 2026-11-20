@@ -117,6 +117,8 @@ resolved (for example by `Connection(...)`) and not when `AddFileDriver` runs; n
 folder in one synchronous pass: a token that is already cancelled returns a cancelled task before any folder is made, and a token cancelled during
 the listing stops it after the file being read, although the operating system cannot interrupt a listing that has begun.
 
+**Visibility timeout with the `database` and `redis` drivers.** The same rule applies: `VisibilityTimeoutSeconds` (default 300) must be greater than zero, because with zero or a negative value every reservation would count as expired at once. `new DatabaseQueueDriver<TContext>(factory, timeout)` and `new RedisQueueDriver(connection, timeout)` throw `ArgumentOutOfRangeException` (`ParamName` `visibilityTimeout`) for such a timeout, and a store whose `VisibilityTimeoutSeconds` is zero, negative or NaN throws `InvalidOperationException`, naming the store and the setting, when the store is first resolved and not when `AddDatabaseDriver` or `AddRedisDriver` runs. The Redis registration checks the setting before it opens a connection. Zero never means "turn reclaiming off"; a value that is not a number at all still throws `FormatException`.
+
 ## The same job on Redis, with worker settings
 
 The quickstart job again, with the Redis driver and explicit worker settings.

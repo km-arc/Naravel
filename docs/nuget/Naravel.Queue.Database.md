@@ -53,7 +53,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 }
 ```
 
-Nothing creates the tables on its own: add an EF Core migration and apply it, which is the production path for every provider. `VisibilityTimeoutSeconds` (default 300) is how long a job may stay reserved by a worker that has disappeared before it goes back to the queue. Every store that uses the `database` driver on the same context type shares one table. Failed jobs are kept in memory unless you add `builder.Services.AddDatabaseFailedJobStore<AppDbContext>()`.
+Nothing creates the tables on its own: add an EF Core migration and apply it, which is the production path for every provider. `VisibilityTimeoutSeconds` (default 300) is how long a job may stay reserved by a worker that has disappeared before it goes back to the queue. It must be greater than zero: a store with zero, a negative number or NaN throws an `InvalidOperationException` that names the store, when the store is first resolved, and `new DatabaseQueueDriver<TContext>(factory, timeout)` throws `ArgumentOutOfRangeException` for the same values. Every store that uses the `database` driver on the same context type shares one table. Failed jobs are kept in memory unless you add `builder.Services.AddDatabaseFailedJobStore<AppDbContext>()`.
 
 ## Related packages
 
