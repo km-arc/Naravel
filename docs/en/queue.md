@@ -109,6 +109,14 @@ before any folder is made; the driver never alters a name, so no name can leave 
 The device names are rejected on every host, so a name that works on Linux also works on Windows. A file system that ignores letter case (Windows, and macOS by default) still treats `Emails` and `emails` as one
 folder, so choose queue names that differ by more than letter case.
 
+**Visibility timeout and `SizeAsync` with the `file` driver.** `VisibilityTimeoutSeconds` (default 300) must be greater than zero: with zero
+or a negative value every reservation would count as expired at once, and a second worker could take a job while the first still runs it.
+`new FileQueueDriver(path, timeout)` throws `ArgumentOutOfRangeException` (`ParamName` `visibilityTimeout`) for such a timeout, and a store whose
+`VisibilityTimeoutSeconds` is zero, negative or NaN throws `InvalidOperationException`, naming the store and the setting, when the store is first
+resolved (for example by `Connection(...)`) and not when `AddFileDriver` runs; no folder is made in either case. `SizeAsync` lists the pending
+folder in one synchronous pass: a token that is already cancelled returns a cancelled task before any folder is made, and a token cancelled during
+the listing stops it after the file being read, although the operating system cannot interrupt a listing that has begun.
+
 ## The same job on Redis, with worker settings
 
 The quickstart job again, with the Redis driver and explicit worker settings.

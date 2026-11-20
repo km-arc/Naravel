@@ -44,7 +44,7 @@ builder.Services.AddQueue(builder.Configuration).AddFileDriver(builder.Configura
 builder.Services.AddQueueWorker();
 ```
 
-`Path` is the directory that holds the store's JSON files; it defaults to `storage/netqueue/<store name>`. `VisibilityTimeoutSeconds` (default 300) is how long a job may stay reserved by a worker that has disappeared before it goes back to the queue, so set it above your longest job. Failed jobs are kept in memory unless you register a persistent failed-job store.
+`Path` is the directory that holds the store's JSON files; it defaults to `storage/netqueue/<store name>`. `VisibilityTimeoutSeconds` (default 300) is how long a job may stay reserved by a worker that has disappeared before it goes back to the queue, so set it above your longest job. It must be greater than zero: a store with zero, a negative number or NaN throws an `InvalidOperationException` that names the store, when the store is first resolved, and `new FileQueueDriver(path, timeout)` throws `ArgumentOutOfRangeException` for the same values. Failed jobs are kept in memory unless you register a persistent failed-job store.
 
 ## Related packages
 

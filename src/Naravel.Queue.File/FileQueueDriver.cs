@@ -41,11 +41,18 @@ public class FileQueueDriver : IQueueDriver
 
     /// <summary>Creates a driver that keeps its queues as files under <paramref name="basePath"/> (created if missing).</summary>
     /// <param name="basePath">The directory that holds the queue folders.</param>
-    /// <param name="visibilityTimeout">The reservation timeout; five minutes when omitted.</param>
+    /// <param name="visibilityTimeout">The reservation timeout; five minutes when omitted. It must be greater than zero: with zero or a
+    /// negative value every reservation would count as expired at once, and a second worker could take a job while the first still runs it.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="visibilityTimeout"/> is zero or negative. Nothing is created on disk.</exception>
     public FileQueueDriver(string basePath, TimeSpan? visibilityTimeout = null)
     {
+        var timeout = visibilityTimeout ?? TimeSpan.FromMinutes(5);
+        if (timeout <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(
+                nameof(visibilityTimeout), visibilityTimeout, "The visibility timeout must be greater than zero.");
+
         _basePath = basePath;
-        _visibilityTimeout = visibilityTimeout ?? TimeSpan.FromMinutes(5);
+        _visibilityTimeout = timeout;
         Directory.CreateDirectory(_basePath);
     }
 
@@ -313,9 +320,25 @@ public class FileQueueDriver : IQueueDriver
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// The folder is listed synchronously, and the operating system cannot interrupt a listing that has begun. A token that is already
+    /// cancelled returns a cancelled task before any folder is made or read; a token cancelled during the listing is noticed after the
+    /// file that is being read, so a very large folder stops early and no size is returned.
+    /// </remarks>
     public Task<long> SizeAsync(string queue, CancellationToken cancellationToken = default)
     {
-        try { return Task.FromResult((long)Directory.EnumerateFiles(Dir(queue, "pending"), "*.json").Count()); }
+        if (cancellationToken.IsCancellationRequested) return Task.FromCanceled<long>(cancellationToken);
+
+        try
+        {
+            long count = 0;
+            foreach (var _ in Directory.EnumerateFiles(Dir(queue, "pending"), "*.json"))
+            {
+                if (cancellationToken.IsCancellationRequested) return Task.FromCanceled<long>(cancellationToken);
+                count++;
+            }
+            return Task.FromResult(count);
+        }
         catch (DirectoryNotFoundException) { return Task.FromResult(0L); }
     }
 
