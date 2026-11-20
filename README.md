@@ -124,6 +124,12 @@ Not a package, on purpose: sessions, password hashing and route authorization ar
 
 [ROADMAP.md](ROADMAP.md) is the source of truth for module and roadmap status. Build and test results are reported by [GitHub Actions](https://github.com/km-arc/Naravel/actions/workflows/ci.yml).
 
+## How Naravel is built
+
+An AI assistant writes much of this repository. Claude, Anthropic's model, works as an engineer under the rules in [AGENTS.md](AGENTS.md), and `git log` shows which commits it wrote, as the author or in a `Co-Authored-By: Claude` trailer. A human maintainer sets the direction, records each design decision as a [PDR](docs/pdr/en) and merges every change. Changes reach `main` through pull requests that must pass the `ci-ok` check ([BRANCH-PROTECTION.md](.github/BRANCH-PROTECTION.md)).
+
+The rules for the assistant are written down in AGENTS.md: documentation is checked against the source, a test is never weakened to get a green build, and a review or a test run is claimed only if it happened. CI runs scripts that check parts of this, such as documentation links, package versions and template pins. If you find a place where it fails, please [open an issue](https://github.com/km-arc/Naravel/issues).
+
 ## Documentation
 
 | | |
