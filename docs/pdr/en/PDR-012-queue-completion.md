@@ -119,7 +119,7 @@ See [report 08](../../audits/package-architecture/reports/08-Naravel.Queue.File.
 
 ## Architecture review veto — Database queue contracts (2026-11-08)
 
-- **AV-012 — Positive reservation visibility:** Database, File and Redis drivers accept non-positive visibility timeouts; these values make an active reservation immediately eligible for reclaim. Reclaim-capable drivers must reject zero/negative timeouts at constructor and configuration boundaries. See [the veto register](../../audits/package-architecture/ARCHITECTURE-VETOES.md), findings DBQ-001 / FILE-004 and owner decision AD-017. The File driver was fixed on 2026-11-20 by PR #311; the Database and Redis drivers are still open.
+- **AV-012 — Positive reservation visibility:** Database, File and Redis drivers accept non-positive visibility timeouts; these values make an active reservation immediately eligible for reclaim. Reclaim-capable drivers must reject zero/negative timeouts at constructor and configuration boundaries. See [the veto register](../../audits/package-architecture/ARCHITECTURE-VETOES.md), findings DBQ-001 / FILE-004 and owner decision AD-017. AV-012 was fixed on 2026-11-20: the File driver by PR #311, and the Database and Redis drivers by PR #313.
 - **DBQ-002 — SizeAsync semantics:** the Database driver counts reserved rows even though `IQueueDriver.SizeAsync` is documented as ready plus delayed pending work. Align the provider with the existing contract, or obtain an explicit owner decision to redefine the contract.
 - **DBQ-003 — Transactional enqueue connection:** the current `DatabaseJobEnqueuer` uses the normal message factory, which persists the QueueManager default or caller-selected Connection. PDR-023 says Connection is ignored for transactional enqueue; the actual behavior can route chain follow-ups and failed-job retries to another backend. The owner must decide the enqueuer's explicit Database connection identity under AD-015 before changing the API.
 - **SQLite quickstart:** the package README's SQLite example must show the UTC-ticks converter required by the shipped SQLite schema; see DBQ-004.
@@ -131,7 +131,7 @@ No runtime code or tests were changed by this architecture review.
 ## Redis Queue architecture review follow-up — 2026-11-08
 
 - **AV-009 / RQR-004:** the Redis batch repository writes the batch hash and callback-recovery index in two separate commands. Failure after the hash write leaves a batch that startup recovery cannot enumerate.
-- **AV-012 / RQR-001:** RedisQueueDriver does not reject a zero/negative visibility timeout; this makes a live reservation immediately eligible for reclaim.
+- **AV-012 / RQR-001:** RedisQueueDriver does not reject a zero/negative visibility timeout; this makes a live reservation immediately eligible for reclaim. Fixed on 2026-11-20 by PR #313.
 - **RQR-002:** RedisQueueDriver.SizeAsync does not inspect its cancellation token before its eleven Redis count operations.
 - **AD-018:** FailScript writes a per-queue failed list that has no public read/cleanup path, in addition to the optional RedisFailedJobStore. Confirm whether this is an intended administrative DLQ.
 - **AD-019:** RedisBatchRepository's batch index has no retention/removal lifecycle and is scanned in full on worker startup.

@@ -26,7 +26,8 @@
 
 ### [P2] DBQ-001 — Non-positive visibility timeout can cause immediate concurrent redelivery
 
-- Remediation state: OPEN.
+- Remediation state: VERIFIED CLOSED — fixed on 2026-11-20 by PR #313 (merge `b491ccc`); CI [run 44731949132](https://github.com/km-arc/Naravel/actions/runs/44731949132) on the PR branch (head `1c1c461`) is green on Windows, macOS and Ubuntu, and CI [run 44733452713](https://github.com/km-arc/Naravel/actions/runs/44733452713) on `main` at the merge (`b491ccc`) is green too.
+- Resolution: the `DatabaseQueueDriver<TContext>` constructor throws `ArgumentOutOfRangeException` (`ParamName` `visibilityTimeout`) for a timeout of zero or less and keeps the five-minute default. The `AddDatabaseDriver` registration throws `InvalidOperationException`, naming the store and `VisibilityTimeoutSeconds` and quoting the value, for zero, a negative number or NaN; because the Manager runs the factory lazily, this happens when the store is first resolved and not when `AddDatabaseDriver` runs. A value that is not a number still throws `FormatException`. `DatabaseVisibilityTimeoutTests` (in `Naravel.Queue.Providers.Tests`, no database server needed) covers zero and negative values, the smallest positive value, the default and the registration for several values. `PublicAPI` files are unchanged; `docs/en/queue.md`, `docs/nuget/Naravel.Queue.Database.md` and the `Fixed` entry of `CHANGELOG.md` record the behaviour change of a released 0.x package. Owner decision AD-017 was confirmed on 2026-11-20. NOT RUN: a two-worker test of a live reservation, the independent review and the mutation testing. The evidence below describes the baseline.
 - Architecture disposition: VETO AV-012 — every reclaim-capable driver must reject non-positive visibility timeouts.
 - Evidence status: CONFIRMED BY SOURCE-LEVEL CONTROL-FLOW ANALYSIS; duplicate-delivery reproduction NOT RUN.
 - Evidence: `src/Naravel.Queue.Database/DatabaseQueueDriver.cs:24-27` assigns the supplied visibility timeout (or a five-minute default) without validating that it is positive. In `PopAsync` at lines 42-50, `staleBefore` is calculated as `now - _visibilityTimeout` and every reserved row with `ReservedAt < staleBefore` is reset to unreserved and has Attempts incremented. DI configuration at `src/Naravel.Queue.Database/ServiceCollectionExtensions.cs:64-65` parses `VisibilityTimeoutSeconds` and passes `TimeSpan.FromSeconds` directly to the constructor without a range check.
@@ -110,10 +111,10 @@
 ## Risk summary and next action
 
 - P1: none established in this package review.
-- P2: DBQ-001 (non-positive visibility timeout); DBQ-002 (SizeAsync includes reserved rows); DBQ-003 (transactional enqueue misroutes chains/retries through a preserved Connection).
+- P2: DBQ-001 (non-positive visibility timeout, VERIFIED CLOSED by PR #313); DBQ-002 (SizeAsync includes reserved rows); DBQ-003 (transactional enqueue misroutes chains/retries through a preserved Connection).
 - DOC: DBQ-004 (SQLite README omits UTC-ticks converter).
 - OBS / owner decision: DBQ-005 (PDR schema deliverable scope and implementation record).
-- Recommended next task: obtain AD-015, AD-016 and AD-017 before changing the enqueuer API or PDR scope; add regressions for invalid timeout, reserved SizeAsync and real-factory transactional routing; correct the SQLite README converter example. Do not change runtime code or add provider-specific DDL during this audit pass.
+- Recommended next task: obtain AD-015 and AD-016 before changing the enqueuer API or PDR scope (AD-017 is decided and DBQ-001 is fixed); add regressions for reserved SizeAsync and real-factory transactional routing; correct the SQLite README converter example. Do not change runtime code or add provider-specific DDL during this audit pass.
 
 ## Plain-language explanation
 
@@ -123,8 +124,8 @@
 - **A realistic example:** Worker A reserves a row with `VisibilityTimeoutSeconds = 0`. Worker B polls moments later and clears A's reservation, then takes the same job.
 - **What we checked:** `src/Naravel.Queue.Database/DatabaseQueueDriver.cs`, constructor around lines 24–27 and `PopAsync` around lines 42–50; DI parsing is in `ServiceCollectionExtensions.cs` around lines 64–65.
 - **Why that proves the risk:** The timeout is used directly to calculate the stale-reservation cutoff, so a non-positive value can make a new reservation satisfy the expiry test.
-- **What is not yet proven here:** The control flow was inspected; a two-worker duplicate-delivery reproduction was not run.
-- **Safe outcome and proof:** Reject zero and negative values before registering the driver. Test constructor and configuration validation, then verify a positive short timeout reclaims only after its deadline.
+- **What is proven, and what is not:** Since the change of PR #313, a test run in CI shows that the constructor and the configuration refuse zero and negative values and that the smallest positive value and the default still work. Still not proven here: no two-worker duplicate-delivery run was done, before or after the change.
+- **Safe outcome and proof:** A zero or negative timeout is refused in both the public constructor and the DI configuration, and a positive one behaves as before.
 
 ### DBQ-002 — SizeAsync counts jobs that are already reserved by a worker
 

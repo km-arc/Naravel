@@ -17,7 +17,7 @@ A prior PDR approval is not a waiver from this architecture review. Items in the
 
 ## Architecture vetoes
 
-The following are vetoed as target architecture. AV-002 is a P1 release blocker (AV-011 was one and was fixed on 2026-11-15 and 2026-11-19, and AV-001 was one and was fixed on 2026-11-17 and 2026-11-18); AV-003 through AV-005, AV-007 through AV-010 and AV-012 through AV-019 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable. AV-006 was superseded by an owner decision on 2026-11-10 (D-84).
+The following are vetoed as target architecture. AV-002 is a P1 release blocker (AV-011 was one and was fixed on 2026-11-15 and 2026-11-19, and AV-001 was one and was fixed on 2026-11-17 and 2026-11-18); AV-003 through AV-005, AV-007 through AV-010 and AV-013 through AV-019 are mandatory P2 architecture work before the platform can be considered production-grade, reliable and scalable; AV-012 was one and was fixed on 2026-11-20. AV-006 was superseded by an owner decision on 2026-11-10 (D-84).
 
 | Veto ID | Severity | Required architectural outcome | Related findings |
 |---|---:|---|---|
@@ -32,7 +32,7 @@ The following are vetoed as target architecture. AV-002 is a P1 release blocker 
 | AV-009 | P2 | Batch dispatch must recover from partial publication; no planned member may become permanently pending and unreachable. | QUE-001, RQR-004 |
 | AV-010 | P2 | Process-local queue coordination state must have a bounded lifecycle without removing active gates. | MEM-001, FILE-002 |
 | AV-011 | P1 | FIXED 2026-11-15 and 2026-11-19 (PR #293 with owner decision AD-014 option A, and PR #308 for FILE-007); the letter-case limit is ACCEPTED RISK (D-96, 2026-11-18). Original outcome: File queue names must map injectively beneath the configured root; no traversal or logical queue aliasing. | FILE-001, FILE-007 |
-| AV-012 | P2 | PARTLY FIXED 2026-11-20 (File queue only, PR #311; DBQ-001 and RQR-001 are still OPEN, and owner decision AD-017 still waits for the owner). Original outcome: Reclaim-capable queue drivers must reject zero/negative visibility timeouts; a live reservation must not be immediately reclaimable. | DBQ-001, FILE-004, RQR-001 |
+| AV-012 | P2 | FIXED 2026-11-20 (File queue by PR #311, Database and Redis by PR #313; owner decision AD-017 confirmed as "a strictly positive timeout only"). Original outcome: Reclaim-capable queue drivers must reject zero/negative visibility timeouts; a live reservation must not be immediately reclaimable. | DBQ-001, FILE-004, RQR-001 |
 | AV-013 | P2 | Unique-job owner metadata must be bound to the lock lease; a stale owner must never overwrite or remove a newer lease's metadata. | QCO-001 |
 | AV-014 | P2 | JSON-path updates must encode JSON null as the JSON literal `null` on SQLite, MySQL and PostgreSQL; SQL Server keeps its explicit unsupported behaviour. | DBC-001 |
 | AV-015 | P2 | Every insert compiler path, including InsertGetId, must enforce the dialect parameter limit on the final expanded binding count. | DBC-002 |
@@ -130,7 +130,7 @@ Owner decision AD-014 is recorded in [OWNER-DECISIONS.md](OWNER-DECISIONS.md) (o
 
 | Finding | Package | Severity | Summary | State | Evidence |
 |---|---|---:|---|---|---|
-| DBQ-001 | Naravel.Queue.Database | P2 | Zero/negative visibility timeout can reclaim a live reservation immediately | OPEN | [Report](reports/09-Naravel.Queue.Database.md) |
+| DBQ-001 | Naravel.Queue.Database | P2 | Zero/negative visibility timeout can reclaim a live reservation immediately | VERIFIED CLOSED — PR #313 fix (merge `b491ccc`); full CI [run 44731949132](https://github.com/km-arc/Naravel/actions/runs/44731949132) on PR #313 and [run 44733452713](https://github.com/km-arc/Naravel/actions/runs/44733452713) on `main` | [Report](reports/09-Naravel.Queue.Database.md) |
 | DBQ-002 | Naravel.Queue.Database | P2 | SizeAsync counts reserved/in-flight rows despite the ready+delayed contract | OPEN | [Report](reports/09-Naravel.Queue.Database.md) |
 | DBQ-003 | Naravel.Queue.Database | P2 | DatabaseJobEnqueuer persists a non-Database/default Connection contrary to PDR-023, misrouting chain/retry | OPEN — OWNER DECISION | [Report](reports/09-Naravel.Queue.Database.md) |
 | DBQ-004 | Naravel.Queue.Database | DOC | SQLite package quickstart omits the required UTC-ticks converter | OPEN | [Report](reports/09-Naravel.Queue.Database.md) |
@@ -143,7 +143,7 @@ Owner decisions AD-015 and AD-016 are recorded in [OWNER-DECISIONS.md](OWNER-DEC
 
 | Finding | Package | Severity | Summary | State | Evidence |
 |---|---|---:|---|---|---|
-| RQR-001 | Naravel.Queue.Redis | P2 | Non-positive visibility timeout can reclaim an active reservation immediately (AV-012) | OPEN | [Report](reports/10-Naravel.Queue.Redis.md) |
+| RQR-001 | Naravel.Queue.Redis | P2 | Non-positive visibility timeout can reclaim an active reservation immediately (AV-012) | VERIFIED CLOSED — PR #313 fix (merge `b491ccc`); full CI [run 44731949132](https://github.com/km-arc/Naravel/actions/runs/44731949132) on PR #313 and [run 44733452713](https://github.com/km-arc/Naravel/actions/runs/44733452713) on `main` | [Report](reports/10-Naravel.Queue.Redis.md) |
 | RQR-002 | Naravel.Queue.Redis | P2 | SizeAsync ignores its CancellationToken and issues 11 Redis requests | OPEN | [Report](reports/10-Naravel.Queue.Redis.md) |
 | RQR-003 | Naravel.Queue.Redis | OBS | Driver-native failed list has no public inspection or cleanup path; intentional DLQ vs duplicate storage requires owner choice | OPEN — OWNER DECISION | [Report](reports/10-Naravel.Queue.Redis.md) |
 | RQR-004 | Naravel.Queue.Redis | P2 | Batch hash and callback-recovery index are written separately; failure can leave an unreachable batch (AV-009) | OPEN | [Report](reports/10-Naravel.Queue.Redis.md) |
