@@ -11,6 +11,11 @@ public interface ICacheStore
     Task<(bool Found, T? Value)> TryGetAsync<T>(string key, CancellationToken cancellationToken = default);
 
     /// <summary>Stores a value, optionally with a time-to-live.</summary>
+    /// <remarks>
+    /// A <c>null</c> <paramref name="ttl"/> means the value never expires. A <paramref name="ttl"/> of zero or less means the value is already expired:
+    /// nothing is stored and any value that was under the key is removed, in every store. A lifetime worked out as "time until a deadline" therefore
+    /// ends in "not cached" once the deadline has passed, and a configured lifetime of zero switches caching off for that key without an error.
+    /// </remarks>
     Task SetAsync<T>(string key, T value, TimeSpan? ttl, CancellationToken cancellationToken = default);
 
     /// <summary>Removes a value.</summary>

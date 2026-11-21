@@ -54,6 +54,7 @@ public sealed class MemoryCacheStore : ICacheStore, IPrefixFlushableCacheStore
     public Task SetAsync<T>(string key, T value, TimeSpan? ttl, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (ttl is { } lifetime && lifetime <= TimeSpan.Zero) return RemoveAsync(key, cancellationToken); // already expired: store nothing, drop the old value
         var fullKey = BuildKey(key);
         _incrementExpirations.TryRemove(fullKey, out _);
         var entryOptions = new MemoryCacheEntryOptions();

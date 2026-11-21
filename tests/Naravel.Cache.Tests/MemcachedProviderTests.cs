@@ -38,6 +38,22 @@ public sealed class MemcachedProviderTests
         proxy.LastExpiration.Should().Be(TimeSpan.Zero);
     }
 
+    [Theory]
+    [InlineData(0L)]
+    [InlineData(-1L)]
+    [InlineData(-300_000L)]
+    public async Task A_ttl_of_zero_or_less_removes_the_key_and_never_sets_it_because_memcached_reads_zero_as_no_expiry(long milliseconds)
+    {
+        var client = DispatchProxy.Create<IMemcachedClient, MemcachedClientProxy>();
+        var proxy = (MemcachedClientProxy)(object)client;
+        var store = new MemcachedCacheStore("memcached", client, "app");
+
+        await store.SetAsync("k", "value", TimeSpan.FromMilliseconds(milliseconds));
+
+        proxy.SetCalls.Should().Be(0);
+        proxy.LastRemoveKey.Should().Be("app:k");
+    }
+
     [Fact]
     public async Task Memcached_ttl_increment_creates_the_bucket_with_expiration()
     {
@@ -101,11 +117,14 @@ public sealed class MemcachedProviderTests
         public bool AddResult { get; set; } = true;
         public TimeSpan? LastIncrementExpiration { get; private set; }
         public int FlushAllCalls { get; private set; }
+        public int SetCalls { get; private set; }
+        public string? LastRemoveKey { get; private set; }
 
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
             if (targetMethod?.Name == "SetAsync")
             {
+                SetCalls++;
                 LastKey = args?[0]?.ToString();
                 LastExpiration = args is { Length: > 2 } && args[2] is TimeSpan expiration ? expiration : null;
                 return Task.FromResult(true);
@@ -134,7 +153,11 @@ public sealed class MemcachedProviderTests
                 return args![1];                                   // the default value: the key did not exist any more
             }
             if (targetMethod?.Name == "GetValueAsync") return Task.FromResult(ReadValue);
-            if (targetMethod?.Name == "RemoveAsync") return Task.FromResult(true);
+            if (targetMethod?.Name == "RemoveAsync")
+            {
+                LastRemoveKey = args?[0]?.ToString();
+                return Task.FromResult(true);
+            }
             if (targetMethod?.Name == "FlushAllAsync")
             {
                 FlushAllCalls++;

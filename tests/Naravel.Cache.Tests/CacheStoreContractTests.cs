@@ -41,6 +41,21 @@ public abstract class CacheStoreContractTests
         (await store.IncrementAsync(expiringCounterKey, 1, ttl)).Should().Be(18);
         await Task.Delay(TimeSpan.FromMilliseconds(1600));
         (await store.ExistsAsync(expiringCounterKey)).Should().BeFalse("later increments must not extend the original window");
+
+        // AD-001 (option A): a ttl of zero or less means "already expired". Nothing is stored and the old value goes too; only null never expires.
+        var zeroKey = prefix + "zero-ttl";
+        await store.SetAsync(zeroKey, "old", TimeSpan.FromMinutes(1));
+        await store.SetAsync(zeroKey, "new", TimeSpan.Zero);
+        (await store.ExistsAsync(zeroKey)).Should().BeFalse("a ttl of zero removes the key, together with the value that was under it");
+
+        var negativeKey = prefix + "negative-ttl";
+        await store.SetAsync(negativeKey, "new", TimeSpan.FromSeconds(-5));
+        (await store.ExistsAsync(negativeKey)).Should().BeFalse("a negative ttl stores nothing");
+
+        var foreverKey = prefix + "no-ttl";
+        await store.SetAsync(foreverKey, "kept", null);
+        (await store.TryGetAsync<string>(foreverKey)).Should().Be((true, "kept"), "only null means no expiry");
+        await store.RemoveAsync(foreverKey);
     }
 }
 

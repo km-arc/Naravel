@@ -105,6 +105,12 @@ public sealed class RedisCacheStore : ICacheStore, IPrefixFlushableCacheStore, I
     public async Task SetAsync<T>(string key, T value, TimeSpan? ttl, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (ttl is { } lifetime && lifetime <= TimeSpan.Zero)
+        {
+            await _database.KeyDeleteAsync(Key(key)).ConfigureAwait(false); // already expired: store nothing, drop the old value
+            return;
+        }
+
         var serialized = JsonSerializer.Serialize(value, TypeInfo<T>());
         var expiration = ttl.HasValue ? new Expiration(ttl.Value) : Expiration.Default;
         await _database.StringSetAsync(Key(key), serialized, expiration).ConfigureAwait(false);

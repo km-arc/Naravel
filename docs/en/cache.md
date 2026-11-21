@@ -121,7 +121,7 @@ Every operation, and what it returns:
 | Method | Returns | What it does |
 |---|---|---|
 | `TryGetAsync<T>(key, ct)` | `(bool Found, T? Value)` | Reads a value. `Found` tells a missing key apart from a stored `default`. |
-| `SetAsync<T>(key, value, ttl, ct)` | `Task` | Stores a value. `ttl: null` means no expiry. |
+| `SetAsync<T>(key, value, ttl, ct)` | `Task` | Stores a value. `ttl: null` means no expiry. A `ttl` of zero or less means the value is already expired: nothing is stored and any value under the key is removed. |
 | `ExistsAsync(key, ct)` | `bool` | Whether a live value is stored. |
 | `RemoveAsync(key, ct)` | `bool` | Deletes a key; `true` when it existed. |
 | `PullAsync<T>(key, ct)` | `T?` | Reads and deletes in one call; `default` when the key is missing. |
@@ -154,7 +154,7 @@ Three things to know before you rely on these:
 
 - **`RememberAsync` does not lock.** If two requests miss the same key at the same moment, both run the factory and the last write wins. For an expensive or side-effecting factory, wrap the call in a [lock](#locks).
 - **Counters that should expire need the `ttl` overload.** On the Memory store the plain `IncrementAsync(key, by, ct)` keeps the counter with no expiry.
-- **Pass a positive TTL, or `null` for none.** `CacheFake` throws `ArgumentOutOfRangeException` for a TTL of zero or less, so a test catches the mistake early.
+- **A TTL of zero or less removes the key; only `null` means no expiry.** `SetAsync` with such a TTL stores nothing and removes the value that was under the key, in every store and in `CacheFake`, so a lifetime worked out as "time until a deadline" ends in "not cached" once the deadline has passed. A configured TTL of zero switches caching off for that key without an error, so check configured values where you read them. The `IncrementAsync` overload with a `ttl` is different: it still throws for a `ttl` of zero or less.
 
 
 ## Select a store

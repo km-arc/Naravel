@@ -37,6 +37,22 @@ public sealed class RedisProviderTests
         databaseProxy.DeletedKeys.Should().Equal("app[one]:owned");
     }
 
+    [Theory]
+    [InlineData(0L)]
+    [InlineData(-1L)]
+    [InlineData(-300_000L)]
+    public async Task Redis_set_with_a_ttl_of_zero_or_less_deletes_the_key_and_never_sets_it(long milliseconds)
+    {
+        var multiplexer = DispatchProxy.Create<IConnectionMultiplexer, RedisFlushMultiplexerProxy>();
+        var database = DispatchProxy.Create<IDatabase, RedisFlushDatabaseProxy>();   // it throws for a StringSet, which this must not send
+        ((RedisFlushMultiplexerProxy)(object)multiplexer).Database = database;
+        using var store = new RedisCacheStore("one", multiplexer, "app");
+
+        await store.SetAsync("k", "value", TimeSpan.FromMilliseconds(milliseconds));
+
+        ((RedisFlushDatabaseProxy)(object)database).DeletedKeys.Should().Equal("app:k");
+    }
+
     [Fact]
     public async Task Redis_lock_uses_atomic_token_checked_release_script()
     {
