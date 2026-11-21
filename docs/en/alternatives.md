@@ -11,7 +11,7 @@ The other modules (events, mail, notifications, database, pagination, filesystem
 
 ## Background jobs
 
-**Naravel.Queue** ([guide](queue.md)) dispatches job classes with a delay, a priority, retries with backoff, chains and batches, and runs them in hosted workers. The drivers are memory, file, Redis, database (any EF Core provider), RabbitMQ and Kafka. Delivery is at-least-once: a job can run more than once, so jobs must be idempotent. Kafka cannot delay a job. Batch progress is kept in memory unless you add a database or Redis batch repository. Naravel ships no dashboard. Every module has a fake for tests (`QueueFake` here).
+**Naravel.Queue** ([guide](queue.md)) dispatches job classes with a delay, a priority, retries with backoff, chains and batches, and runs them in hosted workers. The drivers are memory, file, Redis, database (any EF Core provider), RabbitMQ and Kafka. Delivery is at-least-once: a job can run more than once, so jobs must be idempotent. One exception is open on RabbitMQ: a retry or a failed job is acknowledged before its replacement message is published, so a stop between the two loses the job ([audit finding RQM-001](../audits/package-architecture/reports/11-Naravel.Queue.RabbitMQ.md)). Kafka cannot delay a job. Batch progress is kept in memory unless you add a database or Redis batch repository. Naravel ships no dashboard. Every module has a fake for tests (`QueueFake` here).
 
 **Hangfire** describes itself as an "incredibly easy way to perform fire-and-forget, delayed and recurring jobs in .NET applications", backed by Redis, SQL Server, SQL Azure and MSMQ, and its README shows a dashboard (`app.UseHangfireDashboard()`). It is licensed under the LGPL.
 
@@ -25,7 +25,7 @@ The other modules (events, mail, notifications, database, pagination, filesystem
 
 ## Scheduling
 
-**Naravel.Scheduling** ([guide](scheduling.md)) runs named tasks inside your host. A hosted service wakes once a minute and starts what is due. Frequencies are fluent (`EveryFiveMinutes`, `DailyAt`) or a five-field cron expression; seconds are not supported. `WithoutOverlapping` and `OnOneServer` work across instances through the locks of `Naravel.Cache`. Minutes missed while the host was stopped are skipped, not replayed, and the last run of a task is not stored anywhere.
+**Naravel.Scheduling** ([guide](scheduling.md)) runs named tasks inside your host. A hosted service wakes once a minute and starts what is due. Frequencies are fluent (`EveryFiveMinutes`, `DailyAt`) or a five-field cron expression; seconds are not supported. `WithoutOverlapping` and `OnOneServer` work across instances through the locks of `Naravel.Cache`, when the cache store is shared (for example Redis). The locks are leases that expire (the overlap lock after one hour by default), so a task that runs longer than its lease can overlap with the next run. Minutes missed while the host was stopped are skipped, not replayed, and the last run of a task is not stored anywhere.
 
 **Quartz.NET** keeps scheduling data either in memory, where it is lost when the application ends or crashes, or in a database through ADO.NET (SQL Server, PostgreSQL, MySQL, Oracle, Firebird and SQLite among others). Its clustering lets several scheduler instances share one database, and a node that dies can have its jobs recovered by the others when the job asks for it.
 
@@ -43,7 +43,7 @@ The other modules (events, mail, notifications, database, pagination, filesystem
 
 ## Cache
 
-**Naravel.Cache** ([guide](cache.md)) gives named stores (memory by default, with Redis and Memcached packages), scopes (`ForUser` and `Scope`), tag invalidation, token-owned locks and a rate limiter. It is a single-level cache: a store is the memory, Redis or Memcached store you name, with no second tier in front of it. `RememberAsync` does not lock: two requests that miss the same key at the same moment both run the factory and the last write wins. For an expensive factory, wrap the call in a Naravel lock.
+**Naravel.Cache** ([guide](cache.md)) gives named stores (memory by default, with Redis and Memcached packages), scopes (`ForUser` and `Scope`), tag invalidation, token-owned locks and a rate limiter. It is a single-level cache: a store is the memory, Redis or Memcached store you name, with no second tier in front of it. `RememberAsync` does not lock: two requests that miss the same key at the same moment both run the factory and the last write wins. For an expensive factory, wrap the call in a Naravel lock. A Naravel lock is a lease with a `ttl` and no renewal or fencing token, so a holder that outlives its `ttl` can overlap with the next holder ([audit finding AV-002](../audits/package-architecture/ARCHITECTURE-VETOES.md)); use it to save work, not to guard a write that must never overlap.
 
 **HybridCache** (Microsoft) makes only one concurrent caller for a key run the factory and lets the others wait for its result. It uses `MemoryCache` as its primary storage and an `IDistributedCache` implementation, if you register one, as its secondary storage. It supports tags, and its invalidation by tag is a logical operation rather than a deletion.
 
