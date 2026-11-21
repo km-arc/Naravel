@@ -144,7 +144,7 @@ Owner decisions AD-015 and AD-016 are recorded in [OWNER-DECISIONS.md](OWNER-DEC
 | Finding | Package | Severity | Summary | State | Evidence |
 |---|---|---:|---|---|---|
 | RQR-001 | Naravel.Queue.Redis | P2 | Non-positive visibility timeout can reclaim an active reservation immediately (AV-012) | VERIFIED CLOSED — PR #313 fix (merge `b491ccc`); full CI [run 44731949132](https://github.com/km-arc/Naravel/actions/runs/44731949132) on PR #313 and [run 44733452713](https://github.com/km-arc/Naravel/actions/runs/44733452713) on `main` | [Report](reports/10-Naravel.Queue.Redis.md) |
-| RQR-002 | Naravel.Queue.Redis | P2 | SizeAsync ignores its CancellationToken and issues 11 Redis requests | OPEN | [Report](reports/10-Naravel.Queue.Redis.md) |
+| RQR-002 | Naravel.Queue.Redis | P2 | SizeAsync ignores its CancellationToken and issues 11 Redis requests | OPEN — partly fixed on 2026-11-21 by PR #316 (merge `af234c7`): a token that is already cancelled now throws before any request; the in-flight part waits for owner decision AD-020 | [Report](reports/10-Naravel.Queue.Redis.md) |
 | RQR-003 | Naravel.Queue.Redis | OBS | Driver-native failed list has no public inspection or cleanup path; intentional DLQ vs duplicate storage requires owner choice | OPEN — OWNER DECISION | [Report](reports/10-Naravel.Queue.Redis.md) |
 | RQR-004 | Naravel.Queue.Redis | P2 | Batch hash and callback-recovery index are written separately; failure can leave an unreachable batch (AV-009) | OPEN | [Report](reports/10-Naravel.Queue.Redis.md) |
 | RQR-005 | Naravel.Queue.Redis | OBS | Persistent batch index grows without retention and is fully scanned at every worker startup | OPEN — OWNER DECISION | [Report](reports/10-Naravel.Queue.Redis.md) |
