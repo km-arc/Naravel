@@ -67,6 +67,13 @@ public sealed class MemcachedCacheStore : ICacheStore
     public async Task SetAsync<T>(string key, T value, TimeSpan? ttl, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (ttl is { } lifetime && lifetime <= TimeSpan.Zero)
+        {
+            // Memcached reads an expiry of zero as "never expires", so a zero or negative lifetime must not reach the client as a Set.
+            await _client.RemoveAsync(Key(key)).ConfigureAwait(false);
+            return;
+        }
+
         object stored = TryGetIntegralType(typeof(T), out _)
             ? Convert.ToString(value, CultureInfo.InvariantCulture)!
             : value is not null && TryGetTextType(typeof(T), out _)

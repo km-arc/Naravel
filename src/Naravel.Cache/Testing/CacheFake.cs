@@ -67,10 +67,10 @@ public sealed class CacheFake : ICacheStore, IPrefixFlushableCacheStore
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
-        if (ttl.HasValue) ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(ttl.Value, TimeSpan.Zero);
         lock (_gate)
         {
-            _entries[key] = new Entry(value, ttl.HasValue ? _timeProvider.GetUtcNow() + ttl.Value : null);
+            if (ttl is { } lifetime && lifetime <= TimeSpan.Zero) _entries.Remove(key); // already expired: store nothing, drop the old value
+            else _entries[key] = new Entry(value, ttl.HasValue ? _timeProvider.GetUtcNow() + ttl.Value : null);
         }
 
         return Task.CompletedTask;
