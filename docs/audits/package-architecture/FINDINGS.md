@@ -78,7 +78,7 @@ Veto status is separate from finding lifecycle status. Related findings remain O
 | MCD-008 | Naravel.Cache.Memcached | P2 | All named Memcached stores are forced onto one server pool (AV-005) | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
 | MCD-009 | Naravel.Cache.Memcached | P2 | Synchronous counter I/O is queued onto the shared ThreadPool (AV-004) | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
 | MCD-010 | Naravel.Cache.Memcached | P2 | Positive sub-second TTLs become no-expiry in Enyim (AV-008) | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
-| MCD-011 | Naravel.Cache.Memcached | OBS | Explicit zero-TTL semantics differ between the Memcached adapter and CacheFake; public contract needs owner decision | OPEN — OWNER DECISION | [Report](reports/05-Naravel.Cache.Memcached.md) |
+| MCD-011 | Naravel.Cache.Memcached | OBS | Explicit zero-TTL semantics differ between the Memcached adapter and CacheFake; public contract needs owner decision | VERIFIED CLOSED — the owner chose option A (AD-001, 2026-11-21); PR #319 fix (merge `aa01b45`); full CI [run 44899803013](https://github.com/km-arc/Naravel/actions/runs/44899803013) on PR #319 and [run 44900115376](https://github.com/km-arc/Naravel/actions/runs/44900115376) on `main` | [Report](reports/05-Naravel.Cache.Memcached.md) |
 
 ## Remediation log
 
@@ -86,7 +86,7 @@ No remediation has been authorized or performed by the package audit branch. Onc
 
 ## Owner decisions
 
-See [OWNER-DECISIONS.md](OWNER-DECISIONS.md). MCD-011 is intentionally an observation, not a veto, until the owner defines the public zero-TTL contract.
+See [OWNER-DECISIONS.md](OWNER-DECISIONS.md). MCD-011 was intentionally an observation, not a veto, until the owner defined the public zero-TTL contract; the owner did so on 2026-11-21 (AD-001, option A) and PR #319 implemented it.
 
 
 ## Naravel.Queue

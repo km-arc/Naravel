@@ -16,7 +16,7 @@ This register separates **architectural recommendations** from **owner-approved 
 
 **Architect recommendation:** B. It aligns with the existing fake and the TTL-counter overload's non-positive validation, and prevents an accidental zero from becoming a permanent Memcached entry.
 
-**Status:** WAITING FOR OWNER.
+**Status:** DECIDED on 2026-11-21: the owner chose option A in the working session. An explicit zero or negative TTL means the value is already expired, so nothing is stored and any value under the key is removed; only `null` never expires. The reasons given for A: it matches the `put` method of the Laravel cache repository (checked on a snapshot of `Repository.php` whose date is unknown), a lifetime worked out as "time until a deadline" ends in "not cached" instead of an exception once the deadline has passed, and for a cache the loss of an entry is acceptable while a permanent entry is not. The cost of A is that a misconfigured zero switches caching off for that key without an error. The architect recommendation of B above is kept as written; on review the architect found A at least as good, because the one coordination caller that was feared, `CacheUniqueJobGate`, already rejects a non-positive TTL itself. The `IncrementAsync` overload with a `ttl` is unchanged and still rejects a non-positive value. Implemented by PR #319 (merge `aa01b45`) for the Memory, Redis and Memcached stores and `CacheFake`; the finding MCD-011 and the row D-100 are closed in these documents.
 
 ## AD-002 — The guarantee promised by `ICacheLock`
 

@@ -180,8 +180,9 @@
 
 ### [OBS — OWNER DECISION] MCD-011 — Explicit zero-TTL semantics are not defined consistently
 
-- Remediation state: OPEN — OWNER DECISION.
-- Architecture disposition: not vetoed; the public contract is ambiguous and requires the owner's choice before assigning a defect severity or prescribing a fix.
+- Remediation state: VERIFIED CLOSED — the owner chose option A on 2026-11-21 (AD-001); fixed by PR #319 (merge `aa01b45`, 2026-11-21); full CI [run 44899803013](https://github.com/km-arc/Naravel/actions/runs/44899803013) on PR #319 (head `bf87230`) and [run 44900115376](https://github.com/km-arc/Naravel/actions/runs/44900115376) on `main` at the merge.
+- Resolution: an explicit zero or negative TTL now means the value is already expired, in the Memory, Redis and Memcached stores and in `CacheFake`: nothing is stored and any value under the key is removed. The Memcached store never sends a Set for such a value, so zero can no longer reach the protocol as no expiry; `null` still never expires. The shared store contract checks zero, a negative value, `null` and a value that was there before. In the provider integration job of the PR run it ran against real Redis and Memcached servers and the cache test project passed with no failure and none skipped; the log lists no test names, so this is read from the passing project, not from the names. Two server-free tests, with a Redis proxy and a Memcached proxy, show that no Set is sent. Not covered: how the old Memory and Redis code behaved with an explicit zero (not run), callers outside this repository that pass an explicit zero to Memcached, the independent review and the mutation testing.
+- Architecture disposition (as written on 2026-11-08): not vetoed; the public contract is ambiguous and requires the owner's choice before assigning a defect severity or prescribing a fix.
 - Evidence status: CONFIRMED SOURCE BEHAVIOR; cross-provider semantic contract NOT FULLY SPECIFIED; live-server reproduction NOT RUN.
 - Evidence: `src/Naravel.Cache.Memcached/MemcachedCacheStore.cs` passes `ttl ?? TimeSpan.Zero` to Enyim, so an explicit `TimeSpan.Zero` is indistinguishable from `null` at the adapter boundary. In pinned EnyimMemcachedCore 3.5.2, a zero relative expiration is encoded as Memcached expiration `0`, which means no expiry. `src/Naravel.Cache/Testing/CacheFake.cs` rejects an explicitly supplied TTL less than or equal to zero. `ICacheStore.SetAsync` XML documentation says the TTL is optional but does not define the explicit-zero case. The maintained guide identifies `null` as no expiry but does not state whether zero means immediate expiry or invalid input.
 - Affected contract: `ICacheStore.SetAsync<T>(key, value, ttl)` when `ttl == TimeSpan.Zero`.
@@ -223,7 +224,7 @@
 - Recommended next task: MCD-006 is done; treat MCD-007 as release-blocking architecture remediation; then resolve MCD-008 through MCD-010 alongside MCD-001 through MCD-005. No runtime code, tests or dependencies were changed by this audit.
 
 
-Owner decisions still pending for the Cache family are tracked in [OWNER-DECISIONS.md](../OWNER-DECISIONS.md); MCD-011 is not a veto and must not be treated as approved behavior.
+Owner decisions still pending for the Cache family are tracked in [OWNER-DECISIONS.md](../OWNER-DECISIONS.md); MCD-011 was decided by the owner on 2026-11-21 (AD-001, option A) and is closed, see its block.
 
 ## Plain-language explanation
 
@@ -326,5 +327,5 @@ The Memcached findings below are based on the adapter source and, where stated, 
 - **A realistic example:** A test using `CacheFake` fails for a zero lifetime, but a real Memcached deployment may store the item without an expiry.
 - **What we checked:** `MemcachedCacheStore` forwards `ttl ?? TimeSpan.Zero`; Enyim 3.5.2 encodes zero as Memcached's no-expiry value. `CacheFake` rejects explicitly supplied non-positive TTLs. `ICacheStore` documentation does not define the zero case.
 - **Why that proves the mismatch:** The same API call has different results in the fake and the real adapter.
-- **What is not yet proven here:** The source behavior is confirmed; cross-provider live tests were not run and the shared contract is still a product decision.
-- **Safe outcome and proof:** The owner must choose one shared meaning: immediate expiry or invalid input. The report recommends rejecting zero because `null` already means no expiry, but that recommendation is not approval. After the decision, test the same zero and null cases across Memory, Redis, Memcached and the fake.
+- **What is proven, and what is not:** Since the change of PR #319, a zero or negative lifetime removes the key in Memory, Redis, Memcached and the fake, and the shared contract ran against real Redis and Memcached servers in CI without a failure. The CI log lists no test names, so this is read from the passing test project, not from the names. Not proven here: how the old Memory and Redis code behaved with zero, and callers outside this repository.
+- **Safe outcome and proof:** The owner chose immediate expiry (option A) on 2026-11-21 instead of the recommended rejection of zero: a lifetime of zero or less removes the key everywhere, and only `null` never expires. The same zero, negative and null cases are checked across Memory, Redis, Memcached and the fake by the shared contract.
