@@ -254,11 +254,24 @@ public class RedisQueueDriver : IQueueDriver, IDisposable
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Like the other methods of this driver, it checks the token before it sends a command: a token that is already cancelled throws
+    /// <see cref="OperationCanceledException"/> before any request is made, and the token is checked again before each of the eleven read-only counts,
+    /// so a cancelled caller stops the loop between requests. StackExchange.Redis takes no token, so a request that has already been sent is not
+    /// interrupted and its answer is awaited; whether the wait of an in-flight command should be cancelled too is owner decision AD-020 and is not decided here.
+    /// </remarks>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled before a request was sent.</exception>
     public async Task<long> SizeAsync(string queue, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var db = Db;
         long total = 0;
-        for (var p = 0; p <= 9; p++) total += await db.ListLengthAsync(ReadyKey(queue, p));
+        for (var p = 0; p <= 9; p++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            total += await db.ListLengthAsync(ReadyKey(queue, p));
+        }
+        cancellationToken.ThrowIfCancellationRequested();
         total += await db.SortedSetLengthAsync(DelayedKey(queue));
         return total;
     }
