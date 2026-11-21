@@ -41,9 +41,10 @@
 
 ### [P2] RQR-002 — SizeAsync ignores its CancellationToken entirely
 
-- Remediation state: OPEN.
+- Remediation state: OPEN — partly fixed on 2026-11-21 by PR #316 (merge `af234c7`); CI [run 44877587422](https://github.com/km-arc/Naravel/actions/runs/44877587422) on the PR branch (head `362f890`) is green on Windows, macOS and Ubuntu, and CI [run 44879238988](https://github.com/km-arc/Naravel/actions/runs/44879238988) on `main` at the merge (`af234c7`) is green too. The part that waits for owner decision AD-020 is not done, so the finding is not closed.
+- Resolution so far: `RedisQueueDriver.SizeAsync` throws `OperationCanceledException` before any request for a token that is already cancelled, and checks the token again before each of the eleven counts, so a cancelled caller stops between requests. A request that has already been sent is not interrupted, and whether the wait for it should be cancelled too is AD-020 (see RQR-006). `RedisSizeCancellationTests` builds the driver without a connection to show that the check comes first. Not covered: cancellation between two requests of the loop, a command-counting proxy test, and the Database `SizeAsync`.
 - Evidence status: CONFIRMED BY SOURCE.
-- Evidence: §src/Naravel.Queue.Redis/RedisQueueDriver.cs:251-259§ begins by resolving §Db§ and then issues ten sequential §ListLengthAsync§ calls and one §SortedSetLengthAsync§ call. It neither checks §cancellationToken§ before the first Redis request nor applies a cancellable wait to the operations. All the other RedisQueueDriver public methods call §ThrowIfCancellationRequested§ before issuing their script.
+- Evidence (as found on 2026-11-08, before the change): §src/Naravel.Queue.Redis/RedisQueueDriver.cs:251-259§ begins by resolving §Db§ and then issues ten sequential §ListLengthAsync§ calls and one §SortedSetLengthAsync§ call. It neither checks §cancellationToken§ before the first Redis request nor applies a cancellable wait to the operations. All the other RedisQueueDriver public methods call §ThrowIfCancellationRequested§ before issuing their script.
 - Affected contract: §IQueueDriver.SizeAsync§ for Redis under caller cancellation or host shutdown.
 - User impact: a pre-cancelled caller still triggers up to eleven Redis round trips and receives a count rather than §OperationCanceledException§. A large or slow Redis request can keep doing work after the caller has cancelled.
 - Trigger / failure scenario: call §SizeAsync(queue, alreadyCancelledToken)§. The method continues to query every ready list and the delayed sorted set because it never inspects the token.
@@ -140,11 +141,11 @@
 ## Risk summary and next action
 
 - P1: none established in this package review.
-- P2: RQR-001 (AV-012, VERIFIED CLOSED by PR #313), RQR-002 (SizeAsync cancellation), RQR-004 (partial batch index registration).
+- P2: RQR-001 (AV-012, VERIFIED CLOSED by PR #313), RQR-002 (SizeAsync cancellation; the pre-cancelled token part was fixed by PR #316, the in-flight part waits for AD-020), RQR-004 (partial batch index registration).
 - OBS / owner decision: RQR-003 (driver-native failed-list inspection/retention contract).
 - OBS / owner decisions: RQR-005 (batch retention), RQR-006 (in-flight cancellation semantics).
 - DOC: RQR-007 (explicit Redis Cluster non-support on package page).
-- Recommended next task: obtain AD-018 through AD-020; add tests for SizeAsync cancellation (positive visibility and the registration failure boundary are covered since PR #313); then decide whether to remove/expose the per-queue failed list and implement a safe batch history retention policy. Do not change runtime code or the Redis key layout during this audit pass.
+- Recommended next task: obtain AD-018 through AD-020, after which the in-flight part of SizeAsync cancellation can be covered (a pre-cancelled token is covered since PR #316, positive visibility and the registration failure boundary since PR #313); then decide whether to remove/expose the per-queue failed list and implement a safe batch history retention policy. Do not change runtime code or the Redis key layout during this audit pass.
 
 ## Plain-language explanation
 
@@ -163,8 +164,8 @@
 - **A realistic example:** A pre-cancelled request calls `SizeAsync`. The method still queries ten ready lists and the delayed list, then returns a count.
 - **What we checked:** `src/Naravel.Queue.Redis/RedisQueueDriver.cs`, around lines 251–259, where the method issues ten `ListLengthAsync` calls and one `SortedSetLengthAsync` without checking the token.
 - **Why that proves the gap:** Unlike the other public Redis driver operations, this method does not perform a cancellation check before Redis I/O.
-- **What is not yet proven here:** The source gap is confirmed; no pre-cancelled provider test was run. Cancellation after a Redis command starts is a separate client limitation.
-- **Safe outcome and proof:** A pre-cancelled call must issue no Redis request and throw `OperationCanceledException`. Add a proxy test that counts commands and keep the ready-plus-delayed result correct.
+- **What is proven, and what is not:** Since the change of PR #316, a test run in CI shows that a token that is already cancelled throws `OperationCanceledException` before the connection is used: the test builds the driver without a connection, so a request sent first would fail differently. Still not proven here: cancellation between two of the eleven requests, and a token cancelled while a request is in flight, which is a separate client limitation and waits for owner decision AD-020. The CI log lists no test names, so the run of the new test is inferred from a passing test project, not read from the log.
+- **Safe outcome and proof:** A pre-cancelled call must issue no Redis request and throw `OperationCanceledException`. Since PR #316 it does; the proof is a test with no connection, not the command-counting proxy test that was suggested here, and the normal count is still checked by the real-Redis contract tests.
 
 ### RQR-003 — Every permanently failed job is also copied into an inaccessible Redis list
 
