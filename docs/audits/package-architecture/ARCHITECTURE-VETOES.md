@@ -165,7 +165,7 @@ The PDRs retain their original approval text as historical context and append th
 
 The following items are source-confirmed observations or contract ambiguities. They are deliberately **not** represented as vetoes until the owner chooses the intended public contract. See [OWNER-DECISIONS.md](OWNER-DECISIONS.md).
 
-- **AD-001 / MCD-011 — explicit zero TTL:** Memcached currently maps an explicit `TimeSpan.Zero` to the same Enyim expiration value as `null` (no expiry), while `CacheFake` rejects explicit zero. The `ICacheStore.SetAsync` contract does not currently define zero-TTL semantics clearly enough to declare one provider behavior incorrect. Owner decision required.
+- **AD-001 / MCD-011 — explicit zero TTL:** Memcached currently maps an explicit `TimeSpan.Zero` to the same Enyim expiration value as `null` (no expiry), while `CacheFake` rejects explicit zero. The `ICacheStore.SetAsync` contract does not currently define zero-TTL semantics clearly enough to declare one provider behavior incorrect. Owner decision required. Update of 2026-11-21: the owner chose option A (an explicit zero or negative TTL means already expired and removes the key) and PR #319 implemented it; no veto was involved.
 - Other API and lifecycle decisions that affect remediation sequencing are listed in the owner decision register. No answer is inferred from historical PDR wording.
 
 
