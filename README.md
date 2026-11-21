@@ -138,6 +138,7 @@ The rules for the assistant are written down in AGENTS.md: documentation is chec
 | [Modules](docs/en/modules.md) | Every module with an example and its guarantees |
 | [Guides](docs/en) | One in-depth guide per module |
 | [Laravel parity](docs/en/laravel-parity.md) and [PDRs](docs/pdr/en) | What was ported, adapted or declined, and why |
+| [Alternatives](docs/en/alternatives.md) | When Hangfire, Quartz.NET, Coravel, HybridCache or FusionCache fits better than Naravel |
 | [Architecture](docs/en/architecture.md), [benchmarks](docs/en/benchmarks.md) | How the modules are built and what they cost |
 | [Documentation index](docs/README.md) | Everything above in one place |
 
