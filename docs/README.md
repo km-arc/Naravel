@@ -9,6 +9,7 @@ This index is the entry point for Naravel's maintained English documentation. Do
 - [Module overview](en/modules.md) — capabilities and package boundaries.
 - [Architecture](en/architecture.md) — internal design and dependency rules.
 - [Laravel parity](en/laravel-parity.md) — adopted, adapted, and declined Laravel concepts.
+- [Alternatives](en/alternatives.md) — when another .NET library fits queue, scheduling or cache better.
 - [NuGet package pages](nuget/) — package-specific installation and dependency information.
 
 ## Module guides
