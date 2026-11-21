@@ -119,6 +119,8 @@ the listing stops it after the file being read, although the operating system ca
 
 **Visibility timeout with the `database` and `redis` drivers.** The same rule applies: `VisibilityTimeoutSeconds` (default 300) must be greater than zero, because with zero or a negative value every reservation would count as expired at once. `new DatabaseQueueDriver<TContext>(factory, timeout)` and `new RedisQueueDriver(connection, timeout)` throw `ArgumentOutOfRangeException` (`ParamName` `visibilityTimeout`) for such a timeout, and a store whose `VisibilityTimeoutSeconds` is zero, negative or NaN throws `InvalidOperationException`, naming the store and the setting, when the store is first resolved and not when `AddDatabaseDriver` or `AddRedisDriver` runs. The Redis registration checks the setting before it opens a connection. Zero never means "turn reclaiming off"; a value that is not a number at all still throws `FormatException`.
 
+**`SizeAsync` with the `redis` driver.** Like the other methods of the driver, it checks the token before it sends a command: a token that is already cancelled throws `OperationCanceledException` before any request is made, and the token is checked again before each of the eleven counts, so a cancelled caller stops between requests. StackExchange.Redis takes no token, so a request that has already been sent is not interrupted and its answer is awaited; whether the wait for such a request should be cancelled too is not decided yet.
+
 ## The same job on Redis, with worker settings
 
 The quickstart job again, with the Redis driver and explicit worker settings.
