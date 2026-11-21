@@ -203,7 +203,7 @@ This register separates **architectural recommendations** from **owner-approved 
 
 **Architect recommendation:** require a strictly positive timeout for reclaim-capable drivers. Drivers that do not implement visibility reclaim should report `null`.
 
-**Status:** WAITING FOR OWNER for the policy as a whole. Before this decision was recorded, the File driver was changed on 2026-11-20 by PR #311 in line with the architect recommendation (its constructor and its `AddFileDriver` registration refuse a timeout of zero or less), and the owner merged that PR; that is not recorded here as the decision for the Database and Redis drivers, which still accept such a value (DBQ-001, RQR-001).
+**Status:** DECIDED on 2026-11-20: the owner confirmed the recommended option in the working session, a strictly positive timeout for every reclaim-capable driver, with no "disable reclaim" meaning attached to zero. A separate explicit option for turning reclaiming off was not designed. Implemented for the File driver by PR #311 (it was merged before this decision was asked for, and the owner merged it), and for the Database and Redis drivers by PR #313 (constructor and registration checks; the findings FILE-004, DBQ-001 and RQR-001 and the veto AV-012 are closed in these documents).
 
 
 ## AD-018 — Redis Queue driver's native failed list

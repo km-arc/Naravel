@@ -26,7 +26,8 @@
 
 ### [P2] RQR-001 — Non-positive visibility timeout makes reservations immediately reclaimable
 
-- Remediation state: OPEN.
+- Remediation state: VERIFIED CLOSED — fixed on 2026-11-20 by PR #313 (merge `b491ccc`); CI [run 44731949132](https://github.com/km-arc/Naravel/actions/runs/44731949132) on the PR branch (head `1c1c461`) is green on Windows, macOS and Ubuntu, and CI [run 44733452713](https://github.com/km-arc/Naravel/actions/runs/44733452713) on `main` at the merge (`b491ccc`) is green too.
+- Resolution: the `RedisQueueDriver` constructor throws `ArgumentOutOfRangeException` (`ParamName` `visibilityTimeout`) for a timeout of zero or less, before it stores anything; a refused constructor does not dispose the connection it was given, even with `ownsConnection: true`, because no driver is created. The `AddRedisDriver` registration throws `InvalidOperationException`, naming the store and `VisibilityTimeoutSeconds` and quoting the value, for zero, a negative number or NaN, and checks before it opens a connection; because the Manager runs the factory lazily, this happens when the store is first resolved. A value that is not a number still throws `FormatException`. `RedisVisibilityTimeoutTests` (in `Naravel.Queue.Providers.Tests`, no Redis server needed; the registration tests use an address where nothing listens, so a connection attempt would fail them) covers the constructor and the registration. `PublicAPI` files are unchanged; `docs/en/queue.md`, `docs/nuget/Naravel.Queue.Redis.md` and the `Fixed` entry of `CHANGELOG.md` record the behaviour change of a released 0.x package. NOT RUN: a registration test with a positive value (it would need a server), a two-worker test of a live reservation, the independent review and the mutation testing. The evidence below describes the baseline.
 - Architecture disposition: VETO AV-012 — reclaim-capable drivers must reject non-positive visibility timeouts.
 - Evidence status: CONFIRMED BY SOURCE-LEVEL CONTROL-FLOW ANALYSIS; duplicate-delivery reproduction NOT RUN.
 - Evidence: §src/Naravel.Queue.Redis/RedisQueueDriver.cs:43-48§ stores the public constructor's §visibilityTimeout§ without validation. §PopScript§ at lines 77-118 reclaims every reserved item whose deadline score is less than or equal to the current time. The DI registration at lines 270-275 parses §VisibilityTimeoutSeconds§ and passes §TimeSpan.FromSeconds§ directly to the constructor.
@@ -139,11 +140,11 @@
 ## Risk summary and next action
 
 - P1: none established in this package review.
-- P2: RQR-001 (AV-012), RQR-002 (SizeAsync cancellation), RQR-004 (partial batch index registration).
+- P2: RQR-001 (AV-012, VERIFIED CLOSED by PR #313), RQR-002 (SizeAsync cancellation), RQR-004 (partial batch index registration).
 - OBS / owner decision: RQR-003 (driver-native failed-list inspection/retention contract).
 - OBS / owner decisions: RQR-005 (batch retention), RQR-006 (in-flight cancellation semantics).
 - DOC: RQR-007 (explicit Redis Cluster non-support on package page).
-- Recommended next task: obtain AD-018 through AD-020; add tests for positive visibility, SizeAsync cancellation and the registration failure boundary; then decide whether to remove/expose the per-queue failed list and implement a safe batch history retention policy. Do not change runtime code or the Redis key layout during this audit pass.
+- Recommended next task: obtain AD-018 through AD-020; add tests for SizeAsync cancellation (positive visibility and the registration failure boundary are covered since PR #313); then decide whether to remove/expose the per-queue failed list and implement a safe batch history retention policy. Do not change runtime code or the Redis key layout during this audit pass.
 
 ## Plain-language explanation
 
@@ -153,8 +154,8 @@
 - **A realistic example:** Worker A reserves a message with a zero-second timeout. Worker B polls immediately and receives the same message while A is still processing it.
 - **What we checked:** `src/Naravel.Queue.Redis/RedisQueueDriver.cs`, constructor around lines 43–48 and `PopScript` around lines 77–118; DI parsing is around lines 270–275.
 - **Why that proves the risk:** The script reclaims reservations whose deadline is at or before now, and the constructor does not reject a non-positive timeout.
-- **What is not yet proven here:** This was traced in source; a live Redis duplicate-delivery reproduction was not run.
-- **Safe outcome and proof:** Reject zero and negative values in both constructor and configuration. Test both invalid boundaries and prove a positive timeout does not reclaim a live message early.
+- **What is proven, and what is not:** Since the change of PR #313, a test run in CI shows that the constructor and the configuration refuse zero and negative values, and that the configuration is refused before any connection is tried. Still not proven here: no live Redis duplicate-delivery run with two workers was done, before or after the change.
+- **Safe outcome and proof:** A zero or negative timeout is refused in both the constructor and the configuration, and a positive one behaves as before.
 
 ### RQR-002 — SizeAsync ignores cancellation and can issue eleven Redis requests anyway
 
