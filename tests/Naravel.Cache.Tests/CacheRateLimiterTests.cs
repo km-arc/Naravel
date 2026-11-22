@@ -69,6 +69,52 @@ public class CacheRateLimiterTests
     }
 
     [Fact]
+    public async Task Concurrent_decisions_all_carry_a_retry_after_inside_the_window()
+    {
+        using var provider = BuildProvider("memory");
+        var limiter = provider.GetRequiredService<IRateLimiter>();
+        var window = TimeSpan.FromMinutes(1);
+
+        var decisions = await Task.WhenAll(Enumerable.Range(0, 60)
+            .Select(_ => Task.Run(() => limiter.AttemptAsync("race", "subject", 10, window))));
+
+        // The first attempt records when the window began only after its increment. An attempt that looks for the record before that records its own time instead.
+        // Either way no decision may show zero or more than the window.
+        decisions.Should().OnlyContain(d => d.RetryAfter > TimeSpan.Zero && d.RetryAfter <= window);
+    }
+
+    [Fact]
+    public async Task Rejected_attempts_do_not_extend_the_window_or_carry_into_the_next_one()
+    {
+        using var provider = BuildProvider("memory");
+        var limiter = provider.GetRequiredService<IRateLimiter>();
+        var window = TimeSpan.FromMilliseconds(1500);
+
+        for (var i = 0; i < 3; i++) (await limiter.AttemptAsync("window-carry", "subject", 3, window)).Allowed.Should().BeTrue();
+        for (var i = 0; i < 100; i++) (await limiter.AttemptAsync("window-carry", "subject", 3, window)).Allowed.Should().BeFalse();
+
+        await Task.Delay(TimeSpan.FromMilliseconds(1800));
+
+        var next = new List<bool>();
+        for (var i = 0; i < 4; i++) next.Add((await limiter.AttemptAsync("window-carry", "subject", 3, window)).Allowed);
+        next.Should().Equal(true, true, true, false);
+    }
+
+    [Fact]
+    public async Task The_limiter_never_uses_its_lock_manager()
+    {
+        using var provider = BuildProvider("memory");
+        var cacheManager = provider.GetRequiredService<CacheManager>();
+        // The lock manager argument is ignored. A null one would fail with a NullReferenceException the moment the limiter tried to take a lock.
+        var limiter = new CacheRateLimiter(cacheManager, null!, "memory");
+
+        (await limiter.AttemptAsync("no-lock", "subject", 1, TimeSpan.FromMinutes(1))).Allowed.Should().BeTrue();
+        (await limiter.AttemptAsync("no-lock", "subject", 1, TimeSpan.FromMinutes(1))).Allowed.Should().BeFalse();
+        await limiter.ClearAsync("no-lock", "subject");
+        (await limiter.AttemptAsync("no-lock", "subject", 1, TimeSpan.FromMinutes(1))).Allowed.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task Named_stores_keep_rate_limits_isolated()
     {
         using var provider = BuildProvider("primary", "secondary");
