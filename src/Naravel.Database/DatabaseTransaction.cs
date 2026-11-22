@@ -2,8 +2,11 @@ using System.Data.Common;
 
 namespace Naravel.Database;
 
-/// <summary>Owns one real transaction and the pooled connection lease it runs on.</summary>
-internal sealed class DatabaseTransaction(IConnectionLease lease, DbTransaction transaction, IDatabase database) : IDatabaseTransaction
+/// <summary>
+/// Owns one real transaction and the pooled connection lease it runs on. Commit, rollback and disposal first end the
+/// <paramref name="scope"/> that the transaction's database runs on, so work that outlived the transaction is refused (AD-022).
+/// </summary>
+internal sealed class DatabaseTransaction(IConnectionLease lease, DbTransaction transaction, LeasedTransactionScope scope, IDatabase database) : IDatabaseTransaction
 {
     private int _completed;
 
@@ -23,6 +26,7 @@ internal sealed class DatabaseTransaction(IConnectionLease lease, DbTransaction 
 
     public async ValueTask DisposeAsync()
     {
+        scope.End();
         if (Interlocked.Exchange(ref _completed, 1) == 0)
         {
 #pragma warning disable CA1031 // A broken connection cannot roll back; closing it discards the transaction, and the caller's own exception matters more.
@@ -43,6 +47,7 @@ internal sealed class DatabaseTransaction(IConnectionLease lease, DbTransaction 
 
     private void Complete()
     {
+        scope.End();
         if (Interlocked.Exchange(ref _completed, 1) != 0)
         {
             throw new InvalidOperationException("The transaction was already committed or rolled back.");
