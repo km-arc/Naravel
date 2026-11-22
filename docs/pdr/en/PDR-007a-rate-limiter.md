@@ -53,3 +53,7 @@ Tests must cover fixed-window boundaries (including the documented up-to-2x adja
 ## Approval
 
 Owner approved this proposal on 2026-10-06. The Cache-lock-based fixed-window scope, provider guarantees required for distributed use, and proposed quickstart are approved for implementation. The owner-approved notes are: the fixed-window boundary can permit a burst up to 2x the nominal limit across adjacent windows; benchmark the selected path before merge; defer a limiter-specific Redis-atomic fast path and use the existing Cache/lock contracts.
+
+## Update of 2026-11-22
+
+Owner decision AD-002 (see [OWNER-DECISIONS.md](../../audits/package-architecture/OWNER-DECISIONS.md)) replaced the lock in `CacheRateLimiter` with one atomic `IncrementAsync(key, 1, window)` per attempt on the selected store. That call is part of the existing Cache store contract, so this is not the provider-specific fast path that alternative 3 rejects. The approved fixed-window semantics, the burst of up to 2x the limit across adjacent windows and the scope (any Cache store) are unchanged. The wording above about one lock (alternative 4) and about the lock guarantees of a provider describes the design as it was approved on 2026-10-06.

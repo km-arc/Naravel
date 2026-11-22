@@ -86,7 +86,7 @@ Measured by the report-only `evidence.yml` workflow (run 40758969223, `--job sho
 | Memory queue push + pop + ack | 1.57 us | 1,144 B | |
 | Memory cache set + get | 720 ns | 688 B | |
 | Tagged cache get | 242 ns | 512 B | |
-| Memory rate limiter attempt | 6.1 us | 4,168 B | includes the in-process lock |
+| Memory rate limiter attempt | 6.1 us | 4,168 B | measured while the limiter still took an in-process lock; not measured again since it stopped |
 | Failed job store record + list + forget | 8.2 us | 3,510 B | |
 | Reflection / source-generated JSON round trip | 413 / 205 ns | 208 / 88 B | source generation 0.5x time, 0.42x allocation |
 | Route middleware pipeline | 371 ns | 1.23 KB | |
