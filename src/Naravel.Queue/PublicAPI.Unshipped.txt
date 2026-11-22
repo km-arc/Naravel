@@ -1,1 +1,3 @@
 #nullable enable
+Naravel.Queue.Batching.IPrunableBatchRepository
+Naravel.Queue.Batching.IPrunableBatchRepository.PruneFinishedAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<int>!

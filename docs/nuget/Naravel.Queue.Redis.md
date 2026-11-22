@@ -23,6 +23,7 @@ Redis queue driver for Naravel.Queue, built on StackExchange.Redis - priority bu
 - **No hidden failed list.** A job that exhausted its attempts is removed from the queue and recorded by the failed-job store; the driver keeps no copy of its own. Use `AddRedisFailedJobStore()` or the database store to keep failed jobs across restarts.
 - **One connection with the rest of Naravel.** `Connection` names a `Naravel.Redis` store, so the queue and the cache can share one connection.
 - **Batches that outlive the process.** `AddRedisBatchRepository()` keeps batch state in Redis; the default tracking is in memory.
+- **Batch history you can prune.** `RedisBatchRepository` implements `IPrunableBatchRepository`: `PruneFinishedAsync` deletes the batches that are finished and whose callbacks were all delivered, and never a running batch or one with undelivered callbacks.
 
 ## Quick start
 

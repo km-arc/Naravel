@@ -7,7 +7,7 @@ namespace Naravel.Queue.Database;
 
 /// <summary>Persistent batch tracking using the application's EF Core context.</summary>
 /// <remarks><b>Laravel equivalent:</b> queue batch repository. It exists for restart-safe batch state; it does not own the application DbContext or persist delegates.</remarks>
-public sealed class DatabaseBatchRepository<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors | DynamicallyAccessedMemberTypes.PublicProperties)] TContext> : IBatchRepository where TContext : DbContext
+public sealed class DatabaseBatchRepository<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors | DynamicallyAccessedMemberTypes.PublicProperties)] TContext> : IPrunableBatchRepository where TContext : DbContext
 {
     private readonly IDbContextFactory<TContext> _contextFactory;
     private readonly BatchCallbackRegistry _callbacks;
@@ -85,6 +85,22 @@ public sealed class DatabaseBatchRepository<[DynamicallyAccessedMembers(Dynamica
             .ToListAsync(cancellationToken);
         foreach (var record in records)
             await InvokeTerminalCallbacksAsync(record, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// One <c>DELETE</c> statement whose condition is the rule of <c>InvokeTerminalCallbacksAsync</c>: every job is counted, the finally callbacks have run, and so have the
+    /// catch callbacks (a job failed) or the then callbacks (none failed and the batch was not cancelled). Running batches and batches with undelivered callbacks do not match.
+    /// </remarks>
+    public async Task<int> PruneFinishedAsync(CancellationToken cancellationToken)
+    {
+        await using var db = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        return await db.Set<QueueBatchRecord>()
+            .Where(batch => batch.CompletedJobs + batch.FailedJobs + batch.CancelledJobs >= batch.TotalJobs
+                && batch.FinallyCallbacksCompleted
+                && ((batch.FailedJobs > 0 && batch.CatchCallbacksCompleted)
+                    || (batch.FailedJobs == 0 && (batch.IsCancelled || batch.ThenCallbacksCompleted))))
+            .ExecuteDeleteAsync(cancellationToken);
     }
 
     private async Task IncrementAsync(string batchId, bool completed, bool failed, bool cancelled, CancellationToken cancellationToken)
