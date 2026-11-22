@@ -21,6 +21,7 @@ Redis queue driver for Naravel.Queue, built on StackExchange.Redis - priority bu
 - **Fenced reservations.** A worker that outlives its visibility timeout cannot acknowledge the copy that another worker now owns; the job simply runs a second time.
 - **One connection with the rest of Naravel.** `Connection` names a `Naravel.Redis` store, so the queue and the cache can share one connection.
 - **Batches that outlive the process.** `AddRedisBatchRepository()` keeps batch state in Redis; the default tracking is in memory.
+- **Batch history you can prune.** `RedisBatchRepository` implements `IPrunableBatchRepository`: `PruneFinishedAsync` deletes the batches that are finished and whose callbacks were all delivered, and never a running batch or one with undelivered callbacks.
 
 ## Quick start
 

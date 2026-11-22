@@ -277,6 +277,30 @@ uses `IBatchRepository.CancelAsync(batchId, cancellationToken)`. Callbacks are a
 process crashes and should be idempotent. A callback failure leaves its completion state pending so
 the next worker startup can retry it.
 
+**Batch history.** The Redis and the database repository keep every batch they have registered, and a
+starting worker reads all of them to find callbacks that were not delivered, so the history only grows
+and each worker start costs more. Nothing deletes it on its own, because how long a finished batch must
+stay (for an audit, for support) is your decision. Both repositories implement `IPrunableBatchRepository`
+(the in-memory one does not); call it on the schedule you choose, for example from a scheduled task:
+
+```csharp
+if (provider.GetRequiredService<IBatchRepository>() is IPrunableBatchRepository history)
+{
+    var deleted = await history.PruneFinishedAsync(cancellationToken);
+}
+```
+
+`PruneFinishedAsync` deletes a batch only when every job is counted (completed, failed or cancelled)
+**and** every callback group that applies has run: the `Finally` callbacks, and either the `Catch`
+callbacks (a job failed) or the `Then` callbacks (no job failed and the batch was not cancelled). A
+batch that is still running, or that is finished but has a callback that failed or has not run, is never
+deleted, so `ResumePendingCallbacksAsync` still finds it after a restart. The repository does not store
+when a batch finished, so there is no minimum age: the call removes every batch that qualifies at that
+moment. On Redis each batch is one Lua script that checks it and deletes its hash, then its index entry
+is removed; an index entry whose hash is already gone is removed as well and is not counted. The database
+repository runs one `DELETE` statement. The token is checked before each request is sent (see
+"Cancellation with the Redis drivers").
+
 ### Runtime `Extend` (a driver not known at startup)
 
 ```csharp

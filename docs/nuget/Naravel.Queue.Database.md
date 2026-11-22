@@ -21,6 +21,7 @@ EF Core-backed queue driver for Naravel.Queue - works with any EF Core provider 
 - **Priorities and delays.** Jobs come out by priority, then by the time they become available.
 - **Fenced reservations.** A worker that outlives its visibility timeout cannot acknowledge the copy that another worker now owns; the job simply runs a second time.
 - **Dispatch inside your transaction.** `AddTransactionalEnqueue()` lets one `SaveChanges` commit an order and its job together, or neither.
+- **Batch history you can prune.** `DatabaseBatchRepository<TContext>` implements `IPrunableBatchRepository`: `PruneFinishedAsync` deletes, with one `DELETE`, the batches that are finished and whose callbacks were all delivered, and never a running batch or one with undelivered callbacks.
 
 ## Quick start
 
