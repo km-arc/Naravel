@@ -80,8 +80,8 @@ public sealed class RedisQueueAtomicityTests
         database.LastScript.Should().Contain("stored.ReservationId ~= ARGV[6]");
 
         await driver.FailAsync(Reserved());
-        database.LastValues![2].ToString().Should().Be("token-1");
-        database.LastScript.Should().Contain("stored.ReservationId ~= ARGV[3]");
+        database.LastValues![1].ToString().Should().Be("token-1");
+        database.LastScript.Should().Contain("stored.ReservationId ~= ARGV[2]");
     }
 
     [Fact]
