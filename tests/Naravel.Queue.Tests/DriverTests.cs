@@ -94,10 +94,22 @@ public abstract class QueueDriverContractTests : IDisposable
             await WarmUpQueueAsync(driver, delayedQueue);
             if (SupportsDelayedDelivery)
             {
-                await driver.PushAsync(Msg(delayedQueue, delay: TimeSpan.FromMilliseconds(300)));
-                (await driver.PopAsync(delayedQueue)).Should().BeNull();
-                await Task.Delay(400);
-                (await PopEventuallyAsync(driver, delayedQueue)).Should().NotBeNull();
+                var delayed = Msg(delayedQueue, delay: TimeSpan.FromMilliseconds(300));
+                await driver.PushAsync(delayed);
+                var early = await driver.PopAsync(delayedQueue);
+                if (early is not null)
+                {
+                    early.ReservedAt.Should().NotBeNull();
+                    early.ReservedAt.Should().BeOnOrAfter(delayed.AvailableAt,
+                        "a slow publish or pop must not turn an already-due message into a false early-delivery failure");
+                    await driver.AckAsync(early);
+                }
+                else
+                {
+                    var remaining = delayed.AvailableAt - DateTimeOffset.UtcNow;
+                    if (remaining > TimeSpan.Zero) await Task.Delay(remaining);
+                    (await PopEventuallyAsync(driver, delayedQueue)).Should().NotBeNull();
+                }
             }
             else
             {
