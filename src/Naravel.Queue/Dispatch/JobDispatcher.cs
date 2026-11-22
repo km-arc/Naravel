@@ -119,6 +119,8 @@ public class JobDispatcher : IJobDispatcher, IJobMessageFactory
         CancellationToken cancellationToken = default)
     {
         var jobList = jobs.ToList();
+        if (jobList.Count == 0)
+            throw new ArgumentException("A batch needs at least one job.", nameof(jobs));
         RejectUniqueJobs(jobList, "a batch");
         var batchOptions = new BatchOptions();
         batchConfigure?.Invoke(batchOptions);

@@ -26,6 +26,8 @@ public interface IJobDispatcher
     /// Note: the completion callback only fires while the dispatching process is alive
     /// (it is tracked in-memory) - for cross-process batches, poll <see cref="IBatchRepository"/> instead.
     /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="jobs"/> is empty. A batch with no job would never receive a completion
+    /// signal, so nothing is registered and nothing is pushed.</exception>
     Task<QueueBatch> BatchAsync(
         IEnumerable<IJob> jobs,
         Action<DispatchOptions>? configure = null,
