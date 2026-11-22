@@ -28,7 +28,19 @@ This register separates **architectural recommendations** from **owner-approved 
 
 **Architect recommendation:** B for any cross-process critical section that protects durable/shared state. In either case, redesign `CacheRateLimiter` around one atomic backend-side state transition rather than a multi-call operation whose safety depends on a fixed lock TTL. Do not describe token-checked release alone as fencing.
 
-**Status:** WAITING FOR OWNER.
+**Status:** DECIDED on 2026-11-22: the owner chose a layered plan instead of option A alone (documentation only). The owner also asked for the lock to be solved for good whether or not a given caller needs a token, so fencing is built as an optional capability and no internal caller is forced to use it. The plan has five steps, each its own pull request within the size limit of `AGENTS.md`:
+
+1. `CacheRateLimiter` stops taking a lock. Each attempt is one atomic `IncrementAsync` on the selected store, the "one atomic backend-side state transition" that the architect recommendation above asks for. A second key only records when the window began, to work out `RetryAfter`; the decision to admit or reject is the increment alone. This step adds no public API.
+2. An optional lock capability to renew a lease and to release a lock by force, implemented by the Memory and Redis locks.
+3. A lease handle that renews the lease by itself, has a mandatory maximum hold time, and carries a token that is cancelled when the lease is lost.
+4. `WithoutOverlapping`, the scheduler locks and `BlockAsync` use the handle, so a slow holder keeps its lease.
+5. An optional fencing token, Redis only, for code that needs correctness-grade exclusion. The protected resource must reject a stale token.
+
+Memcached stays a best-effort lock: it does not implement the capabilities of steps 2, 3 and 5, and the guides say so. `ICacheLock` itself does not change, because a new member on a shipped interface would break custom drivers added with `LockManager.Extend`; the capabilities are separate optional interfaces. Steps 2, 3 and 5 add public API, so the owner approves the exact names and signatures before each of them is written.
+
+Limits that come with this plan. Without a token that the protected resource checks, no lease lock can stop a holder that keeps running after its lease ended; the plan makes that case rare (renewal) and visible (the lost-lease token), and only step 5 makes it impossible, and only for resources that check the token. A Redis failover can still lose a lock or a fence counter. Automatic renewal would turn a hung holder into a lock that never ends, which is why the maximum hold time is mandatory. The fence counter key must not expire, because an expired counter would hand out old numbers again; that costs one long-lived key per lock name, and how to bound it is left to the decision of step 5.
+
+Progress: step 1 is in its own pull request and steps 2 to 5 are not started. The findings AV-002, CCH-004 and MCD-007 stay OPEN. CCH-004 is closed by step 1 once it is merged and the CI of `main` is green. How MCD-007 (the Memcached release race) is closed, by accepting the risk or in another way, is not decided here and will be put to the owner.
 
 ## AD-003 — Scope/store flush semantics and Memcached administration
 
