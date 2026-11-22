@@ -15,7 +15,10 @@ namespace Naravel.Queue.Redis;
 ///   delayed        ZSET   id, score = AvailableAt (unix ms)          - jobs not due yet
 ///   ready:{0..9}   LIST   id                                          - one list per priority bucket, 9 = highest
 ///   reserved       ZSET   id, score = reservation deadline (unix ms)  - jobs currently being worked on
-///   failed         LIST   json envelopes that exhausted all attempts
+///
+/// There is no failed list: a message that exhausted its attempts is removed from the keys above, and the record of the failure is the
+/// worker's <c>IFailedJobStore</c> (owner decision AD-018, option B). Older versions also pushed the envelope onto a <c>failed</c> LIST
+/// (<c>netqueue:{queue}:failed</c>) that nothing read or trimmed; those lists are not touched and can be deleted (see the CHANGELOG).
 /// 
 /// PopAsync first promotes any due delayed jobs and reclaims any reserved jobs whose visibility
 /// timeout expired (e.g. because the worker crashed) back onto the ready lists - a bonus feature
@@ -72,7 +75,6 @@ public class RedisQueueDriver : IQueueDriver, IDisposable
     private static string DelayedKey(string q) => $"netqueue:{q}:delayed";
     private static string ReadyKey(string q, int priority) => $"netqueue:{q}:ready:{Math.Clamp(priority, 0, 9)}";
     private static string ReservedKey(string q) => $"netqueue:{q}:reserved";
-    private static string FailedKey(string q) => $"netqueue:{q}:failed";
 
     private const string PushScript = """
         redis.call('HSET', KEYS[1], ARGV[1], ARGV[2])
@@ -165,15 +167,14 @@ public class RedisQueueDriver : IQueueDriver, IDisposable
         """;
 
     private const string FailScript = """
-        if ARGV[3] ~= '' then
+        if ARGV[2] ~= '' then
             local current = redis.call('HGET', KEYS[2], ARGV[1])
             if not current then return 0 end
             local stored = cjson.decode(current)
-            if stored.ReservationId ~= ARGV[3] then return 0 end
+            if stored.ReservationId ~= ARGV[2] then return 0 end
         end
         redis.call('ZREM', KEYS[1], ARGV[1])
         redis.call('HDEL', KEYS[2], ARGV[1])
-        redis.call('RPUSH', KEYS[3], ARGV[2])
         return 1
         """;
 
@@ -236,14 +237,13 @@ public class RedisQueueDriver : IQueueDriver, IDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         var db = Db;
-        var (reservationId, envelope) = SerializeWithoutReservation(message);
         var result = await db.ScriptEvaluateAsync(FailScript,
-            [ReservedKey(message.Queue), MessagesKey(message.Queue), FailedKey(message.Queue)],
-            [message.Id, envelope, reservationId]);
+            [ReservedKey(message.Queue), MessagesKey(message.Queue)],
+            [message.Id, message.ReservationId ?? string.Empty]);
         return (long)result == 1;
     }
 
-    // The stored envelope of a released/failed message must not carry the old token, but the caller's object keeps it:
+    // The stored envelope of a released message must not carry the old token, but the caller's object keeps it:
     // a stale worker that releases and then fails the same instance must stay fenced for both calls.
     private static (string ReservationId, string Envelope) SerializeWithoutReservation(QueuedMessage message)
     {
