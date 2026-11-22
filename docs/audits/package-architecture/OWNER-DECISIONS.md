@@ -40,7 +40,7 @@ Memcached stays a best-effort lock: it does not implement the capabilities of st
 
 Limits that come with this plan. Without a token that the protected resource checks, no lease lock can stop a holder that keeps running after its lease ended; the plan makes that case rare (renewal) and visible (the lost-lease token), and only step 5 makes it impossible, and only for resources that check the token. A Redis failover can still lose a lock or a fence counter. Automatic renewal would turn a hung holder into a lock that never ends, which is why the maximum hold time is mandatory. The fence counter key must not expire, because an expired counter would hand out old numbers again; that costs one long-lived key per lock name, and how to bound it is left to the decision of step 5.
 
-Progress: step 1 is in its own pull request and steps 2 to 5 are not started. The findings AV-002, CCH-004 and MCD-007 stay OPEN. CCH-004 is closed by step 1 once it is merged and the CI of `main` is green. How MCD-007 (the Memcached release race) is closed, by accepting the risk or in another way, is not decided here and will be put to the owner.
+Progress: step 1 is done: PR #324 (merge `a1cf34b`) took the lock out of `CacheRateLimiter`, and the CI of `main` at the merge is green, so the finding CCH-004 is closed. Steps 2 to 5 are not started. The finding AV-002 and the finding MCD-007 stay OPEN. How MCD-007 (the Memcached release race) is closed, by accepting the risk or in another way, is not decided here and will be put to the owner.
 
 ## AD-003 — Scope/store flush semantics and Memcached administration
 

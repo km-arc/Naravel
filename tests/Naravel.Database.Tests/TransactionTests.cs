@@ -251,6 +251,102 @@ public sealed class TransactionTests : IAsyncLifetime
         (await CountAsync()).Should().Be(2);
     }
 
+    private const string TransactionEnded =
+        "The transaction has already ended (it was committed, rolled back or disposed), so its database cannot be used any more. "
+        + "Work that should take part in a transaction must be awaited before the TransactionAsync callback returns.";
+
+    [Fact]
+    public async Task Work_started_in_the_callback_and_not_awaited_is_refused_after_the_commit()
+    {
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task? detached = null;
+
+        await _db.TransactionAsync(async tx =>
+        {
+            await InsertAsync(tx, 1);
+            // The task captures the callback's ExecutionContext, so it still sees the ambient transaction after the callback returns.
+            detached = Task.Run(async () =>
+            {
+                await release.Task;
+                await InsertAsync(_db, 99);
+            });
+        });
+
+        release.SetResult();
+        var late = () => detached!;
+        (await late.Should().ThrowAsync<InvalidOperationException>()).Which.Message.Should().Be(TransactionEnded);
+        (await _db.Table("accounts").PluckAsync<long>("id")).Should().Equal(1);
+    }
+
+    [Fact]
+    public async Task A_database_kept_from_the_callback_is_refused_after_the_commit()
+    {
+        IDatabase? kept = null;
+        await _db.TransactionAsync(async tx =>
+        {
+            kept = tx;
+            await InsertAsync(tx, 1);
+        });
+
+        var query = () => InsertAsync(kept!, 2);
+        (await query.Should().ThrowAsync<InvalidOperationException>()).Which.Message.Should().Be(TransactionEnded);
+        var begin = () => kept!.TransactionAsync(_ => Task.CompletedTask);
+        (await begin.Should().ThrowAsync<InvalidOperationException>()).Which.Message.Should().Be(TransactionEnded);
+        (await CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task The_database_of_a_manual_transaction_is_refused_after_the_commit_and_after_the_rollback()
+    {
+        await using (var committed = await _db.BeginTransactionAsync())
+        {
+            await InsertAsync(committed.Database, 1);
+            await committed.CommitAsync();
+            var afterCommit = () => InsertAsync(committed.Database, 2);
+            (await afterCommit.Should().ThrowAsync<InvalidOperationException>()).Which.Message.Should().Be(TransactionEnded);
+        }
+
+        await using (var rolledBack = await _db.BeginTransactionAsync())
+        {
+            await rolledBack.RollBackAsync();
+            var afterRollback = () => InsertAsync(rolledBack.Database, 3);
+            (await afterRollback.Should().ThrowAsync<InvalidOperationException>()).Which.Message.Should().Be(TransactionEnded);
+        }
+
+        (await CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Work_that_is_awaited_inside_the_callback_still_joins_the_transaction()
+    {
+        var act = () => _db.TransactionAsync(async tx =>
+        {
+            await Task.Run(() => InsertAsync(_db, 1));
+            await Task.Run(() => InsertAsync(tx, 2));
+            throw new InvalidOperationException("boom");
+        });
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("boom");
+        (await CountAsync()).Should().Be(0, "both inserts were part of the transaction that rolled back");
+    }
+
+    [Fact]
+    public async Task A_savepoint_and_a_retry_do_not_end_the_transaction_they_run_in()
+    {
+        var runs = 0;
+        await _db.TransactionAsync(async tx =>
+        {
+            runs++;
+            await tx.TransactionAsync(nested => InsertAsync(nested, 1));
+            await _db.TransactionAsync(nested => InsertAsync(nested, 2));
+            await InsertAsync(tx, 3);
+            if (runs == 1) throw new FakeDeadlock();
+        }, attempts: 2);
+
+        runs.Should().Be(2);
+        (await _db.Table("accounts").OrderBy("id").PluckAsync<long>("id")).Should().Equal(1, 2, 3);
+    }
+
     [Fact]
     public async Task BeginTransactionAsync_commits_on_CommitAsync()
     {
