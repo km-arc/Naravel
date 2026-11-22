@@ -100,7 +100,7 @@ public abstract class QueueDriverContractTests : IDisposable
                 if (early is not null)
                 {
                     early.ReservedAt.Should().NotBeNull();
-                    early.ReservedAt.Should().BeOnOrAfter(delayed.AvailableAt,
+                    early.ReservedAt!.Value.Should().BeOnOrAfter(delayed.AvailableAt,
                         "a slow publish or pop must not turn an already-due message into a false early-delivery failure");
                     await driver.AckAsync(early);
                 }
