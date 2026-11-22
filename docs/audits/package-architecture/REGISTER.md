@@ -7,7 +7,7 @@ Inventory: **36** packable source projects. There are 35 package pages in `docs/
 | Order | Package ID | Source project | Package README | Status | Findings |
 |---:|---|---|---|---|---|
 | 01 | `Naravel.Foundation` | `src/Naravel.Foundation/Naravel.Foundation.csproj` | `docs/en/foundation.md` | REVIEWED WITH FINDINGS | [Report](reports/01-Naravel.Foundation.md): 2 P2 VERIFIED CLOSED, 2 P2 ACCEPTED RISK (owner decisions D-83, D-84) |
-| 02 | `Naravel.Cache` | `src/Naravel.Cache/Naravel.Cache.csproj` | `docs/nuget/Naravel.Cache.md` | REVIEWED WITH FINDINGS | [Report](reports/02-Naravel.Cache.md): 1 P1 VERIFIED CLOSED (PR #299), 1 P1 OPEN, 4 P2 OPEN, 1 P3 OPEN, 1 P3 ACCEPTED RISK, 1 DOC |
+| 02 | `Naravel.Cache` | `src/Naravel.Cache/Naravel.Cache.csproj` | `docs/nuget/Naravel.Cache.md` | REVIEWED WITH FINDINGS | [Report](reports/02-Naravel.Cache.md): 2 P1 VERIFIED CLOSED (PR #299, PR #324), 4 P2 OPEN, 1 P3 OPEN, 1 P3 ACCEPTED RISK, 1 DOC |
 | 03 | `Naravel.Redis` | `src/Naravel.Redis/Naravel.Redis.csproj` | `docs/nuget/Naravel.Redis.md` | REVIEWED WITH FINDINGS | [Report](reports/03-Naravel.Redis.md): 2 P2, 1 OBS |
 | 04 | `Naravel.Cache.Redis` | `src/Naravel.Cache.Redis/Naravel.Cache.Redis.csproj` | `docs/nuget/Naravel.Cache.Redis.md` | REVIEWED WITH FINDINGS | [Report](reports/04-Naravel.Cache.Redis.md): 1 P2 VERIFIED CLOSED (PR #298), 2 P2 OPEN |
 | 05 | `Naravel.Cache.Memcached` | `src/Naravel.Cache.Memcached/Naravel.Cache.Memcached.csproj` | `docs/nuget/Naravel.Cache.Memcached.md` | REVIEWED WITH FINDINGS | [Report](reports/05-Naravel.Cache.Memcached.md): 1 P1 VERIFIED CLOSED (PR #305), 1 P1 OPEN, 7 P2 OPEN, 1 P3 OPEN, 1 OBS VERIFIED CLOSED (PR #319; AD-001 DECIDED) |
