@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Naravel.Cache;
@@ -52,7 +53,10 @@ public abstract class RateLimiterServerTests
         var decisions = await Task.WhenAll(Enumerable.Range(0, 20)
             .Select(i => Task.Run(() => limiters[i % 2].AttemptAsync("burst", "subject", 10, TimeSpan.FromMinutes(1)))));
 
-        decisions.Count(d => d.Allowed).Should().Be(10, "both replicas count against the same backend counter under the same lock");
+        decisions.Count(d => d.Allowed).Should().Be(10, "both replicas count against the same atomic backend counter");
+        decisions.Should().OnlyContain(
+            d => d.RetryAfter > TimeSpan.Zero && d.RetryAfter <= TimeSpan.FromMinutes(1),
+            "every decision carries a usable retry-after even while the first attempt is still writing the start of the window");
     }
 
     protected async Task The_window_expires_on_the_server_and_a_new_one_starts()
@@ -69,6 +73,31 @@ public abstract class RateLimiterServerTests
         await Task.Delay(TimeSpan.FromSeconds(3.2));
 
         (await limiter.AttemptAsync("login", "u", 1, window)).Allowed.Should().BeTrue("the counter expired on the server instead of living forever");
+    }
+
+    // Every attempt, rejected ones included, now increments the counter. The window must still end at the time the first attempt fixed:
+    // if the server let an increment of an existing counter move its expiry, a caller that keeps trying would keep the window open for ever.
+    // The server may notice an expired Memcached item up to a second late, hence the margins: the window ends 3 s after the first attempt,
+    // a window slid forward by the attempt at 2 s would last until 5 s, and the last attempt is made at 4.4 s.
+    protected async Task Attempts_inside_the_window_do_not_extend_it_on_the_server()
+    {
+        await using var replica = Replica(NewPrefix());
+        var limiter = replica.GetRequiredService<IRateLimiter>();
+        var window = TimeSpan.FromSeconds(3);
+        var clock = Stopwatch.StartNew();
+
+        (await limiter.AttemptAsync("slide", "u", 1, window)).Allowed.Should().BeTrue();
+        await DelayUntil(clock, TimeSpan.FromSeconds(2));
+        (await limiter.AttemptAsync("slide", "u", 1, window)).Allowed.Should().BeFalse();
+        await DelayUntil(clock, TimeSpan.FromSeconds(4.4));
+
+        (await limiter.AttemptAsync("slide", "u", 1, window)).Allowed.Should().BeTrue("a rejected attempt must not move the end of the window");
+    }
+
+    private static Task DelayUntil(Stopwatch clock, TimeSpan moment)
+    {
+        var left = moment - clock.Elapsed;
+        return left > TimeSpan.Zero ? Task.Delay(left) : Task.CompletedTask;
     }
 
     protected async Task Clear_on_one_replica_resets_the_bucket_for_the_other()
@@ -114,6 +143,9 @@ public sealed class RedisRateLimiterServerTests : RateLimiterServerTests
     public Task Clear_is_shared() => Clear_on_one_replica_resets_the_bucket_for_the_other();
 
     [ServiceFact("NARAVEL_TEST_REDIS")]
+    public Task Attempts_do_not_extend_the_window() => Attempts_inside_the_window_do_not_extend_it_on_the_server();
+
+    [ServiceFact("NARAVEL_TEST_REDIS")]
     public Task Isolation() => Subjects_and_limiters_are_isolated_on_the_server();
 }
 
@@ -130,6 +162,9 @@ public sealed class MemcachedRateLimiterServerTests : RateLimiterServerTests
 
     [ServiceFact("NARAVEL_TEST_MEMCACHED")]
     public Task Clear_is_shared() => Clear_on_one_replica_resets_the_bucket_for_the_other();
+
+    [ServiceFact("NARAVEL_TEST_MEMCACHED")]
+    public Task Attempts_do_not_extend_the_window() => Attempts_inside_the_window_do_not_extend_it_on_the_server();
 
     [ServiceFact("NARAVEL_TEST_MEMCACHED")]
     public Task Isolation() => Subjects_and_limiters_are_isolated_on_the_server();
