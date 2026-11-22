@@ -61,7 +61,19 @@ internal static class BatchPruneScenario
         await repository.MarkJobCancelledAsync(cancelled.Id, token);
         await repository.MarkJobCompletedAsync(cancelled.Id, token);
 
-        lock (delivered) delivered.Should().BeEquivalentTo(new[] { "B-then", "B-finally", "D-catch", "D-finally", "E-finally" });
+        // F: the catch callback fails. Neither Catch nor Finally may be marked complete.
+        var catchCallbackFailed = new QueueBatch { TotalJobs = 1 };
+        await repository.RegisterAsync(catchCallbackFailed, new BatchOptions().Catch("flaky").Finally("note", "F-finally"), token);
+        var markCatchFailed = () => repository.MarkJobFailedAsync(catchCallbackFailed.Id, new InvalidOperationException("job failed"), token);
+        await markCatchFailed.Should().ThrowAsync<InvalidOperationException>().WithMessage("the callback failed");
+
+        // G: Catch succeeds, but Finally fails. The batch must remain until Finally is retried.
+        var finallyCallbackFailed = new QueueBatch { TotalJobs = 1 };
+        await repository.RegisterAsync(finallyCallbackFailed, new BatchOptions().Catch("note", "G-catch").Finally("flaky", "G-finally"), token);
+        var markFinallyFailed = () => repository.MarkJobFailedAsync(finallyCallbackFailed.Id, new InvalidOperationException("job failed"), token);
+        await markFinallyFailed.Should().ThrowAsync<InvalidOperationException>().WithMessage("the callback failed");
+
+        lock (delivered) delivered.Should().BeEquivalentTo(new[] { "B-then", "B-finally", "D-catch", "D-finally", "E-finally", "G-catch" });
 
         // The first call removes exactly the three batches that are finished with every callback delivered.
         (await repository.PruneFinishedAsync(token)).Should().Be(3);
@@ -70,6 +82,8 @@ internal static class BatchPruneScenario
         (await repository.GetAsync(cancelled.Id, token)).Should().BeNull();
         (await repository.GetAsync(running.Id, token)).Should().NotBeNull("a running batch is never deleted");
         (await repository.GetAsync(pending.Id, token)).Should().NotBeNull("a finished batch with undelivered callbacks is never deleted");
+        (await repository.GetAsync(catchCallbackFailed.Id, token)).Should().NotBeNull("a failed Catch callback must remain retryable");
+        (await repository.GetAsync(finallyCallbackFailed.Id, token)).Should().NotBeNull("a failed Finally callback must remain retryable");
         (await repository.PruneFinishedAsync(token)).Should().Be(0, "nothing else qualifies");
 
         // After a restart the undelivered callbacks of C are still found and delivered; only then does C qualify.
@@ -77,8 +91,10 @@ internal static class BatchPruneScenario
         var restarted = create(registry);
         await restarted.ResumePendingCallbacksAsync(token);
         lock (delivered) delivered.Should().Contain("C-then").And.Contain("C-finally");
-        (await restarted.PruneFinishedAsync(token)).Should().Be(1);
+        (await restarted.PruneFinishedAsync(token)).Should().Be(3);
         (await restarted.GetAsync(pending.Id, token)).Should().BeNull();
+        (await restarted.GetAsync(catchCallbackFailed.Id, token)).Should().BeNull();
+        (await restarted.GetAsync(finallyCallbackFailed.Id, token)).Should().BeNull();
         (await restarted.GetAsync(running.Id, token)).Should().NotBeNull();
 
         // A is pruned only after it has finished.
@@ -96,7 +112,9 @@ internal static class BatchPruneScenario
 
 public sealed class DatabaseBatchPruneTests : IDisposable
 {
-    private readonly string _databasePath = Path.Combine(Path.GetTempPath(), "naravel-batch-prune-" + Guid.NewGuid().ToString("N") + ".db");
+    private readonly string _databasePath = System.IO.Path.Combine(
+        System.IO.Path.GetTempPath(),
+        $"naravel-batch-prune-{Guid.NewGuid():N}.db");
     private readonly DbContextOptions<SqliteQueueContext> _options;
 
     public DatabaseBatchPruneTests()
@@ -113,7 +131,7 @@ public sealed class DatabaseBatchPruneTests : IDisposable
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();
-        try { File.Delete(_databasePath); } catch (IOException) { /* a leftover temp file is harmless */ }
+        try { System.IO.File.Delete(_databasePath); } catch (IOException) { /* a leftover temp file is harmless */ }
     }
 }
 
