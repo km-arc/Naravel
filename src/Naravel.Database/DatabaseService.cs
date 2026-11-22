@@ -10,10 +10,21 @@ internal sealed class DatabaseService(DatabaseManager manager, IConnectionScope 
 
     internal IConnectionScope Scope => scope;
 
-    /// <summary>The transaction this database already runs in: its own (inside a callback) or, for the injected database, the ambient one.</summary>
-    private LeasedTransactionScope? CurrentTransaction =>
-        scope as LeasedTransactionScope
-        ?? (scope is AmbientConnectionScope ? AmbientTransaction.Find(manager, AmbientTransaction.NameOf(manager, connectionName)) : null);
+    /// <summary>
+    /// The transaction this database already runs in: its own (inside a callback) or, for the injected database, the ambient one.
+    /// A transaction that has already ended is not "current": it throws instead of being joined, because the caller is work that
+    /// outlived the transaction (AD-022).
+    /// </summary>
+    private LeasedTransactionScope? CurrentTransaction
+    {
+        get
+        {
+            var current = scope as LeasedTransactionScope
+                ?? (scope is AmbientConnectionScope ? AmbientTransaction.Find(manager, AmbientTransaction.NameOf(manager, connectionName)) : null);
+            current?.ThrowIfEnded();
+            return current;
+        }
+    }
 
     public IDatabase Connection(string? name)
     {
@@ -104,7 +115,7 @@ internal sealed class DatabaseService(DatabaseManager manager, IConnectionScope 
             var transaction = await lease.Connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
             var dialect = manager.Connection(connectionName).Dialect;
             var leased = new LeasedTransactionScope(lease.Connection, transaction, dialect);
-            return new DatabaseTransaction(lease, transaction, new DatabaseService(manager, leased, connectionName, observer));
+            return new DatabaseTransaction(lease, transaction, leased, new DatabaseService(manager, leased, connectionName, observer));
         }
         catch
         {
