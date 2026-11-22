@@ -20,6 +20,7 @@ RabbitMQ queue driver for Naravel.Queue - delayed jobs via per-message TTL + dea
 - **Delayed jobs without a plugin.** A delay is a per-message TTL on a delay queue that dead-letters back to the ready queue.
 - **Failed jobs stay on the broker.** Jobs that ran out of attempts go to `netqueue.failed.<queue>`.
 - **Manual acknowledgement.** A message is acknowledged on the channel that delivered it, after the job ends.
+- **A retry or a failed job is never lost.** Its replacement message is published and confirmed by the broker before the original is acknowledged, so a stop in between duplicates the job instead of losing it.
 - **A bounded redelivery.** On a quorum queue, a message that exceeds `DeliveryLimit` is dead-lettered to `netqueue.failed.<queue>` and kept for inspection.
 
 ## Quick start

@@ -32,8 +32,10 @@ public enum RabbitMqQueueType
 /// the head of the queue, a very-long-delay message queued before a short-delay one can make the
 /// short one wait slightly longer than requested - fine for typical retry/delay use cases.
 ///
-/// Attempts: a worker-initiated retry acknowledges the delivery and republishes the message with the updated
-/// attempt count. Crash redelivery (unacknowledged deliveries that the broker requeues when the channel or
+/// Attempts: a worker-initiated retry publishes the message again with the updated attempt count, waits for the
+/// broker to confirm it, and only then acknowledges the original delivery; a failed job is moved to
+/// "netqueue.failed.q" in the same order. If the process stops between the two steps the broker redelivers the
+/// original, so a job can run twice but is not lost. Crash redelivery (unacknowledged deliveries that the broker requeues when the channel or
 /// connection closes) is at-least-once and is NOT counted by the driver. By default the ready queue is a classic queue.
 /// With <see cref="RabbitMqQueueType.Quorum"/> it is a quorum queue, and an optional delivery limit lets the broker
 /// dead-letter a message that keeps being redelivered into "netqueue.failed.q" (see docs/en/queue.md,
@@ -89,11 +91,31 @@ public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
         finally { _connectionGate.Release(); }
     }
 
-    private async ValueTask<IChannel> OpenChannelAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Opens a channel. With <paramref name="confirmed"/> the channel has publisher confirmations enabled and tracked, so
+    /// <c>BasicPublishAsync</c> completes only when the broker has accepted the message and throws if it nacks or returns it.
+    /// </summary>
+    private async ValueTask<IChannel> OpenChannelAsync(CancellationToken cancellationToken, bool confirmed = false)
     {
         var connection = await GetConnectionAsync(cancellationToken);
-        return await connection.CreateChannelAsync(cancellationToken: cancellationToken);
+        return confirmed
+            ? await connection.CreateChannelAsync(
+                new CreateChannelOptions(publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true),
+                cancellationToken)
+            : await connection.CreateChannelAsync(cancellationToken: cancellationToken);
     }
+
+    /// <summary>
+    /// Test seam: runs before a retry or failed copy is published. A test that throws here proves the original delivery
+    /// is still unacknowledged, so the broker redelivers it. Never set in production.
+    /// </summary>
+    internal Func<CancellationToken, Task>? BeforeReplacementPublished { get; set; }
+
+    /// <summary>
+    /// Test seam: runs after the broker confirmed a retry or failed copy and before the original delivery is acknowledged.
+    /// A test that throws here stands for a process that stops in that window. Never set in production.
+    /// </summary>
+    internal Func<CancellationToken, Task>? AfterReplacementConfirmed { get; set; }
 
     /// <summary>The arguments the ready queue is declared with. The queue type is fixed at declaration time.</summary>
     internal static Dictionary<string, object?> ReadyQueueArguments(string queue, RabbitMqQueueType queueType, int? deliveryLimit)
@@ -129,9 +151,12 @@ public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
     }
 
     /// <inheritdoc />
-    public async Task PushAsync(QueuedMessage message, CancellationToken cancellationToken = default)
+    public Task PushAsync(QueuedMessage message, CancellationToken cancellationToken = default)
+        => PublishAsync(message, confirmed: false, cancellationToken);
+
+    private async Task PublishAsync(QueuedMessage message, bool confirmed, CancellationToken cancellationToken)
     {
-        await using var channel = await OpenChannelAsync(cancellationToken);
+        await using var channel = await OpenChannelAsync(cancellationToken, confirmed);
         await EnsureTopologyAsync(channel, message.Queue, cancellationToken);
         var body = Encoding.UTF8.GetBytes(QueueEnvelopeJson.Serialize(message));
         var properties = new BasicProperties
@@ -185,40 +210,65 @@ public class RabbitMqQueueDriver : IQueueDriver, IAsyncDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!_deliveries.TryRemove(message.Id, out var delivery)) return;
+        await AcknowledgeAsync(delivery, cancellationToken);
+    }
+
+    /// <summary>Acknowledges a delivery on the channel that fetched it, then closes that channel.</summary>
+    private static async Task AcknowledgeAsync(Delivery delivery, CancellationToken cancellationToken)
+    {
         try { await delivery.Channel.BasicAckAsync(delivery.Tag, multiple: false, cancellationToken); }
         finally { await delivery.Channel.DisposeAsync(); }
+    }
+
+    /// <summary>
+    /// Publishes the replacement of a delivery (a retry copy or a failed copy) and only then acknowledges the original.
+    /// The replacement keeps the message id, so the original delivery is taken out of <c>_deliveries</c> first: a worker of
+    /// this process can pop the replacement as soon as the broker holds it, and that pop must not overwrite or settle the
+    /// original. If anything fails before the acknowledgement, the original stays unacknowledged and is put back, so the
+    /// broker redelivers it and a later call can still settle it (RQM-001).
+    /// </summary>
+    private async Task ReplaceDeliveryAsync(QueuedMessage message, Func<Task> publishReplacement, CancellationToken cancellationToken)
+    {
+        _deliveries.TryRemove(message.Id, out var delivery);
+        try
+        {
+            if (BeforeReplacementPublished is { } before) await before(cancellationToken);
+            await publishReplacement();
+            if (AfterReplacementConfirmed is { } after) await after(cancellationToken);
+        }
+        catch
+        {
+            if (delivery is not null) _deliveries.TryAdd(message.Id, delivery);
+            throw;
+        }
+
+        if (delivery is not null) await AcknowledgeAsync(delivery, cancellationToken);
     }
 
     /// <inheritdoc />
     public async Task ReleaseAsync(QueuedMessage message, TimeSpan delay, CancellationToken cancellationToken = default)
     {
-        // RabbitMQ has no "put this specific message back with a new delay" primitive - acknowledge the
-        // original delivery and republish a fresh message carrying the updated attempt count/delay instead.
-        if (_deliveries.TryRemove(message.Id, out var delivery))
-        {
-            try { await delivery.Channel.BasicAckAsync(delivery.Tag, multiple: false, cancellationToken); }
-            finally { await delivery.Channel.DisposeAsync(); }
-        }
-
+        // RabbitMQ has no "put this specific message back with a new delay" primitive - publish a fresh message
+        // carrying the updated attempt count/delay, and only after the broker has confirmed it acknowledge the
+        // original delivery. If the process stops, or the publish fails, before the acknowledgement, the broker
+        // requeues the original: the job can then run twice, but it is never lost.
         message.ReservedAt = null;
         message.AvailableAt = DateTimeOffset.UtcNow + delay;
-        await PushAsync(message, cancellationToken);
+        await ReplaceDeliveryAsync(message, () => PublishAsync(message, confirmed: true, cancellationToken), cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task FailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
-    {
-        if (_deliveries.TryRemove(message.Id, out var delivery))
+    public Task FailAsync(QueuedMessage message, CancellationToken cancellationToken = default)
+        // Same order as ReleaseAsync: the failed copy is confirmed by the broker (and persistent, so it is on disk)
+        // before the original delivery is acknowledged.
+        => ReplaceDeliveryAsync(message, async () =>
         {
-            try { await delivery.Channel.BasicAckAsync(delivery.Tag, multiple: false, cancellationToken); }
-            finally { await delivery.Channel.DisposeAsync(); }
-        }
-
-        await using var channel = await OpenChannelAsync(cancellationToken);
-        await EnsureTopologyAsync(channel, message.Queue, cancellationToken);
-        var body = Encoding.UTF8.GetBytes(QueueEnvelopeJson.Serialize(message));
-        await channel.BasicPublishAsync("", $"netqueue.failed.{message.Queue}", false, new BasicProperties(), body, cancellationToken);
-    }
+            await using var channel = await OpenChannelAsync(cancellationToken, confirmed: true);
+            await EnsureTopologyAsync(channel, message.Queue, cancellationToken);
+            var body = Encoding.UTF8.GetBytes(QueueEnvelopeJson.Serialize(message));
+            var properties = new BasicProperties { DeliveryMode = DeliveryModes.Persistent };
+            await channel.BasicPublishAsync("", $"netqueue.failed.{message.Queue}", false, properties, body, cancellationToken);
+        }, cancellationToken);
 
     /// <inheritdoc />
     public async Task<long> SizeAsync(string queue, CancellationToken cancellationToken = default)
