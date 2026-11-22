@@ -112,7 +112,7 @@ internal static class BatchPruneScenario
 
 public sealed class DatabaseBatchPruneTests : IDisposable
 {
-    private readonly string _databasePath = System.IO.Path.Combine(
+    private readonly string _databasePath = System.IO.Path.Join(
         System.IO.Path.GetTempPath(),
         $"naravel-batch-prune-{Guid.NewGuid():N}.db");
     private readonly DbContextOptions<SqliteQueueContext> _options;
