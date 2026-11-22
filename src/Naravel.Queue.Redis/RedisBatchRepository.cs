@@ -9,7 +9,7 @@ namespace Naravel.Queue.Redis;
 
 /// <summary>Redis-backed persistent batch state and typed callback registrations.</summary>
 /// <remarks><b>Laravel equivalent:</b> queue batch repository. It exists for cross-process state and stores callback aliases rather than delegates or CLR type names.</remarks>
-public sealed class RedisBatchRepository : IBatchRepository
+public sealed class RedisBatchRepository : IPrunableBatchRepository
 {
     private readonly IDatabase _database;
     private readonly RedisKey _prefix;
@@ -26,6 +26,27 @@ public sealed class RedisBatchRepository : IBatchRepository
     }
 
     private RedisKey BatchKey(string id) => $"{_prefix}:{id}";
+
+    // KEYS[1] = the batch hash. Returns 1 when it deleted the hash, 0 when the batch must stay, 2 when there is no hash at all (an index member whose
+    // hash is gone). A batch is deleted only when every job is counted and every callback group that applies to it has run: the finally group, and
+    // the catch group when a job failed, or else the then group (skipped for a cancelled batch). That is the rule of InvokeTerminalCallbacksAsync.
+    private const string PruneScript = """
+        if redis.call('EXISTS', KEYS[1]) == 0 then return 2 end
+        local v = redis.call('HMGET', KEYS[1], 'TotalJobs', 'CompletedJobs', 'FailedJobs', 'CancelledJobs', 'IsCancelled',
+            'ThenCallbacksCompleted', 'CatchCallbacksCompleted', 'FinallyCallbacksCompleted')
+        local total = tonumber(v[1])
+        if not total then return 0 end
+        local failed = tonumber(v[3]) or 0
+        if (tonumber(v[2]) or 0) + failed + (tonumber(v[4]) or 0) < total then return 0 end
+        if v[8] ~= '1' then return 0 end
+        if failed > 0 then
+            if v[7] ~= '1' then return 0 end
+        elseif v[5] ~= '1' and v[6] ~= '1' then
+            return 0
+        end
+        redis.call('DEL', KEYS[1])
+        return 1
+        """;
 
     private const string IncrementScript = """
         local total = tonumber(redis.call('HGET', KEYS[1], 'TotalJobs'))
@@ -126,6 +147,29 @@ public sealed class RedisBatchRepository : IBatchRepository
             var finished = ReadInt(values, "CompletedJobs") + ReadInt(values, "FailedJobs") + ReadInt(values, "CancelledJobs") >= ReadInt(values, "TotalJobs");
             if (finished) await InvokeTerminalCallbacksAsync((string)batchId!, values, cancellationToken);
         }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Reads the index once, as <see cref="ResumePendingCallbacksAsync"/> does, and for each batch runs one Lua script that checks the batch and deletes its hash in the same step,
+    /// then removes the index entry; an index entry whose hash is already gone is removed too and is not counted. The token is checked before each batch and not between its
+    /// two commands, so a cancellation cannot leave a batch half removed; if the process stops between them, the next call removes the leftover index entry.
+    /// </remarks>
+    public async Task<int> PruneFinishedAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var batchIds = await _database.SetMembersAsync(_index);
+        var deleted = 0;
+        foreach (var batchId in batchIds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var result = (int)await _database.ScriptEvaluateAsync(PruneScript, [BatchKey((string)batchId!)]);
+            if (result == 0) continue;
+            await _database.SetRemoveAsync(_index, batchId);
+            if (result == 1) deleted++;
+        }
+
+        return deleted;
     }
 
     private async Task IncrementAsync(string batchId, string field, CancellationToken cancellationToken)

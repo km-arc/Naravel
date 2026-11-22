@@ -1,1 +1,2 @@
 #nullable enable
+Naravel.Queue.Redis.RedisBatchRepository.PruneFinishedAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<int>!
