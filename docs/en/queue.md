@@ -422,7 +422,9 @@ another worker already owns the message, the call changes nothing.
 A job can run more than once (worker crash, visibility timeout, a failed acknowledgement), so jobs
 must be idempotent. Chain follow-ups are published *before* the current job is acknowledged, so a
 chain is never silently lost - but that also means a follow-up could be published twice if the
-process crashes between publishing it and acknowledging the original job. Design accordingly.
+process crashes between publishing it and acknowledging the original job. Design accordingly. The RabbitMQ driver
+uses the same order for a retry and for a failed job: the replacement is confirmed by the broker before the original
+delivery is acknowledged, so a crash in between duplicates the job and does not lose it.
 
 Reclaiming an expired Database, Redis, or File reservation increments the stored attempt count.
 When that count reaches `MaxAttempts`, the worker records a permanent failure without executing
@@ -550,7 +552,7 @@ visibility timeout when it starts:
 |---|---|---|
 | Memory | counted | not applicable (in-process) |
 | File, Database, Redis | counted | **counted** when the visibility timeout expires |
-| RabbitMQ | counted (the delivery is acknowledged and a new message carrying the updated count is published) | **not counted** |
+| RabbitMQ | counted (a new message carrying the updated count is published and confirmed by the broker, and only then is the delivery acknowledged) | **not counted** |
 | Kafka | counted (the job is produced again to the tail of the topic for immediate delivery, with no backoff, and the original offset is committed) | **not counted** |
 
 On RabbitMQ and Kafka, a message whose worker died before acknowledging it is redelivered by the broker
@@ -563,6 +565,14 @@ memory limits, and alerts on repeated worker restarts or growing consumer lag.
 Jobs that exhaust `MaxAttempts` are also published to `netqueue.failed.<queue>` (RabbitMQ) or the
 `netqueue-<queue>-failed` topic (Kafka). Naravel never consumes these; inspect them with broker tooling and use
 `FailedJobManager` to retry.
+
+On RabbitMQ, a retry and a failed job publish their replacement message first, on a channel with publisher
+confirmations, wait until the broker has confirmed it, and only then acknowledge the original delivery. If the
+process stops between the two, the broker redelivers the original and the job runs or fails again: a duplicate,
+never a loss. If the broker refuses the replacement (a nack, a return or a closed connection), the call throws and the
+original stays unacknowledged: the driver keeps it, so a later hand-back can still settle it, and the broker
+redelivers it when its channel closes. The worker logs the error and keeps running. Before this order was fixed
+(audit finding RQM-001) the original was acknowledged first, so a stop between the two steps lost the job.
 
 #### RabbitMQ: broker-side delivery limit and dead-lettering
 
