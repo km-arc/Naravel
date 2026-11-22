@@ -17,6 +17,7 @@ Redis queue driver for Naravel.Queue, built on StackExchange.Redis - priority bu
 ## What you get
 
 - **Ten priority buckets.** Each queue keeps one ready list per priority, 0 to 9, and 9 comes out first.
+- **Cancellation is a check before each command.** StackExchange.Redis takes no token: a cancelled token stops a call before a command is sent, and a command that was already sent is awaited so you learn its outcome. A queue state change is one Lua script (all or nothing).
 - **Delays and recovery in one pop.** Each pop promotes the delayed jobs that are due and reclaims reserved jobs whose visibility timeout expired.
 - **Fenced reservations.** A worker that outlives its visibility timeout cannot acknowledge the copy that another worker now owns; the job simply runs a second time.
 - **One connection with the rest of Naravel.** `Connection` names a `Naravel.Redis` store, so the queue and the cache can share one connection.
