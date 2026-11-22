@@ -95,3 +95,7 @@ A benchmark of the in-process path (must not regress) and of the shared path on 
 2. **Make `ThrottleLimiterRegistry` itself pluggable through `Manager<TDriver,TOptions>`.** Rejected: Routing is not driver-based (PDR-009); one small interface is enough.
 3. **Distributed partitions through a custom `PartitionedRateLimiter` over Redis.** Rejected: the native limiter's leases and replenishment timers assume local state; the Cache counter contract already gives one atomic call with the right expiry semantics and has provider tests.
 4. **Wrap `IRateLimiter` as it is.** Rejected for the request path: five to six store calls, and a per-subject lock with a 5 second wait that queues the very burst the throttle must stop. It stays the right tool for an explicit attempts counter in a handler (`cache.md`).
+
+## Update of 2026-11-22
+
+The cost of `IRateLimiter` described in the background and in alternative 4 (a per-subject lock with a 5 second wait, and five to six store calls per request) is the cost of the limiter as it was when this PDR was decided. Since owner decision AD-002 (see [OWNER-DECISIONS.md](../../audits/package-architecture/OWNER-DECISIONS.md)) `CacheRateLimiter` takes no lock and makes two store calls per attempt. The decision of this PDR, a counter of its own for the route throttle, is unchanged.

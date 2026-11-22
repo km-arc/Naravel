@@ -265,12 +265,11 @@ var decision = await limiter.AttemptAsync("login", subjectKey, 5, TimeSpan.FromM
 
 Inject `IRateLimiter` where it is used. Each policy and subject has an isolated bucket; subject keys
 are hashed before being placed in cache keys. The first permitted attempt starts the fixed window.
-Rejected attempts do not increment the counter or extend the window. `RateLimitDecision` exposes
-`Allowed`, `Remaining`, and `RetryAfter`; `ClearAsync` resets one policy/subject bucket. Use
-`System.Threading.RateLimiting` for process-local policies and Cache-backed limiting only when all
-instances share a backend whose lock implementation provides the required coordination. Memory locks
-are process-local; Memcached lock release has a read/delete race, so Redis is the safer choice for
-critical shared quotas.
+Every attempt, rejected ones included, adds one to the counter, but none of them extends the window.
+`RateLimitDecision` exposes `Allowed`, `Remaining`, and `RetryAfter`; `ClearAsync` resets one
+policy/subject bucket. Use `System.Threading.RateLimiting` for process-local policies and Cache-backed
+limiting only when all instances share a backend counter (Redis or Memcached); the Memory store counts
+per process.
 
 Complete example: throttle a login endpoint to 5 attempts per minute per IP and account. `IAuthService` and `LoginRequest` stand for your own code.
 
@@ -307,25 +306,23 @@ the key is created. Redis performs increment and first-expiry assignment in one 
 coordinates with its per-key lock; Memcached uses atomic add followed by atomic increment (which carries the same TTL, so a key that expires between the two calls is recreated with an expiry and never becomes a permanent counter). Later
 increments never slide the fixed-window boundary.
 
-**Local versus distributed.** The limit is shared by exactly the processes that share the counter **and** the lock:
+**Local versus distributed.** The limit is shared by exactly the processes that share the counter:
 
-| Backend | Counter and lock shared across replicas | What the limit means with N replicas |
+| Backend | Counter shared across replicas | What the limit means with N replicas |
 |---|---|---|
-| Redis | yes (atomic Lua increment, `SET NX` lock) | one limit for all replicas |
-| Memcached | yes, but its lock release has a read/delete race | one limit; a rare double admit is possible, and an evicted key resets the window |
+| Redis | yes (atomic Lua increment) | one limit for all replicas |
+| Memcached | yes (atomic add, then atomic increment) | one limit; an evicted key resets the window |
 | Memory | **no** (per process) | **each replica admits the full limit**, so the effective limit is N times higher |
-| route `throttle` middleware | **no** by default (`System.Threading.RateLimiting`, per process). `Naravel.Routing.Cache` counts in the store you name, with its own one-call counter and no lock (it does not use `IRateLimiter`) | default store: same as Memory; shared store: as the named store above |
+| route `throttle` middleware | **no** by default (`System.Threading.RateLimiting`, per process). `Naravel.Routing.Cache` counts in the store you name, with its own one-call counter (it does not use `IRateLimiter`) | default store: same as Memory; shared store: as the named store above |
 
-Failure behaviour: if the lock cannot be taken within 5 seconds, `AttemptAsync` throws `TimeoutException` (it neither admits nor rejects, so decide in the caller whether to fail open or closed); a backend outage surfaces the backend's exception. The counter and lock are not rolled back if your own work after an allowed attempt fails.
+Failure behaviour: the limiter takes no lock, so `AttemptAsync` cannot time out while waiting for one. A backend outage surfaces the backend's exception, and the call then neither admits nor rejects, so decide in the caller whether to fail open or closed. If the backend fails after the counter was incremented (in the second call, which records the start of the window), that attempt stays counted although the caller gets the exception. The counter is not rolled back if your own work after an allowed attempt fails.
 
 A fixed window can admit up to **2x the configured limit** in a short interval across an adjacent-window
 boundary (for example, the full limit just before expiry and another full limit just after reset). This is
 not a rolling-window guarantee; use `System.Threading.RateLimiting` with a sliding window for local limits
 that need that behavior.
 
-The limiter serializes the check and update with the selected Cache lock. Redis's counter increment and
-first expiry are atomic at the store level, but a limiter-specific Redis-atomic fast path is deferred; the
-limiter uses the same Cache/lock contract as the other providers.
+The limiter takes no lock. Each attempt is one atomic `IncrementAsync(key, 1, window)` on the selected store, which also fixes the end of the window when it creates the counter. The count that call returns decides the outcome, so concurrent attempts, even from different instances, never receive the same count. A second key holds the time the window began and is used only to work out `RetryAfter`; when it is missing or stale (the first attempt has not written it yet, or the key was evicted), the attempt records the current time, which can only make `RetryAfter` longer than the true remainder and never changes whether an attempt is admitted. `ClearAsync` removes both keys. The `lockManager` argument of the `CacheRateLimiter` constructor is ignored and stays so that existing code keeps compiling.
 
 The limiter emits `naravel.cache.ratelimiter.allowed`, `naravel.cache.ratelimiter.rejected`, and a
 duration histogram through the `Naravel.Cache` meter, plus an `ActivitySource` span. Metric tags use
@@ -350,7 +347,6 @@ Calling a method wrongly fails fast with a standard .NET exception. The messages
 | `IncrementAsync(key, by, ttl)` with `by` or `ttl` of zero or less | `ArgumentOutOfRangeException` |
 | `BlockAsync` with a `ttl` of zero or less or a negative `wait` (the Memory lock's `AcquireAsync` rejects a `ttl` of zero or less too) | `ArgumentOutOfRangeException` |
 | `AttemptAsync` with `maxAttempts` or `window` of zero or less | `ArgumentOutOfRangeException` |
-| `AttemptAsync` cannot take its lock within 5 seconds | `TimeoutException`: `Could not acquire the cache rate-limit lock within the configured wait period.` |
 | A store name that is not registered | `DriverNotRegisteredException`: `Driver 'x' is not registered for ICacheStore. Available drivers: …` |
 | `Store()` on an async-only store not yet created | `InvalidOperationException`; call `DriverAsync` first (see [Select a store](#select-a-store)). |
 | The token is cancelled | `OperationCanceledException` |

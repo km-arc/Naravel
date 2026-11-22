@@ -231,7 +231,7 @@ The first use of a store creates it. The package does that off the request threa
 
 1. Behind more than one instance, register `AddNaravelSharedThrottle`. Keep the default store where roughly N times the limit is acceptable (damping scrapers, protecting a single instance's CPU); it is not a security boundary.
 2. Opt credential endpoints (logins, one-time codes, password resets) into `FailClosed`.
-3. For an explicit attempt counter in a handler (failed logins per account), the Cache-backed `IRateLimiter` stays the tool: see the tested login example in [cache.md](cache.md). It takes a lock per subject and makes several store calls, so it suits attempt counters, not a blanket throttle on a busy route.
+3. For an explicit attempt counter in a handler (failed logins per account), the Cache-backed `IRateLimiter` stays the tool: see the tested login example in [cache.md](cache.md). It makes two store calls per attempt (an atomic increment, then one read or write of the start of the window), so it suits attempt counters, not a blanket throttle on a busy route.
 4. Or enforce the limit at the edge (reverse proxy or API gateway), where all traffic passes exactly once.
 
 `IUrlGenerator.SignedRoute(name, values)` and `TemporarySignedRoute(name, expiresAt, values)` create signed relative URLs. Attach `.Middleware("signed")` to validate them. The signature covers the path and query, not the host. Temporary URLs are rejected once expired. Data Protection keys must be persisted and shared by instances that generate and validate the same links; protect the key ring at rest in production.
