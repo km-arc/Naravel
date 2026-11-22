@@ -11,7 +11,7 @@ namespace Naravel.Cache.Locks;
 /// held now rather than every name ever used. A name used once per client address, such as a rate-limit bucket, therefore does not
 /// grow it without bound.</para>
 /// </remarks>
-public sealed class MemoryLock : ICacheLock
+public sealed class MemoryLock : ICacheLock, IRefreshableCacheLock, IForceReleasableCacheLock
 {
     private const int SweepInterval = 1024;
 
@@ -87,6 +87,46 @@ public sealed class MemoryLock : ICacheLock
             state.ExpiresAtUtc = default;
             Retire(key, state);
             return Task.FromResult(true);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<bool> RefreshAsync(string name, string token, TimeSpan ttl, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(token);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(ttl, TimeSpan.Zero);
+        var key = _prefix + name;
+        if (!Locks.TryGetValue(key, out var state)) return Task.FromResult(false);
+        lock (state.Gate)
+        {
+            var now = DateTime.UtcNow;
+
+            // A lease that has already ended is not revived, even when nobody took the lock since. That matches Redis, where the key is already gone.
+            if (state.Retired || !string.Equals(state.Token, token, StringComparison.Ordinal) || state.ExpiresAtUtc <= now) return Task.FromResult(false);
+            state.ExpiresAtUtc = now + ttl;
+            return Task.FromResult(true);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<bool> ForceReleaseAsync(string name, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        var key = _prefix + name;
+        if (!Locks.TryGetValue(key, out var state)) return Task.FromResult(false);
+        lock (state.Gate)
+        {
+            if (state.Retired) return Task.FromResult(false);
+
+            // Only a lock that is still held counts as deleted, like a Redis key that has not expired.
+            var existed = state.Token is not null && state.ExpiresAtUtc > DateTime.UtcNow;
+            state.Token = null;
+            state.ExpiresAtUtc = default;
+            Retire(key, state);
+            return Task.FromResult(existed);
         }
     }
 

@@ -71,6 +71,47 @@ public sealed class RedisProviderTests
     }
 
     [Fact]
+    public async Task Redis_lock_refresh_uses_a_token_checked_expiry_script_and_reports_a_lock_that_was_lost()
+    {
+        var mux = DispatchProxy.Create<IConnectionMultiplexer, CacheProviderDispatchProxy>();
+        var database = DispatchProxy.Create<IDatabase, RedisDatabaseProxy>();
+        ((CacheProviderDispatchProxy)(object)mux).NextResult = database;
+        var proxy = (RedisDatabaseProxy)(object)database;
+        using var cacheLock = new RedisLock(mux, "tests");
+
+        proxy.ScriptResult = 1L;
+        (await cacheLock.RefreshAsync("order", "token", TimeSpan.FromSeconds(5))).Should().BeTrue();
+        proxy.LastScript.Should().Contain("redis.call('get', KEYS[1]) == ARGV[1]").And.Contain("pexpire");
+
+        proxy.ScriptResult = 0L;
+        (await cacheLock.RefreshAsync("order", "token", TimeSpan.FromSeconds(5))).Should().BeFalse();
+    }
+
+    [Fact]
+    public void The_redis_lock_has_both_lock_capabilities()
+    {
+        typeof(RedisLock).Should().Implement<Naravel.Cache.Abstractions.IRefreshableCacheLock>();
+        typeof(RedisLock).Should().Implement<Naravel.Cache.Abstractions.IForceReleasableCacheLock>();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task Redis_lock_refresh_rejects_a_lease_of_zero_or_less_before_any_call(int seconds)
+    {
+        var mux = DispatchProxy.Create<IConnectionMultiplexer, CacheProviderDispatchProxy>();
+        var database = DispatchProxy.Create<IDatabase, RedisDatabaseProxy>();
+        ((CacheProviderDispatchProxy)(object)mux).NextResult = database;
+        var proxy = (RedisDatabaseProxy)(object)database;
+        using var cacheLock = new RedisLock(mux, "tests");
+
+        Func<Task> act = () => cacheLock.RefreshAsync("order", "token", TimeSpan.FromSeconds(seconds));
+
+        await act.Should().ThrowAsync<ArgumentOutOfRangeException>();
+        proxy.LastScript.Should().BeNull("an invalid lease is refused before the server is asked");
+    }
+
+    [Fact]
     public async Task Redis_ttl_increment_uses_atomic_increment_and_expiry_script()
     {
         var mux = DispatchProxy.Create<IConnectionMultiplexer, CacheProviderDispatchProxy>();

@@ -141,6 +141,25 @@ public sealed class DocsExampleTests
     }
 
     [Fact]
+    public async Task Memory_lock_offers_refresh_and_force_release_through_its_capability_interfaces()
+    {
+        await using var provider = Build();
+        var cacheLock = provider.GetRequiredService<LockManager>().Driver("memory");
+
+        var token = await cacheLock.AcquireAsync("import:nightly", TimeSpan.FromMinutes(1));
+        token.Should().NotBeNull();
+
+        var refreshable = cacheLock.Should().BeAssignableTo<IRefreshableCacheLock>().Subject;
+        (await refreshable.RefreshAsync("import:nightly", token!, TimeSpan.FromMinutes(1))).Should().BeTrue();
+        (await refreshable.RefreshAsync("import:nightly", "not-the-token", TimeSpan.FromMinutes(1))).Should().BeFalse();
+
+        var forceReleasable = cacheLock.Should().BeAssignableTo<IForceReleasableCacheLock>().Subject;
+        (await forceReleasable.ForceReleaseAsync("import:nightly")).Should().BeTrue();
+        (await refreshable.RefreshAsync("import:nightly", token!, TimeSpan.FromMinutes(1))).Should().BeFalse();
+        (await cacheLock.AcquireAsync("import:nightly", TimeSpan.FromMinutes(1))).Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task Login_throttle_allows_five_then_rejects_and_ClearAsync_resets_the_bucket()
     {
         await using var provider = Build();
