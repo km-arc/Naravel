@@ -217,6 +217,34 @@ public sealed class CacheLockTests
         (await cacheLock.ReleaseAsync("job", token!)).Should().BeTrue("the lock was not touched");
     }
 
+    [Fact]
+    public async Task Concurrent_release_and_force_release_have_exactly_one_winner()
+    {
+        var cacheLock = new MemoryLock("release-race");
+
+        for (var i = 0; i < 100; i++)
+        {
+            var name = $"job:{i}";
+            var token = await cacheLock.AcquireAsync(name, TimeSpan.FromSeconds(30));
+            using var barrier = new Barrier(2);
+
+            var release = Task.Run(() =>
+            {
+                barrier.SignalAndWait();
+                return cacheLock.ReleaseAsync(name, token!).GetAwaiter().GetResult();
+            });
+            var forceRelease = Task.Run(() =>
+            {
+                barrier.SignalAndWait();
+                return cacheLock.ForceReleaseAsync(name).GetAwaiter().GetResult();
+            });
+
+            var results = await Task.WhenAll(release, forceRelease);
+            results.Count(static succeeded => succeeded).Should().Be(1);
+            (await cacheLock.AcquireAsync(name, TimeSpan.FromSeconds(30))).Should().NotBeNull();
+        }
+    }
+
     // The Memcached lock must not offer these capabilities: its touch command does not check an owner, so a refresh could extend a lock that another holder owns.
     [Fact]
     public void The_memory_lock_has_both_capabilities_and_the_memcached_lock_has_neither()
