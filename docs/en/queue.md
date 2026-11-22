@@ -372,6 +372,7 @@ modelBuilder.Entity<JobRecord>().Property(j => j.FailedAt).HasConversion(utcTick
 `builder.Services.AddRedisFailedJobStore("redis")`. `ConfigureQueueJobs()` also maps the
 `QueueFailedJobs` table; create and apply a migration after adding it. The Redis store uses the
 selected Redis queue connection and the `netqueue:failed-jobs` hash by default.
+With the default in-memory store a failed job is kept only until the process ends; the Redis driver itself keeps no copy of it: a job that exhausted its attempts is removed from the queue's keys and the failed-job store is the record of it. Earlier versions also pushed each failed job onto a list `netqueue:<queue>:failed` that nothing read or trimmed; those lists are not touched, so delete them yourself once you have checked that you do not need them.
 
 Use `FailedJobManager` to inspect and manage terminal failures:
 
