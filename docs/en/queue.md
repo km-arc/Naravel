@@ -119,7 +119,7 @@ the listing stops it after the file being read, although the operating system ca
 
 **Visibility timeout with the `database` and `redis` drivers.** The same rule applies: `VisibilityTimeoutSeconds` (default 300) must be greater than zero, because with zero or a negative value every reservation would count as expired at once. `new DatabaseQueueDriver<TContext>(factory, timeout)` and `new RedisQueueDriver(connection, timeout)` throw `ArgumentOutOfRangeException` (`ParamName` `visibilityTimeout`) for such a timeout, and a store whose `VisibilityTimeoutSeconds` is zero, negative or NaN throws `InvalidOperationException`, naming the store and the setting, when the store is first resolved and not when `AddDatabaseDriver` or `AddRedisDriver` runs. The Redis registration checks the setting before it opens a connection. Zero never means "turn reclaiming off"; a value that is not a number at all still throws `FormatException`.
 
-**`SizeAsync` with the `redis` driver.** Like the other methods of the driver, it checks the token before it sends a command: a token that is already cancelled throws `OperationCanceledException` before any request is made, and the token is checked again before each of the eleven counts, so a cancelled caller stops between requests. StackExchange.Redis takes no token, so a request that has already been sent is not interrupted and its answer is awaited; whether the wait for such a request should be cancelled too is not decided yet.
+**Cancellation with the Redis drivers (`RedisQueueDriver`, `RedisBatchRepository`, `RedisFailedJobStore`).** StackExchange.Redis takes no `CancellationToken`, so the token is a check before a command is sent and nothing more: a token that is already cancelled throws `OperationCanceledException` and no request is made. Once a command has been sent, its answer is awaited and the token no longer matters, even if it is cancelled in the meantime, so the caller always learns whether the push, acknowledgement, release or failure took effect (owner decision AD-020, option A). A wait that was cancelled and hid the outcome could make a caller repeat something that had already happened. A command that has been sent cannot be rolled back by a token. Every change to the state of a queue (push, pop, acknowledge, release, fail) is one Lua script, so it is applied completely or not at all; registering a batch is two commands (the batch hash, then the index entry) that are sent without a token check between them, so a cancellation cannot leave one without the other. `SizeAsync` sends eleven read-only counts and checks the token before each, so a cancelled caller stops between requests. Terminal batch callbacks are different: they receive the token, and a callback group that was cut short is run again at the next `ResumePendingCallbacksAsync` (callbacks are at-least-once).
 
 ## The same job on Redis, with worker settings
 
@@ -446,7 +446,9 @@ another worker already owns the message, the call changes nothing.
 A job can run more than once (worker crash, visibility timeout, a failed acknowledgement), so jobs
 must be idempotent. Chain follow-ups are published *before* the current job is acknowledged, so a
 chain is never silently lost - but that also means a follow-up could be published twice if the
-process crashes between publishing it and acknowledging the original job. Design accordingly.
+process crashes between publishing it and acknowledging the original job. Design accordingly. The RabbitMQ driver
+uses the same order for a retry and for a failed job: the replacement is confirmed by the broker before the original
+delivery is acknowledged, so a crash in between duplicates the job and does not lose it.
 
 Reclaiming an expired Database, Redis, or File reservation increments the stored attempt count.
 When that count reaches `MaxAttempts`, the worker records a permanent failure without executing
@@ -574,7 +576,7 @@ visibility timeout when it starts:
 |---|---|---|
 | Memory | counted | not applicable (in-process) |
 | File, Database, Redis | counted | **counted** when the visibility timeout expires |
-| RabbitMQ | counted (the delivery is acknowledged and a new message carrying the updated count is published) | **not counted** |
+| RabbitMQ | counted (a new message carrying the updated count is published and confirmed by the broker, and only then is the delivery acknowledged) | **not counted** |
 | Kafka | counted (the job is produced again to the tail of the topic for immediate delivery, with no backoff, and the original offset is committed) | **not counted** |
 
 On RabbitMQ and Kafka, a message whose worker died before acknowledging it is redelivered by the broker
@@ -587,6 +589,14 @@ memory limits, and alerts on repeated worker restarts or growing consumer lag.
 Jobs that exhaust `MaxAttempts` are also published to `netqueue.failed.<queue>` (RabbitMQ) or the
 `netqueue-<queue>-failed` topic (Kafka). Naravel never consumes these; inspect them with broker tooling and use
 `FailedJobManager` to retry.
+
+On RabbitMQ, a retry and a failed job publish their replacement message first, on a channel with publisher
+confirmations, wait until the broker has confirmed it, and only then acknowledge the original delivery. If the
+process stops between the two, the broker redelivers the original and the job runs or fails again: a duplicate,
+never a loss. If the broker refuses the replacement (a nack, a return or a closed connection), the call throws and the
+original stays unacknowledged: the driver keeps it, so a later hand-back can still settle it, and the broker
+redelivers it when its channel closes. The worker logs the error and keeps running. Before this order was fixed
+(audit finding RQM-001) the original was acknowledged first, so a stop between the two steps lost the job.
 
 #### RabbitMQ: broker-side delivery limit and dead-lettering
 
