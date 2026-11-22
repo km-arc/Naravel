@@ -63,7 +63,7 @@ internal static class BatchPruneScenario
 
         // F: the catch callback fails. Neither Catch nor Finally may be marked complete.
         var catchCallbackFailed = new QueueBatch { TotalJobs = 1 };
-        await repository.RegisterAsync(catchCallbackFailed, new BatchOptions().Catch("flaky").Finally("note", "F-finally"), token);
+        await repository.RegisterAsync(catchCallbackFailed, new BatchOptions().Catch("flaky", "F-catch").Finally("note", "F-finally"), token);
         var markCatchFailed = () => repository.MarkJobFailedAsync(catchCallbackFailed.Id, new InvalidOperationException("job failed"), token);
         await markCatchFailed.Should().ThrowAsync<InvalidOperationException>().WithMessage("the callback failed");
 
