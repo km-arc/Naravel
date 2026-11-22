@@ -82,7 +82,8 @@
 
 ### [P1] CCH-004 — Cache-backed limiter lock lease can expire during its critical section
 
-- Remediation state: OPEN.
+- Remediation state: VERIFIED CLOSED — fixed on 2026-11-22 by PR #324 (merge `a1cf34b`) as step 1 of owner decision AD-002; CI [run 45017816056](https://github.com/km-arc/Naravel/actions/runs/45017816056) on the PR branch (head `24e8a23`) is green on Windows, macOS and Ubuntu and in the provider job, and CI [run 45018345016](https://github.com/km-arc/Naravel/actions/runs/45018345016) on `main` at the merge is green too.
+- Resolution: `CacheRateLimiter` (`src/Naravel.Cache/RateLimiting/CacheRateLimiter.cs`) takes no lock. Each attempt is one atomic `IncrementAsync(key, 1, window)` on the selected store, and the count it returns decides whether the attempt is admitted, so there is no lease that an operation can outlive. A second key records when the window began, only to work out `RetryAfter`; it never changes admission. The public constructor keeps its ignored `lockManager` argument. `CacheRateLimiterTests` (Memory) and `RateLimiterServerTests` (real Redis and Memcached servers in the provider job) are the regression tests, with new checks for the retry-after under concurrency, for rejected attempts that neither extend the window nor carry into the next one, and for an attempt in the middle of the window that does not move its end. The independent review and mutation testing NOT RUN. The stalled-first-operation test asked for below is not added, because no lease is left to stall. The finding is closed; the lock itself (AV-002, MCD-007) is still open.
 - Evidence status: CONFIRMED DESIGN RISK; deterministic reproduction NOT RUN.
 - Evidence: `src/Naravel.Cache/RateLimiting/CacheRateLimiter.cs:13` fixes `LockTtl` at 30 seconds; `:47-75` performs multiple awaited store reads/writes inside the callback; `:100-103` runs that callback under `BlockAsync`. `ICacheLock.AcquireAsync` treats TTL as a lease and there is no renewal contract on `ICacheLock`.
 - Affected guarantee: PDR-007a says the limiter checks and records a permitted attempt under one lock so concurrent callers cannot pass the check together.
@@ -175,7 +176,7 @@
 ## Risk summary and next action
 
 - P0: none established.
-- P1: CCH-001 (AV-001), VERIFIED CLOSED by PR #299; CCH-004 (AV-002), OPEN.
+- P1: CCH-001 (AV-001), VERIFIED CLOSED by PR #299; CCH-004 (AV-002), VERIFIED CLOSED by PR #324.
 - P2: CCH-002, CCH-003, CCH-007 and CCH-008 (AV-003 and AV-007).
 - P3: CCH-005, OPEN; CCH-009 (found while fixing AV-001), ACCEPTED RISK by owner decision D-95 (2026-11-18).
 - DOC: CCH-006.
@@ -222,6 +223,7 @@ The findings below describe risks in cache scope handling, key naming, time, loc
 - **Why that supports the risk:** The protected sequence can outlive the lock, and the contract provides no way to extend the lock while that sequence is running.
 - **What is not yet proven here:** This is a design risk from source inspection. The report does not claim a reproduced double-admission or load-test result.
 - **Safe outcome and proof:** The whole critical section must finish within a proven limit, or the lock must be safely renewable/fenced. Test two limiter instances with a controllable store: pause the first beyond the lease, run the second, then prove the configured limit is never exceeded. Owner/PDR approval is required before changing lock semantics.
+- **What changed afterwards:** On 2026-11-22 PR #324 removed the lock from the limiter. Each attempt is now one atomic increment on the store, and the number it returns decides whether the attempt is let through, so two processes can never both be handed the same number and there is no 30-second lock that work can outlive. Every attempt, including a rejected one, now adds one to the count, but the time window still ends when the first attempt set it. The tests run against Memory and, in the provider job, against a real Redis server and a real Memcached server, and CI is green on Windows, macOS and Ubuntu and in the provider job. This finding is closed. The locks themselves still have the stale-owner problem (the Memcached release race MCD-007 and the missing fencing), which the next steps of owner decision AD-002 address.
 
 ### CCH-005 — A missing cache factory can fail only when the cache is empty
 

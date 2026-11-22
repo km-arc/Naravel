@@ -225,5 +225,11 @@ public sealed class DocsExampleTests
         await manual.CommitAsync();
         await FluentActions.Invoking(() => manual.CommitAsync())
             .Should().ThrowAsync<InvalidOperationException>().WithMessage("The transaction was already committed or rolled back.");
+
+        await using var finished = await db.BeginTransactionAsync();
+        await finished.CommitAsync();
+        await FluentActions.Invoking(() => finished.Database.ScalarAsync<long>("select 1"))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("The transaction has already ended (it was committed, rolled back or disposed), so its database cannot be used any more. Work that should take part in a transaction must be awaited before the TransactionAsync callback returns.");
     }
 }
