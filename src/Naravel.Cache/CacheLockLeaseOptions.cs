@@ -27,7 +27,7 @@ public sealed class CacheLockLeaseOptions
     /// <summary>The longest time the lock may be held, measured from immediately before the acquisition request. This conservative origin prevents network latency from extending the local hold deadline.</summary>
     public TimeSpan MaxHold { get; }
 
-    /// <summary>The time between two renewals. The default is a third of <see cref="Ttl"/>. It must be greater than zero and less than <see cref="Ttl"/>.</summary>
+    /// <summary>The time between two renewals. The default is approximately a third of <see cref="Ttl"/>, rounded up to at least one tick. It must be greater than zero and less than <see cref="Ttl"/>.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The value is zero or less, or not less than <see cref="Ttl"/>.</exception>
     public TimeSpan? RenewInterval
     {
