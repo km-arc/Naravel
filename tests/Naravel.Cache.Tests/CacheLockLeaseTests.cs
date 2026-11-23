@@ -63,13 +63,9 @@ public sealed class CacheLockLeaseTests
         await cacheLock.WaitForRefreshCompletedAsync(1).WaitAsync(TimeSpan.FromSeconds(5));
         lease.IsLost.Should().BeFalse();
 
-        // The first lease would have ended at 30 ms without the refresh. The next attempt also
-        // succeeds, but the local deadline must remain capped at 35 ms rather than sliding.
-        time.Advance(TimeSpan.FromMilliseconds(20));
-        await cacheLock.WaitForRefreshCompletedAsync(2).WaitAsync(TimeSpan.FromSeconds(5));
-        lease.IsLost.Should().BeFalse();
-
-        time.Advance(TimeSpan.FromMilliseconds(5));
+        // The refresh is shortened to the remaining 25 ms, so its local end is exactly
+        // MaxHold (35 ms). No further refresh is useful or permitted past that hard boundary.
+        time.Advance(TimeSpan.FromMilliseconds(25));
         await lost.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         lease.LostToken.IsCancellationRequested.Should().BeTrue();
