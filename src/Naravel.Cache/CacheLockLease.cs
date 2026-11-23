@@ -123,7 +123,8 @@ public sealed class CacheLockLease : IAsyncDisposable
         {
             _stop.Cancel();
             await _renewal.ConfigureAwait(false);
-            await _cacheLock.ReleaseAsync(Name, _token, CancellationToken.None).ConfigureAwait(false);
+            var released = await _cacheLock.ReleaseAsync(Name, _token, CancellationToken.None).ConfigureAwait(false);
+            if (!released) MarkLost(NotOwnerReason);
         }
         finally
         {
@@ -245,6 +246,7 @@ public sealed class CacheLockLease : IAsyncDisposable
             // Disposal wins over a simultaneous deadline; DisposeAsync settles IsLost before setting _disposed.
             if (stop.IsCancellationRequested)
             {
+                ObserveLateRefresh(refreshTask);
                 await deadlineTask.ConfigureAwait(false);
                 return;
             }
@@ -269,12 +271,17 @@ public sealed class CacheLockLease : IAsyncDisposable
             // The refresh completed first; stop the unused deadline timer.
         }
 
-        if (stop.IsCancellationRequested) return;
+        if (stop.IsCancellationRequested)
+        {
+            ObserveLateRefresh(refreshTask);
+            return;
+        }
 
         // A response observed at or after the old deadline is too late, even if it says that
         // the backend accepted the refresh. The local owner must fail closed.
         if (Elapsed() >= confirmedLeaseEnd)
         {
+            ObserveLateRefresh(refreshTask);
             MarkLost(confirmedLeaseEnd >= _maxHoldEnd
                 ? MaxHoldReason
                 : _renewalError is not null ? RenewalFailedReason : EndedReason);
