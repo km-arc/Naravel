@@ -2,8 +2,7 @@ namespace Naravel.Cache;
 
 /// <summary>How long a lock lease lasts, how often it is renewed, and the longest time it may be held.</summary>
 /// <remarks>
-/// <para>The maximum hold time is not optional. Renewal that never ends would turn a holder that hangs into a lock that never ends; with <see cref="MaxHold"/> the lock is lost at the latest after that time, and the lease is never renewed to
-/// last beyond it, so it also ends by itself if the holder's process dies.</para>
+/// <para>The maximum hold time is not optional. Renewal that never ends would turn a holder that hangs into a lock that never ends; with <see cref="MaxHold"/> the local lease deadline is capped at that time. The backend lease also has a TTL, but its expiry can lag the local deadline by a refresh round trip.</para>
 /// <para>A driver that cannot refresh a lease (the Memcached lock) gets one fixed lease of <see cref="MaxHold"/> and no renewal; <see cref="CacheLockLease.Renews"/> tells which case applies.</para>
 /// </remarks>
 public sealed class CacheLockLeaseOptions
@@ -13,7 +12,7 @@ public sealed class CacheLockLeaseOptions
     /// <summary>Creates the options.</summary>
     /// <param name="ttl">The length of each lease. The lease is set to this length again at every renewal. It must be at least two TimeSpan ticks so a positive renewal interval can be chosen.</param>
     /// <param name="maxHold">The longest time the lock may be held, counted conservatively from immediately before the acquisition request is sent. It must not be less than <paramref name="ttl"/>.</param>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ttl"/> is zero or less, or <paramref name="maxHold"/> is less than <paramref name="ttl"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ttl"/> is less than two ticks, or <paramref name="maxHold"/> is less than <paramref name="ttl"/>.</exception>
     public CacheLockLeaseOptions(TimeSpan ttl, TimeSpan maxHold)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(ttl.Ticks, 2);
