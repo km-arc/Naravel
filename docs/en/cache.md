@@ -282,7 +282,35 @@ The exception must propagate out of the protected operation. If that work is run
 
 - `IRefreshableCacheLock.RefreshAsync(name, token, ttl)` (Laravel's `Lock::refresh()`) sets the lease to `ttl` from now. It does not add `ttl` to what was left. It returns `true` only while the token owns a lease that has not ended; it returns `false`, changing nothing, for a token that does not own the lock, for a lease that has already ended (even when nobody took the lock since, so a late refresh never revives it) and for a lock that does not exist. A `ttl` of zero or less throws `ArgumentOutOfRangeException`. Its cancellation token is checked at method entry. The StackExchange.Redis command API used by this provider does not accept a cancellation token, so cancellation after the entry check cannot stop the command; it may still complete.
 - `IForceReleasableCacheLock.ForceReleaseAsync(name)` (Laravel's `Lock::forceRelease()`) deletes the lock whoever owns it and returns `true` when a lock that had not expired was deleted. The previous owner's token then neither releases nor refreshes anything. It is an operator tool for a lock whose holder crashed; calling it while a holder is still working lets another process in at once, so do not use it in normal release logic.
-- There is no automatic renewal. A renewal that nobody has to ask for would turn a holder that hangs into a lock that never ends, so you decide when to extend and for how long. Even a refreshed lease does not stop a paused holder from outliving it: the lock keeps two workers apart only while each one finishes inside its lease. For a resource that must never see two writers, the protected resource has to check a fencing token; that is not part of this package yet.
+- The low-level `IRefreshableCacheLock` capability does not renew by itself: callers using it directly decide when to refresh. The opt-in `CacheLockLease` API below adds bounded automatic renewal with a required `MaxHold`. Even a refreshed lease does not stop a paused holder from outliving it: the lock keeps two workers apart only while each one finishes inside its lease. For a resource that must never see two writers, the protected resource has to check a fencing token; that is not part of this package yet.
+
+
+### Automatically renewed leases
+
+For work that can run longer than one lock TTL, use the lease-aware overloads. They renew only when the provider implements `IRefreshableCacheLock` (Memory and Redis); a provider without that capability, including Memcached, gets one fixed lease of `MaxHold`.
+
+```csharp
+var cacheLock = locks.Driver("redis");
+var options = new CacheLockLeaseOptions(
+    ttl: TimeSpan.FromSeconds(30),
+    maxHold: TimeSpan.FromMinutes(5));
+
+var ran = await cacheLock.TryRunAsync(
+    "import:nightly",
+    options,
+    async ct => await RunImportAsync(ct),
+    cancellationToken);
+```
+
+Use `BlockAsync(name, options, wait, callback, cancellationToken)` when the caller should wait for the lock. `TryAcquireLeaseAsync` is available when the work cannot be expressed as one callback; the returned `CacheLockLease` must be disposed with `await using`, and callers must observe both `LostToken` and `IsLost`.
+
+- `Ttl` is the length of each backend lease. The default renewal interval is one third of it; an explicit `RenewInterval` must be positive and less than `Ttl`. A TTL shorter than two `TimeSpan` ticks is rejected because it cannot have a positive renewal interval below it.
+- `MaxHold` is a required upper bound. Its local deadline is measured conservatively from immediately before the acquisition request, so acquisition latency consumes part of the budget. The local lease is marked lost at that deadline even if a refresh round trip completes later; the backend's expiry can lag the local deadline by the acquisition or refresh round-trip time.
+- A temporary refresh exception is retried while the previous lease is still valid. The refresh call is raced against the last confirmed lease deadline: if it has not completed by then, the lease is marked lost and `LostToken` is cancelled even when the provider call is still pending. A late response never restores a lost lease.
+- `BlockAsync` and `TryRunAsync` throw `CacheLockLostException` when the callback returns normally after lease loss, or when it is cancelled by lease loss. Other callback exceptions propagate unchanged. A release failure propagates after a successful callback; when the callback already failed or the lease was lost, the callback/lease outcome is preserved and the unreleased lock expires naturally.
+- Disposing stops renewal and releases only if the original token still owns the lock. Concurrent disposal calls await the same release operation.
+
+Cancellation is cooperative. The linked callback token asks the work to stop when the caller cancels or the lease is lost; work that ignores it, or is stuck in an operation that cannot be cancelled, may continue. A lease is therefore not a fencing mechanism and cannot guarantee that two critical sections never overlap. If the protected resource must reject stale writers, it must independently validate a fencing token; this API does not provide one.
 
 
 ## Rate limiting
