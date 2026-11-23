@@ -261,18 +261,26 @@ A lock is a lease: when `ttl` ends, the lock ends, whether or not its holder is 
 using Naravel.Cache.Abstractions;
 
 var cacheLock = locks.Driver("redis");
+if (cacheLock is not IRefreshableCacheLock refreshable)
+{
+    throw new NotSupportedException(
+        "The selected lock provider does not support lease refresh.");
+}
+
 var token = await cacheLock.AcquireAsync("import:nightly", TimeSpan.FromMinutes(1));
 if (token is null) return;
 
-// Later, while the work goes on and the lease is about to end:
-if (cacheLock is IRefreshableCacheLock refreshable
-    && !await refreshable.RefreshAsync("import:nightly", token, TimeSpan.FromMinutes(1)))
+// Run the protected work, then refresh before the current lease expires.
+if (!await refreshable.RefreshAsync("import:nightly", token, TimeSpan.FromMinutes(1)))
 {
-    // The lease ended or another holder took the lock. Stop: you no longer own it.
+    throw new InvalidOperationException(
+        "The lock lease was lost. Stop the protected operation.");
 }
 ```
 
-- `IRefreshableCacheLock.RefreshAsync(name, token, ttl)` (Laravel's `Lock::refresh()`) sets the lease to `ttl` from now. It does not add `ttl` to what was left. It returns `true` only while the token owns a lease that has not ended; it returns `false`, changing nothing, for a token that does not own the lock, for a lease that has already ended (even when nobody took the lock since, so a late refresh never revives it) and for a lock that does not exist. A `ttl` of zero or less throws `ArgumentOutOfRangeException`.
+The exception must propagate out of the protected operation. If that work is running in a separate task, cancel its own cancellation token as well; losing a lock does not stop arbitrary application work by itself.
+
+- `IRefreshableCacheLock.RefreshAsync(name, token, ttl)` (Laravel's `Lock::refresh()`) sets the lease to `ttl` from now. It does not add `ttl` to what was left. It returns `true` only while the token owns a lease that has not ended; it returns `false`, changing nothing, for a token that does not own the lock, for a lease that has already ended (even when nobody took the lock since, so a late refresh never revives it) and for a lock that does not exist. A `ttl` of zero or less throws `ArgumentOutOfRangeException`. Its cancellation token is checked at method entry. The StackExchange.Redis command API used by this provider does not accept a cancellation token, so cancellation after the entry check cannot stop the command; it may still complete.
 - `IForceReleasableCacheLock.ForceReleaseAsync(name)` (Laravel's `Lock::forceRelease()`) deletes the lock whoever owns it and returns `true` when a lock that had not expired was deleted. The previous owner's token then neither releases nor refreshes anything. It is an operator tool for a lock whose holder crashed; calling it while a holder is still working lets another process in at once, so do not use it in normal release logic.
 - There is no automatic renewal. A renewal that nobody has to ask for would turn a holder that hangs into a lock that never ends, so you decide when to extend and for how long. Even a refreshed lease does not stop a paused holder from outliving it: the lock keeps two workers apart only while each one finishes inside its lease. For a resource that must never see two writers, the protected resource has to check a fencing token; that is not part of this package yet.
 

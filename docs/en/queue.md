@@ -255,6 +255,10 @@ var batch = await dispatcher.BatchAsync(
     });
 ```
 
+A batch needs at least one job: a batch is finished by the jobs that finish, so an empty one would never finish and its
+callbacks would never run. `BatchAsync` throws `ArgumentException` for an empty sequence before it registers a batch or
+pushes a message; check the sequence first when it can be empty.
+
 The default batch repository is in-memory. For state shared across workers and restarts, register
 `AddDatabaseBatchRepository<AppDbContext>()` or `AddRedisBatchRepository("redis")`. The Database
 `ConfigureQueueJobs()` mapping also includes the `QueueBatches` table. Persistent repositories do
@@ -737,6 +741,7 @@ to `true`; only the Kafka driver returns `false`.
 | An `IUniqueJob` without the coordination package | `InvalidOperationException`: `SendWelcomeEmailJob implements IUniqueJob, but no IUniqueJobGate is registered, so uniqueness cannot be enforced. Call services.AddQueueCoordination() (package Naravel.Queue.Coordination, which needs AddNaravelCache()).` |
 | An `IUniqueJob` inside a chain or a batch | `ArgumentException`: `ReportJob implements IUniqueJob and cannot be part of a chain: a rejected duplicate would stall the sequence. Dispatch it on its own.` (`a batch` for a batch) |
 | `Chain()` with no job | `ArgumentException`: `A chain must contain at least one job.` |
+| `BatchAsync` with no job | `ArgumentException`: `A batch needs at least one job.` (parameter `jobs`; nothing is registered or pushed) |
 | A batch callback registered twice | `InvalidOperationException`: `A batch callback is already registered as 'done'.` |
 | A worker finishes a batch whose callback alias it never registered | `InvalidOperationException`: `No batch callback is registered as 'done'.` |
 
