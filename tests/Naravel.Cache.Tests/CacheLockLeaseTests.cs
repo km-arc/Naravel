@@ -120,12 +120,16 @@ public sealed class CacheLockLeaseTests
         await lost.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         lease.IsLost.Should().BeTrue();
+
+        // Disposing must release the token even when the provider ignores refresh cancellation.
+        await lease.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        cacheLock.ReleaseCount.Should().Be(1);
+
         pendingRefresh.SetResult(true);
         await cacheLock.WaitForRefreshCompletedAsync(1).WaitAsync(TimeSpan.FromSeconds(5));
 
         // A successful response arriving after the confirmed deadline must never restore ownership.
         lease.IsLost.Should().BeTrue();
-        await lease.DisposeAsync();
     }
 
     [Fact]
