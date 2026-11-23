@@ -27,6 +27,7 @@ public sealed class CacheLockLease : IAsyncDisposable
     private readonly IRefreshableCacheLock? _refreshable;
     private readonly TimeProvider _time;
     private readonly TimeSpan _ttl;
+    private readonly string _token;
     private readonly TimeSpan _renewInterval;
     private readonly long _origin;
     private readonly long _maxHoldEnd;
@@ -48,7 +49,7 @@ public sealed class CacheLockLease : IAsyncDisposable
         _cacheLock = cacheLock;
         _refreshable = cacheLock as IRefreshableCacheLock;
         Name = name;
-        Token = token;
+        _token = token;
         _time = time;
         _ttl = options.Ttl;
         _renewInterval = options.ResolvedRenewInterval;
@@ -60,11 +61,9 @@ public sealed class CacheLockLease : IAsyncDisposable
     /// <summary>The name of the lock.</summary>
     public string Name { get; }
 
-    /// <summary>The ownership token that <see cref="ICacheLock.AcquireAsync"/> returned.</summary>
-    public string Token { get; }
-
-    /// <summary>Whether the lease is renewed. It is <see langword="false"/> when the lock cannot refresh a lease (the Memcached lock): the lease is then one fixed period of <see cref="CacheLockLeaseOptions.MaxHold"/> and is lost when it ends.</summary>
-    public bool Renews => _refreshable is not null;
+    /// <summary>Whether the selected driver supports ownership-checked lease refresh.</summary>
+    /// <remarks>When this is <see langword="false"/>, including for Memcached, the lease is fixed for <see cref="CacheLockLeaseOptions.MaxHold"/> and is not renewed.</remarks>
+    public bool CanRenew => _refreshable is not null;
 
     /// <summary>Whether the lease can no longer be proven held. Once <see langword="true"/> it stays so. After <see cref="DisposeAsync"/> it tells whether the lease was lost before the disposal.</summary>
     public bool IsLost
@@ -124,7 +123,7 @@ public sealed class CacheLockLease : IAsyncDisposable
         {
             _stop.Cancel();
             await _renewal.ConfigureAwait(false);
-            await _cacheLock.ReleaseAsync(Name, Token, CancellationToken.None).ConfigureAwait(false);
+            await _cacheLock.ReleaseAsync(Name, _token, CancellationToken.None).ConfigureAwait(false);
         }
         finally
         {
@@ -217,9 +216,74 @@ public sealed class CacheLockLease : IAsyncDisposable
     {
         // The new lease never reaches beyond the longest hold time, so the lock also ends by itself if this process dies.
         var length = TimeSpan.FromTicks(Math.Min(_ttl.Ticks, _maxHoldEnd - startedAt));
+        var confirmedLeaseEnd = Volatile.Read(ref _leaseEnd);
+
+        Task<bool> refreshTask;
         try
         {
-            var refreshed = await refreshable.RefreshAsync(Name, Token, length, stop).ConfigureAwait(false);
+            refreshTask = refreshable.RefreshAsync(Name, _token, length, stop);
+        }
+        catch (OperationCanceledException) when (stop.IsCancellationRequested)
+        {
+            throw;
+        }
+        // Backend faults are retried while the last confirmed lease is still valid.
+        catch (Exception exception)
+        {
+            Volatile.Write(ref _renewalError, exception);
+            return;
+        }
+
+        // The refresh call must never be allowed to suspend the only task that watches the
+        // currently confirmed lease. Race the provider operation against that lease's deadline.
+        using var deadlineStop = CancellationTokenSource.CreateLinkedTokenSource(stop);
+        var deadlineTask = DelayUntilAsync(confirmedLeaseEnd, deadlineStop.Token);
+        var completed = await Task.WhenAny(refreshTask, deadlineTask).ConfigureAwait(false);
+
+        if (completed != refreshTask)
+        {
+            // Disposal wins over a simultaneous deadline; DisposeAsync settles IsLost before setting _disposed.
+            if (stop.IsCancellationRequested)
+            {
+                await deadlineTask.ConfigureAwait(false);
+                return;
+            }
+
+            MarkLost(confirmedLeaseEnd >= _maxHoldEnd
+                ? MaxHoldReason
+                : _renewalError is not null ? RenewalFailedReason : EndedReason);
+
+            // A provider may ignore cancellation or finish after the deadline. Its result can no longer
+            // restore this lease, but observe a late fault so it cannot become unobserved.
+            ObserveLateRefresh(refreshTask);
+            return;
+        }
+
+        deadlineStop.Cancel();
+        try
+        {
+            await deadlineTask.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (deadlineStop.IsCancellationRequested)
+        {
+            // The refresh completed first; stop the unused deadline timer.
+        }
+
+        if (stop.IsCancellationRequested) return;
+
+        // A response observed at or after the old deadline is too late, even if it says that
+        // the backend accepted the refresh. The local owner must fail closed.
+        if (Elapsed() >= confirmedLeaseEnd)
+        {
+            MarkLost(confirmedLeaseEnd >= _maxHoldEnd
+                ? MaxHoldReason
+                : _renewalError is not null ? RenewalFailedReason : EndedReason);
+            return;
+        }
+
+        try
+        {
+            var refreshed = await refreshTask.ConfigureAwait(false);
             if (!refreshed)
             {
                 MarkLost(NotOwnerReason);
@@ -228,7 +292,6 @@ public sealed class CacheLockLease : IAsyncDisposable
 
             // Counted from before the call, so the estimate is never later than the expiry that the server set.
             // The backend starts its TTL when it processes the refresh, but MaxHold is a local hard stop.
-            // Cap our lease estimate so work is cancelled at MaxHold even if the refresh round trip took time.
             Volatile.Write(ref _leaseEnd, Math.Min(startedAt + length.Ticks, _maxHoldEnd));
             Volatile.Write(ref _renewalError, null);
         }
@@ -236,12 +299,20 @@ public sealed class CacheLockLease : IAsyncDisposable
         {
             throw;
         }
-        // Backend faults are retried while the last confirmed lease is still valid; do not narrow this to provider-specific exceptions.
         catch (Exception exception)
         {
-            // Tried again at the next interval, for as long as the previous lease lasts.
+            // Retry on the next interval, but only while the previous confirmed lease remains valid.
             Volatile.Write(ref _renewalError, exception);
         }
+    }
+
+    private static void ObserveLateRefresh(Task refreshTask)
+    {
+        _ = refreshTask.ContinueWith(
+            static completed => _ = completed.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
     }
 
     private async Task DelayUntilAsync(long offsetTicks, CancellationToken stop)
