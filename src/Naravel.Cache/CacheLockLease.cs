@@ -121,7 +121,7 @@ public sealed class CacheLockLease : IAsyncDisposable
     {
         try
         {
-            _stop.Cancel();
+            CancelSafely(_stop);
             await _renewal.ConfigureAwait(false);
             var released = await _cacheLock.ReleaseAsync(Name, _token, CancellationToken.None).ConfigureAwait(false);
             if (!released) MarkLost(NotOwnerReason);
