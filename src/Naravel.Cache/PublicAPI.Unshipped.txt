@@ -10,8 +10,7 @@ Naravel.Cache.CacheLockLease.DisposeAsync() -> System.Threading.Tasks.ValueTask
 Naravel.Cache.CacheLockLease.IsLost.get -> bool
 Naravel.Cache.CacheLockLease.LostToken.get -> System.Threading.CancellationToken
 Naravel.Cache.CacheLockLease.Name.get -> string!
-Naravel.Cache.CacheLockLease.Renews.get -> bool
-Naravel.Cache.CacheLockLease.Token.get -> string!
+Naravel.Cache.CacheLockLease.CanRenew.get -> bool
 Naravel.Cache.CacheLockLeaseOptions
 Naravel.Cache.CacheLockLeaseOptions.CacheLockLeaseOptions(System.TimeSpan ttl, System.TimeSpan maxHold) -> void
 Naravel.Cache.CacheLockLeaseOptions.MaxHold.get -> System.TimeSpan
