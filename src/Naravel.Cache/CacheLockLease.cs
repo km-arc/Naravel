@@ -34,6 +34,8 @@ public sealed class CacheLockLease : IAsyncDisposable
     private readonly CancellationTokenSource _lostSource = new();
     private readonly CancellationTokenSource _stop = new();
     private readonly object _gate = new();
+    private readonly object _disposeGate = new();
+    private Task? _disposeTask;
     private long _leaseEnd;
     private int _lost;
     private int _disposed;
@@ -102,14 +104,22 @@ public sealed class CacheLockLease : IAsyncDisposable
 
     /// <summary>Stops the renewal and releases the lock when the token still owns it. It does nothing when called again.</summary>
     /// <returns>A task that ends when the renewal has stopped and the lock has been released.</returns>
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        if (Volatile.Read(ref _disposed) != 0) return;
+        lock (_disposeGate)
+        {
+            if (_disposeTask is not null) return new ValueTask(_disposeTask);
 
-        // Settle the verdict while the lease can still be judged, so that IsLost keeps telling the truth afterwards.
-        _ = IsLost;
-        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+            // Settle the verdict while the lease can still be judged, so that IsLost keeps telling the truth afterwards.
+            _ = IsLost;
+            Volatile.Write(ref _disposed, 1);
+            _disposeTask = DisposeCoreAsync();
+            return new ValueTask(_disposeTask);
+        }
+    }
 
+    private async Task DisposeCoreAsync()
+    {
         try
         {
             _stop.Cancel();
@@ -215,7 +225,9 @@ public sealed class CacheLockLease : IAsyncDisposable
             }
 
             // Counted from before the call, so the estimate is never later than the expiry that the server set.
-            Volatile.Write(ref _leaseEnd, startedAt + length.Ticks);
+            // The backend starts its TTL when it processes the refresh, but MaxHold is a local hard stop.
+            // Cap our lease estimate so work is cancelled at MaxHold even if the refresh round trip took time.
+            Volatile.Write(ref _leaseEnd, Math.Min(startedAt + length.Ticks, _maxHoldEnd));
             Volatile.Write(ref _renewalError, null);
         }
         catch (OperationCanceledException) when (stop.IsCancellationRequested)
