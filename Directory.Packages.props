@@ -28,7 +28,7 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.15" />
     <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.14" />
     <!-- Dapper: row materialization for Naravel.Database (PDR-022; Apache-2.0). 2.1.89 was the highest stable release on NuGet on 2026-10-17. -->
-    <PackageVersion Include="Dapper" Version="2.1.89" />
+    <PackageVersion Include="Dapper" Version="2.1.100" />
     <!-- Microsoft.Data.Sqlite: Naravel.Database.Sqlite (PDR-022; MIT). 10.0.13 was the highest stable 10.0.x on 2026-10-17. It brings SQLitePCLRaw.lib.e_sqlite3 2.1.11
          (CVE-2025-6965), so Naravel.Database.Sqlite references lib.e_sqlite3 2.1.13 directly, as the Queue.Providers tests already do. -->
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.15" />
@@ -53,9 +53,9 @@
          version. Remove the pin once MimeKit's own minimum is at least 10.0.13. -->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.15" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageVersion Include="RabbitMQ.Client" Version="7.2.2" />
+    <PackageVersion Include="RabbitMQ.Client" Version="7.3.0" />
     <PackageVersion Include="Confluent.Kafka" Version="2.16.0" />
-    <PackageVersion Include="AWSSDK.S3" Version="4.1.0.1" />
+    <PackageVersion Include="AWSSDK.S3" Version="4.1.2" />
     
 
     <!-- Test-only -->
