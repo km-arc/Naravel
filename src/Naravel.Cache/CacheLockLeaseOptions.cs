@@ -16,7 +16,7 @@ public sealed class CacheLockLeaseOptions
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="ttl"/> is zero or less, or <paramref name="maxHold"/> is less than <paramref name="ttl"/>.</exception>
     public CacheLockLeaseOptions(TimeSpan ttl, TimeSpan maxHold)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(ttl, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfLessThan(ttl.Ticks, 2);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxHold, ttl);
         Ttl = ttl;
         MaxHold = maxHold;
@@ -53,8 +53,9 @@ public sealed class CacheLockLeaseOptions
     {
         get
         {
-            var interval = _renewInterval ?? Ttl / 3;
-            return interval < TimeSpan.FromMilliseconds(1) ? TimeSpan.FromMilliseconds(1) : interval;
+            // Keep the default strictly below Ttl, including sub-millisecond leases.
+            var interval = _renewInterval ?? TimeSpan.FromTicks(Math.Max(1, Ttl.Ticks / 3));
+            return interval;
         }
     }
 }
