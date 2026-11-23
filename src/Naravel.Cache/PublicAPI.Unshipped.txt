@@ -5,8 +5,30 @@ Naravel.Cache.Abstractions.IPrefixFlushableCacheStore
 Naravel.Cache.Abstractions.IPrefixFlushableCacheStore.FlushPrefixAsync(string! keyPrefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Naravel.Cache.Abstractions.IRefreshableCacheLock
 Naravel.Cache.Abstractions.IRefreshableCacheLock.RefreshAsync(string! name, string! token, System.TimeSpan ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Cache.CacheLockLease
+Naravel.Cache.CacheLockLease.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Naravel.Cache.CacheLockLease.IsLost.get -> bool
+Naravel.Cache.CacheLockLease.LostToken.get -> System.Threading.CancellationToken
+Naravel.Cache.CacheLockLease.Name.get -> string!
+Naravel.Cache.CacheLockLease.Renews.get -> bool
+Naravel.Cache.CacheLockLease.Token.get -> string!
+Naravel.Cache.CacheLockLeaseOptions
+Naravel.Cache.CacheLockLeaseOptions.CacheLockLeaseOptions(System.TimeSpan ttl, System.TimeSpan maxHold) -> void
+Naravel.Cache.CacheLockLeaseOptions.MaxHold.get -> System.TimeSpan
+Naravel.Cache.CacheLockLeaseOptions.RenewInterval.get -> System.TimeSpan?
+Naravel.Cache.CacheLockLeaseOptions.RenewInterval.init -> void
+Naravel.Cache.CacheLockLeaseOptions.TimeProvider.get -> System.TimeProvider?
+Naravel.Cache.CacheLockLeaseOptions.TimeProvider.init -> void
+Naravel.Cache.CacheLockLeaseOptions.Ttl.get -> System.TimeSpan
+Naravel.Cache.CacheLockLostException
+Naravel.Cache.CacheLockLostException.CacheLockLostException(string! lockName, string! message) -> void
+Naravel.Cache.CacheLockLostException.CacheLockLostException(string! lockName, string! message, System.Exception? innerException) -> void
+Naravel.Cache.CacheLockLostException.LockName.get -> string!
 Naravel.Cache.Locks.MemoryLock.ForceReleaseAsync(string! name, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
 Naravel.Cache.Locks.MemoryLock.RefreshAsync(string! name, string! token, System.TimeSpan ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
 Naravel.Cache.Scoping.ScopedCacheStore.FlushPrefixAsync(string! keyPrefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Naravel.Cache.Stores.MemoryCacheStore.FlushPrefixAsync(string! keyPrefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Naravel.Cache.Testing.CacheFake.FlushPrefixAsync(string! keyPrefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+static Naravel.Cache.CacheLockExtensions.BlockAsync(this Naravel.Cache.Abstractions.ICacheLock! cacheLock, string! name, Naravel.Cache.CacheLockLeaseOptions! options, System.TimeSpan wait, System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task!>! callback, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+static Naravel.Cache.CacheLockExtensions.TryAcquireLeaseAsync(this Naravel.Cache.Abstractions.ICacheLock! cacheLock, string! name, Naravel.Cache.CacheLockLeaseOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Naravel.Cache.CacheLockLease?>!
+static Naravel.Cache.CacheLockExtensions.TryRunAsync(this Naravel.Cache.Abstractions.ICacheLock! cacheLock, string! name, Naravel.Cache.CacheLockLeaseOptions! options, System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task!>! callback, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
