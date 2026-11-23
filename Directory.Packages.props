@@ -32,9 +32,9 @@
     <!-- Microsoft.Data.Sqlite: Naravel.Database.Sqlite (PDR-022; MIT). 10.0.13 was the highest stable 10.0.x on 2026-10-17. It brings SQLitePCLRaw.lib.e_sqlite3 2.1.11
          (CVE-2025-6965), so Naravel.Database.Sqlite references lib.e_sqlite3 2.1.13 directly, as the Queue.Providers tests already do. -->
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.15" />
-    <!-- Server drivers for Naravel.Database (PDR-022, R20.T01; versions read from nubrowse.com on 2026-10-18, the NuGet audit in CI is the arbiter).
-         MySqlConnector 2.6.2 (MIT, net10.0 asset, no known vulnerabilities); Npgsql 10.0.3 (PostgreSQL license, net10.0 asset, no known vulnerabilities);
-         Microsoft.Data.SqlClient 7.1.1 (MIT, net8.0/net9.0 assets are used on net10.0; it asks for System.Security.Cryptography.Pkcs 9.0.18 on net9.0, so
+    <!-- Server drivers for Naravel.Database (PDR-022, R20.T01; the NuGet audit in CI is the arbiter).
+         Npgsql 11.0.0 (PostgreSQL license, net10.0 asset; upgraded from 10.0.4 in PR #336 on 2026-11-23; see its 11.0 release notes for the major-version changes).
+         MySqlConnector and Microsoft.Data.SqlClient pins are maintained independently. Microsoft.Data.SqlClient uses net8.0/net9.0 assets on net10.0; it asks for System.Security.Cryptography.Pkcs 9.0.18 on net9.0, so
          Naravel.Database.SqlServer references the patched Pkcs 10.0.13 pinned above, as Naravel.Mail.Smtp does). -->
     <PackageVersion Include="MySqlConnector" Version="3.0.0" />
     <PackageVersion Include="Npgsql" Version="11.0.0" />
