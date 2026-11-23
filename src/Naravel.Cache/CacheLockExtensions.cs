@@ -179,6 +179,22 @@ public static class CacheLockExtensions
             await Task.Delay(remaining < pause ? remaining : pause, time, cancellationToken).ConfigureAwait(false);
         }
 
+        // Acquisition latency consumes MaxHold. Never invoke protected work with a lease that
+        // was already expired by the time the backend returned its ownership token.
+        if (lease.IsLost)
+        {
+            try
+            {
+                await lease.DisposeAsync().ConfigureAwait(false);
+            }
+            catch
+            {
+                // Preserve the primary lease-loss outcome; the backend TTL is the final cleanup.
+            }
+
+            throw lease.CreateLostException(null);
+        }
+
         using var work = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lease.LostToken);
         ExceptionDispatchInfo? failure = null;
         try
