@@ -191,7 +191,8 @@ public static class CacheLockExtensions
             failure = ExceptionDispatchInfo.Capture(exception);
         }
 
-        // Judged before the lease is disposed: the verdict is about the time the work ran.
+        // Check before and after disposal. A token-checked release can report that ownership
+        // was already gone in the narrow interval after the callback returned.
         var lost = lease.IsLost;
         try
         {
@@ -202,6 +203,8 @@ public static class CacheLockExtensions
         {
             // The lock was not released, so it ends with its backend lease.
         }
+
+        lost |= lease.IsLost;
 
         if (failure is not null)
         {
