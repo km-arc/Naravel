@@ -121,7 +121,7 @@ Progress: step 1 is done: PR #324 (merge `a1cf34b`) took the lock out of `CacheR
 
 **Architect recommendation:** A is more general because the current API allows per-job connection selection. Use idempotent publication/reconciliation and a typed exception/result that exposes the batch ID. Do not claim atomic publication across arbitrary brokers.
 
-**Status:** WAITING FOR OWNER.
+**Status:** DECIDED on 2026-11-22: the owner chose option A in the working session. `BatchAsync` will fail with a typed exception (or result) that carries the batch identity and the state of each planned member, and a reconciliation step will publish again or terminally account for every planned member, so that no batch stays pending without anyone seeing it. No atomic publication across arbitrary brokers is claimed. Not implemented yet: the type is new public API, so its exact name and shape are proposed to the owner and approved before the code is written.
 
 ## AD-010 — Retrying a failed job that belonged to a terminal batch
 
@@ -133,7 +133,7 @@ Progress: step 1 is done: PR #324 (merge `a1cf34b`) took the lock out of `CacheR
 
 **Architect recommendation:** A. It preserves an immutable terminal batch record and makes explicit operator retry requests actually execute. A new batch can be created when the caller wants new batch-level accounting.
 
-**Status:** WAITING FOR OWNER.
+**Status:** DECIDED on 2026-11-21: the owner chose the architect recommendation. A retry of a failed job is independent work: the retried message does not rejoin its original batch, so `BatchId` is cleared and the terminal batch keeps its historical counts. Implementation is in a separate pull request.
 
 ## AD-011 — Empty batch behavior
 
@@ -143,7 +143,7 @@ Progress: step 1 is done: PR #324 (merge `a1cf34b`) took the lock out of `CacheR
 
 **Architect recommendation:** reject empty batches with `ArgumentException` before registering any repository record.
 
-**Status:** WAITING FOR OWNER.
+**Status:** DECIDED on 2026-11-21: the owner chose to reject an empty batch. `BatchAsync` throws `ArgumentException` before any repository record is registered. Implementation is in a separate pull request.
 
 ## AD-012 — TimeProvider injection for Queue and provider drivers
 
@@ -192,7 +192,7 @@ Progress: step 1 is done: PR #324 (merge `a1cf34b`) took the lock out of `CacheR
 
 **Architect recommendation:** A. A named database connection identity is needed to make chain and retry routing deterministic when more than one queue backend/store is configured. Do not simply set Connection to null unless the default-store constraint is explicit and enforced.
 
-**Status:** WAITING FOR OWNER.
+**Status:** DECIDED on 2026-11-22: the owner chose option A in the working session. Each transactional enqueuer is bound to one named Database queue connection, that name is written into the stored envelope, and a job or dispatch option that names a different connection is rejected. Not implemented yet: the way the name is given at registration is new public API, so it is proposed to the owner and approved before the code is written.
 
 ## AD-016 — Approved SQL DDL deliverables for Database queue schema
 
@@ -204,7 +204,7 @@ Progress: step 1 is done: PR #324 (merge `a1cf34b`) took the lock out of `CacheR
 
 **Architect recommendation:** A. The package already documents EF Core migrations as the production path for every provider, and duplicated vendor DDL creates a second schema-maintenance surface. The PDR implementation record should be corrected to state SQLite DDL/helper implemented and provider-specific scripts not part of the accepted deliverable, if the owner approves this boundary.
 
-**Status:** WAITING FOR OWNER.
+**Status:** DECIDED on 2026-11-22: the owner chose option A in the working session. The accepted deliverable is the SQLite script and the helper for Development, Test and Testing; production schema for SQLite, SQL Server, PostgreSQL and MySQL stays with the application's own EF Core migrations, and no vendor-specific SQL scripts are part of the deliverable. The implementation record of PDR-012 (item d) was corrected to say so in the same change that records this decision.
 
 
 ## AD-017 — Positive visibility timeout policy for all reclaim-capable queue drivers
@@ -229,7 +229,7 @@ Progress: step 1 is done: PR #324 (merge `a1cf34b`) took the lock out of `CacheR
 
 **Architect recommendation:** A only if the native DLQ is a deliberate user-facing capability and its lifecycle is documented; otherwise B avoids duplicate unbounded payload retention.
 
-**Status:** WAITING FOR OWNER.
+**Status:** DECIDED on 2026-11-22: the owner chose option B in the working session. The Redis driver no longer writes `netqueue:{queue}:failed`; `IFailedJobStore` is the one record of a failed job. Lists that earlier versions wrote are not touched. Implemented by PR #325 (merge `e7d8662`).
 
 ## AD-019 — Persistent queue batch history retention
 
@@ -239,7 +239,7 @@ Progress: step 1 is done: PR #324 (merge `a1cf34b`) took the lock out of `CacheR
 
 **Architect recommendation:** expose an explicit prune/delete operation with an age/terminal-state policy; never delete unfinished batches or batches with incomplete callback progress. Avoid a blind TTL on the hash while leaving the index entry behind.
 
-**Status:** WAITING FOR OWNER.
+**Status:** DECIDED on 2026-11-22: the owner chose an explicit prune operation that the application calls. Only batches that are finished and whose applicable callbacks were all delivered are deleted; running batches and batches with undelivered callbacks never are. The repositories store no finish time, so there is no minimum age; adding one needs a new column on `QueueBatches` and would be a separate decision. Implemented by PR #326 (merge `0cf0c26`).
 
 ## AD-020 — Cancellation semantics for in-flight Redis commands
 
@@ -252,7 +252,7 @@ Progress: step 1 is done: PR #324 (merge `a1cf34b`) took the lock out of `CacheR
 
 **Architect recommendation:** A for queue mutations; a cancelled wait that hides whether Push/Ack/Release/Fail actually completed can trigger unsafe duplicate retries. Check cancellation before each separate command and use atomic scripts/transactions for multi-command state changes where possible. Document that an already-sent Redis command cannot be rolled back by a caller token.
 
-**Status:** WAITING FOR OWNER.
+**Status:** DECIDED on 2026-11-22: the owner chose option A in the working session. The token is a check before each Redis command is sent; a command that was sent is awaited so the caller learns its outcome, and a token cannot roll it back. The behaviour already existed; the contract is now written down and tested. Implemented by PR #327 (merge `9193594`).
 
 
 ## AD-021 — Atomic owner metadata for Queue unique-job leases
@@ -266,7 +266,7 @@ Progress: step 1 is done: PR #324 (merge `a1cf34b`) took the lock out of `CacheR
 
 **Architect recommendation:** A or B. Prefer B if it can be implemented consistently by Memory, Redis and Memcached without exposing backend-specific behavior. Otherwise use A and make unsupported providers fail explicitly rather than silently weakening uniqueness. Do not select C for production correctness.
 
-**Status:** WAITING FOR OWNER.
+**Status:** WAITING FOR OWNER. On 2026-11-22 the owner deferred it: the lock work of AD-002 (steps 2 to 5, which add the optional renewal and fencing capabilities) is being done first and in another session, and this decision depends on it.
 
 
 ## AD-022 — Lifetime of ambient transaction state captured by detached tasks
@@ -279,4 +279,4 @@ Progress: step 1 is done: PR #324 (merge `a1cf34b`) took the lock out of `CacheR
 
 **Architect recommendation:** A. The internal guard prevents a stale captured ambient context from reaching a disposed provider connection and turns an opaque provider error into a deterministic framework error. It does not make concurrent use of one transaction safe; the existing one-flow-at-a-time restriction remains.
 
-**Status:** WAITING FOR OWNER.
+**Status:** DECIDED on 2026-11-22: the owner chose option A in the working session. Commit, rollback and disposal end the transaction's scope, and any later use of it through a captured context fails with a clear `InvalidOperationException`. Implemented by PR #328 (merge `010b0d7`).
