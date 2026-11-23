@@ -75,6 +75,8 @@ public sealed class QueueFake : IJobDispatcher
     {
         cancellationToken.ThrowIfCancellationRequested();
         var batchJobs = jobs.ToArray();
+        if (batchJobs.Length == 0)
+            throw new ArgumentException("A batch needs at least one job.", nameof(jobs));
         RejectUniqueJobs(batchJobs, "a batch");
         var options = new BatchOptions();
         batchConfigure?.Invoke(options);
