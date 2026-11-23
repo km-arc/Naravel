@@ -118,7 +118,8 @@ public sealed class CacheLockLeaseTests
         await started.Task;
         time.Advance(TimeSpan.FromMilliseconds(10));
 
-        await run.Should().ThrowAsync<CacheLockLostException>();
+        Func<Task> act = async () => await run;
+        await act.Should().ThrowAsync<CacheLockLostException>();
     }
 
     [Fact]
