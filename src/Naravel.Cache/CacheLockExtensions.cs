@@ -185,6 +185,7 @@ public static class CacheLockExtensions
         {
             await callback(work.Token).ConfigureAwait(false);
         }
+        // Capture every callback exception so lease disposal cannot replace the primary work failure.
         catch (Exception exception)
         {
             failure = ExceptionDispatchInfo.Capture(exception);
@@ -196,9 +197,10 @@ public static class CacheLockExtensions
         {
             await lease.DisposeAsync().ConfigureAwait(false);
         }
+        // Suppress cleanup failure only when a callback failure or lease loss is already the primary outcome.
         catch when (failure is not null || lost)
         {
-            // The outcome of the work is the news. The lock was not released, so it ends with its lease.
+            // The lock was not released, so it ends with its backend lease.
         }
 
         if (failure is not null)
