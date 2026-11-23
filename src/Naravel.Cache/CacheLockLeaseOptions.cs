@@ -11,8 +11,8 @@ public sealed class CacheLockLeaseOptions
     private readonly TimeSpan? _renewInterval;
 
     /// <summary>Creates the options.</summary>
-    /// <param name="ttl">The length of each lease. The lease is set to this length again at every renewal. It must be greater than zero.</param>
-    /// <param name="maxHold">The longest time the lock may be held, counted from the start of the successful acquisition. It must not be less than <paramref name="ttl"/>.</param>
+    /// <param name="ttl">The length of each lease. The lease is set to this length again at every renewal. It must be at least two TimeSpan ticks so a positive renewal interval can be chosen.</param>
+    /// <param name="maxHold">The longest time the lock may be held, counted conservatively from immediately before the acquisition request is sent. It must not be less than <paramref name="ttl"/>.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="ttl"/> is zero or less, or <paramref name="maxHold"/> is less than <paramref name="ttl"/>.</exception>
     public CacheLockLeaseOptions(TimeSpan ttl, TimeSpan maxHold)
     {
@@ -25,7 +25,7 @@ public sealed class CacheLockLeaseOptions
     /// <summary>The length of each lease.</summary>
     public TimeSpan Ttl { get; }
 
-    /// <summary>The longest time the lock may be held.</summary>
+    /// <summary>The longest time the lock may be held, measured from immediately before the acquisition request. This conservative origin prevents network latency from extending the local hold deadline.</summary>
     public TimeSpan MaxHold { get; }
 
     /// <summary>The time between two renewals. The default is a third of <see cref="Ttl"/>. It must be greater than zero and less than <see cref="Ttl"/>.</summary>
