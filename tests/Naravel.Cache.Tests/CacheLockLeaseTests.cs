@@ -18,11 +18,11 @@ public sealed class CacheLockLeaseTests
         await using var lease = (await cacheLock.TryAcquireLeaseAsync("retry", options))!;
 
         time.Advance(TimeSpan.FromMilliseconds(10));
-        await Eventually(() => cacheLock.RefreshCount == 1);
+        await cacheLock.WaitForRefreshCompletedAsync(1).WaitAsync(TimeSpan.FromSeconds(5));
         lease.IsLost.Should().BeFalse();
 
         time.Advance(TimeSpan.FromMilliseconds(10));
-        await Eventually(() => cacheLock.RefreshCount == 2);
+        await cacheLock.WaitForRefreshCompletedAsync(2).WaitAsync(TimeSpan.FromSeconds(5));
 
         lease.IsLost.Should().BeFalse();
         cacheLock.RefreshCount.Should().Be(2);
@@ -35,10 +35,13 @@ public sealed class CacheLockLeaseTests
         var cacheLock = new TestLock { Refresh = (_, _) => Task.FromResult(false) };
         await using var lease = (await cacheLock.TryAcquireLeaseAsync("lost", Options(time)))!;
 
-        time.Advance(TimeSpan.FromMilliseconds(10));
-        await Eventually(() => lease.IsLost);
+        var lost = NewSignal();
+        using var registration = lease.LostToken.Register(lost.SetResult);
 
-        lease.LostToken.IsCancellationRequested.Should().BeTrue();
+        time.Advance(TimeSpan.FromMilliseconds(10));
+        await lost.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        lease.IsLost.Should().BeTrue();
     }
 
     [Fact]
@@ -53,20 +56,49 @@ public sealed class CacheLockLeaseTests
         };
         await using var lease = (await cacheLock.TryAcquireLeaseAsync("max-hold", options))!;
 
+        var lost = NewSignal();
+        using var registration = lease.LostToken.Register(lost.SetResult);
+
         time.Advance(TimeSpan.FromMilliseconds(10));
-        await Eventually(() => cacheLock.RefreshCount == 1);
+        await cacheLock.WaitForRefreshCompletedAsync(1).WaitAsync(TimeSpan.FromSeconds(5));
         lease.IsLost.Should().BeFalse();
 
         // The first lease would have ended at 30 ms without the refresh. The next attempt also
         // succeeds, but the local deadline must remain capped at 35 ms rather than sliding.
         time.Advance(TimeSpan.FromMilliseconds(20));
-        await Eventually(() => cacheLock.RefreshCount == 2);
+        await cacheLock.WaitForRefreshCompletedAsync(2).WaitAsync(TimeSpan.FromSeconds(5));
         lease.IsLost.Should().BeFalse();
 
         time.Advance(TimeSpan.FromMilliseconds(5));
-        await Eventually(() => lease.IsLost);
+        await lost.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         lease.LostToken.IsCancellationRequested.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task A_hung_refresh_cannot_hide_the_previous_lease_deadline_or_revive_a_lost_lease()
+    {
+        var time = new ManualTimeProvider();
+        var pendingRefresh = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cacheLock = new TestLock { Refresh = (_, _) => pendingRefresh.Task };
+        var lease = (await cacheLock.TryAcquireLeaseAsync("hung-refresh", Options(time)))!;
+        var lost = NewSignal();
+        using var registration = lease.LostToken.Register(lost.SetResult);
+
+        time.Advance(TimeSpan.FromMilliseconds(10));
+        await cacheLock.WaitForRefreshStartedAsync(1).WaitAsync(TimeSpan.FromSeconds(5));
+
+        // The provider call remains pending beyond the original 30 ms backend lease.
+        time.Advance(TimeSpan.FromMilliseconds(20));
+        await lost.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        lease.IsLost.Should().BeTrue();
+        pendingRefresh.SetResult(true);
+        await cacheLock.WaitForRefreshCompletedAsync(1).WaitAsync(TimeSpan.FromSeconds(5));
+
+        // A successful response arriving after the confirmed deadline must never restore ownership.
+        lease.IsLost.Should().BeTrue();
+        await lease.DisposeAsync();
     }
 
     [Fact]
@@ -76,7 +108,8 @@ public sealed class CacheLockLeaseTests
         var cacheLock = new FixedTestLock();
         var lease = (await cacheLock.TryAcquireLeaseAsync("fixed", Options(time)))!;
 
-        lease.Renews.Should().BeFalse();
+        lease.CanRenew.Should().BeFalse();
+        cacheLock.AcquiredTtl.Should().Be(TimeSpan.FromMilliseconds(100));
         time.Advance(TimeSpan.FromMilliseconds(100));
         lease.IsLost.Should().BeTrue();
         lease.LostToken.IsCancellationRequested.Should().BeTrue();
@@ -168,16 +201,17 @@ public sealed class CacheLockLeaseTests
             TimeProvider = time
         };
 
-    private static async Task Eventually(Func<bool> condition)
-    {
-        for (var i = 0; i < 100 && !condition(); i++) await Task.Yield();
-        condition().Should().BeTrue("the asynchronous lease continuation should have observed the advanced test clock");
-    }
+    private static TaskCompletionSource NewSignal() =>
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private sealed class TestLock : ICacheLock, IRefreshableCacheLock
     {
         private int _refreshCount;
         private int _releaseCount;
+        private int _refreshCompletedCount;
+        private readonly object _refreshGate = new();
+        private readonly Dictionary<int, TaskCompletionSource> _refreshStartedWaiters = [];
+        private readonly Dictionary<int, TaskCompletionSource> _refreshCompletedWaiters = [];
 
         public Func<string, string, Task<bool>>? Refresh { get; init; }
         public Func<string, string, Task<bool>>? RefreshAfterFailure { get; init; }
@@ -185,6 +219,26 @@ public sealed class CacheLockLeaseTests
         public Task? ReleaseGate { get; set; }
         public int RefreshCount => Volatile.Read(ref _refreshCount);
         public int ReleaseCount => Volatile.Read(ref _releaseCount);
+        public Task WaitForRefreshStartedAsync(int count) => WaitForRefreshCountAsync(count, started: true);
+        public Task WaitForRefreshCompletedAsync(int count) => WaitForRefreshCountAsync(count, started: false);
+
+        private Task WaitForRefreshCountAsync(int count, bool started)
+        {
+            lock (_refreshGate)
+            {
+                var current = started ? _refreshCount : _refreshCompletedCount;
+                if (current >= count) return Task.CompletedTask;
+
+                var waiters = started ? _refreshStartedWaiters : _refreshCompletedWaiters;
+                if (!waiters.TryGetValue(count, out var signal))
+                {
+                    signal = NewSignal();
+                    waiters.Add(count, signal);
+                }
+
+                return signal.Task;
+            }
+        }
 
         public Task<string?> AcquireAsync(string name, TimeSpan ttl, CancellationToken cancellationToken = default)
         {
@@ -202,15 +256,38 @@ public sealed class CacheLockLeaseTests
         public async Task<bool> RefreshAsync(string name, string token, TimeSpan ttl, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Interlocked.Increment(ref _refreshCount);
-            if (RefreshAfterFailure is not null && RefreshCount > 1) return await RefreshAfterFailure(name, token);
-            return Refresh is null || await Refresh(name, token);
+            int count;
+            lock (_refreshGate)
+            {
+                count = ++_refreshCount;
+                if (_refreshStartedWaiters.Remove(count, out var started)) started.TrySetResult();
+            }
+
+            try
+            {
+                if (RefreshAfterFailure is not null && count > 1) return await RefreshAfterFailure(name, token);
+                return Refresh is null || await Refresh(name, token);
+            }
+            finally
+            {
+                lock (_refreshGate)
+                {
+                    _refreshCompletedCount = count;
+                    if (_refreshCompletedWaiters.Remove(count, out var completed)) completed.TrySetResult();
+                }
+            }
         }
     }
 
     private sealed class FixedTestLock : ICacheLock
     {
-        public Task<string?> AcquireAsync(string name, TimeSpan ttl, CancellationToken cancellationToken = default) => Task.FromResult<string?>("fixed-token");
+        public TimeSpan AcquiredTtl { get; private set; }
+
+        public Task<string?> AcquireAsync(string name, TimeSpan ttl, CancellationToken cancellationToken = default)
+        {
+            AcquiredTtl = ttl;
+            return Task.FromResult<string?>("fixed-token");
+        }
         public Task<bool> ReleaseAsync(string name, string token, CancellationToken cancellationToken = default) => Task.FromResult(true);
     }
 
