@@ -76,6 +76,33 @@ public sealed class CacheLockLeaseTests
     }
 
     [Fact]
+    public async Task Acquisition_latency_that_consumes_max_hold_prevents_callback_execution()
+    {
+        var time = new ManualTimeProvider();
+        var acquireStarted = NewSignal();
+        var pendingAcquire = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cacheLock = new TestLock
+        {
+            AcquireStarted = acquireStarted,
+            Acquire = () => pendingAcquire.Task
+        };
+        var callbackRuns = 0;
+        var run = cacheLock.TryRunAsync("slow-acquire", Options(time), _ =>
+        {
+            Interlocked.Increment(ref callbackRuns);
+            return Task.CompletedTask;
+        });
+
+        await acquireStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        time.Advance(TimeSpan.FromMilliseconds(100));
+        pendingAcquire.SetResult("owner-token");
+
+        Func<Task> act = async () => await run;
+        await act.Should().ThrowAsync<CacheLockLostException>();
+        callbackRuns.Should().Be(0);
+    }
+
+    [Fact]
     public async Task A_hung_refresh_cannot_hide_the_previous_lease_deadline_or_revive_a_lost_lease()
     {
         var time = new ManualTimeProvider();
@@ -215,6 +242,8 @@ public sealed class CacheLockLeaseTests
 
         public Func<string, string, Task<bool>>? Refresh { get; init; }
         public Func<string, string, Task<bool>>? RefreshAfterFailure { get; init; }
+        public Func<Task<string?>>? Acquire { get; init; }
+        public TaskCompletionSource? AcquireStarted { get; init; }
         public Func<string, string, Task<bool>>? Release { get; init; }
         public Task? ReleaseGate { get; set; }
         public int RefreshCount => Volatile.Read(ref _refreshCount);
@@ -240,10 +269,11 @@ public sealed class CacheLockLeaseTests
             }
         }
 
-        public Task<string?> AcquireAsync(string name, TimeSpan ttl, CancellationToken cancellationToken = default)
+        public async Task<string?> AcquireAsync(string name, TimeSpan ttl, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult<string?>("owner-token");
+            AcquireStarted?.TrySetResult();
+            return Acquire is null ? "owner-token" : await Acquire();
         }
 
         public async Task<bool> ReleaseAsync(string name, string token, CancellationToken cancellationToken = default)
