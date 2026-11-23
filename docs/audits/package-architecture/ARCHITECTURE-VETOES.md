@@ -36,7 +36,7 @@ A veto does not authorize an uncontrolled runtime/API/dependency change. Remedia
 
 **Required proof:** a deterministic stale-owner interleaving test (A acquires; A's lease expires; B acquires; A resumes; the protected resource rejects A's stale mutation; B remains valid); two-limiter-instance test that stalls the first operation beyond its lease and proves the limit is never exceeded; expiry, cancellation and backend-timeout tests.
 
-**Status update of 2026-11-22:** the owner decided AD-002 as a five-step layered plan (see [OWNER-DECISIONS.md](OWNER-DECISIONS.md)). Step 1 is merged (PR #324): `CacheRateLimiter` takes no lock and CCH-004 is closed. The veto stays active: MCD-007 is open, and the target design above is met for a critical section only where the protected resource checks a fencing token, which is step 5.
+**Status update of 2026-11-22:** the owner decided AD-002 as a five-step layered plan (see [OWNER-DECISIONS.md](OWNER-DECISIONS.md)). Step 1 is merged (PR #324): `CacheRateLimiter` takes no lock and CCH-004 is closed. Step 2 is merged (PR #330): the Memory and Redis locks can refresh a lease and force release a lock. The veto stays active: MCD-007 is open, and the target design above is met for a critical section only where the protected resource checks a fencing token, which is step 5.
 
 ### AV-003 — P2: Tag-version metadata needs a safe bounded lifecycle
 
