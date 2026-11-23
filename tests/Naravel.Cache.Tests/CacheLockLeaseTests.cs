@@ -57,7 +57,13 @@ public sealed class CacheLockLeaseTests
         await Eventually(() => cacheLock.RefreshCount == 1);
         lease.IsLost.Should().BeFalse();
 
-        time.Advance(TimeSpan.FromMilliseconds(25));
+        // The first lease would have ended at 30 ms without the refresh. The next attempt also
+        // succeeds, but the local deadline must remain capped at 35 ms rather than sliding.
+        time.Advance(TimeSpan.FromMilliseconds(20));
+        await Eventually(() => cacheLock.RefreshCount == 2);
+        lease.IsLost.Should().BeFalse();
+
+        time.Advance(TimeSpan.FromMilliseconds(5));
         await Eventually(() => lease.IsLost);
 
         lease.LostToken.IsCancellationRequested.Should().BeTrue();
