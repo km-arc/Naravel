@@ -3,14 +3,17 @@ using StackExchange.Redis;
 
 namespace Naravel.Cache.Redis;
 
-/// <summary>Redis lock using SET NX and atomic token-checked release.</summary>
+/// <summary>Redis lock using SET NX, with atomic token-checked release and refresh.</summary>
 /// <remarks><b>Laravel equivalent:</b> the Redis implementation of <c>Cache::lock()</c>.</remarks>
-public sealed class RedisLock : ICacheLock, IDisposable
+public sealed class RedisLock : ICacheLock, IRefreshableCacheLock, IForceReleasableCacheLock, IDisposable
 {
     // The part of a lock key after the store prefix. RedisCacheStore skips keys that start with it, so a flush of the cache never releases a held lock.
     internal const string KeyNamespace = "lock:";
 
     private const string ReleaseScript = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+
+    // The expiry is set only while the key still holds the caller's token, so a lease that ended is not revived and a lock that another holder took is not touched.
+    private const string RefreshScript = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('pexpire', KEYS[1], ARGV[2]) else return 0 end";
     private readonly IConnectionMultiplexer _multiplexer;
     private readonly IDatabase _database;
     private readonly string _keyPrefix;
@@ -54,6 +57,27 @@ public sealed class RedisLock : ICacheLock, IDisposable
         var result = (long)await _database.ScriptEvaluateAsync(ReleaseScript,
             new RedisKey[] { _keyPrefix + name }, new RedisValue[] { token }).ConfigureAwait(false);
         return result == 1;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> RefreshAsync(string name, string token, TimeSpan ttl, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(token);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(ttl, TimeSpan.Zero);
+        var milliseconds = Math.Max(1L, (long)Math.Ceiling(ttl.TotalMilliseconds));
+        var result = (long)await _database.ScriptEvaluateAsync(RefreshScript,
+            new RedisKey[] { _keyPrefix + name }, new RedisValue[] { token, milliseconds }).ConfigureAwait(false);
+        return result == 1;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> ForceReleaseAsync(string name, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        return await _database.KeyDeleteAsync(_keyPrefix + name).ConfigureAwait(false);
     }
 
     /// <inheritdoc />

@@ -253,6 +253,29 @@ How `BlockAsync` behaves, so you can size the two durations:
 - `ttl` is the lock's lifetime, and it is not renewed. If the callback runs longer than `ttl`, the lock expires and another caller can take it. Choose a `ttl` longer than the slowest run you expect.
 - `ReleaseAsync(name, token)` returns `false` when the token is not the current owner's, for example after the lock expired and someone else took it. It does not throw.
 
+### Extending a lease and clearing a stuck lock
+
+A lock is a lease: when `ttl` ends, the lock ends, whether or not its holder is still working. Two optional capabilities exist for the two situations that follow. They are separate interfaces in `Naravel.Cache.Abstractions`, so `ICacheLock` and custom lock drivers are unchanged. Ask the driver whether it has one; the Memory and Redis locks have both, and the Memcached lock has neither, because its `touch` command does not check an owner.
+
+```csharp
+using Naravel.Cache.Abstractions;
+
+var cacheLock = locks.Driver("redis");
+var token = await cacheLock.AcquireAsync("import:nightly", TimeSpan.FromMinutes(1));
+if (token is null) return;
+
+// Later, while the work goes on and the lease is about to end:
+if (cacheLock is IRefreshableCacheLock refreshable
+    && !await refreshable.RefreshAsync("import:nightly", token, TimeSpan.FromMinutes(1)))
+{
+    // The lease ended or another holder took the lock. Stop: you no longer own it.
+}
+```
+
+- `IRefreshableCacheLock.RefreshAsync(name, token, ttl)` (Laravel's `Lock::refresh()`) sets the lease to `ttl` from now. It does not add `ttl` to what was left. It returns `true` only while the token owns a lease that has not ended; it returns `false`, changing nothing, for a token that does not own the lock, for a lease that has already ended (even when nobody took the lock since, so a late refresh never revives it) and for a lock that does not exist. A `ttl` of zero or less throws `ArgumentOutOfRangeException`.
+- `IForceReleasableCacheLock.ForceReleaseAsync(name)` (Laravel's `Lock::forceRelease()`) deletes the lock whoever owns it and returns `true` when a lock that had not expired was deleted. The previous owner's token then neither releases nor refreshes anything. It is an operator tool for a lock whose holder crashed; calling it while a holder is still working lets another process in at once, so do not use it in normal release logic.
+- There is no automatic renewal. A renewal that nobody has to ask for would turn a holder that hangs into a lock that never ends, so you decide when to extend and for how long. Even a refreshed lease does not stop a paused holder from outliving it: the lock keeps two workers apart only while each one finishes inside its lease. For a resource that must never see two writers, the protected resource has to check a fencing token; that is not part of this package yet.
+
 
 ## Rate limiting
 
@@ -346,6 +369,7 @@ Calling a method wrongly fails fast with a standard .NET exception. The messages
 | `Tags()` with no non-empty tag | `ArgumentException`: `At least one non-empty cache tag is required.` |
 | `IncrementAsync(key, by, ttl)` with `by` or `ttl` of zero or less | `ArgumentOutOfRangeException` |
 | `BlockAsync` with a `ttl` of zero or less or a negative `wait` (the Memory lock's `AcquireAsync` rejects a `ttl` of zero or less too) | `ArgumentOutOfRangeException` |
+| `RefreshAsync` with a `ttl` of zero or less | `ArgumentOutOfRangeException` |
 | `AttemptAsync` with `maxAttempts` or `window` of zero or less | `ArgumentOutOfRangeException` |
 | A store name that is not registered | `DriverNotRegisteredException`: `Driver 'x' is not registered for ICacheStore. Available drivers: …` |
 | `Store()` on an async-only store not yet created | `InvalidOperationException`; call `DriverAsync` first (see [Select a store](#select-a-store)). |
@@ -367,9 +391,9 @@ Foundation's own errors (no default store, a disposed manager) are listed in the
 
 | Provider | Value handling | Lock behavior | Flush behavior |
 |---|---|---|---|
-| Memory | Typed in-process values | Process-local token locks | Removes keys tracked by that store instance, or only those under a prefix |
-| Redis | JSON via `System.Text.Json` | Distributed; token release is atomic | Scans and deletes only keys under the configured prefix, or under the scope's prefix; never the keys of locks; throws when a primary is not connected |
-| Memcached | Typed values via the configured Enyim transcoder; `ttl: null` means no expiry | Distributed acquisition; release is not fully atomic | A scope or `Store()` flush through `CacheManager` throws `NotSupportedException`. `MemcachedCacheStore.FlushAsync` called on the raw driver throws `NotSupportedException` too, because the only flush Memcached has clears every key on every node, including other applications |
+| Memory | Typed in-process values | Process-local token locks; can refresh and force release | Removes keys tracked by that store instance, or only those under a prefix |
+| Redis | JSON via `System.Text.Json` | Distributed; token release and refresh are atomic; can force release | Scans and deletes only keys under the configured prefix, or under the scope's prefix; never the keys of locks; throws when a primary is not connected |
+| Memcached | Typed values via the configured Enyim transcoder; `ttl: null` means no expiry | Distributed acquisition; release is not fully atomic; cannot refresh or force release | A scope or `Store()` flush through `CacheManager` throws `NotSupportedException`. `MemcachedCacheStore.FlushAsync` called on the raw driver throws `NotSupportedException` too, because the only flush Memcached has clears every key on every node, including other applications |
 
 Use tag invalidation instead of `FlushAsync` when using Memcached or when only a subset of keys should be invalidated. The existing Memcached increment/decrement operations still require existing numeric values; the TTL increment overload uses atomic add for first creation. The current Enyim client exposes counter commands synchronously; the provider schedules them on the thread pool, and cancellation cannot interrupt a command after it starts.
 

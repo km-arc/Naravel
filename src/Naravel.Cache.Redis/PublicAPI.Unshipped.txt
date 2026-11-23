@@ -1,2 +1,4 @@
 #nullable enable
 Naravel.Cache.Redis.RedisCacheStore.FlushPrefixAsync(string! keyPrefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Naravel.Cache.Redis.RedisLock.ForceReleaseAsync(string! name, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Naravel.Cache.Redis.RedisLock.RefreshAsync(string! name, string! token, System.TimeSpan ttl, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
