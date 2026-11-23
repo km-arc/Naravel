@@ -67,7 +67,7 @@ public sealed class CacheLockLeaseTests
     public async Task A_non_refreshable_lock_gets_one_fixed_max_hold_lease()
     {
         var time = new ManualTimeProvider();
-        var cacheLock = new TestLock(refreshable: false);
+        var cacheLock = new FixedTestLock();
         var lease = (await cacheLock.TryAcquireLeaseAsync("fixed", Options(time)))!;
 
         lease.Renews.Should().BeFalse();
@@ -167,7 +167,7 @@ public sealed class CacheLockLeaseTests
         condition().Should().BeTrue("the asynchronous lease continuation should have observed the advanced test clock");
     }
 
-    private sealed class TestLock(bool refreshable = true) : ICacheLock, IRefreshableCacheLock
+    private sealed class TestLock : ICacheLock, IRefreshableCacheLock
     {
         private int _refreshCount;
         private int _releaseCount;
@@ -199,6 +199,12 @@ public sealed class CacheLockLeaseTests
             if (RefreshAfterFailure is not null && RefreshCount > 1) return await RefreshAfterFailure(name, token);
             return Refresh is null || await Refresh(name, token);
         }
+    }
+
+    private sealed class FixedTestLock : ICacheLock
+    {
+        public Task<string?> AcquireAsync(string name, TimeSpan ttl, CancellationToken cancellationToken = default) => Task.FromResult<string?>("fixed-token");
+        public Task<bool> ReleaseAsync(string name, string token, CancellationToken cancellationToken = default) => Task.FromResult(true);
     }
 
     private sealed class ManualTimeProvider : TimeProvider
