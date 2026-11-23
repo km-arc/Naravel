@@ -128,6 +128,7 @@ public sealed class CacheLockLease : IAsyncDisposable
         }
         finally
         {
+            // This source is field-owned: its lifetime ends only after DisposeAsync has cancelled and awaited the renewal task.
             _stop.Dispose();
         }
     }
@@ -203,6 +204,7 @@ public sealed class CacheLockLease : IAsyncDisposable
         {
             // The lease was disposed.
         }
+        // Any unexpected monitor failure must fail closed; otherwise the caller could keep working without a trustworthy lease.
         catch (Exception exception)
         {
             // Not expected: a lease that cannot be tracked is a lease that cannot be trusted.
@@ -234,6 +236,7 @@ public sealed class CacheLockLease : IAsyncDisposable
         {
             throw;
         }
+        // Backend faults are retried while the last confirmed lease is still valid; do not narrow this to provider-specific exceptions.
         catch (Exception exception)
         {
             // Tried again at the next interval, for as long as the previous lease lasts.
