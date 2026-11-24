@@ -1,4 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Naravel.Cache;
 using Naravel.Cache.Abstractions;
 using Naravel.Queue.Jobs;
 using Naravel.Queue.Middleware;
@@ -13,12 +15,15 @@ namespace Naravel.Queue.Coordination;
 /// <b>Laravel equivalent:</b> <c>Illuminate\Queue\Middleware\WithoutOverlapping</c>.
 /// <b>Why it exists:</b> two workers must not process the same invoice or user at once, and .NET locks do not cross processes.
 /// <b>Not ported:</b> keys derived from the job class or from reflection; the caller supplies the key.
-/// With a Memory lock store the exclusion holds inside one process only. The lock expires after <see cref="LockTtl"/>, so a job that
-/// runs longer loses exclusion; the token-fenced release stops a late finisher from freeing someone else's lock.
+/// With a Memory lock store the exclusion holds inside one process only. <see cref="LockTtl"/> is the longest the lock may be held. While the job runs the lock keeps
+/// a short lease that is renewed, so a worker that dies frees the lock within about a minute (a lock that cannot refresh a lease, such as the Memcached lock, keeps one fixed
+/// lease of <see cref="LockTtl"/>). A job that runs longer than <see cref="LockTtl"/> loses exclusion and a warning is logged; the job is not stopped, because the middleware has no way to cancel it.
+/// The token-fenced release stops a late finisher from freeing someone else's lock.
 /// </remarks>
 public sealed class WithoutOverlapping : IJobMiddleware
 {
     internal static readonly TimeSpan DefaultLockTtl = TimeSpan.FromMinutes(15);
+    internal static readonly TimeSpan LeaseLength = TimeSpan.FromSeconds(60);
     internal static readonly TimeSpan DefaultReleaseDelay = TimeSpan.FromSeconds(10);
 
     /// <summary>Creates the middleware for one caller-supplied key, for example <c>"invoice:" + invoiceId</c>.</summary>
@@ -31,7 +36,7 @@ public sealed class WithoutOverlapping : IJobMiddleware
     /// <summary>The caller-supplied key that identifies the work that must not overlap.</summary>
     public string Key { get; }
 
-    /// <summary>How long the lock lives if the job never finishes (crashed worker). Defaults to 15 minutes; set it above the job's longest run.</summary>
+    /// <summary>The longest time the lock may be held. Defaults to 15 minutes; set it above the job's longest run. The lock itself keeps a shorter lease of at most a minute that is renewed while the job runs.</summary>
     public TimeSpan LockTtl { get; private set; } = DefaultLockTtl;
 
     /// <summary>How long a blocked job waits before it is tried again.</summary>
@@ -48,10 +53,13 @@ public sealed class WithoutOverlapping : IJobMiddleware
         return this;
     }
 
-    /// <summary>Sets the lock lifetime. Choose a value above the longest run of the job.</summary>
+    /// <summary>Sets the longest time the lock may be held. Choose a value above the longest run of the job.</summary>
     public WithoutOverlapping ExpireAfter(TimeSpan ttl)
     {
         if (ttl <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(ttl), "The lock lifetime must be positive.");
+
+        // The lease options need a lease of at least two ticks to choose a renewal interval; fail here and not when a job runs.
+        if (ttl.Ticks < 2) throw new ArgumentOutOfRangeException(nameof(ttl), "The lock lifetime must be at least two ticks.");
         LockTtl = ttl;
         return this;
     }
@@ -71,8 +79,15 @@ public sealed class WithoutOverlapping : IJobMiddleware
 
         var cacheLock = context.Services.GetRequiredService<ICacheLock>();
         var name = CoordinationKeys.Overlap(Key);
-        var token = await cacheLock.AcquireAsync(name, LockTtl).ConfigureAwait(false);
-        if (token is null)
+
+        // LockTtl is the longest the lock may be held. The lease on the lock is shorter and is renewed while the job runs, so a worker that dies frees the lock
+        // within LeaseLength instead of after LockTtl. A lock that cannot refresh keeps one fixed lease of LockTtl.
+        var options = new CacheLockLeaseOptions(LockTtl < LeaseLength ? LockTtl : LeaseLength, LockTtl)
+        {
+            TimeProvider = context.Services.GetService<TimeProvider>(),
+        };
+        var lease = await cacheLock.TryAcquireLeaseAsync(name, options).ConfigureAwait(false);
+        if (lease is null)
         {
             if (ReleasesWhenLocked) context.Release(ReleaseDelay);
             else context.Skip();
@@ -81,11 +96,18 @@ public sealed class WithoutOverlapping : IJobMiddleware
 
         try
         {
+            using var lostWarning = lease.LostToken.Register(() => WarnLost(context));
             await next().ConfigureAwait(false);
         }
         finally
         {
-            await cacheLock.ReleaseAsync(name, token).ConfigureAwait(false);
+            await lease.DisposeAsync().ConfigureAwait(false);
         }
     }
+
+    private static void WarnLost(JobContext context) =>
+        context.Services.GetService<ILoggerFactory>()?.CreateLogger("Naravel.Queue.Coordination").LogWarning(
+            "The WithoutOverlapping lock of job {JobId} on queue {Queue} was lost while the job was running; another worker may have started the same work.",
+            context.JobId,
+            context.QueueName);
 }
