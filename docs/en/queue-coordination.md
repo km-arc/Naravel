@@ -97,12 +97,22 @@ silently counted as a success.
 ```csharp
 new WithoutOverlapping($"invoice:{InvoiceId}")
     .ReleaseAfter(TimeSpan.FromSeconds(5))   // how long a blocked job waits
-    .ExpireAfter(TimeSpan.FromMinutes(30));  // lock lifetime if the worker dies; set it above the job's longest run
+    .ExpireAfter(TimeSpan.FromMinutes(30));  // the longest the lock may be held; set it above the job's longest run
 ```
 
-The lock is always released when the job ends, also when it throws. Its lifetime (`ExpireAfter`, default 15 minutes) only protects against a worker
-that crashed while holding it. If a job runs longer than that lifetime it loses exclusion; the release is token-fenced, so a late finisher cannot free
-a lock that someone else now owns.
+The lock is always released when the job ends, also when it throws. `ExpireAfter` (default 15 minutes) is the longest time the lock may be held.
+While the job runs the lock keeps a lease of at most one minute that the middleware renews (every third of the lease, so every 20 seconds). A worker that
+crashes therefore frees the key within about a minute, not after `ExpireAfter`. An `ExpireAfter` shorter than a minute is the lease itself.
+
+- **A lock that cannot refresh a lease.** The Memcached lock cannot (its `touch` command does not check the owner), so it keeps one fixed lease of
+  `ExpireAfter`, as it did before: a crashed worker frees the key only when `ExpireAfter` ends. Memory and Redis locks refresh.
+- **When the lock is lost.** If the lock can no longer be proven held (for example Redis was unreachable for longer than the lease, or `ExpireAfter`
+  ended while the job was still running), the middleware logs a warning with the job id and the queue name (not the key) through the registered
+  `ILoggerFactory`. It does not stop the job, because a job middleware has no way to cancel the job, and it does not make the job fail. Another worker
+  may then start the same work, so a job that must never run twice has to be idempotent or fenced in its own storage.
+- **Release.** The release is token-fenced, so a late finisher cannot free a lock that someone else now owns. A release that finds the lock already
+  taken by someone else is not an error.
+- **Clock.** The lease is measured with a monotonic clock. If a `TimeProvider` is registered it is used (for example in tests); otherwise the system clock.
 
 ### RateLimited
 
@@ -226,6 +236,7 @@ These are the names the middleware use in the Cache, so you can find them in Red
 | `new WithoutOverlapping(key)` with a null, empty or blank key | `ArgumentNullException` for null, `ArgumentException` otherwise; parameter `key` |
 | `ReleaseAfter` with a negative delay | `ArgumentOutOfRangeException`: `The delay cannot be negative.` |
 | `ExpireAfter` with zero or a negative lifetime | `ArgumentOutOfRangeException`: `The lock lifetime must be positive.` |
+| `ExpireAfter` with a lifetime of one tick (100 nanoseconds) | `ArgumentOutOfRangeException`: `The lock lifetime must be at least two ticks.` |
 | `RateLimited` with a blank `limiter` or `subject` | `ArgumentException`; parameter `limiter` or `subject` |
 | `RateLimited` with `maxAttempts` below 1 | `ArgumentOutOfRangeException`; parameter `maxAttempts` |
 | `RateLimited` or `ThrottlesExceptions` with a `window` of zero or less | `ArgumentOutOfRangeException`: `The window must be positive.` |
