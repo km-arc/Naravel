@@ -24,11 +24,11 @@ public sealed class WithoutOverlappingLeaseTests
 
         await middleware.InvokeAsync(Context(cacheLock, time), () =>
         {
-            cacheLock.AcquireTtls.Should().Equal(OneMinute, "a worker that dies must free the lock within a minute, not after 15");
+            cacheLock.AcquireTtls.Should().Equal(new[] { OneMinute }, "a worker that dies must free the lock within a minute, not after 15");
             return Task.CompletedTask;
         });
 
-        cacheLock.AcquireNames.Should().Equal("naravel:queue:overlap:invoice:7", "workers on different machines must agree on the lock name");
+        cacheLock.AcquireNames.Should().Equal(new[] { "naravel:queue:overlap:invoice:7" }, "workers on different machines must agree on the lock name");
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public sealed class WithoutOverlappingLeaseTests
 
         await middleware.InvokeAsync(Context(cacheLock, new ManualClock()), () => Task.CompletedTask);
 
-        cacheLock.AcquireTtls.Should().Equal(TimeSpan.FromMinutes(15), "a lock that cannot refresh, like the Memcached lock, gets the whole hold time as its lease");
+        cacheLock.AcquireTtls.Should().Equal(new[] { TimeSpan.FromMinutes(15) }, "a lock that cannot refresh, like the Memcached lock, gets the whole hold time as its lease");
         cacheLock.ReleasedTokens.Should().Equal(cacheLock.IssuedToken);
     }
 
