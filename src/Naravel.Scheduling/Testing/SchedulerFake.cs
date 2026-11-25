@@ -41,7 +41,7 @@ public sealed class SchedulerFake
     /// <summary>The schedule that was built.</summary>
     public Schedule Schedule { get; }
 
-    /// <summary>Every run so far as (task name, outcome) pairs, in the order they finished. Outcomes: <c>succeeded</c>, <c>failed</c>, <c>cancelled</c>, <c>skipped_overlap</c>, <c>skipped_other_server</c>.</summary>
+    /// <summary>Every run so far as (task name, outcome) pairs, in the order they finished. Outcomes: <c>succeeded</c>, <c>failed</c>, <c>cancelled</c>, <c>lost</c>, <c>skipped_overlap</c>, <c>skipped_other_server</c>.</summary>
     public IReadOnlyList<KeyValuePair<string, string>> Outcomes
     {
         get

@@ -122,11 +122,19 @@ public sealed class ScheduledTask
 
     /// <summary>
     /// Skips a run while the previous run of this task is still going, on this or any other instance that shares the lock driver.
-    /// The lock expires after <paramref name="expiresAfter"/> (default: <see cref="SchedulingOptions.OverlapTtl"/>, one hour) so a crash cannot block the task for good. Laravel: <c>withoutOverlapping</c>.
+    /// <paramref name="expiresAfter"/> (default: <see cref="SchedulingOptions.OverlapTtl"/>, one hour) is the longest the lock may be held. While the task runs the lock keeps a lease of at most a minute that is renewed, so a crash cannot block the task for long;
+    /// a lock driver that cannot renew a lease (Memcached) keeps one fixed lease of <paramref name="expiresAfter"/>. If the lock is lost while the task runs, the token given to the task is cancelled and an error is logged. Laravel: <c>withoutOverlapping</c>.
     /// </summary>
     public ScheduledTask WithoutOverlapping(TimeSpan? expiresAfter = null)
     {
-        if (expiresAfter is { } ttl) ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(ttl, TimeSpan.Zero);
+        if (expiresAfter is { } ttl)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(ttl, TimeSpan.Zero);
+
+            // A lease needs at least two ticks to choose a renewal interval.
+            ArgumentOutOfRangeException.ThrowIfLessThan(ttl.Ticks, 2);
+        }
+
         PreventOverlap = true;
         OverlapTtl = expiresAfter;
         return this;

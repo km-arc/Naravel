@@ -73,7 +73,11 @@ schedule.Call("poll", Poll).EveryFiveMinutes().Between(new TimeOnly(8, 0), new T
 
 ### Overlap
 
-`WithoutOverlapping()` takes the lock `schedule:overlap:<name>` before running and releases it in a `finally`, also after a failure or cancellation. If the lock is held, the run is skipped (not queued). The lock expires after one hour (`SchedulingOptions.OverlapTtl`) so a crash cannot block the task for ever; give a long job its own value with `WithoutOverlapping(TimeSpan.FromHours(6))`. Laravel's default is 24 hours, which is too long for a task that runs every five minutes.
+`WithoutOverlapping()` takes the lock `schedule:overlap:<name>` before running and releases it in a `finally`, also after a failure or cancellation. If the lock is held, the run is skipped (not queued). `SchedulingOptions.OverlapTtl` (default one hour) is the longest the lock may be held; give a long job its own value with `WithoutOverlapping(TimeSpan.FromHours(6))`. Laravel's default is 24 hours, which is too long for a task that runs every five minutes.
+
+While the task runs, the lock keeps a lease of at most one minute that the scheduler renews (every third of the lease, so every 20 seconds). An instance that crashes therefore frees the lock within about a minute, not after the whole overlap time. An overlap time shorter than a minute is the lease itself. A lock driver that cannot renew a lease (Memcached; its `touch` command does not check the owner) keeps one fixed lease of the overlap time, so a crash frees the lock only when that time ends. The Memory and Redis drivers renew.
+
+If the lock can no longer be proven held (for example Redis was unreachable for longer than the lease, or the overlap time ended while the task was still running), the scheduler logs an error that names the task and cancels the `CancellationToken` that it gave to the handler. That token is also cancelled when the host stops, as before. The task is not stopped by force: a handler that ignores its token runs on, and another instance may then start the same task. Make such a task idempotent; this is not fencing. If the handler stops with `OperationCanceledException` after the lock was lost and the host is not stopping, the run is counted with the outcome `lost`; it is not a failure, so no `OnFailure` hook runs. A handler that finishes normally after the loss is still a success (and `OnSuccess` hooks run), and a handler that throws any other exception is still a failure with its own exception. A release that fails after the run is logged as a warning and does not change the outcome. The lease is measured with the monotonic clock of the `TimeProvider` the scheduler was built with.
 
 ### One server
 
@@ -155,7 +159,7 @@ builder.Services.AddNaravelScheduling(configure, options =>
 ## Observability
 
 - Meter `Naravel.Scheduling`: counter `naravel.scheduling.task.runs` with tags `task` and `outcome`, and histogram `naravel.scheduling.task.duration` (ms).
-- `outcome` is one of `succeeded`, `failed`, `cancelled`, `skipped_overlap`, `skipped_other_server`. A task that is not due, or is filtered out, is not counted: that would add one measurement per task per minute for nothing.
+- `outcome` is one of `succeeded`, `failed`, `cancelled`, `lost`, `skipped_overlap`, `skipped_other_server`. A task that is not due, or is filtered out, is not counted: that would add one measurement per task per minute for nothing.
 - `ActivitySource` `Naravel.Scheduling`: one activity per run with the same tags.
 - Tags never carry exception messages, task data or lock tokens. Task names come from your code, so they are bounded.
 - Logs name the task and carry the exception; they never contain lock tokens.
@@ -174,7 +178,7 @@ builder.Services.AddNaravelScheduling(configure, options =>
 | A name that is already scheduled | `ArgumentException`, parameter `name`: `A task named 'daily-digest' is already scheduled.` |
 | `Every(interval)` shorter than a minute or not a whole number of minutes | `ArgumentOutOfRangeException`, parameter `interval`: `The interval must be a whole number of minutes, at least one.` |
 | `WeeklyOn` with a value that is not a `DayOfWeek` | `ArgumentOutOfRangeException`, parameter `day`: `Not a day of the week.` |
-| `HourlyAt`, `DailyAt` or `WeeklyOn` with a minute outside 0 to 59 or an hour outside 0 to 23; `WithoutOverlapping(ttl)` with zero or less | `ArgumentOutOfRangeException`; the framework's message |
+| `HourlyAt`, `DailyAt` or `WeeklyOn` with a minute outside 0 to 59 or an hour outside 0 to 23; `WithoutOverlapping(ttl)` with zero or less or with one tick (100 nanoseconds, too short for a lease); `SchedulingOptions.OverlapTtl` with the same values, when the scheduler is first created | `ArgumentOutOfRangeException`; the framework's message |
 | `Cron` with text that is not five fields, such as `daily` or a six-field expression with seconds | `ArgumentException`, parameter `expression`: `Not a valid five-field cron expression (minute hour day-of-month month day-of-week): ` followed by the message of the Cronos library |
 | A null handler, zone or predicate: `Call`, `InTimeZone`, `When`, `Skip`, `OnSuccess`, `OnFailure` | `ArgumentNullException` |
 

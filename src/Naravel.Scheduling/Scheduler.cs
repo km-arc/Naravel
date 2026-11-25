@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Naravel.Cache;
 using Naravel.Cache.Abstractions;
 
 namespace Naravel.Scheduling;
@@ -9,9 +10,13 @@ namespace Naravel.Scheduling;
 /// <remarks>
 /// <para><b>Laravel equivalent:</b> <c>schedule:run</c> (one pass for one minute). The hosted service calls it once per minute; tests and the fake call it with a chosen minute.</para>
 /// <para>A failing task never stops the others. Guards use the lock driver: the lock key is built from the task name, never from user data.</para>
+/// <para>The overlap lock is held through a lease that is renewed while the task runs, so a crashed instance frees it within about a minute; the task gets a token that is cancelled when the lock is lost.</para>
 /// </remarks>
 public sealed class Scheduler
 {
+    // The overlap lock is taken for at most this long and renewed while the task runs; the configured overlap time is the longest hold.
+    internal static readonly TimeSpan LeaseLength = TimeSpan.FromSeconds(60);
+
     private readonly Schedule _schedule;
     private readonly ICacheLock _locks;
     private readonly IServiceProvider _services;
@@ -31,6 +36,9 @@ public sealed class Scheduler
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(options.OverlapTtl, TimeSpan.Zero);
+
+        // A lease needs at least two ticks to choose a renewal interval; fail here and not when a task runs.
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.OverlapTtl.Ticks, 2);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(options.SlotLockTtl, TimeSpan.Zero);
         _schedule = schedule;
         _locks = locks;
@@ -103,7 +111,9 @@ public sealed class Scheduler
         var started = Stopwatch.GetTimestamp();
         using var activity = SchedulingTelemetry.ActivitySource.StartActivity("naravel.scheduling.task");
         activity?.SetTag("task", task.Name);
-        string? overlapToken = null;
+        CacheLockLease? lease = null;
+        CancellationTokenSource? handlerCancellation = null;
+        CancellationTokenRegistration lostLog = default;
         var outcome = SchedulingTelemetry.Succeeded;
         try
         {
@@ -117,23 +127,40 @@ public sealed class Scheduler
                 }
             }
 
+            var handlerToken = cancellationToken;
             if (task.PreventOverlap)
             {
-                overlapToken = await _locks.AcquireAsync($"schedule:overlap:{task.Name}", task.OverlapTtl ?? _options.OverlapTtl, cancellationToken).ConfigureAwait(false);
-                if (overlapToken is null)
+                // The overlap time is the longest the lock may be held. The lock itself is taken for a shorter lease and renewed while the task runs,
+                // so an instance that dies frees it within LeaseLength instead of after the whole overlap time.
+                var longestHold = task.OverlapTtl ?? _options.OverlapTtl;
+                var leaseOptions = new CacheLockLeaseOptions(longestHold < LeaseLength ? longestHold : LeaseLength, longestHold) { TimeProvider = _time };
+                lease = await _locks.TryAcquireLeaseAsync($"schedule:overlap:{task.Name}", leaseOptions, cancellationToken).ConfigureAwait(false);
+                if (lease is null)
                 {
                     outcome = SchedulingTelemetry.SkippedOverlap;
                     return;
                 }
+
+                // The task is told to stop when the lock is lost; it is not stopped by force.
+                handlerCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lease.LostToken);
+                handlerToken = handlerCancellation.Token;
+                lostLog = lease.LostToken.Register(() => _logger.LogError(
+                    "The overlap lock of scheduled task {Task} was lost while it was running; another instance may have started it.",
+                    task.Name));
             }
 
             await using var scope = _services.CreateAsyncScope();
-            await task.Handler(scope.ServiceProvider, cancellationToken).ConfigureAwait(false);
+            await task.Handler(scope.ServiceProvider, handlerToken).ConfigureAwait(false);
             await RunSuccessHooksAsync(task).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             outcome = SchedulingTelemetry.Cancelled;
+        }
+        catch (OperationCanceledException) when (lease is { IsLost: true })
+        {
+            // The task stopped because it lost the lock: not a failure of the task, so no failure hooks run. The loss itself was logged when it happened.
+            outcome = SchedulingTelemetry.Lost;
         }
         catch (Exception exception)
         {
@@ -143,11 +170,14 @@ public sealed class Scheduler
         }
         finally
         {
-            if (overlapToken is not null)
+            lostLog.Dispose();
+            handlerCancellation?.Dispose();
+            if (lease is not null)
             {
                 try
                 {
-                    await _locks.ReleaseAsync($"schedule:overlap:{task.Name}", overlapToken, CancellationToken.None).ConfigureAwait(false);
+                    // Stops the renewal and releases the lock with its own token.
+                    await lease.DisposeAsync().ConfigureAwait(false);
                 }
                 catch (Exception exception)
                 {
