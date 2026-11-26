@@ -245,7 +245,7 @@ public sealed class CacheLockTests
     }
 
     [Fact]
-    public void The_memory_lock_has_both_capabilities_and_the_memcached_lock_has_neither()
+    public void The_memory_lock_has_both_capabilities()
     {
         typeof(MemoryLock).Should().Implement<IRefreshableCacheLock>();
         typeof(MemoryLock).Should().Implement<IForceReleasableCacheLock>();
