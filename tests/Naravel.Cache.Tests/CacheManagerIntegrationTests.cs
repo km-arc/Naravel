@@ -201,8 +201,12 @@ public sealed class CacheManagerIntegrationTests
 
         cacheRegistry.Names.Should().Contain(new[] { "memory", "redis-primary", "memcached-primary" });
         cacheRegistry.Names.Should().Contain("memcached-secondary");
-        lockRegistry.Names.Should().Contain(new[] { "memory", "redis-primary", "memcached-primary" });
-        lockRegistry.Names.Should().Contain("memcached-secondary");
+        lockRegistry.Names.Should().Contain(new[] { "memory", "redis-primary" });
+        lockRegistry.Names.Should().NotContain("memcached-primary");
+        lockRegistry.Names.Should().NotContain("memcached-secondary");
+        var lockManager = provider.GetRequiredService<LockManager>();
+        Action resolveMemcachedLock = () => lockManager.Driver("memcached-primary");
+        resolveMemcachedLock.Should().Throw<InvalidOperationException>();
     }
 
     [Fact]
