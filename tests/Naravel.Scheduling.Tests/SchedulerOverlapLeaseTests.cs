@@ -47,7 +47,7 @@ public sealed class SchedulerOverlapLeaseTests
 
         await scheduler.RunDueAsync(Minute).WaitAsync(TimeSpan.FromSeconds(10));
 
-        cacheLock.AcquireTtls.Should().Equal(new[] { TimeSpan.FromHours(6) }, "a lock that cannot refresh, like the Memcached lock, gets the whole hold time as its lease");
+        cacheLock.AcquireTtls.Should().Equal(new[] { TimeSpan.FromHours(6) }, "a lock that cannot refresh, without ownership-checked refresh, gets the whole hold time as its lease");
         cacheLock.ReleasedTokens.Should().Equal(cacheLock.IssuedToken);
     }
 
