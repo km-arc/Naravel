@@ -287,7 +287,7 @@ The exception must propagate out of the protected operation. If that work is run
 
 ### Automatically renewed leases
 
-For work that can run longer than one lock TTL, use the lease-aware overloads. They renew only when the provider implements `IRefreshableCacheLock` (Memory and Redis); a provider without that capability, including Memcached, gets one fixed lease of `MaxHold`.
+For work that can run longer than one lock TTL, use the lease-aware overloads. They renew only when the provider implements `IRefreshableCacheLock` (Memory and Redis); any provider without that capability gets one fixed lease of `MaxHold`.
 
 ```csharp
 var cacheLock = locks.Driver("redis");
