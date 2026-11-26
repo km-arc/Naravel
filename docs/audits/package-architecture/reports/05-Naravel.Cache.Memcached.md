@@ -1,5 +1,9 @@
 # Review Report — Naravel.Cache.Memcached
 
+## Current disposition — 2026-11-26 (R35 / PDR-026)
+
+The original source review below is a historical snapshot. The owner has since approved removal of `MemcachedLock` and its registration (AD-023). In PR #343, `Naravel.Cache.Memcached` registers cache stores only; the unsafe lock type and its shipped API entries are removed. The package continues to provide Memcached cache storage. CI verification of this branch is pending. The MCD-007 risk is therefore addressed by withdrawing the unsupported lock provider, not by claiming that Memcached now has atomic release or fencing. Other Memcached cache findings in this report remain in scope for their own remediation.
+
 ## Review metadata
 
 - Package ID: `Naravel.Cache.Memcached` (explicitly declared).
@@ -18,16 +22,16 @@
 - Overall risk: **High (P1)** until AV-001 and AV-002 are remediated; AV-003 through AV-005, AV-007 and AV-008 are mandatory P2 architecture work (AV-006 was superseded by an owner decision).
 - Architectural fit: The adapter is thin, but four previously accepted PDR-007 constraints are vetoed as final architecture: cluster-wide flush, non-atomic lock release, a single global server pool, and blocking counter I/O scheduled on the ThreadPool. They describe current implementation behaviour; they are not accepted target-state guarantees.
 - Strengths: per-store key prefixes are applied consistently; configured Memcached stores share one normalized server pool and mismatched pools are rejected; TTL counter creation uses atomic add followed by atomic increment with the same TTL in the expiry race; the provider keeps numeric values as invariant decimal text for server-side arithmetic; the documented flush and lock limitations match the code.
-- Summary: Ten issues are now tracked. In addition to the five provider correctness gaps, the package can flush the entire shared cluster through a store-level method, release a new owner's lock in a read/delete race, forces all named stores onto one server pool, schedules blocking counter network calls on ThreadPool workers, and converts positive sub-second TTLs to Memcached's no-expiry value. The first two are P1 isolation/concurrency vetoes; the remaining architecture vetoes are mandatory before final production acceptance.
+- Summary: Ten issues are now tracked. In addition to the five provider correctness gaps, the package can flush the entire shared cluster through a store-level method, (historically) expose a lock that could release a new owner's lock in a read/delete race, forces all named stores onto one server pool, schedules blocking counter network calls on ThreadPool workers, and converts positive sub-second TTLs to Memcached's no-expiry value. The first two are P1 isolation/concurrency vetoes; the remaining architecture vetoes are mandatory before final production acceptance.
 
 ## Package and dependency map
 
-- Public package contract: `MemcachedCacheStore`, `MemcachedLock` and `MemcachedCacheServiceCollectionExtensions.AddNaravelMemcachedCache`.
+- Public package contract: `MemcachedCacheStore` and `MemcachedCacheServiceCollectionExtensions.AddNaravelMemcachedCache`; `MemcachedLock` was removed under AD-023 (PR #343, CI pending).
 - Package metadata: explicit `PackageId=Naravel.Cache.Memcached`; `PackageReadmeFile=README.md`; the packed README is `docs/nuget/Naravel.Cache.Memcached.md`; description and package tags are present. The target framework is inherited from shared build properties.
 - Project references: `Naravel.Cache`.
 - Direct package references: `Microsoft.Extensions.Configuration.Abstractions`, `Microsoft.Extensions.DependencyInjection.Abstractions`, `EnyimMemcachedCore`, `MessagePack` and `Newtonsoft.Json`.
 - Central versions: `EnyimMemcachedCore 3.5.2`, `MessagePack 3.1.12`, `Newtonsoft.Json 13.0.4`, and Microsoft.Extensions abstractions `10.0.14`. The repository pins MessagePack directly for the Enyim serialization dependency; the package comment requires the real-server serializer round-trip tests when changing that pin.
-- Registration: `AddNaravelMemcachedCache` identifies configured stores using the Memcached driver, normalizes and compares server lists, rejects an empty or different server pool, registers one shared Enyim client and registers named cache-store/lock adapters.
+- Registration: `AddNaravelMemcachedCache` identifies configured stores using the Memcached driver, normalizes and compares server lists, rejects an empty or different server pool, registers one shared Enyim client and registers named cache-store adapters only; no lock driver is registered.
 - Resource/configuration model: all configured stores share one Enyim client and its server pool. A different normalized server list is rejected; topology changes require a host restart. Store-level values can continue to reload through Foundation.
 - Public API baseline: shipped entries declare the store, lock and registration extension; `PublicAPI.Unshipped.txt` contains only the nullable header.
 
@@ -123,7 +127,7 @@
 - Regression tests required: two named stores sharing one client; two scopes in one store; base-store values; flush one target and prove every out-of-scope value survives. Add an eviction/restart test for any generation/epoch mechanism to prove old values cannot reappear.
 - Public API / PDR / release impact: PDR-007's accepted cluster-wide flush decision is vetoed. A public capability/exception or administrative API may be required; no silent semantic widening is acceptable.
 
-### [P1] MCD-007 — Memcached lock release can delete a different owner's lock
+### [P1] MCD-007 — Memcached lock release can delete a different owner's lock (RESOLVED BY PROVIDER REMOVAL; CI pending)
 
 - Remediation state: OPEN.
 - Architecture disposition: VETO AV-002 — a distributed lock must not release a lock that belongs to another owner.
@@ -133,7 +137,7 @@
 - User impact: an owner whose lease has expired can delete a later owner's lock. A third caller can then acquire a new lock while the later owner is still in its critical section, so two callers can execute concurrently despite using the same lock name.
 - Trigger / failure scenario: owner A calls Release and reads token A; A's TTL expires; owner B acquires the same key with token B; A resumes and executes unconditional Remove; owner C can now acquire while B is still running.
 - Why existing tests do not catch it: Memcached_lock_checks_token_before_removing_key tests only a mismatched token observed at the read; it does not interleave expiry/reacquisition between Get and Remove.
-- Required correction: use an atomic token-conditioned release/fencing mechanism supported by the actual Memcached protocol/client. If the pinned client/protocol cannot provide that guarantee, do not register/expose MemcachedLock as a correctness-grade distributed ICacheLock; route coordination-critical work to a provider with atomic ownership semantics.
+- Resolution (owner-approved AD-023 / PDR-026, PR #343): `MemcachedLock` and its registration are removed. Memcached remains cache-only; there is no Memory or fixed-lease fallback. This withdraws the unsafe provider rather than claiming the protocol now has atomic token-conditioned release. CI verification is pending.
 - Regression tests required: deterministic barrier-based interleaving of A-read, A-expiry, B-acquire, A-remove; prove B remains held and C cannot acquire. Also test stale owner release after expiry and reacquisition against a real Memcached service.
 - Public API / PDR / release impact: PDR-007's explicit acceptance of non-atomic release is vetoed. The package must not claim reliable distributed locking while this race remains.
 
@@ -221,7 +225,7 @@
 - P2: MCD-001, MCD-002, MCD-003, MCD-004, MCD-008, MCD-009 and MCD-010 (AV-004, AV-005 and AV-008).
 - P3: MCD-005.
 - OBS: no separate observation added; the Memcached decrement-underflow difference is recorded as an owner decision within MCD-003.
-- Recommended next task: MCD-006 is done; treat MCD-007 as release-blocking architecture remediation; then resolve MCD-008 through MCD-010 alongside MCD-001 through MCD-005. No runtime code, tests or dependencies were changed by this audit.
+- Recommended next task: MCD-006 is done; MCD-007 is resolved by withdrawing the provider (PR #343; CI pending); then resolve MCD-008 through MCD-010 alongside MCD-001 through MCD-005. No runtime code, tests or dependencies were changed by this audit.
 
 
 Owner decisions still pending for the Cache family are tracked in [OWNER-DECISIONS.md](../OWNER-DECISIONS.md); MCD-011 was decided by the owner on 2026-11-21 (AD-001, option A) and is closed, see its block.
