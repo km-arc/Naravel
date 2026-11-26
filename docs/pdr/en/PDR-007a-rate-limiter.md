@@ -1,5 +1,7 @@
 # PDR-007a — Cache-backed rate limiting
 
+**Supersession note (2026-11-26):** the original design below used a lock around the multi-step limiter operation. Owner decision AD-002 step 1 and PR #324 replaced that path with one atomic store increment; the `lockManager` constructor argument remains for compatibility but is ignored. The Memcached lock provider mentioned in the original implementation plan was removed under AD-023 / PDR-026; Memcached is cache-only. This note preserves the historical design rationale without describing current behavior.
+
 **Native-first verdict:** `System.Threading.RateLimiting` is the right choice for in-process limits. It does not provide shared quotas across application instances; Naravel should add only that Cache-backed behavior, not wrap the native API wholesale.
 
 Status: **Approved 2026-10-06.**
