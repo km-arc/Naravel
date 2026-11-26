@@ -123,7 +123,7 @@ public sealed class ScheduledTask
     /// <summary>
     /// Skips a run while the previous run of this task is still going, on this or any other instance that shares the lock driver.
     /// <paramref name="expiresAfter"/> (default: <see cref="SchedulingOptions.OverlapTtl"/>, one hour) is the longest the lock may be held. While the task runs the lock keeps a lease of at most a minute that is renewed, so a crash cannot block the task for long;
-    /// a lock driver that cannot renew a lease (Memcached) keeps one fixed lease of <paramref name="expiresAfter"/>. If the lock is lost while the task runs, the token given to the task is cancelled and an error is logged. Laravel: <c>withoutOverlapping</c>.
+    /// a lock driver without ownership-checked refresh keeps one fixed lease of <paramref name="expiresAfter"/>. If the lock is lost while the task runs, the token given to the task is cancelled and an error is logged. Laravel: <c>withoutOverlapping</c>.
     /// </summary>
     public ScheduledTask WithoutOverlapping(TimeSpan? expiresAfter = null)
     {
@@ -141,7 +141,7 @@ public sealed class ScheduledTask
     }
 
     /// <summary>
-    /// Runs the task on one instance only for each due minute. It needs a lock driver shared by all instances (Redis or Memcached): startup fails with a clear message when the driver is not shared. Laravel: <c>onOneServer</c>.
+    /// Runs the task on one instance only for each due minute. It needs a lock driver shared by all instances (Redis or another configured shared lock provider): startup fails with a clear message when the driver is not shared. Laravel: <c>onOneServer</c>.
     /// </summary>
     public ScheduledTask OnOneServer()
     {
