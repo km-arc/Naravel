@@ -94,7 +94,7 @@ connection.on("MemberLeft",   e => ...);   // { channel, member } when a user's 
 ```
 
 - **Members are users, not connections.** Two tabs of one user are one member; `MemberJoined` fires for the first connection and `MemberLeft` for the last. The user id is the one the rule gives in `PresenceMember`. `info` is anything the rule adds (a name, an avatar), at most 2048 characters of JSON; it is sent to every member, so put nothing private in it.
-- **The list lives in the shared cache** (`ICacheStore` and `ICacheLock` from `Naravel.Cache`), so every instance sees the same members. Register a Redis or Memcached cache when you run several instances. With no cache, or with the memory cache, each process keeps its own list and the module logs one warning.
+- **The list lives in the shared cache** (`ICacheStore` and `ICacheLock` from `Naravel.Cache`), so every instance sees the same members. Register Redis or another cache provider with a shared lock when you run several instances. With no cache, or with the memory cache, each process keeps its own list and the module logs one warning.
 - **Correctness across instances:** each change is a read-modify-write of one cache entry per channel under a per-channel lock, so two instances cannot overwrite each other. A change waits up to about two seconds for the lock and then fails with the join refused (`Presence is unavailable.`).
 - **Crashed instances:** each instance refreshes the entries of its own connections every third of `PresenceEntryTtl` (90 seconds by default, at least 3). The entries of a connection whose instance died disappear from the list after at most that long. **No `MemberLeft` is sent for such an expiry**, because nothing is left to send it: the list is right, a client that wants certainty can call `Subscribe` again.
 - Server code reads the list through `IPresence.MembersAsync(channel)`.
@@ -171,7 +171,7 @@ Leaving a channel that was never joined is not an error. `IPresence.MembersAsync
 |---|---|---|
 | Warning | `A channel authorization rule threw; the subscription was denied.`, with the exception | A rule throws. The client sees `Subscription denied.`; the channel and the claims are not logged |
 | Error | `The presence list could not be updated; the subscription was undone.`, with the exception | The presence cases above. The client sees `Presence is unavailable.` |
-| Warning | `Presence member lists are kept per process because the cache lock is not shared; with several instances each one sees only its own members. Register a Redis or Memcached cache.` | Once per process, at the first presence change, when no cache is registered or its lock is process-local |
+| Warning | `Presence member lists are kept per process because the cache lock is not shared; with several instances each one sees only its own members. Register Redis or another cache provider with a shared lock.` | Once per process, at the first presence change, when no cache is registered or its lock is process-local |
 | Warning | `Removing a closed connection from the presence lists failed.`, with the exception | A connection closes and the cache fails. The entry expires after `PresenceEntryTtl`, with no `MemberLeft` |
 | Warning | `Refreshing the presence entries failed; the next tick tries again.`, with the exception | The heartbeat cannot reach the cache |
 | Information | `Broadcast {Event} to {ChannelCount} channel(s).` | The `log` driver, for every event with channels |
