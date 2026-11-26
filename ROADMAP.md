@@ -83,7 +83,7 @@ then the most Laravel-feeling features (middleware, events, mail); thin or likel
 Never run two stages that edit the same project in parallel. Parallel-safe: R15, R16, R06 touch no other module.
 PDR numbers are fixed: 007a RateLimiter · 008 Filesystem · 009 Routing (done) · 010 Redis · 011 Events · 012 Queue II ·
 013 Mail · 014 Notifications · 015 Session · 016 Auth · 017 Console · 018 Broadcasting · 019 Hashing · 020 Pagination ·
-021 Encryption.
+021 Encryption · 022 Database query builder · 024 Shared throttle store · 025 Project starter · 026 Distributed lock and lease hardening.
 
 ## Owner decisions (binding; recorded 2026-10-05)
 | ID | Decision |
