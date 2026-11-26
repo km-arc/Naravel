@@ -244,7 +244,7 @@ public sealed class OrderProcessor(LockManager locks)
 }
 ```
 
-Every successful acquisition returns a unique token; only that token can release the lock. Redis uses atomic `SET NX` acquisition and compare-and-delete release. The memory lock is process-local. Memcached acquisition is atomic, but release has a small read/delete race; use Redis for critical distributed sections.
+Every successful acquisition returns a unique token; only that token can release the lock. Redis uses atomic `SET NX` acquisition and compare-and-delete release. The memory lock is process-local. Memcached is cache-only and is not registered with `LockManager`. Use Redis or another provider with atomic ownership semantics for distributed critical sections; Memory is process-local.
 
 How `BlockAsync` behaves, so you can size the two durations:
 
@@ -255,7 +255,7 @@ How `BlockAsync` behaves, so you can size the two durations:
 
 ### Extending a lease and clearing a stuck lock
 
-A lock is a lease: when `ttl` ends, the lock ends, whether or not its holder is still working. Two optional capabilities exist for the two situations that follow. They are separate interfaces in `Naravel.Cache.Abstractions`, so `ICacheLock` and custom lock drivers are unchanged. Ask the driver whether it has one; the Memory and Redis locks have both, and the Memcached lock has neither, because its `touch` command does not check an owner.
+A lock is a lease: when `ttl` ends, the lock ends, whether or not its holder is still working. Two optional capabilities exist for the two situations that follow. They are separate interfaces in `Naravel.Cache.Abstractions`, so `ICacheLock` and custom lock drivers are unchanged. Ask the driver whether it has one; the built-in Memory and Redis locks have both; a provider without ownership-checked refresh must be treated as non-refreshable.
 
 ```csharp
 using Naravel.Cache.Abstractions;
