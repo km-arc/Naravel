@@ -22,7 +22,7 @@ The following are vetoed as target architecture. AV-002 is a P1 release blocker 
 | Veto ID | Severity | Required architectural outcome | Related findings |
 |---|---:|---|---|
 | AV-001 | P1 | FIXED 2026-11-17 and 2026-11-18 (PR #298, PR #299 and PR #305, owner decision AD-003 option A); the Memcached epoch question is not decided and a separately named administrative flush is not provided. Original outcome: Store/scope flush must remain within its namespace and report partial/unavailable invalidation as failure; no generic cache flush may call cluster-wide Memcached FlushAll. | CCH-001, CRD-002, MCD-006 |
-| AV-002 | P1 | Distributed locks and CacheRateLimiter must preserve mutual exclusion across lease expiry and stale-owner release; use atomic ownership/fencing or do not expose the backend as a correctness-grade lock. | CCH-004, MCD-007 |
+| AV-002 | P1 | Distributed locks must not claim correctness-grade exclusion without protected-resource fencing; unsafe Memcached lock provider removed under AD-023. | CCH-004 (closed), MCD-007 (resolved by removal) |
 | AV-003 | P2 | Tag metadata must have a safe bounded lifecycle; it must not grow forever or be expired in a way that resurrects old values. | CCH-008 |
 | AV-004 | P2 | No synchronous network I/O on request-path threads; Redis connection opening and Memcached counter operations must be genuinely asynchronous. | RED-002, MCD-009 |
 | AV-005 | P2 | Named Memcached stores support independent clusters while sharing clients for identical normalized topologies and disposing each client exactly once. | MCD-008 |
@@ -54,7 +54,7 @@ Veto status is separate from finding lifecycle status. Related findings remain O
 | CCH-001 | Naravel.Cache | P1 | Scoped flush clears the backing store beyond the scope (AV-001) | VERIFIED CLOSED — PR #299 fix (merge `0ae187f`); full CI [run 44049283760](https://github.com/km-arc/Naravel/actions/runs/44049283760) on PR #299 and [run 44053102520](https://github.com/km-arc/Naravel/actions/runs/44053102520) on `main`; the raw Memcached store flush was closed later as MCD-006 (PR #305) and the colon aliasing is CCH-009, ACCEPTED RISK | [Report](reports/02-Naravel.Cache.md) |
 | CCH-002 | Naravel.Cache | P2 | Distinct tag sets can generate the same cache key | OPEN | [Report](reports/02-Naravel.Cache.md) |
 | CCH-003 | Naravel.Cache | P2 | Production expiry/lock/rate-limit paths bypass TimeProvider | OPEN | [Report](reports/02-Naravel.Cache.md) |
-| CCH-004 | Naravel.Cache | P1 | Fixed 30-second rate-limit lock lease can expire mid-operation (AV-002) | VERIFIED CLOSED — PR #324 fix (merge `a1cf34b`, AD-002 step 1); full CI [run 45017816056](https://github.com/km-arc/Naravel/actions/runs/45017816056) on PR #324 and [run 45018345016](https://github.com/km-arc/Naravel/actions/runs/45018345016) on `main`; AV-002 itself stays OPEN because of MCD-007 and AD-002 steps 2 to 5 | [Report](reports/02-Naravel.Cache.md) |
+| CCH-004 | Naravel.Cache | P1 | Fixed 30-second rate-limit lock lease can expire mid-operation (AV-002) | VERIFIED CLOSED — PR #324 fix (merge `a1cf34b`, AD-002 step 1); full CI [run 45017816056](https://github.com/km-arc/Naravel/actions/runs/45017816056) on PR #324 and [run 45018345016](https://github.com/km-arc/Naravel/actions/runs/45018345016) on `main`; residual AV-002 remains open only for the general stale-holder/fencing limitation | [Report](reports/02-Naravel.Cache.md) |
 | CCH-005 | Naravel.Cache | P3 | RememberAsync does not validate a null non-token factory | OPEN | [Report](reports/02-Naravel.Cache.md) |
 | CCH-006 | Naravel.Cache | DOC | Cache guide quickstart uses DateTime.UtcNow | OPEN | [Report](reports/02-Naravel.Cache.md) |
 | CCH-007 | Naravel.Cache | P2 | Cache/Lock telemetry gap and unbounded caller-controlled limiter metric tags (AV-007) | OPEN | [Report](reports/02-Naravel.Cache.md) |
@@ -68,13 +68,13 @@ Veto status is separate from finding lifecycle status. Related findings remain O
 | CRD-003 | Naravel.Cache.Redis | P2 | Cancellation tokens are checked only before Redis I/O, not while awaiting it | OPEN | [Report](reports/04-Naravel.Cache.Redis.md) |
 
 | MCD-001 | Naravel.Cache.Memcached | P2 | Generic value-type cache misses can be reported as hits | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
-| MCD-002 | Naravel.Cache.Memcached | P2 | Failed writes and lock acquisition can be reported as success/contention | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
+| MCD-002 | Naravel.Cache.Memcached | P2 | Failed cache writes can be reported as success (lock-provider part removed by R35) | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
 | MCD-003 | Naravel.Cache.Memcached | P2 | Unsigned Memcached counter semantics corrupt the signed `long` contract | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
 | MCD-004 | Naravel.Cache.Memcached | P2 | Cancellation after async I/O starts does not cancel the caller's wait | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
 | MCD-005 | Naravel.Cache.Memcached | P3 | Null nullable-integral values are stored as empty text and cannot be read | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
 
 | MCD-006 | Naravel.Cache.Memcached | P1 | Store-level FlushAsync clears the entire shared Memcached cluster (AV-001) | VERIFIED CLOSED — PR #305 fix (merge `f1efc6f`); full CI [run 44296601517](https://github.com/km-arc/Naravel/actions/runs/44296601517) on PR #305 and [run 44298367304](https://github.com/km-arc/Naravel/actions/runs/44298367304) on `main`; a scope on Memcached was already refused by PR #299 | [Report](reports/05-Naravel.Cache.Memcached.md) |
-| MCD-007 | Naravel.Cache.Memcached | P1 | Memcached lock release can delete a different owner's lock (AV-002) | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
+| MCD-007 | Naravel.Cache.Memcached | P1 | Memcached lock release can delete a different owner's lock (AV-002) | RESOLVED BY PROVIDER REMOVAL — PDR-026 / AD-023; PR #343 CI verification pending | [Report](reports/05-Naravel.Cache.Memcached.md) |
 | MCD-008 | Naravel.Cache.Memcached | P2 | All named Memcached stores are forced onto one server pool (AV-005) | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
 | MCD-009 | Naravel.Cache.Memcached | P2 | Synchronous counter I/O is queued onto the shared ThreadPool (AV-004) | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
 | MCD-010 | Naravel.Cache.Memcached | P2 | Positive sub-second TTLs become no-expiry in Enyim (AV-008) | OPEN | [Report](reports/05-Naravel.Cache.Memcached.md) |
