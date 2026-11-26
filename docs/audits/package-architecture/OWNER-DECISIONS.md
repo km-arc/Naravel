@@ -280,3 +280,14 @@ Progress: step 1 is done: PR #324 (merge `a1cf34b`) took the lock out of `CacheR
 **Architect recommendation:** A. The internal guard prevents a stale captured ambient context from reaching a disposed provider connection and turns an opaque provider error into a deterministic framework error. It does not make concurrent use of one transaction safe; the existing one-flow-at-a-time restriction remains.
 
 **Status:** DECIDED on 2026-11-22: the owner chose option A in the working session. Commit, rollback and disposal end the transaction's scope, and any later use of it through a captured context fails with a clear `InvalidOperationException`. Implemented by PR #328 (merge `010b0d7`).
+
+
+## AD-023 — Memcached is cache-only; remove its public lock provider
+
+**Observed source behavior:** the Memcached lock uses a GET/compare/DELETE release sequence that can delete a successor's lock. Memcached cannot perform the owner-checked refresh required by the lease contract, and it has no fencing capability. The Cache package's Memcached store remains useful independently of locking.
+
+**Decision:** DECIDED on 2026-11-26: the owner chose option A, remove the `MemcachedLock` public API and registration entirely. Memcached remains a cache provider only. Do not substitute Memory, a fixed lease, or any other lock provider when Memcached is selected; lock resolution must fail explicitly. This supersedes only the Memcached-lock portion of AD-002; the historical decision and its completed Redis/Memory lease work remain intact. The removal is an intentional pre-1.0 breaking change under OD-09 and must be listed in `CHANGELOG.md` and `roadmap/AUDIT.md`.
+
+**Fencing limitation:** the existing lease cancellation signal is cooperative. A stale holder that ignores cancellation can continue operating after lease loss. No fencing token is claimed or implemented; any future token must be atomically checked by the protected resource and requires a separate PDR.
+
+**Implementation:** R35, tracked by [ROADMAP.md](../../../ROADMAP.md) and [PDR-026](../../pdr/en/PDR-026-distributed-lock-lease-hardening.md).

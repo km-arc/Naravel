@@ -3,7 +3,7 @@ namespace Naravel.Cache;
 /// <summary>How long a lock lease lasts, how often it is renewed, and the longest time it may be held.</summary>
 /// <remarks>
 /// <para>The maximum hold time is not optional. Renewal that never ends would turn a holder that hangs into a lock that never ends; with <see cref="MaxHold"/> the local lease deadline is capped at that time. The backend lease also has a TTL, but its expiry can lag the local deadline by the acquisition or refresh round trip.</para>
-/// <para>A driver that cannot refresh a lease (the Memcached lock) gets one fixed lease of <see cref="MaxHold"/> and no renewal; <see cref="CacheLockLease.CanRenew"/> tells which case applies.</para>
+/// <para>A driver that cannot refresh a lease gets one fixed lease of <see cref="MaxHold"/> and no renewal; <see cref="CacheLockLease.CanRenew"/> tells which case applies.</para>
 /// </remarks>
 public sealed class CacheLockLeaseOptions
 {

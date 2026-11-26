@@ -109,7 +109,7 @@ public static class BroadcastingServiceCollectionExtensions
         return services;
     }
 
-    // Presence lists live in the application's cache (Redis or Memcached when there are several instances). Without a registered cache a process-local one is used, and the store warns once when its lock is not shared.
+    // Presence lists need both a cache store and a lock provider under the Cache default. Memcached is cache-only, so it cannot be the default for presence unless the application also registers a custom lock under that name. With no cache/lock services, a process-local fallback is used.
     private static PresenceStore CreatePresenceStore(IServiceProvider provider)
     {
         var cache = provider.GetService<ICacheStore>();

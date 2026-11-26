@@ -104,8 +104,8 @@ The lock is always released when the job ends, also when it throws. `ExpireAfter
 While the job runs the lock keeps a lease of at most one minute that the middleware renews (every third of the lease, so every 20 seconds). A worker that
 crashes therefore frees the key within about a minute, not after `ExpireAfter`. An `ExpireAfter` shorter than a minute is the lease itself.
 
-- **A lock that cannot refresh a lease.** The Memcached lock cannot (its `touch` command does not check the owner), so it keeps one fixed lease of
-  `ExpireAfter`, as it did before: a crashed worker frees the key only when `ExpireAfter` ends. Memory and Redis locks refresh.
+- **A lock that cannot refresh a lease.** A lock provider without ownership-checked refresh keeps one fixed lease of
+  `ExpireAfter`, a crashed worker frees the key only when `ExpireAfter` ends. The built-in Memory and Redis locks refresh.
 - **When the lock is lost.** If the lock can no longer be proven held (for example Redis was unreachable for longer than the lease, or `ExpireAfter`
   ended while the job was still running), the middleware logs a warning with the job id and the queue name (not the key) through the registered
   `ILoggerFactory`. It does not stop the job, because a job middleware has no way to cancel the job, and it does not make the job fail. Another worker

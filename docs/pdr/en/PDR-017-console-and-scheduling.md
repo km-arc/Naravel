@@ -91,3 +91,8 @@ The owner approved all four recommendations on 2026-10-24. The reasons are recor
 - **D4 Overlap TTL default of one hour.** The TTL only matters after a crash. With Laravel's 24 hours, a task that runs every five minutes and crashes once stays blocked for a day; with one hour it is blocked for at most an hour. A task can set its own value, for example `WithoutOverlapping(TimeSpan.FromHours(6))` for a long job.
 
 The stage now runs T02 (Scheduling), T03 (Commands: ticked as `DECLINED` once the recipe docs exist, with no code) and T04 (Validate).
+
+
+## Provider-scope amendment — 2026-11-26 (PDR-026 / AD-023)
+
+The references above to Memcached as a shared lock backend are historical and are superseded. `Naravel.Cache.Memcached` now provides cache storage only; it does not register an `ICacheLock` driver. `OnOneServer()` and scheduler overlap require Redis or another explicitly registered shared lock provider. The existing `ICacheLock.IsShared` validation remains the mechanism that rejects process-local coordination.

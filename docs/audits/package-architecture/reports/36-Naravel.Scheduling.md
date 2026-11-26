@@ -53,3 +53,8 @@ Recommended next task: run package tests and a real multi-process Redis or Memca
 ## Plain-language explanation
 
 This package runs named tasks on a schedule and can avoid overlapping runs or make one instance win a minute. Source and tests were inspected; no build or tests ran, and real multi-process locking remains unverified.
+
+
+## Provider-scope amendment — 2026-11-26 (R35 / PDR-026)
+
+The original report's reference to Redis/Memcached shared locks is historical. Under AD-023, `Naravel.Cache.Memcached` no longer registers a lock provider; Memcached remains cache-only. `OnOneServer` and scheduler overlap must use Redis or another explicitly registered shared `ICacheLock` provider. PR #343 contains the source, docs and test updates; CI verification is pending.

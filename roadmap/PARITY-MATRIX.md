@@ -40,7 +40,7 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 ## R04 — Cache, locks, rate limiting
 
 - Laravel surface: `Illuminate\Contracts\Cache\Repository`, cache tags, atomic locks, `Illuminate\Cache\RateLimiter`.
-- Naravel: Cache/tagging/scoping/locks (PDR-007) and Cache-backed fixed-window RateLimiter (PDR-007a) with first-write-only TTL increments; a short boundary interval may admit up to 2x the configured limit. A limiter-specific Redis-atomic fast path is deferred.
+- Naravel: Cache/tagging/scoping (PDR-007), Memory/Redis lock providers (PDR-026; Memcached is cache-only), and Cache-backed fixed-window RateLimiter (PDR-007a) with first-write-only TTL increments; a short boundary interval may admit up to 2x the configured limit. A limiter-specific Redis-atomic fast path is deferred.
 - Value: simple cache-aside, named stores, scoped keys, invalidation, atomic coordination, and shared rate-limit state.
 - Native baseline: `IMemoryCache`, distributed cache abstractions, and `System.Threading.RateLimiting`; retain only the cohesive
   behavior .NET does not provide with the required provider semantics.
@@ -332,3 +332,10 @@ Disposition only; each real adoption still needs its PDR. `Native` = .NET alread
 - Naravel: a `dotnet new` template pack, installed once with `dotnet new install Naravel.Templates`, that creates a working application with `dotnet new naravel -n Blog` (defaults that need no external service; parameters for the database, cache, queue and mail drivers) and item templates (`naravel-job` and four more) that stand in for the `make:*` generators.
 - Value: a new user gets a runnable project, a structure and a sample configuration in one command, pinned to the package version that the template was released with, and CI generates, builds, tests and starts it from the packed packages on every change.
 - Native baseline: `dotnet new web` and `dotnet add package` plus the hand-written registration of the guides; the template engine of the .NET SDK does the generation, so no tool and no runtime code is added.
+
+## R35 — Distributed lock and lease hardening
+
+- Laravel surface: cache-backed locks and scheduler overlap prevention, with explicit lease renewal and ownership semantics.
+- Naravel: Memory and Redis remain supported lock providers; Memcached remains a cache-store provider only. Lease renewal is cooperative and bounded by `MaxHold`; the lost token notifies/cancels cooperative work but is not fencing.
+- Value: remove a provider whose release race can delete another holder's lock, prevent silent weakening to a process-local/fixed lease, and make scheduler overlap behavior testable.
+- Native baseline: `SemaphoreSlim` is process-local and cannot coordinate independent hosts; no built-in .NET primitive supplies the required distributed lease. Fencing is deferred until the protected resource can atomically reject stale tokens.

@@ -34,7 +34,7 @@ await builder.Build().RunAsync();
 
 `dotnet run`, then wait for the next minute (UTC): `12:01 tick`, `12:02 tick`, and so on until you stop it with Ctrl+C. A task with no frequency also runs every minute.
 
-The hosted service starts and stops with your host (`dotnet run`, a container, a Windows service). Each run gets a **new DI scope**: the handler receives a scoped `IServiceProvider` and the host's `CancellationToken`. The two guards, `WithoutOverlapping` and `OnOneServer`, use the cache lock: with no cache registered they use a lock of this process only, which `OnOneServer` refuses (see [Errors](#errors)); register a cache whose lock all instances share (Redis or Memcached) when you run more than one, as in the complete example below.
+The hosted service starts and stops with your host (`dotnet run`, a container, a Windows service). Each run gets a **new DI scope**: the handler receives a scoped `IServiceProvider` and the host's `CancellationToken`. The two guards, `WithoutOverlapping` and `OnOneServer`, use the cache lock: with no cache registered they use a lock of this process only, which `OnOneServer` refuses (see [Errors](#errors)); register a cache whose lock all instances share (Redis or another configured shared lock provider) when you run more than one, as in the complete example below.
 
 ## Using it
 
@@ -75,7 +75,7 @@ schedule.Call("poll", Poll).EveryFiveMinutes().Between(new TimeOnly(8, 0), new T
 
 `WithoutOverlapping()` takes the lock `schedule:overlap:<name>` before running and releases it in a `finally`, also after a failure or cancellation. If the lock is held, the run is skipped (not queued). `SchedulingOptions.OverlapTtl` (default one hour) is the longest the lock may be held; give a long job its own value with `WithoutOverlapping(TimeSpan.FromHours(6))`. Laravel's default is 24 hours, which is too long for a task that runs every five minutes.
 
-While the task runs, the lock keeps a lease of at most one minute that the scheduler renews (every third of the lease, so every 20 seconds). An instance that crashes therefore frees the lock within about a minute, not after the whole overlap time. An overlap time shorter than a minute is the lease itself. A lock driver that cannot renew a lease (Memcached; its `touch` command does not check the owner) keeps one fixed lease of the overlap time, so a crash frees the lock only when that time ends. The Memory and Redis drivers renew.
+While the task runs, the lock keeps a lease of at most one minute that the scheduler renews (every third of the lease, so every 20 seconds). An instance that crashes therefore frees the lock within about a minute, not after the whole overlap time. An overlap time shorter than a minute is the lease itself. A lock driver that does not implement ownership-checked refresh keeps one fixed lease of the overlap time, so a crash frees the lock only when that time ends. The Memory and Redis drivers renew.
 
 If the lock can no longer be proven held (for example Redis was unreachable for longer than the lease, or the overlap time ended while the task was still running), the scheduler logs an error that names the task and cancels the `CancellationToken` that it gave to the handler. That token is also cancelled when the host stops, as before. The task is not stopped by force: a handler that ignores its token runs on, and another instance may then start the same task. Make such a task idempotent; this is not fencing. If the handler stops with `OperationCanceledException` after the lock was lost and the host is not stopping, the run is counted with the outcome `lost`; it is not a failure, so no `OnFailure` hook runs. A handler that finishes normally after the loss is still a success (and `OnSuccess` hooks run), and a handler that throws any other exception is still a failure with its own exception. A release that fails after the run is logged as a warning and does not change the outcome. The lease is measured with the monotonic clock of the `TimeProvider` the scheduler was built with.
 
@@ -83,7 +83,7 @@ If the lock can no longer be proven held (for example Redis was unreachable for 
 
 `OnOneServer()` takes the lock `schedule:slot:<name>:<minute>` and never releases it, so exactly one instance runs the task for each due minute (Laravel does the same). The lock lasts `SchedulingOptions.SlotLockTtl` (five minutes) so it outlives the minute and small clock differences.
 
-It needs a lock driver that all instances share (Redis or Memcached). The memory driver is process-local, so every instance would run the task; the host therefore **refuses to start** with a message that names the task and the driver. `ICacheLock.IsShared` is `true` for every driver except `MemoryLock`.
+It needs a lock driver that all instances share (Redis or another configured shared lock provider). The memory driver is process-local, so every instance would run the task; the host therefore **refuses to start** with a message that names the task and the driver. `ICacheLock.IsShared` is `true` for every driver except `MemoryLock`.
 
 ### Failures and hooks
 
@@ -186,7 +186,7 @@ builder.Services.AddNaravelScheduling(configure, options =>
 
 | When | Exception and message |
 |---|---|
-| A task uses `OnOneServer` and the lock driver is not shared between processes (the default one, when no cache is registered, is `MemoryLock`) | `InvalidOperationException` from the host's start: `OnOneServer is used by daily-digest, but the cache lock driver 'MemoryLock' is not shared between processes, so every instance would run the task. Configure a shared lock driver (Redis or Memcached).` Several tasks are listed in the order they were added, separated by `, `. The application does not start. `Scheduler.Validate()` and `SchedulerFake.Validate()` run the same check |
+| A task uses `OnOneServer` and the lock driver is not shared between processes (the default one, when no cache is registered, is `MemoryLock`) | `InvalidOperationException` from the host's start: `OnOneServer is used by daily-digest, but the cache lock driver 'MemoryLock' is not shared between processes, so every instance would run the task. Configure a shared lock driver (Redis or another provider whose `ICacheLock.IsShared` is `true`).` Several tasks are listed in the order they were added, separated by `, `. The application does not start. `Scheduler.Validate()` and `SchedulerFake.Validate()` run the same check |
 | `SchedulingOptions.OverlapTtl` or `SlotLockTtl` zero or negative | `ArgumentOutOfRangeException`, when the `Scheduler` is first created (the host start, or the first `GetRequiredService<Scheduler>()`); `AddNaravelScheduling` does not check it |
 
 **Asking the scheduler and the fake.**

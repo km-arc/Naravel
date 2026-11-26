@@ -5,7 +5,7 @@
 [![.NET 10](https://img.shields.io/badge/.NET-10-512BD4.svg)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/km-arc/Naravel/blob/main/LICENSE)
 
-Memcached cache and lock providers for Naravel.Cache.
+Memcached cache-store provider for Naravel.Cache. This package does not provide a distributed lock.
 
 | Fact | Detail |
 |---|---|
@@ -17,7 +17,6 @@ Memcached cache and lock providers for Naravel.Cache.
 ## What you get
 
 - **Memcached behind the same cache.** Name `"Driver": "memcached"` in a store, and the cache calls you already use read and write Memcached.
-- **Locks across instances.** `MemcachedLock` acquires a lock atomically and releases it with the token it handed out.
 - **Counters with a TTL.** `IncrementAsync` and `DecrementAsync`, plus an overload that sets the expiry when it creates the counter.
 - **One client for every store.** All Memcached stores share one server pool, so they must list the same servers; registration throws otherwise, and changing the list needs a restart.
 
@@ -31,13 +30,13 @@ builder.Services.AddNaravelCache(builder.Configuration).AddNaravelMemcachedCache
 { "Cache": { "Default": "memcached", "Stores": { "memcached": { "Driver": "memcached", "Servers": { "primary": { "Address": "localhost", "Port": "11211" } } } } } }
 ```
 
-Inject `ICacheStore` as usual; it now reads and writes Memcached. Memcached cannot delete by prefix, so `FlushAsync` on a scope or on `Store()` throws `NotSupportedException` instead of clearing the cluster; invalidate a subset with tags. `MemcachedCacheStore.FlushAsync` called on the raw driver throws as well; nothing in this package clears the cluster. Lock release has a small read/delete race: use Redis for critical sections.
+Inject `ICacheStore` as usual; it now reads and writes Memcached. Memcached cannot delete by prefix, so `FlushAsync` on a scope or on `Store()` throws `NotSupportedException` instead of clearing the cluster; invalidate a subset with tags. `MemcachedCacheStore.FlushAsync` called on the raw driver throws as well; nothing in this package clears the cluster. Memcached is not registered as a lock provider; use `Naravel.Cache.Redis` for distributed locks.
 
 ## Related packages
 
 | Package | Adds |
 |---|---|
-| [`Naravel.Cache`](https://www.nuget.org/packages/Naravel.Cache) | Named stores, tags, scopes and locks that this provider backs |
+| [`Naravel.Cache`](https://www.nuget.org/packages/Naravel.Cache) | Named stores, tags, scopes and the cache abstractions |
 | [`Naravel.Cache.Redis`](https://www.nuget.org/packages/Naravel.Cache.Redis) | The Redis provider: atomic lock release, and a flush that stays inside the store's prefix |
 
 ## Learn more

@@ -417,7 +417,7 @@ public class DocsErrorsTests
         (await presence.MembersAsync("presence-room.1")).Select(m => m.UserId).Should().Equal("7", "8");
         (await presence.MembersAsync("news")).Should().BeEmpty();   // a valid name that is not a presence channel has no members
         Refused<ArgumentException>(() => presence.MembersAsync("has space"), "channel", "The channel name is not valid.");
-        LogEntry warning = (LogLevel.Warning, "Naravel.Broadcasting", "Presence member lists are kept per process because the cache lock is not shared; with several instances each one sees only its own members. Register a Redis or Memcached cache.", null);
+        LogEntry warning = (LogLevel.Warning, "Naravel.Broadcasting", "Presence member lists are kept per process because the cache lock is not shared; with several instances each one sees only its own members. Register Redis or another cache provider with a shared lock.", null);
         Own(log).Should().ContainSingle().Which.Should().Be(warning);
     }
 

@@ -74,7 +74,7 @@ public sealed class Scheduler
         if (names.Length > 0)
         {
             throw new InvalidOperationException(
-                $"OnOneServer is used by {string.Join(", ", names)}, but the cache lock driver '{_locks.GetType().Name}' is not shared between processes, so every instance would run the task. Configure a shared lock driver (Redis or Memcached).");
+                $"OnOneServer is used by {string.Join(", ", names)}, but the cache lock driver '{_locks.GetType().Name}' is not shared between processes, so every instance would run the task. Configure a shared lock driver (Redis or another provider whose `ICacheLock.IsShared` is `true`).");
         }
     }
 

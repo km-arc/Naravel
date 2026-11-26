@@ -101,7 +101,7 @@ Each module has a guide with a short example and the guarantees worth knowing. P
 
 | Module | What you get | Optional packages |
 |---|---|---|
-| [`Naravel.Cache`](docs/en/cache.md) | Named stores, `RememberAsync`, tags, token-owned locks, a rate limiter | `.Redis`, `.Memcached` |
+| [`Naravel.Cache`](docs/en/cache.md) | Named stores, `RememberAsync`, tags, token-owned locks, a rate limiter | `.Redis` (locks), `.Memcached` (cache store) |
 | [`Naravel.Queue`](docs/en/queue.md) | Background jobs: delay, priority, retries and backoff, chains, batches, hosted workers | drivers `.Memory` `.File` `.Redis` `.Database` `.RabbitMQ` `.Kafka`; `.Coordination`, `.Encryption` |
 | [`Naravel.Events`](docs/en/events.md) | Typed in-process events and listeners | `.Queue` for queued listeners |
 | [`Naravel.Mail`](docs/en/mail.md) | `Mailable` classes, log, array and SMTP transports, `MailFake` | `.Smtp`, `.Queue` |

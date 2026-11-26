@@ -20,7 +20,7 @@ See the [Foundation package guide](foundation.md).
 
 ## Naravel.Cache
 
-Named Memory, Redis, and Memcached stores; `RememberAsync`; explicit user/tenant scopes; tag-version invalidation; token-owned locks; and a Cache-backed fixed-window rate limiter. Redis and Memcached are optional provider packages.
+Named Memory, Redis, and Memcached cache stores; `RememberAsync`; explicit user/tenant scopes; tag-version invalidation; token-owned locks; and a Cache-backed fixed-window rate limiter. Redis and Memcached are optional provider packages; Memcached provides cache storage only.
 
 ```csharp
 using Naravel.Cache;                // RememberAsync

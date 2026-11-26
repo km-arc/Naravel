@@ -18,7 +18,7 @@ Stage template: [roadmap/STAGE-TEMPLATE.md](roadmap/STAGE-TEMPLATE.md).
 
 ## NEXT
 ```text
-NEXT: R34
+NEXT: R35
 ```
 
 ## Stages
@@ -64,6 +64,7 @@ needs the English PDR.
 | R32 | Hardening: the throttle partition key and the records of D-82 to D-87 | R31 | - | DONE (2026-11-10; T01-T03 complete. T01, PR #258 (merge `beae198`): the throttle partition key writes the policy name, the endpoint and the subject each as its length, a colon and the text, joined with a vertical bar, so two different triples cannot share a key (D-87). `ThrottlePartitionKeyTests` and `Partitions_whose_fields_would_join_to_the_same_text_reach_the_store_under_different_keys`, which failed on the old code (two partitions reached the store under one key), are in the CI run below; six mutants of the key text were caught offline. T02, PR #259 (merge `d59f6c0`): the owner chose on 2026-11-10 to leave the failure of disposing a driver that finishes creating after its manager was disposed unreported, and `docs/en/foundation.md` says how to prevent it (D-84). T03, PR #260 (merge `2755981`): `AUDIT.md` records D-82 to D-87 as resolved, with PR #244 (merge `c0aa29b`) for D-82 to D-84, PR #246 (merge `c2b7e88`) for D-85 and PR #250 (merge `2915199`) for D-86; the residual case of D-83 stays a documented limit that the owner accepted on 2026-11-09. CI [run 42808874015](https://github.com/km-arc/Naravel/actions/runs/42808874015) on `main` at the merge of PR #259 (`d59f6c0`) passed; it contains every code and test change of this stage and of D-82 to D-86. T03 changed only `AUDIT.md`. Nothing is released by this stage: `IThrottleStore` and `Naravel.Routing.Cache` are unreleased, so the change of the key has no compatibility cost now, and a release, its version, its tag and the package smoke without `--exclude` against it are the owner's. Build and tests were not possible in the authoring environment (no NuGet access); CI is the verification.) |
 | R33 | Release 0.2.0: the release gates, the release commit and the published-version smoke | R30, R32 | - | DONE (2026-11-13; T01-T05 complete. T01, PR #266 (merge `2d6e155`): the consumer smoke step of the `fast` job is a gate, with no `continue-on-error`. T02, PR #267 (merge `8dbb1fc`): `.github/scripts/check-api-shipped.py` fails a version-tag build, and with it the publish, while any `PublicAPI.Unshipped.txt` has an entry. T03, PR #269 (merge `133e194`): `VersionPrefix` 0.2.0, every `Unshipped` entry moved to `Shipped`, the changelog section `[0.2.0]`. T04, the owner's: the tag `v0.2.0` is on `60e6452` (the merge of PR #281), a `main` commit after T03's `133e194`, so the published packages also carry the package pages and guides merged after T03; CI [run 43504684334](https://github.com/km-arc/Naravel/actions/runs/43504684334) of the tag passed, and its `Publish to NuGet` job pushed all 36 packages and their symbol packages, `Naravel.Routing.Cache` included (72 pushes, each answered "Your package was pushed."); the release-notes workflow ([run 43504684588](https://github.com/km-arc/Naravel/actions/runs/43504684588)) created the [GitHub release v0.2.0](https://github.com/km-arc/Naravel/releases/tag/v0.2.0) with the `0.2.0` section of the changelog as its notes. T05: `package-smoke` for 0.2.0 without `exclude`, [run 43507160665](https://github.com/km-arc/Naravel/actions/runs/43507160665), passed ("Consumer smoke passed: 36 packages at 0.2.0 installed together and the smoke program ran against them"). A first run, [43505547162](https://github.com/km-arc/Naravel/actions/runs/43505547162), 42 seconds after the publish, failed with NU1102 on every package because nuget.org had not indexed 0.2.0 yet; the run ten minutes later passed, so it is not a defect of a package. The tag, the publishing and the nuget.org settings were the owner's. Build and tests were not possible in the authoring environment (no NuGet access); CI is the verification.) |
 | R34 | Project starter: the `Naravel.Templates` template pack (PDR-025) | R33 | PDR | TODO |
+| R35 | Distributed lock and lease hardening (PDR-026) | R33 | PDR | DOING |
 R17 lists every stage in release scope; the owner may mark an out-of-scope stage `DECLINED`/`BLOCKED` to release without it.
 R02 was completed before this roadmap existed; its R00 dependency is nominal and does not invalidate it.
 ## Single source of truth (D-18)
@@ -76,13 +77,13 @@ R02 was completed before this roadmap existed; its R00 dependency is nominal and
 - `roadmap/check.py` enforces this: it fails on a hand-typed test count or a repeated stage status outside those places. Put
   `<!-- check:allow-count -->` on a line only when a number is not a test total (for example HTTP status codes).
 
-**Default order:** R15 → R11 → R12 → R34.
+**Default order:** R15 → R11 → R12 → R35 → R34.
 Rationale: correctness and proof first (R00, R01); then the two modules that carry the project's value (Queue, Cache);
 then the most Laravel-feeling features (middleware, events, mail); thin or likely-native stages last.
 Never run two stages that edit the same project in parallel. Parallel-safe: R15, R16, R06 touch no other module.
 PDR numbers are fixed: 007a RateLimiter · 008 Filesystem · 009 Routing (done) · 010 Redis · 011 Events · 012 Queue II ·
 013 Mail · 014 Notifications · 015 Session · 016 Auth · 017 Console · 018 Broadcasting · 019 Hashing · 020 Pagination ·
-021 Encryption.
+021 Encryption · 022 Database query builder · 024 Shared throttle store · 025 Project starter · 026 Distributed lock and lease hardening.
 
 ## Owner decisions (binding; recorded 2026-10-05)
 | ID | Decision |

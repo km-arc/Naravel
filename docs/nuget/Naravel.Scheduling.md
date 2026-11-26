@@ -40,7 +40,7 @@ builder.Services.AddNaravelScheduling(schedule =>
 
 If the host was stopped, the missed minutes are skipped, not replayed; there is no catch-up in this version.
 
-`WithoutOverlapping()` skips a run while the previous one still holds its lock; `SchedulingOptions.OverlapTtl` (one hour) is the longest the lock may be held, and the lock is renewed in short leases while the task runs, so a crash frees it within about a minute (Memcached cannot renew, so there a crash frees it after the whole time). If the lock is lost the task's `CancellationToken` is cancelled and an error is logged. `OnOneServer()` needs a lock driver that all instances share (Redis or Memcached): with the Memory cache driver every instance would run the task, so the host refuses to start.
+`WithoutOverlapping()` skips a run while the previous one still holds its lock; `SchedulingOptions.OverlapTtl` (one hour) is the longest the lock may be held, and the lock is renewed in short leases while the task runs, so a crash frees it within about a minute (a provider without ownership-checked refresh frees it after the whole time). If the lock is lost the task's `CancellationToken` is cancelled and an error is logged. `OnOneServer()` needs a lock driver that all instances share (Redis or another configured shared lock provider): with the Memory cache driver every instance would run the task, so the host refuses to start.
 
 ## Learn more
 

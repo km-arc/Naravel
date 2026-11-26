@@ -28,7 +28,7 @@ A veto does not authorize an uncontrolled runtime/API/dependency change. Remedia
 
 ### AV-002 — P1: Distributed lock and rate-limiter mutual exclusion must be real
 
-**Affected findings:** CCH-004, MCD-007.
+**Affected findings:** CCH-004 (verified closed) and MCD-007 (resolved by removing the Memcached lock provider under AD-023; CI verification pending in PR #343).
 
 **Why this is vetoed:** Memcached release performs GET-token, local compare, then unconditional DELETE. A lease can expire after the read and a new owner can acquire before the old owner's DELETE, allowing the stale owner to delete the new owner's lock. Separately, CacheRateLimiter uses a fixed 30-second lock TTL without renewal/fencing or a proven upper bound for its multi-await critical section. Both undermine the mutual-exclusion guarantee callers reasonably infer from ICacheLock.
 
@@ -36,7 +36,7 @@ A veto does not authorize an uncontrolled runtime/API/dependency change. Remedia
 
 **Required proof:** a deterministic stale-owner interleaving test (A acquires; A's lease expires; B acquires; A resumes; the protected resource rejects A's stale mutation; B remains valid); two-limiter-instance test that stalls the first operation beyond its lease and proves the limit is never exceeded; expiry, cancellation and backend-timeout tests.
 
-**Owner decision (2026-11-22); progress update (2026-11-25):** the owner decided AD-002 as a five-step layered plan (see [OWNER-DECISIONS.md](OWNER-DECISIONS.md)). Step 1 is merged (PR #324): `CacheRateLimiter` takes no lock and CCH-004 is closed. Step 2 is merged (PR #330): Memory and Redis expose optional owner-token-checked lease refresh and operator force-release capabilities. These capabilities do not add automatic renewal or fencing. Memcached implements neither; its release race MCD-007 remains OPEN. Step 3 is merged (PR #334): an opt-in `CacheLockLease` renews its lease with a mandatory longest hold time and cancels `LostToken` when it can no longer prove that it holds the lock; cancellation is cooperative, so it is not fencing. Step 4a is merged (PR #338): the queue `WithoutOverlapping` middleware holds its lock through the lease and logs a lost lock. AV-002 remains active: step 4b (the scheduler overlap lock) and step 5 are not merged, and correctness-grade exclusion requires the protected resource to validate a fencing token (step 5).
+**Owner decision (2026-11-22); progress update (2026-11-25):** the owner decided AD-002 as a five-step layered plan (see [OWNER-DECISIONS.md](OWNER-DECISIONS.md)). Step 1 is merged (PR #324): `CacheRateLimiter` takes no lock and CCH-004 is closed. Step 2 is merged (PR #330): Memory and Redis expose optional owner-token-checked lease refresh and operator force-release capabilities. These capabilities do not add automatic renewal or fencing. Memcached implements neither; its release race MCD-007 remains OPEN. Step 3 is merged (PR #334): an opt-in `CacheLockLease` renews its lease with a mandatory longest hold time and cancels `LostToken` when it can no longer prove that it holds the lock; cancellation is cooperative, so it is not fencing. Step 4a is merged (PR #338): the queue `WithoutOverlapping` middleware holds its lock through the lease and logs a lost lock. Step 4b is also merged (PR #341): scheduler overlap uses the renewing lease and has real-Redis multi-scheduler coverage. On 2026-11-26 the owner approved AD-023 / PDR-026 to remove `MemcachedLock` entirely; that provider-removal change is in PR #343 and CI verification is pending. AV-002 remains open only for the general stale-holder risk: cancellation is cooperative and fencing is not implemented. Any future fencing must be checked atomically by the protected resource.
 
 ### AV-003 — P2: Tag-version metadata needs a safe bounded lifecycle
 
@@ -148,7 +148,7 @@ A veto does not authorize an uncontrolled runtime/API/dependency change. Remedia
 
 ## Historical PDR decisions explicitly vetoed
 
-- PDR-007: cluster-wide Memcached flush (AV-001), non-atomic Memcached lock release and fixed rate-limit lock lease (AV-002), single shared Memcached pool (AV-005), blocking counter workaround (AV-004), unbounded tag version keys (AV-003), and limiter-only Cache telemetry/high-cardinality limiter tags (AV-007).
+- PDR-007: cluster-wide Memcached flush (AV-001), non-atomic Memcached lock release (resolved by removal under AD-023) and fixed rate-limit lock lease (resolved by PR #324) (AV-002), single shared Memcached pool (AV-005), blocking counter workaround (AV-004), unbounded tag version keys (AV-003), and limiter-only Cache telemetry/high-cardinality limiter tags (AV-007).
 - PDR-012: partial batch publication can leave permanently-pending batches (AV-009); unbounded process-local Memory queue state and File gate table (AV-010); unsafe File queue path mapping (AV-011); non-positive reclaim visibility timeouts (AV-012).
 - PDR-010 / D-66: synchronous first Redis connection (AV-004).
 

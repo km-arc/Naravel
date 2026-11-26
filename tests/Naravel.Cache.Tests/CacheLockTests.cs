@@ -1,6 +1,5 @@
 using Naravel.Cache.Abstractions;
 using Naravel.Cache.Locks;
-using Naravel.Cache.Memcached;
 
 namespace Naravel.Cache.Tests;
 
@@ -245,13 +244,10 @@ public sealed class CacheLockTests
         }
     }
 
-    // The Memcached lock must not offer these capabilities: its touch command does not check an owner, so a refresh could extend a lock that another holder owns.
     [Fact]
-    public void The_memory_lock_has_both_capabilities_and_the_memcached_lock_has_neither()
+    public void The_memory_lock_has_both_capabilities()
     {
         typeof(MemoryLock).Should().Implement<IRefreshableCacheLock>();
         typeof(MemoryLock).Should().Implement<IForceReleasableCacheLock>();
-        typeof(MemcachedLock).Should().NotImplement<IRefreshableCacheLock>();
-        typeof(MemcachedLock).Should().NotImplement<IForceReleasableCacheLock>();
     }
 }

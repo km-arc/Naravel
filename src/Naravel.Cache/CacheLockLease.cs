@@ -62,7 +62,7 @@ public sealed class CacheLockLease : IAsyncDisposable
     public string Name { get; }
 
     /// <summary>Whether the selected driver supports ownership-checked lease refresh.</summary>
-    /// <remarks>When this is <see langword="false"/>, including for Memcached, the lease is fixed for <see cref="CacheLockLeaseOptions.MaxHold"/> and is not renewed.</remarks>
+    /// <remarks>When this is <see langword="false"/>, for a provider without this capability, the lease is fixed for <see cref="CacheLockLeaseOptions.MaxHold"/> and is not renewed.</remarks>
     public bool CanRenew => _refreshable is not null;
 
     /// <summary>Whether the lease can no longer be proven held. Once <see langword="true"/> it stays so. After <see cref="DisposeAsync"/> it tells whether the lease was lost before the disposal.</summary>
