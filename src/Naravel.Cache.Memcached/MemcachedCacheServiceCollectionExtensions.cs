@@ -1,11 +1,12 @@
 using Enyim.Caching;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Naravel.Cache.Extensions;
+using Naravel.Cache.Abstractions;
+using Naravel.Foundation;
 
 namespace Naravel.Cache.Memcached;
 
-/// <summary>Registration of Memcached cache and lock providers.</summary>
+/// <summary>Registration of the Memcached cache-store provider.</summary>
 public static class MemcachedCacheServiceCollectionExtensions
 {
     /// <summary>
@@ -54,10 +55,14 @@ public static class MemcachedCacheServiceCollectionExtensions
             foreach (var server in servers) options.AddServer(server.Address, server.Port);
         });
 
-        return services.AddCacheDriver(configuration, "memcached",
-            (provider, store) => new MemcachedCacheStore(store.Key, provider.GetRequiredService<IMemcachedClient>(), store["Prefix"] ?? store.Key),
-            (provider, store) => new MemcachedLock(provider.GetRequiredService<IMemcachedClient>(), store["LockPrefix"] ?? store["Prefix"] ?? store.Key),
-            sectionName);
+        foreach (var store in memcachedStores)
+        {
+            var storeSection = store;
+            services.AddNaravelDriver<ICacheStore>(store.Key, provider =>
+                new MemcachedCacheStore(storeSection.Key, provider.GetRequiredService<IMemcachedClient>(), storeSection["Prefix"] ?? storeSection.Key));
+        }
+
+        return services;
     }
 
     private static IEnumerable<(string Address, int Port)> ReadServers(IConfigurationSection store)
