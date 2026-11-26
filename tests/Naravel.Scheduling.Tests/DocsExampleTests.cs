@@ -293,7 +293,7 @@ public class DocsErrorsTests
         Func<Task> start = () => hosted.StartAsync(CancellationToken.None);
 
         (await start.Should().ThrowAsync<InvalidOperationException>()).Which.Message.Should().Be(
-            "OnOneServer is used by daily-digest, nightly-cleanup, but the cache lock driver 'MemoryLock' is not shared between processes, so every instance would run the task. Configure a shared lock driver (Redis or Memcached).");
+            "OnOneServer is used by daily-digest, nightly-cleanup, but the cache lock driver 'MemoryLock' is not shared between processes, so every instance would run the task. Configure a shared lock driver (Redis or another provider whose `ICacheLock.IsShared` is `true`).");
     }
 
     [Fact]
