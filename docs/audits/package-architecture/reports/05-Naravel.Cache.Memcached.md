@@ -14,7 +14,7 @@ The original source review below is a historical snapshot. The owner has since a
 - Status: REVIEWED WITH FINDINGS (source inspection only; runtime verification pending).
 - Files inspected: all files under `src/Naravel.Cache.Memcached/`; package project file and shipped/unshipped API baselines; central package versions; `MemcachedProviderTests`, shared Cache store contract, Cache store/lock tests, Cache registration tests and real-server serializer tests; `ICacheStore`, Memory and Redis store implementations; Cache guide, NuGet README and PDR-007.
 - Dependency verification: the exact pinned `EnyimMemcachedCore 3.5.2` tag was inspected, including its public client API, options defaults, generic get result, store result path and binary mutation result path.
-- Verification performed: DI/server-pool configuration flow; typed serialization and counter conversion; read/write result handling; cancellation flow; lock acquire/release; cross-provider counter contract; test-double and service-gated coverage.
+- Verification performed: DI/server-pool configuration flow; typed serialization and counter conversion; read/write result handling; cancellation flow; historical lock acquire/release; cross-provider counter contract; test-double and service-gated coverage.
 - Verification NOT RUN: `dotnet restore`, `dotnet build`, `dotnet test`, live Memcached integration, CI, mutation testing, overflow/null/failure/cancellation reproductions, and independent review.
 
 ## Executive assessment
@@ -33,7 +33,7 @@ The original source review below is a historical snapshot. The owner has since a
 - Central versions: `EnyimMemcachedCore 3.5.2`, `MessagePack 3.1.12`, `Newtonsoft.Json 13.0.4`, and Microsoft.Extensions abstractions `10.0.14`. The repository pins MessagePack directly for the Enyim serialization dependency; the package comment requires the real-server serializer round-trip tests when changing that pin.
 - Registration: `AddNaravelMemcachedCache` identifies configured stores using the Memcached driver, normalizes and compares server lists, rejects an empty or different server pool, registers one shared Enyim client and registers named cache-store adapters only; no lock driver is registered.
 - Resource/configuration model: all configured stores share one Enyim client and its server pool. A different normalized server list is rejected; topology changes require a host restart. Store-level values can continue to reload through Foundation.
-- Public API baseline: shipped entries declare the store, lock and registration extension; `PublicAPI.Unshipped.txt` contains only the nullable header.
+- Public API baseline: current shipped entries declare the cache store and registration extension only; the `MemcachedLock` entries were removed under AD-023 in PR #343 (CI pending). `PublicAPI.Unshipped.txt` contains only the nullable header.
 
 ## Second-pass architecture revalidation — 2026-11-08
 
@@ -91,7 +91,7 @@ The original source review below is a historical snapshot. The owner has since a
 - Remediation state: OPEN.
 - Evidence status: CONFIRMED BY SOURCE AND TEST COVERAGE REVIEW.
 - Evidence: `src/Naravel.Cache.Memcached/MemcachedCacheStore.cs:35-90,126-130` checks the token before issuing the operation, then awaits Enyim tasks without a cancellable wait. `src/Naravel.Cache.Memcached/MemcachedLock.cs:23-43` has the same pattern. The pinned [Enyim v3.5.2 client interface](https://github.com/cnblogs/EnyimMemcachedCore/blob/v3.5.2/src/Enyim.Caching/IMemcachedClient.cs) exposes the relevant asynchronous methods without a `CancellationToken` parameter.
-- Affected contract: asynchronous cache reads/writes/removes/exists/flush and Memcached lock acquire/release when cancellation occurs after the Enyim operation has started.
+- Affected contract: asynchronous cache reads/writes/removes/exists/flush when cancellation occurs after the Enyim operation has started. The lock-provider portion is no longer applicable after AD-023.
 - User impact: after request cancellation, the provider's returned task can remain pending until Enyim completes or its network timeout expires. This retains the caller's wait and resources beyond the point at which the request has abandoned the operation.
 - Scope distinction: the synchronous counter commands scheduled with `Task.Run` are excluded from this finding. PDR-007 line 61 and the Cache guide explicitly document that cancellation can prevent queued counter work but cannot interrupt a counter command once it has started. This finding concerns Enyim's asynchronous I/O calls.
 - Why existing tests do not catch it: provider proxy tasks complete immediately. The shared cancellation test inspected in `CacheStoreTests` covers pre-cancelled behavior, not cancellation after a Memcached I/O task has been issued. No pending-`TaskCompletionSource` test was found for the provider or its lock.
@@ -200,7 +200,7 @@ The original source review below is a historical snapshot. The owner has since a
 ## Test assessment
 
 - Existing tests inspected: `MemcachedProviderTests`; shared `CacheStoreContractTests`; `MemcachedSerializerRoundTripTests`; `CacheStoreTests`; `CacheLockTests`; `CacheManagerIntegrationTests`.
-- Positive-path provider tests: key prefix and typed value handling; null TTL maps to Memcached no-expiry; TTL counter first creation; TTL retained if the key expires between add and increment; wrong lock token is not removed.
+- Positive-path provider tests: key prefix and typed value handling; null TTL maps to Memcached no-expiry; TTL counter first creation; TTL retained if the key expires between add and increment. The historical wrong-lock-token test was removed with `MemcachedLock`.
 - Shared live-provider contract: checks a string round trip, existence/removal, positive `long` increment, concurrent positive increments and first-write-only TTL. It does not exercise decrement or signed/overflow boundaries.
 - Real-server serialization tests: cover int, long, double, bool, Guid, DateTime, DateTimeOffset, decimal, byte arrays, string arrays and a POCO with collections. These cover successful retrieval after Set, not value-type misses or nullable-integral nulls.
 - Service gating: real Memcached tests require `NARAVEL_TEST_MEMCACHED`; the Cache guide states that CI runs the provider tests against a Memcached service container. The CI/test run was not independently queried or executed as part of this source review.
