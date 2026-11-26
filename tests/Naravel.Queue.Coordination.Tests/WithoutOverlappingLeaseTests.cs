@@ -50,7 +50,7 @@ public sealed class WithoutOverlappingLeaseTests
 
         await middleware.InvokeAsync(Context(cacheLock, new ManualClock()), () => Task.CompletedTask);
 
-        cacheLock.AcquireTtls.Should().Equal(new[] { TimeSpan.FromMinutes(15) }, "a lock that cannot refresh, like the Memcached lock, gets the whole hold time as its lease");
+        cacheLock.AcquireTtls.Should().Equal(new[] { TimeSpan.FromMinutes(15) }, "a lock that cannot refresh, without ownership-checked refresh, gets the whole hold time as its lease");
         cacheLock.ReleasedTokens.Should().Equal(cacheLock.IssuedToken);
     }
 
