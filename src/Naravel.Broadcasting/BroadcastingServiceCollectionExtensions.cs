@@ -109,7 +109,7 @@ public static class BroadcastingServiceCollectionExtensions
         return services;
     }
 
-    // Presence lists live in the application's cache (Redis or Memcached when there are several instances). Without a registered cache a process-local one is used, and the store warns once when its lock is not shared.
+    // Presence lists live in the application's cache (Redis or another cache provider with a shared lock when there are several instances). Without a registered cache a process-local one is used, and the store warns once when its lock is not shared.
     private static PresenceStore CreatePresenceStore(IServiceProvider provider)
     {
         var cache = provider.GetService<ICacheStore>();
