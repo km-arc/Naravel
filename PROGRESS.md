@@ -1,5 +1,7 @@
 # PROGRESS
 
+> Historical note (2026-11-26): this file preserves the original port plan and implementation history. Its references to `MemcachedLock` are superseded by owner-approved PDR-026 / AD-023: the public type and registration are removed; Memcached remains cache-only. No lock fallback is supplied. See [PR #343](https://github.com/km-arc/Naravel/pull/343) and `CHANGELOG.md`.
+
 Historical record of approved decisions and completed work. The authoritative current status and sole
 `NEXT` pointer are now in [ROADMAP.md](ROADMAP.md); this file preserves the prior stage history and
 decisions. Begin new roadmap work there. Statuses and test counts below are dated snapshots from the time of each entry,
