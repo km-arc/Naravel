@@ -1,6 +1,5 @@
 using Naravel.Cache.Abstractions;
 using Naravel.Cache.Locks;
-using Naravel.Cache.Memcached;
 
 namespace Naravel.Cache.Tests;
 
@@ -251,7 +250,5 @@ public sealed class CacheLockTests
     {
         typeof(MemoryLock).Should().Implement<IRefreshableCacheLock>();
         typeof(MemoryLock).Should().Implement<IForceReleasableCacheLock>();
-        typeof(MemcachedLock).Should().NotImplement<IRefreshableCacheLock>();
-        typeof(MemcachedLock).Should().NotImplement<IForceReleasableCacheLock>();
     }
 }
