@@ -126,7 +126,7 @@ internal sealed class PresenceStore(
         if (!locks.IsShared && Interlocked.Exchange(ref _warned, 1) == 0)
         {
             logger.LogWarning(
-                "Presence member lists are kept per process because the cache lock is not shared; with several instances each one sees only its own members. Register a Redis or Memcached cache.");
+                "Presence member lists are kept per process because the cache lock is not shared; with several instances each one sees only its own members. Register Redis or another cache provider with a shared lock.");
         }
 
         var name = Prefix + "lock:" + channel;
