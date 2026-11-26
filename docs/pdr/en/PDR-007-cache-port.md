@@ -2,6 +2,8 @@
 
 Status: **Accepted 2026-10-04; implemented and verified 2026-10-05.** The owner approved the PDR and the concrete .NET design below. Implementation details and provider constraints are recorded here and in `docs/en/cache.md`.
 
+**Superseded for Memcached locking (2026-11-26):** the historical decision below to ship `MemcachedLock` is no longer current. Under owner-approved PDR-026 / AD-023, `Naravel.Cache.Memcached` is cache-only; its lock type and registration are removed because release is not atomic. This amendment supersedes only Memcached lock support; Memcached cache-store support remains. Fencing is not implemented, and lease-loss cancellation remains cooperative.
+
 ## Context
 
 The approved source is [km-arc/LaravelCacheNet](https://github.com/km-arc/LaravelCacheNet). Its public scope includes cache values, `Remember`, per-user/per-tenant key scoping, tag-based invalidation and locks. It also contains a Queue implementation, but Naravel already has `Naravel.Queue`; that code must not be copied.
