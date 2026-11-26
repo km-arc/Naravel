@@ -83,7 +83,7 @@ If the lock can no longer be proven held (for example Redis was unreachable for 
 
 `OnOneServer()` takes the lock `schedule:slot:<name>:<minute>` and never releases it, so exactly one instance runs the task for each due minute (Laravel does the same). The lock lasts `SchedulingOptions.SlotLockTtl` (five minutes) so it outlives the minute and small clock differences.
 
-It needs a lock driver that all instances share (Redis or Memcached). The memory driver is process-local, so every instance would run the task; the host therefore **refuses to start** with a message that names the task and the driver. `ICacheLock.IsShared` is `true` for every driver except `MemoryLock`.
+It needs a lock driver that all instances share (Redis or another configured shared lock provider). The memory driver is process-local, so every instance would run the task; the host therefore **refuses to start** with a message that names the task and the driver. `ICacheLock.IsShared` is `true` for every driver except `MemoryLock`.
 
 ### Failures and hooks
 
