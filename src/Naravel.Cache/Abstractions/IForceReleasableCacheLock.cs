@@ -4,7 +4,7 @@ namespace Naravel.Cache.Abstractions;
 /// <remarks>
 /// <para><b>Laravel equivalent:</b> <c>Lock::forceRelease()</c>.</para>
 /// <para><b>Why it exists:</b> a lock whose holder crashed, or whose lease is far longer than the work, blocks everyone until the lease ends. An operator needs a way to clear it without waiting. The Memory and Redis locks implement
-/// this interface; the Memcached lock does not.</para>
+/// this interface; a provider without owner-checked deletion must not implement it.</para>
 /// <para><b>Contract:</b> the lock is removed whoever owns it, and the token of the previous owner no longer releases or refreshes anything. This is an operator tool. Calling it while a holder is still working lets
 /// another process enter at once, so it must not be part of normal release logic: use <see cref="ICacheLock.ReleaseAsync"/> for that.</para>
 /// <para><b>Decorators:</b> a type that wraps an <see cref="ICacheLock"/> and should keep this capability has to implement the interface and forward to the lock it wraps.</para>
