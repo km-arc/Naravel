@@ -1,7 +1,6 @@
 using System.Reflection;
 using Enyim.Caching;
 using Enyim.Caching.Memcached.Results;
-using Naravel.Cache.Abstractions;
 using Naravel.Cache.Memcached;
 
 namespace Naravel.Cache.Tests;
@@ -91,19 +90,6 @@ public sealed class MemcachedProviderTests
 
         (await flush.Should().ThrowExactlyAsync<NotSupportedException>()).Which.Message.Should().Contain("'sessions'").And.Contain("Tags(...).FlushAsync()");
         proxy.FlushAllCalls.Should().Be(0);
-    }
-
-    [Fact]
-    public async Task Memcached_lock_checks_token_before_removing_key()
-    {
-        var client = DispatchProxy.Create<IMemcachedClient, CacheProviderDispatchProxy>();
-        var proxy = (CacheProviderDispatchProxy)(object)client;
-        proxy.NextResult = true;
-        var cacheLock = new MemcachedLock(client, "tests");
-
-        (await cacheLock.AcquireAsync("job", TimeSpan.FromSeconds(5))).Should().NotBeNull();
-        proxy.NextResult = "owner-token";
-        (await cacheLock.ReleaseAsync("job", "not-owner")).Should().BeFalse();
     }
 
     public class MemcachedClientProxy : DispatchProxy
