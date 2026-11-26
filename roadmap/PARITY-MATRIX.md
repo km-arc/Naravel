@@ -40,7 +40,7 @@ checked against the referenced Laravel 13 API page when implementing, not duplic
 ## R04 — Cache, locks, rate limiting
 
 - Laravel surface: `Illuminate\Contracts\Cache\Repository`, cache tags, atomic locks, `Illuminate\Cache\RateLimiter`.
-- Naravel: Cache/tagging/scoping/locks (PDR-007) and Cache-backed fixed-window RateLimiter (PDR-007a) with first-write-only TTL increments; a short boundary interval may admit up to 2x the configured limit. A limiter-specific Redis-atomic fast path is deferred.
+- Naravel: Cache/tagging/scoping (PDR-007), Memory/Redis lock providers (PDR-026; Memcached is cache-only), and Cache-backed fixed-window RateLimiter (PDR-007a) with first-write-only TTL increments; a short boundary interval may admit up to 2x the configured limit. A limiter-specific Redis-atomic fast path is deferred.
 - Value: simple cache-aside, named stores, scoped keys, invalidation, atomic coordination, and shared rate-limit state.
 - Native baseline: `IMemoryCache`, distributed cache abstractions, and `System.Threading.RateLimiting`; retain only the cohesive
   behavior .NET does not provide with the required provider semantics.
