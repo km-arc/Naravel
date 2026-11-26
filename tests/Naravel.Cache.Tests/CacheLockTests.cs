@@ -244,7 +244,6 @@ public sealed class CacheLockTests
         }
     }
 
-    // The Memcached lock must not offer these capabilities: its touch command does not check an owner, so a refresh could extend a lock that another holder owns.
     [Fact]
     public void The_memory_lock_has_both_capabilities_and_the_memcached_lock_has_neither()
     {
