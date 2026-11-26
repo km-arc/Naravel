@@ -11,12 +11,17 @@
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="StackExchange.Redis" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Naravel.Scheduling\Naravel.Scheduling.csproj" />
+    <ProjectReference Include="..\..\src\Naravel.Cache.Redis\Naravel.Cache.Redis.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
     <Using Include="FluentAssertions" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\Shared\ServiceFactAttribute.cs" Link="ServiceFactAttribute.cs" />
   </ItemGroup>
 </Project>

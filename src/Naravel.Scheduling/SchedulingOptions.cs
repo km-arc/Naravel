@@ -3,7 +3,7 @@ namespace Naravel.Scheduling;
 /// <summary>Settings of the scheduler.</summary>
 public sealed class SchedulingOptions
 {
-    /// <summary>How long a <see cref="ScheduledTask.WithoutOverlapping"/> lock lasts when the run does not end (a crash). Default one hour. Laravel uses 24 hours.</summary>
+    /// <summary>The longest a <see cref="ScheduledTask.WithoutOverlapping"/> lock may be held. The lock keeps a lease of at most a minute that is renewed while the task runs, so a crash frees it within about a minute (a driver that cannot renew, Memcached, keeps one fixed lease of this length). Default one hour. Laravel uses 24 hours.</summary>
     public TimeSpan OverlapTtl { get; set; } = TimeSpan.FromHours(1);
 
     /// <summary>How long the per-minute <see cref="ScheduledTask.OnOneServer"/> lock lasts. It is never released early, so it only has to outlive the minute and any clock difference between servers. Default five minutes.</summary>

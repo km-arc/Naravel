@@ -16,6 +16,7 @@ internal static class SchedulingTelemetry
     internal const string Succeeded = "succeeded";
     internal const string Failed = "failed";
     internal const string Cancelled = "cancelled";
+    internal const string Lost = "lost";
     internal const string SkippedOverlap = "skipped_overlap";
     internal const string SkippedOtherServer = "skipped_other_server";
 }

@@ -297,6 +297,22 @@ jobs:
           --results-directory TestResults/Providers/Cache
           --collect:"XPlat Code Coverage"
 
+      - name: Queue coordination integration tests
+        run: >-
+          dotnet test tests/Naravel.Queue.Coordination.Tests/Naravel.Queue.Coordination.Tests.csproj
+          -c Release --no-build --no-restore
+          --logger "trx;LogFileName=QueueCoordination.trx"
+          --results-directory TestResults/Providers/QueueCoordination
+          --collect:"XPlat Code Coverage"
+
+      - name: Scheduling integration tests
+        run: >-
+          dotnet test tests/Naravel.Scheduling.Tests/Naravel.Scheduling.Tests.csproj
+          -c Release --no-build --no-restore
+          --logger "trx;LogFileName=Scheduling.trx"
+          --results-directory TestResults/Providers/Scheduling
+          --collect:"XPlat Code Coverage"
+
       - name: Shared route throttle on Redis
         run: >-
           dotnet test tests/Naravel.Routing.Cache.Tests/Naravel.Routing.Cache.Tests.csproj
