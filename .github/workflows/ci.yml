@@ -340,6 +340,11 @@ jobs:
           --results-directory TestResults/Providers/Broadcasting
           --collect:"XPlat Code Coverage"
 
+      # ServiceFact tests are otherwise counted as a successful dotnet test run when they are skipped.
+      - name: Require cross-instance Redis coordination and scheduler tests
+        if: always()
+        run: python3 .github/scripts/check-provider-redis-tests.py TestResults/Providers
+
       - name: Annotate failed provider tests
         if: always()
         shell: bash
