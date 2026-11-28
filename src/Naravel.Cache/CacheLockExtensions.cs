@@ -166,7 +166,7 @@ public static class CacheLockExtensions
 
         var time = options.TimeProvider ?? TimeProvider.System;
         var startedWaiting = time.GetTimestamp();
-        CacheLockLease? lease;
+        CacheLockLease? lease = null;
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
