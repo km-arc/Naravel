@@ -61,7 +61,11 @@ public sealed class CacheLockLeaseTests
         await callbackStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         time.Advance(TimeSpan.FromMilliseconds(10));
         await cacheLock.WaitForRefreshCompletedAsync(1).WaitAsync(TimeSpan.FromSeconds(5));
-        time.Advance(TimeSpan.FromMilliseconds(20));
+
+        // Wait until the monitor has consumed the first failure and started its scheduled retry.
+        time.Advance(TimeSpan.FromMilliseconds(10));
+        await cacheLock.WaitForRefreshCompletedAsync(2).WaitAsync(TimeSpan.FromSeconds(5));
+        time.Advance(TimeSpan.FromMilliseconds(10));
 
         Func<Task> act = async () => await run;
         var exception = await act.Should().ThrowAsync<CacheLockLostException>();
