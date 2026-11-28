@@ -128,7 +128,7 @@ public sealed class SchedulerOverlapLeaseTests
 
         await scheduler.RunDueAsync(Minute, stopping.Token).WaitAsync(TimeSpan.FromSeconds(10));
 
-        outcomes.Should().Equal("cancelled", "host shutdown has precedence over a simultaneous lease loss");
+        outcomes.Should().ContainSingle().Which.Should().Be("cancelled", "host shutdown has precedence over a simultaneous lease loss");
     }
 
     [Fact]
