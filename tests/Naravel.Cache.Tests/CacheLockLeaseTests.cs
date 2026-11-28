@@ -75,6 +75,82 @@ public sealed class CacheLockLeaseTests
     }
 
     [Fact]
+    public async Task A_late_pending_refresh_cannot_extend_the_last_confirmed_ttl()
+    {
+        var time = new ManualTimeProvider();
+        var lateRefresh = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var refreshCount = 0;
+        var cacheLock = new TestLock
+        {
+            Refresh = (_, _) => Interlocked.Increment(ref refreshCount) == 1
+                ? Task.FromResult(true)
+                : lateRefresh.Task
+        };
+        var lease = (await cacheLock.TryAcquireLeaseAsync("confirmed-ttl", Options(time)))!;
+        var lost = NewSignal();
+        using var registration = lease.LostToken.Register(lost.SetResult);
+
+        // First renewal starts at t=10 and confirms the next lease until t=40.
+        time.Advance(TimeSpan.FromMilliseconds(10));
+        await cacheLock.WaitForRefreshCompletedAsync(1).WaitAsync(TimeSpan.FromSeconds(5));
+
+        // A second renewal starts at t=20 but is still pending when the confirmed TTL ends.
+        time.Advance(TimeSpan.FromMilliseconds(10));
+        await cacheLock.WaitForRefreshStartedAsync(2).WaitAsync(TimeSpan.FromSeconds(5));
+        time.Advance(TimeSpan.FromMilliseconds(20));
+        await lost.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        lease.IsLost.Should().BeTrue();
+        lateRefresh.SetResult(true);
+        await cacheLock.WaitForRefreshCompletedAsync(2).WaitAsync(TimeSpan.FromSeconds(5));
+        lease.IsLost.Should().BeTrue("a late success cannot revive or extend an expired confirmed lease");
+
+        await lease.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task The_callback_cancellation_is_the_inner_exception_even_when_renewal_also_failed()
+    {
+        var time = new ManualTimeProvider();
+        var refreshError = new IOException("redis unavailable");
+        var cacheLock = new TestLock { Refresh = (_, _) => Task.FromException<bool>(refreshError) };
+        var callbackStarted = NewSignal();
+        var run = cacheLock.TryRunAsync("callback-cause", Options(time), async token =>
+        {
+            callbackStarted.SetResult();
+            var lost = NewSignal();
+            using var registration = token.Register(lost.SetResult);
+            await lost.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            throw new OperationCanceledException("handler observed the lost token", token);
+        });
+
+        await callbackStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        time.Advance(TimeSpan.FromMilliseconds(10));
+        await cacheLock.WaitForRefreshCompletedAsync(1).WaitAsync(TimeSpan.FromSeconds(5));
+        time.Advance(TimeSpan.FromMilliseconds(20));
+
+        Func<Task> act = async () => await run;
+        var exception = await act.Should().ThrowAsync<CacheLockLostException>();
+        exception.Which.InnerException.Should().BeOfType<OperationCanceledException>()
+            .Which.Message.Should().Be("handler observed the lost token");
+        cacheLock.ReleaseCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Try_acquire_lease_validates_its_required_arguments()
+    {
+        var options = Options(new ManualTimeProvider());
+
+        Func<Task> nullLock = () => CacheLockLease.TryAcquireAsync(null!, "key", options, CancellationToken.None);
+        Func<Task> nullName = () => CacheLockLease.TryAcquireAsync(new TestLock(), null!, options, CancellationToken.None);
+        Func<Task> nullOptions = () => CacheLockLease.TryAcquireAsync(new TestLock(), "key", null!, CancellationToken.None);
+
+        await nullLock.Should().ThrowAsync<ArgumentNullException>();
+        await nullName.Should().ThrowAsync<ArgumentException>();
+        await nullOptions.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
     public async Task A_callback_own_cancellation_is_not_misclassified_as_lease_loss()
     {
         var cacheLock = new TestLock();
