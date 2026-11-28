@@ -106,6 +106,32 @@ public sealed class SchedulerOverlapLeaseTests
     }
 
     [Fact]
+    public async Task Host_cancellation_takes_precedence_when_lease_loss_cancels_the_handler()
+    {
+        using var stopping = new CancellationTokenSource();
+        var cacheLock = new RefreshableLock { RefreshResult = false };
+        var time = new ManualClock();
+        var (scheduler, outcomes) = Build(schedule => schedule.Call("t", async (_, cancellationToken) =>
+        {
+            time.Advance(TimeSpan.FromSeconds(20));
+            try
+            {
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Both causes are present by the time Scheduler classifies the cancellation.
+                stopping.Cancel();
+                throw;
+            }
+        }).WithoutOverlapping(), cacheLock, time, new LogSink());
+
+        await scheduler.RunDueAsync(Minute, stopping.Token).WaitAsync(TimeSpan.FromSeconds(10));
+
+        outcomes.Should().ContainSingle().Which.Should().Be("cancelled", "host shutdown has precedence over a simultaneous lease loss");
+    }
+
+    [Fact]
     public async Task A_task_that_ignores_the_loss_and_finishes_is_still_a_success_but_the_loss_is_logged()
     {
         var cacheLock = new RefreshableLock { RefreshResult = false };

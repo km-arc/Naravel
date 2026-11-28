@@ -183,6 +183,37 @@ public sealed class CacheLockLeaseTests
     }
 
     [Fact]
+    public async Task Callback_that_returns_normally_after_lease_loss_still_reports_lease_loss()
+    {
+        var time = new ManualTimeProvider();
+        var cacheLock = new TestLock { Refresh = (_, _) => Task.FromResult(false) };
+        var run = cacheLock.TryRunAsync("callback-returns-after-loss", Options(time), async token =>
+        {
+            var lost = NewSignal();
+            using var registration = token.Register(lost.SetResult);
+            time.Advance(TimeSpan.FromMilliseconds(10));
+            await lost.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            // The callback deliberately returns normally instead of throwing on cancellation.
+        });
+
+        Func<Task> act = async () => await run;
+        await act.Should().ThrowAsync<CacheLockLostException>();
+        cacheLock.ReleaseCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task A_token_checked_release_that_reports_not_owner_is_reported_as_lease_loss()
+    {
+        var cacheLock = new TestLock { Release = (_, _) => Task.FromResult(false) };
+
+        Func<Task> act = () => cacheLock.TryRunAsync("release-not-owner", Options(new ManualTimeProvider()),
+            _ => Task.CompletedTask);
+
+        await act.Should().ThrowAsync<CacheLockLostException>();
+        cacheLock.ReleaseCount.Should().Be(1);
+    }
+
+    [Fact]
     public async Task Callback_exception_is_preserved_when_release_also_fails()
     {
         var cacheLock = new TestLock { Release = (_, _) => Task.FromException<bool>(new IOException("release")) };

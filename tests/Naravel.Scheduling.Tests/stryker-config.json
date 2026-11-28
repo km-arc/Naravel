@@ -1,0 +1,22 @@
+{
+  "stryker-config": {
+    "project": "Naravel.Scheduling.csproj",
+    "mutate": [
+      "**/Scheduler.cs",
+      "**/SchedulerHostedService.cs"
+    ],
+    "test-case-filter": "FullyQualifiedName~SchedulerOverlapLeaseTests|FullyQualifiedName~HostingTests",
+    "mutation-level": "Standard",
+    "reporters": [
+      "cleartext",
+      "html",
+      "json"
+    ],
+    "concurrency": 2,
+    "thresholds": {
+      "high": 80,
+      "low": 60,
+      "break": 0
+    }
+  }
+}
