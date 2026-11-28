@@ -5,6 +5,120 @@ namespace Naravel.Cache.Tests;
 public sealed class CacheLockLeaseTests
 {
     [Fact]
+    public async Task Disposing_an_unlost_lease_keeps_it_unlost_after_its_original_deadline()
+    {
+        var time = new ManualTimeProvider();
+        var cacheLock = new TestLock();
+        var lease = (await cacheLock.TryAcquireLeaseAsync("disposed", Options(time)))!;
+
+        await lease.DisposeAsync();
+        time.Advance(TimeSpan.FromSeconds(1));
+
+        lease.IsLost.Should().BeFalse();
+        lease.LostToken.IsCancellationRequested.Should().BeFalse();
+        cacheLock.ReleaseCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Disposing_while_a_refresh_is_pending_cancels_monitoring_without_losing_the_lease()
+    {
+        var time = new ManualTimeProvider();
+        var pendingRefresh = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cacheLock = new TestLock { Refresh = (_, _) => pendingRefresh.Task };
+        var lease = (await cacheLock.TryAcquireLeaseAsync("dispose-pending-refresh", Options(time)))!;
+
+        time.Advance(TimeSpan.FromMilliseconds(10));
+        await cacheLock.WaitForRefreshStartedAsync(1).WaitAsync(TimeSpan.FromSeconds(5));
+
+        await lease.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        lease.IsLost.Should().BeFalse();
+        lease.LostToken.IsCancellationRequested.Should().BeFalse();
+        cacheLock.ReleaseCount.Should().Be(1);
+
+        pendingRefresh.SetResult(true);
+        await cacheLock.WaitForRefreshCompletedAsync(1).WaitAsync(TimeSpan.FromSeconds(5));
+        lease.IsLost.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task A_failed_refresh_loses_the_lease_at_the_previous_deadline_and_preserves_the_provider_error()
+    {
+        var time = new ManualTimeProvider();
+        var refreshError = new IOException("redis unavailable");
+        var cacheLock = new TestLock { Refresh = (_, _) => Task.FromException<bool>(refreshError) };
+        var callbackStarted = NewSignal();
+        var run = cacheLock.TryRunAsync("renewal-error", Options(time), async token =>
+        {
+            callbackStarted.SetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, token);
+        });
+
+        await callbackStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        time.Advance(TimeSpan.FromMilliseconds(10));
+        await cacheLock.WaitForRefreshCompletedAsync(1).WaitAsync(TimeSpan.FromSeconds(5));
+        time.Advance(TimeSpan.FromMilliseconds(20));
+
+        Func<Task> act = async () => await run;
+        var exception = await act.Should().ThrowAsync<CacheLockLostException>();
+        exception.Which.Message.Should().Contain("could not be renewed before it ended");
+        exception.Which.InnerException.Should().BeSameAs(refreshError);
+        cacheLock.ReleaseCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task A_callback_own_cancellation_is_not_misclassified_as_lease_loss()
+    {
+        var cacheLock = new TestLock();
+        Func<Task> act = async () => await cacheLock.TryRunAsync(
+            "callback-cancellation",
+            Options(new ManualTimeProvider()),
+            _ => Task.FromException(new OperationCanceledException("callback stopped itself")));
+
+        await act.Should().ThrowAsync<OperationCanceledException>().WithMessage("callback stopped itself");
+        cacheLock.ReleaseCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task A_refreshable_lease_does_not_renew_when_its_initial_ttl_is_already_the_max_hold()
+    {
+        var time = new ManualTimeProvider();
+        var cacheLock = new TestLock { Refresh = (_, _) => Task.FromResult(true) };
+        var options = new CacheLockLeaseOptions(TimeSpan.FromMilliseconds(30), TimeSpan.FromMilliseconds(30))
+        {
+            RenewInterval = TimeSpan.FromMilliseconds(10),
+            TimeProvider = time
+        };
+        var lease = (await cacheLock.TryAcquireLeaseAsync("ttl-is-max-hold", options))!;
+        var lost = NewSignal();
+        using var registration = lease.LostToken.Register(lost.SetResult);
+
+        time.Advance(TimeSpan.FromMilliseconds(30));
+        await lost.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        cacheLock.RefreshCount.Should().Be(0);
+        lease.IsLost.Should().BeTrue();
+        await lease.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Block_async_returns_false_without_running_the_callback_when_the_lease_is_busy()
+    {
+        var cacheLock = new TestLock { Acquire = () => Task.FromResult<string?>(null) };
+        var callbackRuns = 0;
+
+        var acquired = await cacheLock.BlockAsync("busy", Options(new ManualTimeProvider()), TimeSpan.Zero, _ =>
+        {
+            Interlocked.Increment(ref callbackRuns);
+            return Task.CompletedTask;
+        });
+
+        acquired.Should().BeFalse();
+        callbackRuns.Should().Be(0);
+        cacheLock.ReleaseCount.Should().Be(0);
+    }
+
+    [Fact]
     public async Task A_refresh_failure_is_retried_while_the_previous_lease_is_still_valid()
     {
         var time = new ManualTimeProvider();
@@ -62,6 +176,7 @@ public sealed class CacheLockLeaseTests
         time.Advance(TimeSpan.FromMilliseconds(10));
         await cacheLock.WaitForRefreshCompletedAsync(1).WaitAsync(TimeSpan.FromSeconds(5));
         lease.IsLost.Should().BeFalse();
+        cacheLock.RefreshTtls.Should().Equal(new[] { TimeSpan.FromMilliseconds(25) });
 
         // The refresh is shortened to the remaining 25 ms, so its local end is exactly
         // MaxHold (35 ms). No further refresh is useful or permitted past that hard boundary.
@@ -236,6 +351,30 @@ public sealed class CacheLockLeaseTests
     }
 
     [Fact]
+    public void Max_hold_must_not_be_shorter_than_the_lease_ttl()
+    {
+        var act = () => new CacheLockLeaseOptions(TimeSpan.FromMilliseconds(20), TimeSpan.FromMilliseconds(19));
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void An_explicit_renewal_interval_is_used_and_must_be_less_than_the_ttl()
+    {
+        var options = new CacheLockLeaseOptions(TimeSpan.FromMilliseconds(30), TimeSpan.FromMilliseconds(100))
+        {
+            RenewInterval = TimeSpan.FromMilliseconds(5)
+        };
+        options.ResolvedRenewInterval.Should().Be(TimeSpan.FromMilliseconds(5));
+
+        var tooLong = () => new CacheLockLeaseOptions(TimeSpan.FromMilliseconds(30), TimeSpan.FromMilliseconds(100))
+        {
+            RenewInterval = TimeSpan.FromMilliseconds(30)
+        };
+        tooLong.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
     public void The_default_renewal_interval_is_strictly_less_than_small_ttls()
     {
         var options = new CacheLockLeaseOptions(TimeSpan.FromTicks(2), TimeSpan.FromTicks(4));
@@ -277,6 +416,7 @@ public sealed class CacheLockLeaseTests
         public TaskCompletionSource? AcquireStarted { get; init; }
         public Func<string, string, Task<bool>>? Release { get; init; }
         public Task? ReleaseGate { get; set; }
+        public List<TimeSpan> RefreshTtls { get; } = [];
         public int RefreshCount => Volatile.Read(ref _refreshCount);
         public int ReleaseCount => Volatile.Read(ref _releaseCount);
         public Task WaitForRefreshStartedAsync(int count) => WaitForRefreshCountAsync(count, started: true);
@@ -321,6 +461,7 @@ public sealed class CacheLockLeaseTests
             lock (_refreshGate)
             {
                 count = ++_refreshCount;
+                RefreshTtls.Add(ttl);
                 if (_refreshStartedWaiters.Remove(count, out var started)) started.TrySetResult();
             }
 
