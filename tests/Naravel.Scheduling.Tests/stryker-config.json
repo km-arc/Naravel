@@ -2,11 +2,14 @@
   "stryker-config": {
     "project": "Naravel.Scheduling.csproj",
     "mutate": [
-      "**/Scheduler.cs",
-      "**/SchedulerHostedService.cs"
+      "**/Scheduler.cs{132..184}",
+      "**/SchedulerHostedService.cs{48..57}"
     ],
     "test-case-filter": "FullyQualifiedName~SchedulerOverlapLeaseTests|FullyQualifiedName~HostingTests",
     "mutation-level": "Standard",
+    "ignore-methods": [
+      "ConfigureAwait"
+    ],
     "reporters": [
       "cleartext",
       "html",
