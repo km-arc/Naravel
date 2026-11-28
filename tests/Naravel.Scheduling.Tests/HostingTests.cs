@@ -131,6 +131,46 @@ public class HostingTests
     }
 
     [Fact]
+    public async Task Stopping_the_host_cancels_an_overlap_task_and_waits_for_its_lease_to_be_released()
+    {
+        var time = new ManualTimeProvider(At("2026-10-26T12:00:30Z"));
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var sawCancellation = 0;
+        var cacheLock = new MemoryLock("host-stop");
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<TimeProvider>(time);
+        services.AddSingleton<ICacheLock>(cacheLock);
+        services.AddNaravelScheduling(schedule => schedule.Call("slow", async (_, cancellationToken) =>
+        {
+            started.TrySetResult();
+            try
+            {
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                Interlocked.Exchange(ref sawCancellation, 1);
+                throw;
+            }
+        }).WithoutOverlapping());
+        await using var provider = services.BuildServiceProvider();
+        var hosted = provider.GetServices<IHostedService>().Single();
+
+        await hosted.StartAsync(CancellationToken.None);
+        await WaitFor(() => time.TimerCount > 0);
+        time.Advance(TimeSpan.FromSeconds(30));
+        await started.Task.WithTimeout();
+
+        await hosted.StopAsync(CancellationToken.None).WithTimeout();
+
+        sawCancellation.Should().Be(1, "host shutdown is passed to the running handler");
+        var token = await cacheLock.AcquireAsync("schedule:overlap:slow", TimeSpan.FromSeconds(5));
+        token.Should().NotBeNull("StopAsync waits for the task to finish and its overlap lease to release");
+        (await cacheLock.ReleaseAsync("schedule:overlap:slow", token!)).Should().BeTrue();
+    }
+
+    [Fact]
     public async Task Stopping_gives_up_waiting_when_the_stop_token_is_cancelled()
     {
         var time = new ManualTimeProvider(At("2026-10-26T12:00:30Z"));
