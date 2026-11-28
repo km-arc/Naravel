@@ -175,6 +175,24 @@ public sealed class SchedulerOverlapLeaseTests
     }
 
     [Fact]
+    public async Task A_release_that_reports_lost_ownership_after_the_handler_finishes_does_not_log_a_mid_run_loss()
+    {
+        var cacheLock = new RefreshableLock { ReleaseResult = false };
+        var log = new LogSink();
+        var (scheduler, outcomes) = Build(
+            schedule => schedule.Call("t", (_, _) => Task.CompletedTask).WithoutOverlapping(),
+            cacheLock,
+            new ManualClock(),
+            log);
+
+        await scheduler.RunDueAsync(Minute).WaitAsync(TimeSpan.FromSeconds(10));
+
+        outcomes.Should().Equal("succeeded");
+        log.Entries.Should().NotContain(entry =>
+            entry.Message.Contains("was lost while it was running", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task A_task_that_fails_after_the_loss_keeps_its_own_exception_and_the_outcome_failed()
     {
         var cacheLock = new RefreshableLock { RefreshResult = false };
@@ -196,6 +214,7 @@ public sealed class SchedulerOverlapLeaseTests
 
         outcomes.Should().Equal("failed");
         seenByHook.Should().BeOfType<InvalidOperationException>().Which.Message.Should().Be("boom");
+        log.Entries.Should().ContainSingle(entry => entry.Message.Contains("Scheduled task t failed.", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -250,6 +269,7 @@ public sealed class SchedulerOverlapLeaseTests
         private int _releaseCount;
 
         public bool ReleaseThrows { get; init; }
+        public bool ReleaseResult { get; init; } = true;
         public bool Busy { get; init; }
         public string IssuedToken { get; } = "token-" + Guid.NewGuid().ToString("N");
         public List<string> AcquireNames { get; } = [];
@@ -268,7 +288,7 @@ public sealed class SchedulerOverlapLeaseTests
         {
             Interlocked.Increment(ref _releaseCount);
             ReleasedTokens.Add(token);
-            return ReleaseThrows ? Task.FromException<bool>(new IOException("the lock store is unreachable")) : Task.FromResult(true);
+            return ReleaseThrows ? Task.FromException<bool>(new IOException("the lock store is unreachable")) : Task.FromResult(ReleaseResult);
         }
     }
 
