@@ -1,0 +1,23 @@
+{
+  "stryker-config": {
+    "project": "Naravel.Cache.csproj",
+    "mutate": [
+      "**/CacheLockLease.cs",
+      "**/CacheLockLeaseOptions.cs",
+      "**/CacheLockExtensions.cs"
+    ],
+    "test-case-filter": "FullyQualifiedName~CacheLockLeaseTests",
+    "mutation-level": "Standard",
+    "reporters": [
+      "cleartext",
+      "html",
+      "json"
+    ],
+    "concurrency": 2,
+    "thresholds": {
+      "high": 80,
+      "low": 60,
+      "break": 0
+    }
+  }
+}
