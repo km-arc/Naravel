@@ -4,7 +4,7 @@
     "mutate": [
       "**/CacheLockLease.cs",
       "**/CacheLockLeaseOptions.cs",
-      "**/CacheLockExtensions.cs{160..237}"
+      "**/CacheLockExtensions.cs{182..237}"
     ],
     "test-case-filter": "FullyQualifiedName~CacheLockLeaseTests",
     "mutation-level": "Standard",
