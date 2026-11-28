@@ -89,7 +89,7 @@ public sealed class Scheduler
         var started = new List<Task>();
         foreach (var task in _schedule.Tasks)
         {
-            bool due;
+            var due = false;
             try
             {
                 due = task.IsDue(minute);
