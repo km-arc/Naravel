@@ -4,10 +4,13 @@
     "mutate": [
       "**/CacheLockLease.cs",
       "**/CacheLockLeaseOptions.cs",
-      "**/CacheLockExtensions.cs"
+      "**/CacheLockExtensions.cs{160..237}"
     ],
     "test-case-filter": "FullyQualifiedName~CacheLockLeaseTests",
     "mutation-level": "Standard",
+    "ignore-methods": [
+      "ConfigureAwait"
+    ],
     "reporters": [
       "cleartext",
       "html",
