@@ -673,12 +673,48 @@ jobs:
       - name: Install the template; start the default application; generate, build and test every parameter value and a few combinations
         run: python3 .github/scripts/template-smoke.py --local ./nupkgs-template
 
+  # Concurrency-critical lease state transitions get mutation-tested separately from the fast cross-platform suite.
+  # The two Stryker configs deliberately restrict mutation to the lease and scheduler files and to their focused tests.
+  lease-mutation:
+    name: Lease mutation tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore solution and pinned local tools
+        run: |
+          dotnet restore Naravel.slnx
+          dotnet tool restore
+
+      - name: Mutate CacheLockLease state transitions
+        working-directory: tests/Naravel.Cache.Tests
+        run: dotnet stryker --config-file stryker-config.json --output ../../TestResults/Mutation/Cache
+
+      - name: Mutate scheduler overlap and shutdown paths
+        working-directory: tests/Naravel.Scheduling.Tests
+        run: dotnet stryker --config-file stryker-config.json --output ../../TestResults/Mutation/Scheduling
+
+      - name: Upload lease mutation reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lease-mutation-reports
+          path: TestResults/Mutation/**
+          if-no-files-found: error
+
   # The one check branch protection needs. A database job skipped by the path filter counts as success; any failure,
   # cancellation or missing result fails it, so a filtered job can never block a merge by being absent.
   ci-ok:
     name: ci-ok
     if: always()
-    needs: [fast, services, changes, database, pins, template-smoke]
+    needs: [fast, services, changes, database, pins, template-smoke, lease-mutation]
     runs-on: ubuntu-latest
     steps:
       - name: Check every required job
@@ -707,7 +743,7 @@ jobs:
     name: Publish to NuGet
     # Publishing waits for every job ci-ok requires, the service image pins included. ci-ok is listed as well, so a job added to it
     # later is covered even if this list is forgotten; .github/scripts/check-publish-gates.py fails the build when the two drift apart.
-    needs: [fast, services, changes, database, pins, template-smoke, ci-ok]
+    needs: [fast, services, changes, database, pins, template-smoke, lease-mutation, ci-ok]
     # Publish only from version tags (v*). Never from main, PRs or manual runs.
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
