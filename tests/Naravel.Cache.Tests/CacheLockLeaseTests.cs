@@ -51,7 +51,11 @@ public sealed class CacheLockLeaseTests
         var run = cacheLock.TryRunAsync("renewal-error", Options(time), async token =>
         {
             callbackStarted.SetResult();
-            await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            var lost = NewSignal();
+            using var registration = token.Register(lost.SetResult);
+            // The callback observes the loss and returns normally. In this path the provider
+            // error, rather than a callback-thrown cancellation, is the useful inner exception.
+            await lost.Task.WaitAsync(TimeSpan.FromSeconds(5));
         });
 
         await callbackStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
